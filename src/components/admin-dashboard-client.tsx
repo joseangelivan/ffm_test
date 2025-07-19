@@ -282,7 +282,7 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                              <DropdownMenuItem asChild>
-                                 <Link href={`/admin/condominio/${condo.id}`} className="flex items-center gap-2 cursor-pointer">
+                                 <Link href={`/admin/condominio/${condo.id}`} className="flex items-center gap-2 cursor-pointer w-full">
                                     <Eye className="h-4 w-4"/> {t('adminDashboard.table.manage')}
                                  </Link>
                             </DropdownMenuItem>
@@ -336,5 +336,3 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
     </div>
   );
 }
-
-    
