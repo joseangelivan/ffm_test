@@ -205,7 +205,6 @@ function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
                                                 <DropdownMenuItem onClick={() => handleDeleteDevice(device.id)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2"/>{t('adminDashboard.table.delete')}</DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
-
                                         <DialogContent>
                                             <DialogHeader>
                                                 <DialogTitle>{t('condoDashboard.devices.manageDialog.title', { name: device.name })}</DialogTitle>
@@ -234,7 +233,9 @@ function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
                                                 </div>
                                             </div>
                                             <DialogFooter>
-                                                 <DialogTrigger asChild><Button variant="outline">{t('common.close')}</Button></DialogTrigger>
+                                                <Button type="button" variant="outline" asChild>
+                                                    <DialogTrigger>{t('common.close')}</DialogTrigger>
+                                                </Button>
                                             </DialogFooter>
                                         </DialogContent>
                                     </Dialog>
@@ -247,6 +248,7 @@ function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
         </Card>
     );
 }
+
 
 function CondoMapTab() {
   const { t } = useLocale();
@@ -332,5 +334,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
-    
