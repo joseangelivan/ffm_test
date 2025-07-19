@@ -164,10 +164,6 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
     setIsEditCondoDialogOpen(true);
   };
 
-  const handleManageCondo = (condoId: string) => {
-    router.push(`/admin/condominio/${condoId}`);
-  };
-
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
        <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-50">
@@ -287,8 +283,10 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                             <DropdownMenuItem onClick={() => handleManageCondo(condo.id)}>
-                                <Eye className="h-4 w-4 mr-2"/> {t('adminDashboard.table.manage')}
+                             <DropdownMenuItem asChild>
+                                <Link href={`/admin/condominio/${condo.id}`} className="flex items-center cursor-pointer">
+                                  <Eye className="h-4 w-4 mr-2"/> {t('adminDashboard.table.manage')}
+                                </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openEditDialog(condo)}><Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteCondo(condo.id)}>
