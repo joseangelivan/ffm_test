@@ -39,6 +39,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -127,7 +129,7 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10">
-                    <AvatarImage src={mockAdmin.avatarUrl} alt={mockAdmin.name} />
+                    <AvatarImage src={mockAdmin.avatarUrl} alt={mockAdmin.name} data-ai-hint="avatar" />
                     <AvatarFallback>{mockAdmin.name.charAt(0)}</AvatarFallback>
                 </Avatar>
                 </Button>
@@ -139,6 +141,7 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                     <p className="text-xs leading-none text-muted-foreground">{mockAdmin.email}</p>
                 </div>
                 </DropdownMenuLabel>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
                     <span>{t('dashboard.settings')}</span>
