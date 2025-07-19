@@ -56,6 +56,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Logo } from './logo';
 
@@ -77,6 +78,7 @@ const mockAdmin = {
 export default function AdminDashboardClient({ initialCondominios }: { initialCondominios: Condominio[] }) {
   const { t } = useLocale();
   const { toast } = useToast();
+  const router = useRouter();
   const [condominios, setCondominios] = useState<Condominio[]>(initialCondominios);
   
   // State for new condo dialog
@@ -160,6 +162,10 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
   const openEditDialog = (condo: Condominio) => {
     setEditingCondo(condo);
     setIsEditCondoDialogOpen(true);
+  };
+
+  const handleManageCondo = (condoId: string) => {
+    router.push(`/admin/condominio/${condoId}`);
   };
 
   return (
@@ -281,10 +287,8 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                             <DropdownMenuItem asChild>
-                                 <Link href={`/admin/condominio/${condo.id}`} className="flex items-center gap-2 cursor-pointer w-full">
-                                    <Eye className="h-4 w-4"/> {t('adminDashboard.table.manage')}
-                                 </Link>
+                             <DropdownMenuItem onClick={() => handleManageCondo(condo.id)}>
+                                <Eye className="h-4 w-4 mr-2"/> {t('adminDashboard.table.manage')}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openEditDialog(condo)}><Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteCondo(condo.id)}>
