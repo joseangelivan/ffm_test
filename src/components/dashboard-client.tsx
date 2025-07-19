@@ -10,6 +10,7 @@ import {
   Laptop,
   LogOut,
   Map,
+  MapPin,
   PlusCircle,
   Settings,
   Smartphone,
