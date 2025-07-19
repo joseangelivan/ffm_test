@@ -270,7 +270,7 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                 </TableHeader>
                 <TableBody>
                   {condominios.map((condo) => (
-                    <TableRow key={condo.id} className="cursor-pointer" onClick={() => navigateToCondo(condo.id)}>
+                    <TableRow key={condo.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigateToCondo(condo.id)}>
                       <TableCell>
                         <div className="font-medium">{condo.name}</div>
                         <div className="text-sm text-muted-foreground">{condo.address}</div>
@@ -287,9 +287,6 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                             <DropdownMenuItem onSelect={() => navigateToCondo(condo.id)}>
-                                <Eye className="h-4 w-4 mr-2"/> {t('adminDashboard.table.manage')}
-                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => openEditDialog(condo)}><Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteCondo(condo.id)}>
                                 <Trash2 className="h-4 w-4 mr-2"/>{t('adminDashboard.table.delete')}
@@ -340,5 +337,3 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
     </div>
   );
 }
-
-    
