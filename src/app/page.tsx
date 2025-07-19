@@ -92,15 +92,6 @@ export default function LoginPage() {
           <Button asChild className="w-full bg-accent hover:bg-accent/90">
             <Link href="/dashboard">{t('login.loginButton')}</Link>
           </Button>
-          <div className="text-center text-sm text-muted-foreground">
-            {t('login.noAccount')}{' '}
-            <Link
-              href="/signup"
-              className="font-medium text-accent-foreground hover:underline"
-            >
-              {t('login.signUpLink')}
-            </Link>
-          </div>
            <div className="mt-2 text-center text-sm">
             <Link
               href="/admin/login"
