@@ -12,9 +12,16 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mail, Lock } from 'lucide-react';
+import { Mail, Lock, Users } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function LoginPage() {
   const { t } = useLocale();
@@ -32,6 +39,21 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
+            <div className="space-y-2">
+                <Label htmlFor="user-type">{t('login.userType')}</Label>
+                 <div className="relative">
+                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Select defaultValue="morador">
+                    <SelectTrigger id="user-type" className="pl-10">
+                        <SelectValue placeholder={t('login.selectUserType')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="morador">{t('login.resident')}</SelectItem>
+                        <SelectItem value="portaria">{t('login.gatekeeper')}</SelectItem>
+                    </SelectContent>
+                    </Select>
+                 </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
@@ -77,6 +99,14 @@ export default function LoginPage() {
               className="font-medium text-accent-foreground hover:underline"
             >
               {t('login.signUpLink')}
+            </Link>
+          </div>
+           <div className="mt-2 text-center text-sm">
+            <Link
+              href="/admin/login"
+              className="text-muted-foreground hover:text-primary hover:underline"
+            >
+              {t('login.adminLogin')}
             </Link>
           </div>
         </CardFooter>

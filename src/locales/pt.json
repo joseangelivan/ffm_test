@@ -1,12 +1,18 @@
+
 {
     "login": {
       "welcome": "Bem-vindo de Volta",
-      "description": "Insira suas credenciais para acessar seu painel de rastreamento.",
+      "description": "Insira suas credenciais para acessar seu painel.",
       "password": "Senha",
       "forgotPassword": "Esqueceu a senha?",
       "loginButton": "Entrar",
       "noAccount": "Não tem uma conta?",
-      "signUpLink": "Cadastre-se"
+      "signUpLink": "Cadastre-se",
+      "userType": "Tipo de Usuário",
+      "selectUserType": "Selecione o tipo de usuário",
+      "resident": "Morador",
+      "gatekeeper": "Portaria",
+      "adminLogin": "Acesso de Administrador"
     },
     "signup": {
       "title": "Criar uma Conta",
@@ -70,6 +76,80 @@
         "deviceRemovedDescription": "O dispositivo foi removido da sua lista com sucesso.",
         "deviceSelectedTitle": "Dispositivo Selecionado",
         "deviceSelectedDescription": "Agora rastreando \"{name}\" no mapa."
+    },
+    "adminLogin": {
+      "title": "Portal do Administrador",
+      "description": "Acesso exclusivo para gerenciamento de condomínios.",
+      "email": "Email de Administrador",
+      "password": "Senha",
+      "loginButton": "Entrar como Admin",
+      "returnToMainLogin": "Voltar para o login principal"
+    },
+    "adminDashboard": {
+      "title": "Painel de Administração",
+      "condoListTitle": "Condomínios Registrados",
+      "condoListDescription": "Gerencie todos os condomínios a partir daqui.",
+      "createCondoButton": "Criar Condomínio",
+      "newCondoDialog": {
+        "title": "Criar Novo Condomínio",
+        "description": "Insira os detalhes do novo condomínio.",
+        "nameLabel": "Nome do Condomínio",
+        "addressLabel": "Endereço",
+        "cancel": "Cancelar",
+        "create": "Criar"
+      },
+      "table": {
+        "condo": "Condomínio",
+        "devices": "Dispositivos",
+        "residents": "Moradores",
+        "gatekeepers": "Portarias",
+        "actions": "Ações",
+        "toggleMenu": "Menu",
+        "manage": "Gerenciar",
+        "edit": "Editar",
+        "delete": "Excluir"
+      },
+      "toast": {
+        "fillAllFields": "Por favor, preencha todos os campos para criar o condomínio.",
+        "condoCreated": "Condomínio \"{name}\" criado com sucesso.",
+        "condoDeleted": "Condomínio excluído."
+      }
+    },
+    "condoDashboard": {
+      "backToAdmin": "Voltar ao Painel de Administração",
+      "tabs": {
+        "users": "Usuários",
+        "devices": "Dispositivos"
+      },
+      "users": {
+        "title": "Gerenciar Usuários",
+        "description": "Adicione, remova ou edite moradores e portarias.",
+        "addUserButton": "Adicionar Usuário",
+        "table": {
+          "name": "Nome",
+          "type": "Tipo",
+          "email": "Email",
+          "actions": "Ações",
+          "resetPassword": "Resetar senha",
+          "delete": "Excluir"
+        },
+        "toast": {
+            "userDeleted": "Usuário excluído com sucesso."
+        }
+      },
+      "devices": {
+        "title": "Gerenciar Dispositivos",
+        "description": "Adicione ou remova dispositivos de rastreamento para este condomínio.",
+        "addDeviceButton": "Adicionar Dispositivo",
+        "table": {
+          "name": "Nome",
+          "type": "Tipo",
+          "status": "Status",
+          "actions": "Ações"
+        },
+        "toast": {
+            "deviceDeleted": "Dispositivo excluído com sucesso."
+        }
+      }
     }
   }
-  
