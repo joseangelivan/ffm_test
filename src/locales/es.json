@@ -1,0 +1,75 @@
+{
+    "login": {
+      "welcome": "Bienvenido de Nuevo",
+      "description": "Introduce tus credenciales para acceder a tu panel de seguimiento.",
+      "password": "Contraseña",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "loginButton": "Iniciar Sesión",
+      "noAccount": "¿No tienes una cuenta?",
+      "signUpLink": "Regístrate"
+    },
+    "signup": {
+      "title": "Crear una Cuenta",
+      "description": "Únete a Follow For Me para empezar a rastrear tus dispositivos en tiempo real.",
+      "fullName": "Nombre Completo",
+      "password": "Contraseña",
+      "createAccountButton": "Crear Cuenta",
+      "haveAccount": "¿Ya tienes una cuenta?",
+      "loginLink": "Iniciar Sesión"
+    },
+    "dashboard": {
+        "title": "Panel de Control",
+        "language": "Idioma",
+        "profile": "Perfil",
+        "settings": "Ajustes",
+        "logout": "Cerrar Sesión",
+        "mapTitle": "Mapa en Vivo",
+        "noDeviceSelected": "Ningún dispositivo seleccionado",
+        "mapDescription": "Ubicación en tiempo real de tu dispositivo seleccionado.",
+        "coords": "Coords",
+        "myDevices": "Mis Dispositivos",
+        "myDevicesDescription": "Gestiona y rastrea tus dispositivos registrados.",
+        "addDevice": "Añadir Dispositivo"
+    },
+    "addDeviceDialog": {
+      "title": "Registrar un Nuevo Dispositivo",
+      "description": "Introduce los detalles de tu nuevo dispositivo para empezar a rastrear.",
+      "nameLabel": "Nombre",
+      "typeLabel": "Tipo",
+      "selectTypePlaceholder": "Selecciona un tipo de dispositivo",
+      "registerButton": "Registrar Dispositivo"
+    },
+    "deviceTypes": {
+        "smartphone": "Smartphone",
+        "watch": "Reloj",
+        "laptop": "Portátil",
+        "car": "Coche",
+        "esp32": "Dispositivo ESP32/IoT",
+        "other": "Otro"
+    },
+    "deviceTable": {
+      "device": "Dispositivo",
+      "status": "Estado",
+      "actions": "Acciones",
+      "battery": "Batería",
+      "viewOnMap": "Ver en el mapa",
+      "delete": "Eliminar",
+      "noDevices": "Aún no hay dispositivos registrados."
+    },
+    "deviceStatus": {
+        "online": "En línea",
+        "offline": "Desconectado",
+        "live": "En vivo"
+    },
+    "toast": {
+        "errorTitle": "Error",
+        "successTitle": "Éxito",
+        "addDeviceError": "Por favor, rellena todos los campos.",
+        "addDeviceSuccess": "El dispositivo \"{name}\" ha sido registrado.",
+        "deviceRemovedTitle": "Dispositivo Eliminado",
+        "deviceRemovedDescription": "El dispositivo ha sido eliminado de tu lista correctamente.",
+        "deviceSelectedTitle": "Dispositivo Seleccionado",
+        "deviceSelectedDescription": "Ahora siguiendo \"{name}\" en el mapa."
+    }
+  }
+  

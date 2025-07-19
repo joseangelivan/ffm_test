@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
   Car,
   ChevronDown,
   Eye,
+  Languages,
   Laptop,
   LogOut,
-  Map,
   MapPin,
   PlusCircle,
   Settings,
@@ -36,6 +36,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
+  DropdownMenuSubContent
 } from '@/components/ui/dropdown-menu';
 import {
   Table,
@@ -67,6 +71,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useLocale } from '@/lib/i18n';
 
 type Device = {
   id: string;
@@ -109,7 +114,7 @@ const deviceIcons = {
       <path d="M15 9h1" />
     </svg>
   ),
-  other: <Map className="h-5 w-5 text-muted-foreground" />,
+  other: <MapPin className="h-5 w-5 text-muted-foreground" />,
 };
 
 function AddDeviceDialog({
@@ -121,21 +126,22 @@ function AddDeviceDialog({
   const [name, setName] = useState('');
   const [type, setType] = useState<Device['type']>('smartphone');
   const { toast } = useToast();
+  const { t } = useLocale();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !type) {
       toast({
-        title: 'Error',
-        description: 'Please fill in all fields.',
+        title: t('toast.errorTitle'),
+        description: t('toast.addDeviceError'),
         variant: 'destructive',
       });
       return;
     }
     onDeviceAdd({ name, type });
     toast({
-      title: 'Success',
-      description: `Device "${name}" has been registered.`,
+      title: t('toast.successTitle'),
+      description: t('toast.addDeviceSuccess', { name }),
     });
     setOpen(false);
     setName('');
@@ -146,51 +152,51 @@ function AddDeviceDialog({
       <DialogTrigger asChild>
         <Button>
           <PlusCircle className="mr-2 h-4 w-4" />
-          Add Device
+          {t('dashboard.addDevice')}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Register a New Device</DialogTitle>
+            <DialogTitle>{t('addDeviceDialog.title')}</DialogTitle>
             <DialogDescription>
-              Enter the details of your new device to start tracking.
+              {t('addDeviceDialog.description')}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
-                Name
+                {t('addDeviceDialog.nameLabel')}
               </Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. My iPhone 15"
+                placeholder="e.g. Mi iPhone 15"
                 className="col-span-3"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="type" className="text-right">
-                Type
+                {t('addDeviceDialog.typeLabel')}
               </Label>
               <Select onValueChange={(v: Device['type']) => setType(v)} defaultValue={type}>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a device type" />
+                  <SelectValue placeholder={t('addDeviceDialog.selectTypePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="smartphone">Smartphone</SelectItem>
-                  <SelectItem value="watch">Watch</SelectItem>
-                  <SelectItem value="laptop">Laptop</SelectItem>
-                  <SelectItem value="car">Car</SelectItem>
-                  <SelectItem value="esp32">ESP32/IoT Device</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="smartphone">{t('deviceTypes.smartphone')}</SelectItem>
+                  <SelectItem value="watch">{t('deviceTypes.watch')}</SelectItem>
+                  <SelectItem value="laptop">{t('deviceTypes.laptop')}</SelectItem>
+                  <SelectItem value="car">{t('deviceTypes.car')}</SelectItem>
+                  <SelectItem value="esp32">{t('deviceTypes.esp32')}</SelectItem>
+                  <SelectItem value="other">{t('deviceTypes.other')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit">Register Device</Button>
+            <Button type="submit">{t('addDeviceDialog.registerButton')}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -251,6 +257,7 @@ export default function DashboardClient({
   );
 
   const { toast } = useToast();
+  const { t, setLocale, locale } = useLocale();
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1000);
@@ -269,7 +276,6 @@ export default function DashboardClient({
             const newLon = lon + (Math.random() - 0.5) * 0.001;
             const newLocation = `${newLat.toFixed(6)}, ${newLon.toFixed(6)}`;
             
-            // Also update the selected device state if it's the one being updated
             setSelectedDevice(prevSelected => prevSelected && prevSelected.id === d.id ? { ...prevSelected, lastLocation: newLocation } : prevSelected);
 
             return { ...d, lastLocation: newLocation };
@@ -296,8 +302,8 @@ export default function DashboardClient({
   const handleDeleteDevice = (deviceId: string) => {
     setDevices(prev => prev.filter(d => d.id !== deviceId));
     toast({
-      title: "Device Removed",
-      description: "The device has been successfully removed from your list.",
+      title: t('toast.deviceRemovedTitle'),
+      description: t('toast.deviceRemovedDescription'),
     });
     if (selectedDevice?.id === deviceId) {
       setSelectedDevice(devices.find(d => d.id !== deviceId) || null);
@@ -307,8 +313,8 @@ export default function DashboardClient({
   const handleSetSelectedDevice = (device: Device) => {
     setSelectedDevice(device);
     toast({
-      title: 'Device Selected',
-      description: `Now tracking "${device.name}" on the map.`,
+      title: t('toast.deviceSelectedTitle'),
+      description: t('toast.deviceSelectedDescription', { name: device.name }),
     });
   }
 
@@ -321,7 +327,7 @@ export default function DashboardClient({
       <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-50">
         <Logo />
         <div className="flex-1">
-          <h1 className="text-lg font-semibold md:text-2xl font-headline">Dashboard</h1>
+          <h1 className="text-lg font-semibold md:text-2xl font-headline">{t('dashboard.title')}</h1>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -340,19 +346,36 @@ export default function DashboardClient({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+             <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Languages className="mr-2 h-4 w-4" />
+                <span>{t('dashboard.language')}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => setLocale('es')}>
+                    Español {locale === 'es' && <span className="ml-auto">✓</span>}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setLocale('pt')}>
+                    Português {locale === 'pt' && <span className="ml-auto">✓</span>}
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
             <DropdownMenuItem>
               <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
+              <span>{t('dashboard.profile')}</span>
             </DropdownMenuItem>
             <DropdownMenuItem>
               <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
+              <span>{t('dashboard.settings')}</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/">
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
+                <span>{t('dashboard.logout')}</span>
               </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -364,14 +387,14 @@ export default function DashboardClient({
             <CardHeader className="flex flex-row items-center">
               <div className="grid gap-2">
                 <CardTitle className="font-headline">
-                  Live Map: {selectedDevice ? selectedDevice.name : 'No device selected'}
+                  {t('dashboard.mapTitle')}: {selectedDevice ? selectedDevice.name : t('dashboard.noDeviceSelected')}
                 </CardTitle>
                 <CardDescription>
-                  Real-time location of your selected device.
+                  {t('dashboard.mapDescription')}
                   {selectedDevice && (
                     <span className="block font-mono text-sm text-primary mt-1">
-                      Coords: {selectedDevice.lastLocation}
-                       {selectedDevice.status === 'Online' && <span className="ml-2 inline-flex items-center gap-1.5 animate-pulse text-green-600"><span className="h-2 w-2 rounded-full bg-green-500"></span>Live</span>}
+                      {t('dashboard.coords')}: {selectedDevice.lastLocation}
+                       {selectedDevice.status === 'Online' && <span className="ml-2 inline-flex items-center gap-1.5 animate-pulse text-green-600"><span className="h-2 w-2 rounded-full bg-green-500"></span>{t('deviceStatus.live')}</span>}
                     </span>
                   )}
                 </CardDescription>
@@ -397,8 +420,8 @@ export default function DashboardClient({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div className="grid gap-2">
-                <CardTitle className="font-headline">My Devices</CardTitle>
-                <CardDescription>Manage and track your registered devices.</CardDescription>
+                <CardTitle className="font-headline">{t('dashboard.myDevices')}</CardTitle>
+                <CardDescription>{t('dashboard.myDevicesDescription')}</CardDescription>
               </div>
               <AddDeviceDialog onDeviceAdd={handleAddDevice} />
             </CardHeader>
@@ -406,9 +429,9 @@ export default function DashboardClient({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Device</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t('deviceTable.device')}</TableHead>
+                    <TableHead>{t('deviceTable.status')}</TableHead>
+                    <TableHead className="text-right">{t('deviceTable.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -416,12 +439,12 @@ export default function DashboardClient({
                     <TableRow key={device.id} className={cn(selectedDevice?.id === device.id && "bg-accent/10")}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          {deviceIcons[device.type]}
+                          {deviceIcons[device.type as keyof typeof deviceIcons] || deviceIcons.other}
                           <div>
                             <div className="font-medium">{device.name}</div>
                             {device.battery !== null && (
                               <div className="text-sm text-muted-foreground">
-                                Battery: {device.battery}%
+                                {t('deviceTable.battery')}: {device.battery}%
                               </div>
                             )}
                           </div>
@@ -432,18 +455,18 @@ export default function DashboardClient({
                           variant={device.status === 'Online' ? 'default' : 'secondary'}
                           className={cn(device.status === 'Online' && "bg-green-500/80 text-white")}
                         >
-                          {device.status}
+                          {t(`deviceStatus.${device.status.toLowerCase()}`)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                            <Button variant="ghost" size="icon" onClick={() => handleSetSelectedDevice(device)}>
                             <Eye className="h-4 w-4" />
-                            <span className="sr-only">View on map</span>
+                            <span className="sr-only">{t('deviceTable.viewOnMap')}</span>
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleDeleteDevice(device.id)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
-                             <span className="sr-only">Delete</span>
+                             <span className="sr-only">{t('deviceTable.delete')}</span>
                           </Button>
                         </div>
                       </TableCell>
@@ -452,7 +475,7 @@ export default function DashboardClient({
                    {devices.length === 0 && (
                     <TableRow>
                         <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
-                            No devices registered yet.
+                            {t('deviceTable.noDevices')}
                         </TableCell>
                     </TableRow>
                   )}

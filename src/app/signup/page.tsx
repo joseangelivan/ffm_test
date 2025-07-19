@@ -1,3 +1,5 @@
+"use client";
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,8 +14,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Mail, Lock, User } from 'lucide-react';
 import { Logo } from '@/components/logo';
+import { useLocale } from '@/lib/i18n';
 
 export default function SignUpPage() {
+    const { t } = useLocale();
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md shadow-2xl">
@@ -21,15 +26,15 @@ export default function SignUpPage() {
           <div className="flex justify-center">
             <Logo />
           </div>
-          <CardTitle className="font-headline text-3xl">Create an Account</CardTitle>
+          <CardTitle className="font-headline text-3xl">{t('signup.title')}</CardTitle>
           <CardDescription>
-            Join Follow For Me to start tracking your devices in real-time.
+            {t('signup.description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">{t('signup.fullName')}</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input id="name" type="text" placeholder="John Doe" className="pl-10" />
@@ -42,13 +47,13 @@ export default function SignUpPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="name@example.com"
+                  placeholder="nombre@ejemplo.com"
                   className="pl-10"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('signup.password')}</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
@@ -63,15 +68,15 @@ export default function SignUpPage() {
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <Button asChild className="w-full bg-accent hover:bg-accent/90">
-            <Link href="/dashboard">Create Account</Link>
+            <Link href="/dashboard">{t('signup.createAccountButton')}</Link>
           </Button>
           <div className="text-center text-sm text-muted-foreground">
-            Already have an account?{' '}
+            {t('signup.haveAccount')}{' '}
             <Link
               href="/"
               className="font-medium text-accent-foreground hover:underline"
             >
-              Login
+              {t('signup.loginLink')}
             </Link>
           </div>
         </CardFooter>

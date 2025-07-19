@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
+import { LocaleProvider } from '@/lib/i18n.tsx';
 
 export const metadata: Metadata = {
   title: 'Follow For Me',
-  description: 'Real-time device tracking application.',
+  description: 'Aplicación de seguimiento de dispositivos en tiempo real.',
 };
 
 export default function RootLayout({
@@ -23,7 +24,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased h-full">
-        {children}
+        <LocaleProvider>{children}</LocaleProvider>
         <Toaster />
       </body>
     </html>
