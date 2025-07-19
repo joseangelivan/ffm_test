@@ -10,10 +10,10 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mail, Lock } from 'lucide-react';
+import { Mail, Lock, User } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
-export default function LoginPage() {
+export default function SignUpPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md shadow-2xl">
@@ -21,13 +21,20 @@ export default function LoginPage() {
           <div className="flex justify-center">
             <Logo />
           </div>
-          <CardTitle className="font-headline text-3xl">Welcome Back</CardTitle>
+          <CardTitle className="font-headline text-3xl">Create an Account</CardTitle>
           <CardDescription>
-            Enter your credentials to access your tracking dashboard.
+            Join Follow For Me to start tracking your devices in real-time.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input id="name" type="text" placeholder="John Doe" className="pl-10" />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
@@ -41,15 +48,7 @@ export default function LoginPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link
-                  href="#"
-                  className="text-sm text-accent-foreground hover:underline"
-                >
-                  Forgot password?
-                </Link>
-              </div>
+              <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
@@ -64,15 +63,15 @@ export default function LoginPage() {
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <Button asChild className="w-full bg-accent hover:bg-accent/90">
-            <Link href="/dashboard">Login</Link>
+            <Link href="/dashboard">Create Account</Link>
           </Button>
           <div className="text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{' '}
+            Already have an account?{' '}
             <Link
-              href="/signup"
+              href="/"
               className="font-medium text-accent-foreground hover:underline"
             >
-              Sign up
+              Login
             </Link>
           </div>
         </CardFooter>
