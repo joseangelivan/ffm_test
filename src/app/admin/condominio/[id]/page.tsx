@@ -61,9 +61,9 @@ const mockDevices = [
 ];
 
 const mockUsers = [
-  { id: 'user-01', name: 'João da Silva', type: 'Morador', email: 'joao@email.com' },
-  { id: 'user-02', name: 'Maria Oliveira', type: 'Morador', email: 'maria@email.com' },
-  { id: 'user-03', name: 'Carlos-Portaria', type: 'Portaria', email: 'portaria.jardins@email.com' },
+  { id: 'user-01', name: 'João da Silva', type: 'Residente', email: 'joao@email.com' },
+  { id: 'user-02', name: 'Maria Oliveira', type: 'Residente', email: 'maria@email.com' },
+  { id: 'user-03', name: 'Carlos-Portería', type: 'Portería', email: 'porteria.jardins@email.com' },
 ];
 
 type User = typeof mockUsers[0];
@@ -110,8 +110,8 @@ function ManageUsersTab({ initialUsers }: { initialUsers: User[] }) {
                             <TableRow key={user.id}>
                                 <TableCell className="font-medium">{user.name}</TableCell>
                                 <TableCell>
-                                    <span className={`flex items-center gap-2 ${user.type === 'Portaria' ? 'text-blue-600' : 'text-gray-600'}`}>
-                                        {user.type === 'Portaria' ? <ShieldCheck className="h-4 w-4" /> : <Users className="h-4 w-4" />}
+                                    <span className={`flex items-center gap-2 ${user.type === 'Portería' ? 'text-blue-600' : 'text-gray-600'}`}>
+                                        {user.type === 'Portería' ? <ShieldCheck className="h-4 w-4" /> : <Users className="h-4 w-4" />}
                                         {user.type}
                                     </span>
                                 </TableCell>

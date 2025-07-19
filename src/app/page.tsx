@@ -43,13 +43,13 @@ export default function LoginPage() {
                 <Label htmlFor="user-type">{t('login.userType')}</Label>
                  <div className="relative">
                     <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Select defaultValue="morador">
+                    <Select defaultValue="residente">
                     <SelectTrigger id="user-type" className="pl-10">
                         <SelectValue placeholder={t('login.selectUserType')} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="morador">{t('login.resident')}</SelectItem>
-                        <SelectItem value="portaria">{t('login.gatekeeper')}</SelectItem>
+                        <SelectItem value="residente">{t('login.resident')}</SelectItem>
+                        <SelectItem value="porteria">{t('login.gatekeeper')}</SelectItem>
                     </SelectContent>
                     </Select>
                  </div>

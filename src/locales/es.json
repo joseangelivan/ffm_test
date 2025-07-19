@@ -6,22 +6,11 @@
       "password": "Contraseña",
       "forgotPassword": "¿Olvidaste tu contraseña?",
       "loginButton": "Iniciar Sesión",
-      "noAccount": "¿No tienes una cuenta?",
-      "signUpLink": "Regístrate",
       "userType": "Tipo de Usuario",
       "selectUserType": "Seleccionar tipo de usuario",
-      "resident": "Morador",
-      "gatekeeper": "Portaria",
+      "resident": "Residente",
+      "gatekeeper": "Portería",
       "adminLogin": "Acceso de Administrador"
-    },
-    "signup": {
-      "title": "Crear una Cuenta",
-      "description": "Únete a Follow For Me para empezar a rastrear tus dispositivos en tiempo real.",
-      "fullName": "Nombre Completo",
-      "password": "Contraseña",
-      "createAccountButton": "Crear Cuenta",
-      "haveAccount": "¿Ya tienes una cuenta?",
-      "loginLink": "Iniciar Sesión"
     },
     "dashboard": {
         "title": "Panel de Control",
@@ -109,8 +98,8 @@
       "table": {
         "condo": "Condominio",
         "devices": "Dispositivos",
-        "residents": "Moradores",
-        "gatekeepers": "Portarias",
+        "residents": "Residentes",
+        "gatekeepers": "Porterías",
         "actions": "Acciones",
         "toggleMenu": "Menú",
         "manage": "Gestionar",
@@ -131,7 +120,7 @@
       },
       "users": {
         "title": "Gestionar Usuarios",
-        "description": "Añade, elimina o edita moradores y portarias.",
+        "description": "Añade, elimina o edita residentes y porterías.",
         "addUserButton": "Añadir Usuario",
         "table": {
           "name": "Nombre",
