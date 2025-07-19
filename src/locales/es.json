@@ -116,7 +116,16 @@
       "backToAdmin": "Volver al Panel de Administración",
       "tabs": {
         "users": "Usuarios",
-        "devices": "Dispositivos"
+        "devices": "Dispositivos",
+        "map": "Mapa"
+      },
+      "map": {
+        "title": "Mapa del Condominio",
+        "description": "Visualiza el mapa y la distribución del condominio.",
+        "selectMapPlaceholder": "Seleccionar mapa",
+        "defaultOSM": "Mapa por Defecto (OSM)",
+        "customMap1": "Mapa Personalizado 1",
+        "customMap2": "Mapa Personalizado 2"
       },
       "users": {
         "title": "Gestionar Usuarios",
@@ -144,9 +153,26 @@
           "status": "Estado",
           "actions": "Acciones"
         },
+        "manageDialog": {
+            "title": "Gestionar Dispositivo: {name}",
+            "description": "Configura los parámetros de comunicación para el dispositivo.",
+            "serverConfigTitle": "Configuración del Servidor",
+            "websocketUrl": "URL del Servidor WebSocket",
+            "deviceTokenTitle": "Configuración del Dispositivo",
+            "deviceToken": "Token de Autenticación del Dispositivo (ID Hasheado)"
+        },
         "toast": {
-            "deviceDeleted": "Dispositivo eliminado con éxito."
+            "deviceDeleted": "Dispositivo eliminado con éxito.",
+            "tokenCopied": "Token copiado al portapapeles."
         }
       }
+    },
+    "userTypes": {
+        "residente": "Residente",
+        "portería": "Portería"
+    },
+    "common": {
+        "close": "Cerrar"
     }
   }
+

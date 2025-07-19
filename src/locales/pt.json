@@ -6,22 +6,11 @@
       "password": "Senha",
       "forgotPassword": "Esqueceu a senha?",
       "loginButton": "Entrar",
-      "noAccount": "Não tem uma conta?",
-      "signUpLink": "Cadastre-se",
       "userType": "Tipo de Usuário",
       "selectUserType": "Selecione o tipo de usuário",
-      "resident": "Morador",
+      "resident": "Residente",
       "gatekeeper": "Portaria",
       "adminLogin": "Acesso de Administrador"
-    },
-    "signup": {
-      "title": "Criar uma Conta",
-      "description": "Junte-se ao Follow For Me para começar a rastrear seus dispositivos em tempo real.",
-      "fullName": "Nome Completo",
-      "password": "Senha",
-      "createAccountButton": "Criar Conta",
-      "haveAccount": "Já tem uma conta?",
-      "loginLink": "Entrar"
     },
     "dashboard": {
         "title": "Painel de Controle",
@@ -127,7 +116,16 @@
       "backToAdmin": "Voltar ao Painel de Administração",
       "tabs": {
         "users": "Usuários",
-        "devices": "Dispositivos"
+        "devices": "Dispositivos",
+        "map": "Mapa"
+      },
+       "map": {
+        "title": "Mapa do Condomínio",
+        "description": "Visualize o mapa e a distribuição do condomínio.",
+        "selectMapPlaceholder": "Selecionar mapa",
+        "defaultOSM": "Mapa Padrão (OSM)",
+        "customMap1": "Mapa Personalizado 1",
+        "customMap2": "Mapa Personalizado 2"
       },
       "users": {
         "title": "Gerenciar Usuários",
@@ -155,9 +153,25 @@
           "status": "Status",
           "actions": "Ações"
         },
+        "manageDialog": {
+            "title": "Gerenciar Dispositivo: {name}",
+            "description": "Configure os parâmetros de comunicação para o dispositivo.",
+            "serverConfigTitle": "Configuração do Servidor",
+            "websocketUrl": "URL do Servidor WebSocket",
+            "deviceTokenTitle": "Configuração do Dispositivo",
+            "deviceToken": "Token de Autenticação do Dispositivo (ID Hasheado)"
+        },
         "toast": {
-            "deviceDeleted": "Dispositivo excluído com sucesso."
+            "deviceDeleted": "Dispositivo excluído com sucesso.",
+            "tokenCopied": "Token copiado para a área de transferência."
         }
       }
+    },
+     "userTypes": {
+        "residente": "Residente",
+        "portería": "Portaria"
+    },
+     "common": {
+        "close": "Fechar"
     }
   }

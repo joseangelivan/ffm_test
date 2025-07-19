@@ -3,6 +3,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowLeft,
   Building,
@@ -14,7 +15,10 @@ import {
   MoreVertical,
   Edit,
   KeyRound,
-  UserPlus
+  UserPlus,
+  Map,
+  Settings,
+  Copy
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,6 +50,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Mock data
 const mockCondoDetails = {
@@ -55,9 +60,9 @@ const mockCondoDetails = {
 };
 
 const mockDevices = [
-  { id: 'dev-01', name: 'Tracker Portão 1', type: 'esp32', status: 'Online' },
-  { id: 'dev-02', name: 'Câmera Corredor A', type: 'other', status: 'Online' },
-  { id: 'dev-03', name: 'Relógio Segurança', type: 'watch', status: 'Offline' },
+  { id: 'dev-01', name: 'Tracker Portão 1', type: 'esp32', status: 'Online', token: 'a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8' },
+  { id: 'dev-02', name: 'Câmera Corredor A', type: 'other', status: 'Online', token: 'b2c3d4e5-f6g7-8901-h2i3-j4k5l6m7n8o9' },
+  { id: 'dev-03', name: 'Relógio Segurança', type: 'watch', status: 'Offline', token: 'c3d4e5f6-g7h8-9012-i3j4-k5l6m7n8o9p0' },
 ];
 
 const mockUsers = [
@@ -68,7 +73,6 @@ const mockUsers = [
 
 type User = typeof mockUsers[0];
 type Device = typeof mockDevices[0];
-
 
 function ManageUsersTab({ initialUsers }: { initialUsers: User[] }) {
     const { t } = useLocale();
@@ -112,7 +116,7 @@ function ManageUsersTab({ initialUsers }: { initialUsers: User[] }) {
                                 <TableCell>
                                     <span className={`flex items-center gap-2 ${user.type === 'Portería' ? 'text-blue-600' : 'text-gray-600'}`}>
                                         {user.type === 'Portería' ? <ShieldCheck className="h-4 w-4" /> : <Users className="h-4 w-4" />}
-                                        {user.type}
+                                        {t(`userTypes.${user.type.toLowerCase()}`)}
                                     </span>
                                 </TableCell>
                                 <TableCell>{user.email}</TableCell>
@@ -149,6 +153,14 @@ function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
         });
     }
 
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+        toast({
+            title: t('toast.successTitle'),
+            description: t('condoDashboard.devices.toast.tokenCopied'),
+        });
+    };
+
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -178,9 +190,53 @@ function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
                                 <TableCell>{device.type}</TableCell>
                                 <TableCell>{device.status}</TableCell>
                                 <TableCell className="text-right">
-                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteDevice(device.id)}>
-                                        <Trash2 className="h-4 w-4 text-destructive"/>
-                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button size="icon" variant="ghost"><MoreVertical className="h-4 w-4"/></Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DialogTrigger asChild>
+                                                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                                    <Settings className="h-4 w-4 mr-2"/>{t('adminDashboard.table.manage')}
+                                                </DropdownMenuItem>
+                                            </DialogTrigger>
+                                            <DropdownMenuItem><Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleDeleteDevice(device.id)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2"/>{t('adminDashboard.table.delete')}</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+
+                                    {/* Dialog for Device Management */}
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>{t('condoDashboard.devices.manageDialog.title', { name: device.name })}</DialogTitle>
+                                            <DialogDescription>{t('condoDashboard.devices.manageDialog.description')}</DialogDescription>
+                                        </DialogHeader>
+                                        <div className="grid gap-6 py-4">
+                                            <div>
+                                                <h3 className="font-semibold mb-2">{t('condoDashboard.devices.manageDialog.serverConfigTitle')}</h3>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="websocket-url">{t('condoDashboard.devices.manageDialog.websocketUrl')}</Label>
+                                                    <div className="flex items-center gap-2">
+                                                        <Input id="websocket-url" value="wss://your-followforme-server.com/ws" readOnly />
+                                                        <Button variant="outline" size="icon" onClick={() => copyToClipboard('wss://your-followforme-server.com/ws')}><Copy className="h-4 w-4" /></Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                             <div>
+                                                <h3 className="font-semibold mb-2">{t('condoDashboard.devices.manageDialog.deviceTokenTitle')}</h3>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="device-token">{t('condoDashboard.devices.manageDialog.deviceToken')}</Label>
+                                                    <div className="flex items-center gap-2">
+                                                        <Input id="device-token" value={device.token} readOnly />
+                                                        <Button variant="outline" size="icon" onClick={() => copyToClipboard(device.token)}><Copy className="h-4 w-4" /></Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <DialogTrigger asChild><Button variant="outline">{t('common.close')}</Button></DialogTrigger>
+                                        </DialogFooter>
+                                    </DialogContent>
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -191,6 +247,46 @@ function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
     );
 }
 
+function CondoMapTab() {
+  const { t } = useLocale();
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
+            <CardDescription>{t('condoDashboard.map.description')}</CardDescription>
+          </div>
+          <div className="w-full sm:w-64">
+             <Select defaultValue="default">
+                <SelectTrigger>
+                  <SelectValue placeholder={t('condoDashboard.map.selectMapPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">{t('condoDashboard.map.defaultOSM')}</SelectItem>
+                  <SelectItem value="custom1">{t('condoDashboard.map.customMap1')}</SelectItem>
+                  <SelectItem value="custom2">{t('condoDashboard.map.customMap2')}</SelectItem>
+                </SelectContent>
+              </Select>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden relative shadow-inner">
+            <Image
+                src="https://placehold.co/1200x800.png"
+                alt="Vista de mapa del condominio"
+                layout="fill"
+                objectFit="cover"
+                data-ai-hint="map openstreetmap"
+            />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 export default function CondominioDashboardPage({ params }: { params: { id: string } }) {
   const { t } = useLocale();
   
@@ -198,6 +294,7 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
   const condo = mockCondoDetails;
 
   return (
+    <Dialog>
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
         <div className="grid gap-4">
@@ -215,9 +312,10 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
             </div>
           </div>
           <Tabs defaultValue="users">
-            <TabsList>
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="users" className="flex items-center gap-2"><Users className="h-4 w-4"/>{t('condoDashboard.tabs.users')}</TabsTrigger>
               <TabsTrigger value="devices" className="flex items-center gap-2"><Smartphone className="h-4 w-4"/>{t('condoDashboard.tabs.devices')}</TabsTrigger>
+              <TabsTrigger value="map" className="flex items-center gap-2"><Map className="h-4 w-4"/>{t('condoDashboard.tabs.map')}</TabsTrigger>
             </TabsList>
             <TabsContent value="users" className="mt-4">
               <ManageUsersTab initialUsers={mockUsers} />
@@ -225,9 +323,14 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
             <TabsContent value="devices" className="mt-4">
               <ManageDevicesTab initialDevices={mockDevices} />
             </TabsContent>
+             <TabsContent value="map" className="mt-4">
+              <CondoMapTab />
+            </TabsContent>
           </Tabs>
         </div>
       </main>
     </div>
+    </Dialog>
   );
 }
+
