@@ -98,6 +98,14 @@
         "cancel": "Cancelar",
         "create": "Crear"
       },
+      "editCondoDialog": {
+        "title": "Editar Condominio",
+        "description": "Actualiza los detalles del condominio.",
+        "save": "Guardar Cambios",
+        "toast": {
+          "condoUpdated": "Condominio actualizado con éxito."
+        }
+      },
       "table": {
         "condo": "Condominio",
         "devices": "Dispositivos",
@@ -153,3 +161,5 @@
       }
     }
   }
+
+    

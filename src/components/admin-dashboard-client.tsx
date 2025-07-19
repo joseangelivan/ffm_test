@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building,
   PlusCircle,
@@ -78,9 +78,27 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
   const { t } = useLocale();
   const { toast } = useToast();
   const [condominios, setCondominios] = useState<Condominio[]>(initialCondominios);
+  
+  // State for new condo dialog
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
   const [newCondoName, setNewCondoName] = useState('');
   const [newCondoAddress, setNewCondoAddress] = useState('');
+
+  // State for edit condo dialog
+  const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
+  const [editingCondo, setEditingCondo] = useState<Condominio | null>(null);
+  const [editCondoName, setEditCondoName] = useState('');
+  const [editCondoAddress, setEditCondoAddress] = useState('');
+
+  useEffect(() => {
+    if (editingCondo) {
+      setEditCondoName(editingCondo.name);
+      setEditCondoAddress(editingCondo.address);
+    } else {
+      setEditCondoName('');
+      setEditCondoAddress('');
+    }
+  }, [editingCondo]);
 
   const handleCreateCondominio = () => {
     if (!newCondoName || !newCondoAddress) {
@@ -108,6 +126,28 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
     setNewCondoAddress('');
     setIsNewCondoDialogOpen(false);
   };
+
+  const handleEditCondo = () => {
+    if (!editingCondo || !editCondoName || !editCondoAddress) {
+      toast({
+        title: t('toast.errorTitle'),
+        description: t('adminDashboard.toast.fillAllFields'),
+        variant: 'destructive',
+      });
+      return;
+    }
+    setCondominios(prev =>
+      prev.map(c =>
+        c.id === editingCondo.id ? { ...c, name: editCondoName, address: editCondoAddress } : c
+      )
+    );
+    toast({
+        title: t('toast.successTitle'),
+        description: t('adminDashboard.editCondoDialog.toast.condoUpdated'),
+    });
+    setEditingCondo(null);
+    setIsEditCondoDialogOpen(false);
+  };
   
   const handleDeleteCondo = (condoId: string) => {
     setCondominios(prev => prev.filter(c => c.id !== condoId));
@@ -116,6 +156,11 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
       description: t('adminDashboard.toast.condoDeleted'),
     });
   }
+
+  const openEditDialog = (condo: Condominio) => {
+    setEditingCondo(condo);
+    setIsEditCondoDialogOpen(true);
+  };
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -241,7 +286,7 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                                     <Eye className="h-4 w-4"/> {t('adminDashboard.table.manage')}
                                  </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem><Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditDialog(condo)}><Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteCondo(condo.id)}>
                                 <Trash2 className="h-4 w-4 mr-2"/>{t('adminDashboard.table.delete')}
                             </DropdownMenuItem>
@@ -256,6 +301,40 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
           </Card>
         </div>
       </main>
+
+      {/* Edit Condo Dialog */}
+      <Dialog open={isEditCondoDialogOpen} onOpenChange={setIsEditCondoDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('adminDashboard.editCondoDialog.title')}</DialogTitle>
+            <DialogDescription>{t('adminDashboard.editCondoDialog.description')}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-condo-name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
+              <Input
+                id="edit-condo-name"
+                value={editCondoName}
+                onChange={(e) => setEditCondoName(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-condo-address">{t('adminDashboard.newCondoDialog.addressLabel')}</Label>
+              <Input
+                id="edit-condo-address"
+                value={editCondoAddress}
+                onChange={(e) => setEditCondoAddress(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditCondoDialogOpen(false)}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
+            <Button onClick={handleEditCondo}>{t('adminDashboard.editCondoDialog.save')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+    
