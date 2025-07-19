@@ -163,6 +163,10 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
     setEditingCondo(condo);
     setIsEditCondoDialogOpen(true);
   };
+  
+  const navigateToCondo = (condoId: string) => {
+    router.push(`/admin/condominio/${condoId}`);
+  };
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -266,7 +270,7 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                 </TableHeader>
                 <TableBody>
                   {condominios.map((condo) => (
-                    <TableRow key={condo.id}>
+                    <TableRow key={condo.id} className="cursor-pointer" onClick={() => navigateToCondo(condo.id)}>
                       <TableCell>
                         <div className="font-medium">{condo.name}</div>
                         <div className="text-sm text-muted-foreground">{condo.address}</div>
@@ -274,7 +278,7 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                       <TableCell>{condo.devices}</TableCell>
                       <TableCell>{condo.residents}</TableCell>
                       <TableCell>{condo.doormen}</TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button aria-haspopup="true" size="icon" variant="ghost">
@@ -283,13 +287,11 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                             <DropdownMenuItem asChild>
-                                <Link href={`/admin/condominio/${condo.id}`} className="flex items-center cursor-pointer">
-                                  <Eye className="h-4 w-4 mr-2"/> {t('adminDashboard.table.manage')}
-                                </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openEditDialog(condo)}><Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteCondo(condo.id)}>
+                             <DropdownMenuItem onSelect={() => navigateToCondo(condo.id)}>
+                                <Eye className="h-4 w-4 mr-2"/> {t('adminDashboard.table.manage')}
+                             </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => openEditDialog(condo)}><Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteCondo(condo.id)}>
                                 <Trash2 className="h-4 w-4 mr-2"/>{t('adminDashboard.table.delete')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -338,3 +340,5 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
     </div>
   );
 }
+
+    
