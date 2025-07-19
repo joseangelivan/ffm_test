@@ -190,53 +190,54 @@ function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
                                 <TableCell>{device.type}</TableCell>
                                 <TableCell>{device.status}</TableCell>
                                 <TableCell className="text-right">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button size="icon" variant="ghost"><MoreVertical className="h-4 w-4"/></Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DialogTrigger asChild>
-                                                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                                    <Settings className="h-4 w-4 mr-2"/>{t('adminDashboard.table.manage')}
-                                                </DropdownMenuItem>
-                                            </DialogTrigger>
-                                            <DropdownMenuItem><Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleDeleteDevice(device.id)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2"/>{t('adminDashboard.table.delete')}</DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    <Dialog>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button size="icon" variant="ghost"><MoreVertical className="h-4 w-4"/></Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DialogTrigger asChild>
+                                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                                        <Settings className="h-4 w-4 mr-2"/>{t('adminDashboard.table.manage')}
+                                                    </DropdownMenuItem>
+                                                </DialogTrigger>
+                                                <DropdownMenuItem><Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleDeleteDevice(device.id)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2"/>{t('adminDashboard.table.delete')}</DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
 
-                                    {/* Dialog for Device Management */}
-                                    <DialogContent>
-                                        <DialogHeader>
-                                            <DialogTitle>{t('condoDashboard.devices.manageDialog.title', { name: device.name })}</DialogTitle>
-                                            <DialogDescription>{t('condoDashboard.devices.manageDialog.description')}</DialogDescription>
-                                        </DialogHeader>
-                                        <div className="grid gap-6 py-4">
-                                            <div>
-                                                <h3 className="font-semibold mb-2">{t('condoDashboard.devices.manageDialog.serverConfigTitle')}</h3>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="websocket-url">{t('condoDashboard.devices.manageDialog.websocketUrl')}</Label>
-                                                    <div className="flex items-center gap-2">
-                                                        <Input id="websocket-url" value="wss://your-followforme-server.com/ws" readOnly />
-                                                        <Button variant="outline" size="icon" onClick={() => copyToClipboard('wss://your-followforme-server.com/ws')}><Copy className="h-4 w-4" /></Button>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle>{t('condoDashboard.devices.manageDialog.title', { name: device.name })}</DialogTitle>
+                                                <DialogDescription>{t('condoDashboard.devices.manageDialog.description')}</DialogDescription>
+                                            </DialogHeader>
+                                            <div className="grid gap-6 py-4">
+                                                <div>
+                                                    <h3 className="font-semibold mb-2">{t('condoDashboard.devices.manageDialog.serverConfigTitle')}</h3>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor={`websocket-url-${device.id}`}>{t('condoDashboard.devices.manageDialog.websocketUrl')}</Label>
+                                                        <div className="flex items-center gap-2">
+                                                            <Input id={`websocket-url-${device.id}`} value="wss://your-followforme-server.com/ws" readOnly />
+                                                            <Button variant="outline" size="icon" onClick={() => copyToClipboard('wss://your-followforme-server.com/ws')}><Copy className="h-4 w-4" /></Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                 <div>
+                                                    <h3 className="font-semibold mb-2">{t('condoDashboard.devices.manageDialog.deviceTokenTitle')}</h3>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor={`device-token-${device.id}`}>{t('condoDashboard.devices.manageDialog.deviceToken')}</Label>
+                                                        <div className="flex items-center gap-2">
+                                                            <Input id={`device-token-${device.id}`} value={device.token} readOnly />
+                                                            <Button variant="outline" size="icon" onClick={() => copyToClipboard(device.token)}><Copy className="h-4 w-4" /></Button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                             <div>
-                                                <h3 className="font-semibold mb-2">{t('condoDashboard.devices.manageDialog.deviceTokenTitle')}</h3>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="device-token">{t('condoDashboard.devices.manageDialog.deviceToken')}</Label>
-                                                    <div className="flex items-center gap-2">
-                                                        <Input id="device-token" value={device.token} readOnly />
-                                                        <Button variant="outline" size="icon" onClick={() => copyToClipboard(device.token)}><Copy className="h-4 w-4" /></Button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <DialogFooter>
-                                            <DialogTrigger asChild><Button variant="outline">{t('common.close')}</Button></DialogTrigger>
-                                        </DialogFooter>
-                                    </DialogContent>
+                                            <DialogFooter>
+                                                 <DialogTrigger asChild><Button variant="outline">{t('common.close')}</Button></DialogTrigger>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -294,7 +295,6 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
   const condo = mockCondoDetails;
 
   return (
-    <Dialog>
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
         <div className="grid gap-4">
@@ -330,7 +330,7 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
         </div>
       </main>
     </div>
-    </Dialog>
   );
 }
 
+    
