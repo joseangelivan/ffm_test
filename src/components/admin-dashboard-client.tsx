@@ -51,6 +51,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -169,6 +180,10 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
     router.push(`/admin/condominio/${condoId}`);
   };
 
+  const handleLogout = () => {
+    router.push('/');
+  }
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
        <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-50">
@@ -178,36 +193,50 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
         </div>
         <div className="ml-auto flex items-center gap-2">
             <LanguageSwitcher />
-            <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                <Avatar className="h-10 w-10">
-                    <AvatarImage src={mockAdmin.avatarUrl} alt={mockAdmin.name} data-ai-hint="avatar" />
-                    <AvatarFallback>{mockAdmin.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{mockAdmin.name}</p>
-                    <p className="text-xs leading-none text-muted-foreground">{mockAdmin.email}</p>
-                </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>{t('dashboard.settings')}</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                <Link href="/">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>{t('dashboard.logout')}</span>
-                </Link>
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-            </DropdownMenu>
+            <AlertDialog>
+              <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                  <Avatar className="h-10 w-10">
+                      <AvatarImage src={mockAdmin.avatarUrl} alt={mockAdmin.name} data-ai-hint="avatar" />
+                      <AvatarFallback>{mockAdmin.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{mockAdmin.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{mockAdmin.email}</p>
+                  </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>{t('dashboard.settings')}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <AlertDialogTrigger asChild>
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                          <LogOut className="mr-2 h-4 w-4" />
+                          <span>{t('dashboard.logout')}</span>
+                      </DropdownMenuItem>
+                  </AlertDialogTrigger>
+              </DropdownMenuContent>
+              </DropdownMenu>
+              <AlertDialogContent>
+                  <AlertDialogHeader>
+                      <AlertDialogTitle>{t('dashboard.logoutConfirmation.title')}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                          {t('dashboard.logoutConfirmation.description')}
+                      </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                      <AlertDialogCancel>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleLogout}>{t('dashboard.logoutConfirmation.confirm')}</AlertDialogAction>
+                  </AlertDialogFooter>
+              </AlertDialogContent>
+          </AlertDialog>
         </div>
       </header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
@@ -272,7 +301,7 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                 </TableHeader>
                 <TableBody>
                   {condominios.map((condo) => (
-                    <TableRow key={condo.id}>
+                    <TableRow key={condo.id} >
                       <TableCell>
                         <div className="font-medium">{condo.name}</div>
                         <div className="text-sm text-muted-foreground">{condo.address}</div>
@@ -344,3 +373,5 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
     </div>
   );
 }
+
+    

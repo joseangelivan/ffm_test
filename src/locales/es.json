@@ -18,6 +18,12 @@
         "profile": "Perfil",
         "settings": "Ajustes",
         "logout": "Cerrar Sesión",
+        "logoutConfirmation": {
+            "title": "¿Estás seguro?",
+            "description": "Estás a punto de cerrar tu sesión. ¿Quieres continuar?",
+            "cancel": "Cancelar",
+            "confirm": "Cerrar Sesión"
+        },
         "mapTitle": "Mapa en Vivo",
         "noDeviceSelected": "Ningún dispositivo seleccionado",
         "mapDescription": "Ubicación en tiempo real de tu dispositivo seleccionado.",
@@ -176,3 +182,4 @@
     }
   }
 
+    

@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Car,
   ChevronDown,
@@ -51,6 +52,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -253,6 +265,7 @@ export default function DashboardClient({
 
   const { toast } = useToast();
   const { t, setLocale, locale } = useLocale();
+  const router = useRouter();
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1000);
@@ -313,6 +326,10 @@ export default function DashboardClient({
     });
   }
 
+  const handleLogout = () => {
+    router.push('/');
+  }
+
   if (isLoading) {
     return <DashboardSkeleton />;
   }
@@ -326,40 +343,54 @@ export default function DashboardClient({
         </div>
         <div className="flex items-center gap-2">
             <LanguageSwitcher />
-            <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                <Avatar className="h-10 w-10">
-                    <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="avatar" />
-                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.name}</p>
-                    <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                <span>{t('dashboard.profile')}</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>{t('dashboard.settings')}</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                <Link href="/">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>{t('dashboard.logout')}</span>
-                </Link>
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-            </DropdownMenu>
+            <AlertDialog>
+              <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                  <Avatar className="h-10 w-10">
+                      <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="avatar" />
+                      <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{user.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                  </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>{t('dashboard.profile')}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>{t('dashboard.settings')}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <AlertDialogTrigger asChild>
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                          <LogOut className="mr-2 h-4 w-4" />
+                          <span>{t('dashboard.logout')}</span>
+                      </DropdownMenuItem>
+                  </AlertDialogTrigger>
+              </DropdownMenuContent>
+              </DropdownMenu>
+              <AlertDialogContent>
+                  <AlertDialogHeader>
+                      <AlertDialogTitle>{t('dashboard.logoutConfirmation.title')}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                          {t('dashboard.logoutConfirmation.description')}
+                      </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                      <AlertDialogCancel>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleLogout}>{t('dashboard.logoutConfirmation.confirm')}</AlertDialogAction>
+                  </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
         </div>
 
       </header>
@@ -470,3 +501,5 @@ export default function DashboardClient({
     </div>
   );
 }
+
+    
