@@ -59,6 +59,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Logo } from './logo';
+import { LanguageSwitcher } from './language-switcher';
 
 type Condominio = {
   id: string;
@@ -175,7 +176,8 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
             <Shield className="h-6 w-6 text-primary"/>
             <h1 className="text-lg font-semibold md:text-2xl font-headline">{t('adminDashboard.title')}</h1>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+            <LanguageSwitcher />
             <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">

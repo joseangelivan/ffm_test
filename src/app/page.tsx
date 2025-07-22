@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -22,11 +23,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { LanguageSwitcher } from '@/components/language-switcher';
 
 export default function LoginPage() {
   const { t } = useLocale();
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
+       <LanguageSwitcher />
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="space-y-4 text-center">
           <div className="flex justify-center">
@@ -48,8 +51,8 @@ export default function LoginPage() {
                         <SelectValue placeholder={t('login.selectUserType')} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="residente">{t('login.resident')}</SelectItem>
-                        <SelectItem value="porteria">{t('login.gatekeeper')}</SelectItem>
+                        <SelectItem value="residente">{t('userTypes.residente')}</SelectItem>
+                        <SelectItem value="porteria">{t('userTypes.portería')}</SelectItem>
                     </SelectContent>
                     </Select>
                  </div>

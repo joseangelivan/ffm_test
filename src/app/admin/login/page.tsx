@@ -16,12 +16,14 @@ import { Label } from '@/components/ui/label';
 import { Mail, Lock, Shield } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
+import { LanguageSwitcher } from '@/components/language-switcher';
 
 export default function AdminLoginPage() {
   const { t } = useLocale();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
+      <LanguageSwitcher />
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="space-y-4 text-center">
           <div className="flex justify-center">
