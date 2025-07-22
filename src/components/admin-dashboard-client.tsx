@@ -222,14 +222,24 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                       <span>{t('dashboard.settings')}</span>
                     </DropdownMenuSubTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuSubContent>
-                        <DropdownMenuItem onClick={() => setLocale('es')}>
-                          Español {locale === 'es' && <span className="ml-auto">✓</span>}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setLocale('pt')}>
-                          Português {locale === 'pt' && <span className="ml-auto">✓</span>}
-                        </DropdownMenuItem>
-                      </DropdownMenuSubContent>
+                        <DropdownMenuSubContent>
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>
+                                    <Languages className="mr-2 h-4 w-4" />
+                                    <span>{t('dashboard.language')}</span>
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuPortal>
+                                    <DropdownMenuSubContent>
+                                        <DropdownMenuItem onClick={() => setLocale('es')}>
+                                        Español {locale === 'es' && <span className="ml-auto">✓</span>}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setLocale('pt')}>
+                                        Português {locale === 'pt' && <span className="ml-auto">✓</span>}
+                                        </DropdownMenuItem>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuPortal>
+                            </DropdownMenuSub>
+                        </DropdownMenuSubContent>
                     </DropdownMenuPortal>
                   </DropdownMenuSub>
                   <DropdownMenuSeparator />
