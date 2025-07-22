@@ -197,7 +197,6 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
             <h1 className="text-lg font-semibold md:text-2xl font-headline">{t('adminDashboard.title')}</h1>
         </div>
         <div className="ml-auto flex items-center gap-2">
-            <LanguageSwitcher />
             <AlertDialog>
               <DropdownMenu>
               <DropdownMenuTrigger asChild>
