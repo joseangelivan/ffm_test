@@ -365,10 +365,22 @@ export default function DashboardClient({
                   <User className="mr-2 h-4 w-4" />
                   <span>{t('dashboard.profile')}</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>{t('dashboard.settings')}</span>
-                  </DropdownMenuItem>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>{t('dashboard.settings')}</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => setLocale('es')}>
+                          Español {locale === 'es' && <span className="ml-auto">✓</span>}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setLocale('pt')}>
+                          Português {locale === 'pt' && <span className="ml-auto">✓</span>}
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
                   <DropdownMenuSeparator />
                   <AlertDialogTrigger asChild>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
@@ -501,5 +513,3 @@ export default function DashboardClient({
     </div>
   );
 }
-
-    

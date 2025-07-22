@@ -16,6 +16,7 @@ import {
   LogOut,
   Settings,
   User,
+  Languages,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,6 +42,10 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -88,7 +93,7 @@ const mockAdmin = {
 }
 
 export default function AdminDashboardClient({ initialCondominios }: { initialCondominios: Condominio[] }) {
-  const { t } = useLocale();
+  const { t, setLocale, locale } = useLocale();
   const { toast } = useToast();
   const router = useRouter();
   const [condominios, setCondominios] = useState<Condominio[]>(initialCondominios);
@@ -211,10 +216,22 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                   </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
                       <Settings className="mr-2 h-4 w-4" />
                       <span>{t('dashboard.settings')}</span>
-                  </DropdownMenuItem>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => setLocale('es')}>
+                          Español {locale === 'es' && <span className="ml-auto">✓</span>}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setLocale('pt')}>
+                          Português {locale === 'pt' && <span className="ml-auto">✓</span>}
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
                   <DropdownMenuSeparator />
                   <AlertDialogTrigger asChild>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
@@ -373,5 +390,3 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
     </div>
   );
 }
-
-    
