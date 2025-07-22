@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -18,7 +18,10 @@ import {
   UserPlus,
   Map,
   Settings,
-  Copy
+  Copy,
+  Home,
+  Phone,
+  Building2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,6 +39,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import {
     Dialog,
@@ -45,6 +49,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
+    DialogClose
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -66,9 +71,9 @@ const mockDevices = [
 ];
 
 const mockUsers = [
-  { id: 'user-01', name: 'João da Silva', type: 'Residente', email: 'joao@email.com' },
-  { id: 'user-02', name: 'Maria Oliveira', type: 'Residente', email: 'maria@email.com' },
-  { id: 'user-03', name: 'Carlos-Portería', type: 'Portería', email: 'porteria.jardins@email.com' },
+  { id: 'user-01', name: 'João da Silva', type: 'Residente', email: 'joao@email.com', location: 'Torre A, Sección 2', housing: 'Apto 101', phone: '+55 11 98765-4321' },
+  { id: 'user-02', name: 'Maria Oliveira', type: 'Residente', email: 'maria@email.com', location: 'Casa 15', housing: 'Lote 3', phone: '+55 21 91234-5678' },
+  { id: 'user-03', name: 'Carlos-Portería', type: 'Portería', email: 'porteria.jardins@email.com', location: 'Garita Principal', housing: 'N/A', phone: '+55 11 99999-8888' },
 ];
 
 type User = typeof mockUsers[0];
@@ -78,12 +83,45 @@ function ManageUsersTab({ initialUsers }: { initialUsers: User[] }) {
     const { t } = useLocale();
     const { toast } = useToast();
     const [users, setUsers] = useState(initialUsers);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [editedUser, setEditedUser] = useState<Partial<User>>({});
+
+    const handleOpenEditDialog = (user: User) => {
+        setSelectedUser(user);
+        setEditedUser({ name: user.name, type: user.type, email: user.email });
+        setIsEditDialogOpen(true);
+    };
+
+    const handleOpenManageDialog = (user: User) => {
+        setSelectedUser(user);
+        setIsManageDialogOpen(true);
+    };
+
+    const handleSaveChanges = () => {
+        if (!selectedUser) return;
+        setUsers(users.map(u => u.id === selectedUser.id ? { ...u, ...editedUser } as User : u));
+        toast({
+            title: t('toast.successTitle'),
+            description: "Usuario actualizado con éxito."
+        });
+        setIsEditDialogOpen(false);
+        setSelectedUser(null);
+    };
 
     const handleDeleteUser = (userId: string) => {
         setUsers(prev => prev.filter(u => u.id !== userId));
         toast({
             title: t('toast.successTitle'),
             description: t('condoDashboard.users.toast.userDeleted'),
+        });
+    }
+
+    const handleResetPassword = (userName: string) => {
+        toast({
+            title: t('toast.successTitle'),
+            description: `Se ha enviado un enlace para restablecer la contraseña a ${userName}.`
         });
     }
 
@@ -126,7 +164,14 @@ function ManageUsersTab({ initialUsers }: { initialUsers: User[] }) {
                                             <Button size="icon" variant="ghost"><MoreVertical className="h-4 w-4"/></Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
-                                            <DropdownMenuItem><KeyRound className="h-4 w-4 mr-2"/>{t('condoDashboard.users.table.resetPassword')}</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => handleOpenManageDialog(user)}>
+                                                <Settings className="h-4 w-4 mr-2"/>Gestionar
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => handleOpenEditDialog(user)}>
+                                                <Edit className="h-4 w-4 mr-2"/>Editar
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem onClick={() => handleResetPassword(user.name)}><KeyRound className="h-4 w-4 mr-2"/>{t('condoDashboard.users.table.resetPassword')}</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleDeleteUser(user.id)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2"/>{t('condoDashboard.users.table.delete')}</DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
@@ -136,6 +181,92 @@ function ManageUsersTab({ initialUsers }: { initialUsers: User[] }) {
                     </TableBody>
                 </Table>
             </CardContent>
+
+            {/* Edit User Dialog */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Editar Usuario</DialogTitle>
+                        <DialogDescription>
+                            Modifica la información básica del usuario.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="name">Nombre</Label>
+                            <Input id="name" value={editedUser.name || ''} onChange={(e) => setEditedUser({...editedUser, name: e.target.value})} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="email">Email</Label>
+                            <Input id="email" type="email" value={editedUser.email || ''} onChange={(e) => setEditedUser({...editedUser, email: e.target.value})} />
+                        </div>
+                         <div className="grid gap-2">
+                            <Label htmlFor="type">Tipo de Usuario</Label>
+                            <Select value={editedUser.type || ''} onValueChange={(value) => setEditedUser({...editedUser, type: value})}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar tipo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Residente">{t('userTypes.residente')}</SelectItem>
+                                    <SelectItem value="Portería">{t('userTypes.portería')}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+                        <Button onClick={handleSaveChanges}>Guardar Cambios</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Manage User Dialog */}
+            <Dialog open={isManageDialogOpen} onOpenChange={setIsManageDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Gestionar Usuario</DialogTitle>
+                        <DialogDescription>
+                            Administrar detalles y permisos para {selectedUser?.name}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                         <div className="space-y-4">
+                            <h3 className="font-semibold text-lg">Información Adicional</h3>
+                            <div className="flex items-center gap-4">
+                                <Building2 className="h-5 w-5 text-muted-foreground" />
+                                <div>
+                                    <p className="text-sm font-medium">Ubicación</p>
+                                    <p className="text-sm text-muted-foreground">{selectedUser?.location}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <Home className="h-5 w-5 text-muted-foreground" />
+                                <div>
+                                    <p className="text-sm font-medium">Vivienda</p>
+                                    <p className="text-sm text-muted-foreground">{selectedUser?.housing}</p>
+                                </div>
+                            </div>
+                             <div className="flex items-center gap-4">
+                                <Phone className="h-5 w-5 text-muted-foreground" />
+                                <div>
+                                    <p className="text-sm font-medium">Teléfono</p>
+                                    <p className="text-sm text-muted-foreground">{selectedUser?.phone}</p>
+                                </div>
+                            </div>
+                         </div>
+                         <div className="space-y-4 pt-4 mt-4 border-t">
+                            <h3 className="font-semibold text-lg">Acciones</h3>
+                             <Button variant="outline" className="w-full justify-start" onClick={() => selectedUser && handleResetPassword(selectedUser.name)}>
+                                <KeyRound className="h-4 w-4 mr-2"/>
+                                {t('condoDashboard.users.table.resetPassword')}
+                            </Button>
+                         </div>
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="outline">Cerrar</Button></DialogClose>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }
@@ -185,7 +316,7 @@ function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
                     </TableHeader>
                     <TableBody>
                         {devices.map(device => (
-                            <TableRow key={device.id}>
+                             <TableRow key={device.id}>
                                 <TableCell className="font-medium">{device.name}</TableCell>
                                 <TableCell>{device.type}</TableCell>
                                 <TableCell>{device.status}</TableCell>
@@ -334,5 +465,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
-    
