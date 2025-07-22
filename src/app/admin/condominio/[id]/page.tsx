@@ -96,6 +96,11 @@ function ManageUsersTab({ initialUsers }: { initialUsers: User[] }) {
 
     const handleOpenManageDialog = (user: User) => {
         setSelectedUser(user);
+        setEditedUser({ 
+            location: user.location, 
+            housing: user.housing, 
+            phone: user.phone 
+        });
         setIsManageDialogOpen(true);
     };
 
@@ -107,6 +112,7 @@ function ManageUsersTab({ initialUsers }: { initialUsers: User[] }) {
             description: "Usuario actualizado con éxito."
         });
         setIsEditDialogOpen(false);
+        setIsManageDialogOpen(false);
         setSelectedUser(null);
     };
 
@@ -232,26 +238,17 @@ function ManageUsersTab({ initialUsers }: { initialUsers: User[] }) {
                     <div className="grid gap-4 py-4">
                          <div className="space-y-4">
                             <h3 className="font-semibold text-lg">Información Adicional</h3>
-                            <div className="flex items-center gap-4">
-                                <Building2 className="h-5 w-5 text-muted-foreground" />
-                                <div>
-                                    <p className="text-sm font-medium">Ubicación</p>
-                                    <p className="text-sm text-muted-foreground">{selectedUser?.location}</p>
-                                </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="location">Ubicación</Label>
+                                <Input id="location" value={editedUser.location || ''} onChange={(e) => setEditedUser({...editedUser, location: e.target.value})} placeholder="Torre A, Sección 2" />
                             </div>
-                            <div className="flex items-center gap-4">
-                                <Home className="h-5 w-5 text-muted-foreground" />
-                                <div>
-                                    <p className="text-sm font-medium">Vivienda</p>
-                                    <p className="text-sm text-muted-foreground">{selectedUser?.housing}</p>
-                                </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="housing">Vivienda</Label>
+                                <Input id="housing" value={editedUser.housing || ''} onChange={(e) => setEditedUser({...editedUser, housing: e.target.value})} placeholder="Apto 101" />
                             </div>
-                             <div className="flex items-center gap-4">
-                                <Phone className="h-5 w-5 text-muted-foreground" />
-                                <div>
-                                    <p className="text-sm font-medium">Teléfono</p>
-                                    <p className="text-sm text-muted-foreground">{selectedUser?.phone}</p>
-                                </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="phone">Teléfono</Label>
+                                <Input id="phone" value={editedUser.phone || ''} onChange={(e) => setEditedUser({...editedUser, phone: e.target.value})} placeholder="+55 11 98765-4321" />
                             </div>
                          </div>
                          <div className="space-y-4 pt-4 mt-4 border-t">
@@ -263,7 +260,8 @@ function ManageUsersTab({ initialUsers }: { initialUsers: User[] }) {
                          </div>
                     </div>
                     <DialogFooter>
-                        <DialogClose asChild><Button variant="outline">Cerrar</Button></DialogClose>
+                        <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+                        <Button onClick={handleSaveChanges}>Guardar Cambios</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
