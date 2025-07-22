@@ -24,6 +24,11 @@
             "cancel": "Cancelar",
             "confirm": "Cerrar Sesión"
         },
+        "theme": {
+            "title": "Tema",
+            "light": "Claro",
+            "dark": "Oscuro"
+        },
         "mapTitle": "Mapa en Vivo",
         "noDeviceSelected": "Ningún dispositivo seleccionado",
         "mapDescription": "Ubicación en tiempo real de tu dispositivo seleccionado.",
@@ -181,5 +186,7 @@
         "close": "Cerrar"
     }
   }
+
+    
 
     

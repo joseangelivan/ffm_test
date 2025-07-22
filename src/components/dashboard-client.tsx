@@ -13,9 +13,11 @@ import {
   Laptop,
   LogOut,
   MapPin,
+  Moon,
   PlusCircle,
   Settings,
   Smartphone,
+  Sun,
   Trash2,
   User,
   Watch,
@@ -77,7 +79,6 @@ import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
-import { LanguageSwitcher } from './language-switcher';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 type Device = {
@@ -267,6 +268,20 @@ export default function DashboardClient({
   const { t, setLocale, locale } = useLocale();
   const router = useRouter();
 
+  const [theme, setTheme] = useState('light');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+  }, []);
+
+  const handleSetTheme = (newTheme: 'light' | 'dark') => {
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+  }
+
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
@@ -383,6 +398,23 @@ export default function DashboardClient({
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setLocale('pt')}>
                                         Português {locale === 'pt' && <span className="ml-auto">✓</span>}
+                                        </DropdownMenuItem>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuPortal>
+                            </DropdownMenuSub>
+                             <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>
+                                    <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                                    <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                                    <span>{t('dashboard.theme.title')}</span>
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuPortal>
+                                    <DropdownMenuSubContent>
+                                        <DropdownMenuItem onClick={() => handleSetTheme('light')}>
+                                        {t('dashboard.theme.light')} {theme === 'light' && <span className="ml-auto">✓</span>}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleSetTheme('dark')}>
+                                        {t('dashboard.theme.dark')} {theme === 'dark' && <span className="ml-auto">✓</span>}
                                         </DropdownMenuItem>
                                     </DropdownMenuSubContent>
                                 </DropdownMenuPortal>
@@ -522,3 +554,5 @@ export default function DashboardClient({
     </div>
   );
 }
+
+    

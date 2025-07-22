@@ -17,6 +17,8 @@ import {
   Settings,
   User,
   Languages,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -74,8 +76,6 @@ import { useLocale } from '@/lib/i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Logo } from './logo';
-import { LanguageSwitcher } from './language-switcher';
 
 type Condominio = {
   id: string;
@@ -108,6 +108,21 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
   const [editingCondo, setEditingCondo] = useState<Condominio | null>(null);
   const [editCondoName, setEditCondoName] = useState('');
   const [editCondoAddress, setEditCondoAddress] = useState('');
+
+  // State for theme
+  const [theme, setTheme] = useState('light');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+  }, []);
+
+  const handleSetTheme = (newTheme: 'light' | 'dark') => {
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+  }
 
   useEffect(() => {
     if (editingCondo) {
@@ -222,7 +237,7 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                     </DropdownMenuSubTrigger>
                     <DropdownMenuPortal>
                         <DropdownMenuSubContent>
-                            <DropdownMenuSub>
+                             <DropdownMenuSub>
                                 <DropdownMenuSubTrigger>
                                     <Languages className="mr-2 h-4 w-4" />
                                     <span>{t('dashboard.language')}</span>
@@ -234,6 +249,23 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setLocale('pt')}>
                                         Português {locale === 'pt' && <span className="ml-auto">✓</span>}
+                                        </DropdownMenuItem>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuPortal>
+                            </DropdownMenuSub>
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>
+                                    <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                                    <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                                    <span>{t('dashboard.theme.title')}</span>
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuPortal>
+                                    <DropdownMenuSubContent>
+                                        <DropdownMenuItem onClick={() => handleSetTheme('light')}>
+                                        {t('dashboard.theme.light')} {theme === 'light' && <span className="ml-auto">✓</span>}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleSetTheme('dark')}>
+                                        {t('dashboard.theme.dark')} {theme === 'dark' && <span className="ml-auto">✓</span>}
                                         </DropdownMenuItem>
                                     </DropdownMenuSubContent>
                                 </DropdownMenuPortal>
@@ -399,3 +431,5 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
     </div>
   );
 }
+
+    

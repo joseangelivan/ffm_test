@@ -24,6 +24,11 @@
             "cancel": "Cancelar",
             "confirm": "Sair"
         },
+        "theme": {
+            "title": "Tema",
+            "light": "Claro",
+            "dark": "Escuro"
+        },
         "mapTitle": "Mapa ao Vivo",
         "noDeviceSelected": "Nenhum dispositivo selecionado",
         "mapDescription": "Localização em tempo real do seu dispositivo selecionado.",
@@ -87,7 +92,7 @@
       "createCondoButton": "Criar Condomínio",
       "newCondoDialog": {
         "title": "Criar Novo Condomínio",
-        "description": "Insira os detalhes do novo condomínio.",
+        "description": "Insira os detalhes do novo condominio.",
         "nameLabel": "Nome do Condomínio",
         "addressLabel": "Endereço",
         "cancel": "Cancelar",
@@ -181,5 +186,7 @@
         "close": "Fechar"
     }
   }
+
+    
 
     
