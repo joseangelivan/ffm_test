@@ -585,22 +585,20 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   
  const resetToDefaultState = (isCancel: boolean = false) => {
     if (isCancel && editingGeofenceId && originalShapeBeforeEdit) {
-        const fenceToRestore = geofences.find(g => g.id === editingGeofenceId);
-        if (fenceToRestore) {
-            // @ts-ignore
-            fenceToRestore.shape.setMap(null); // Hide the edited shape
-        }
+        // Restore the original shape, this also handles hiding the edited one via RenderedGeofence
         setGeofences(prev => prev.map(g => 
             g.id === editingGeofenceId ? { ...g, shape: originalShapeBeforeEdit } : g
         ));
     }
     
     if(activeOverlay && !geofences.find(g => g.shape === activeOverlay)) {
+        // Hide overlay that was being drawn but not saved
         // @ts-ignore
         activeOverlay.setMap(null);
     }
     
     if(isCancel && (isDrawingMode || isCreating)) {
+       // Restore selection after canceling a draw action
        if (lastSelectedGeofenceId) {
             setSelectedGeofenceId(lastSelectedGeofenceId);
        }
@@ -658,14 +656,14 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     const geofenceToEdit = geofences.find(g => g.id === selectedGeofenceId);
     if (!geofenceToEdit) return;
 
-    resetToDefaultState();
+    resetToDefaultState(); // Clear any previous state
 
     const shapeToClone = geofenceToEdit.shape;
     const clonedShapeForBackup = cloneShape(shapeToClone);
     if (!clonedShapeForBackup) return;
     
     setOriginalShapeBeforeEdit(clonedShapeForBackup);
-    setActiveOverlay(shapeToClone);
+    setActiveOverlay(shapeToClone); // The shape being edited is the active overlay
     setEditingGeofenceId(geofenceToEdit.id);
   }
 
@@ -678,16 +676,24 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       }
       const geofenceToDelete = geofences.find(g => g.id === idToDelete);
       if(geofenceToDelete) {
+          // Explicitly hide from map before removing from state
           // @ts-ignore
           geofenceToDelete.shape.setMap(null);
       }
       setGeofences(prev => {
         const newGeofences = prev.filter(g => g.id !== idToDelete);
+        
+        let newSelectedId = null;
+        if (idToDelete === selectedGeofenceId) {
+            newSelectedId = newGeofences.length > 0 ? newGeofences[0].id : null;
+        } else {
+            newSelectedId = selectedGeofenceId;
+        }
+
         if(idToDelete === defaultGeofenceId) {
             setDefaultGeofenceId(newGeofences.length > 0 ? newGeofences[0].id : null);
         }
         
-        const newSelectedId = newGeofences.length > 0 ? newGeofences[0].id : null;
         setSelectedGeofenceId(newSelectedId);
         return newGeofences;
       });
@@ -717,24 +723,31 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, [isEditingEnabled]);
 
   const getGeofencesToRender = () => {
-    if (!isEditingEnabled) {
-        return viewAll ? geofences : geofences.filter(g => g.id === defaultGeofenceId);
+    if (isEditingEnabled) {
+        if (isEditing) {
+            // Only the one being edited
+            return geofences.filter(g => g.id === editingGeofenceId);
+        }
+        if (isDrawingMode) {
+            // Only the reference one (if any)
+            return geofences.filter(g => g.id === lastSelectedGeofenceId);
+        }
+        if (isCreating) {
+            // None of the saved ones, only the new shape overlay
+            return [];
+        }
+        // Idle in edit mode: show only the selected one
+        return geofences.filter(g => g.id === selectedGeofenceId);
     }
 
-    // --- EDITING IS ENABLED ---
-    if (isEditing) {
-        return geofences.filter(g => g.id === editingGeofenceId);
-    }
-    if (isDrawingMode) {
-        return geofences.filter(g => g.id === lastSelectedGeofenceId);
-    }
-    if (isCreating) {
-        return [];
+    // VIEW MODE (isEditingEnabled is false)
+    if (viewAll) {
+        return geofences;
     }
     
-    // Default idle state in edit mode: show only the selected one
-    return geofences.filter(g => g.id === selectedGeofenceId);
-  }
+    // Default view mode: show only the default one
+    return geofences.filter(g => g.id === defaultGeofenceId);
+  };
 
   const geofencesToRender = getGeofencesToRender();
 
@@ -764,6 +777,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
     const isSelected = selectedGeofenceId === gf.id;
     const isDefault = defaultGeofenceId === gf.id;
+    const isReference = isDrawingMode && lastSelectedGeofenceId === gf.id;
 
     if (!isEditingEnabled) { // VIEW MODE
         if (viewAll) {
@@ -784,14 +798,13 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 editable = true;
                 draggable = true;
             }
-        } else if (isDrawingMode) {
-            if (gf.id === lastSelectedGeofenceId) {
-                fillColor = EDIT_COLOR.fill;
-                strokeColor = EDIT_COLOR.stroke;
-                fillOpacity = 0.1;
-                strokeWeight = 1;
-            }
-        } else { // Idle edit mode
+        } else if (isReference) {
+            fillColor = EDIT_COLOR.fill;
+            strokeColor = EDIT_COLOR.stroke;
+            fillOpacity = 0.1;
+            strokeWeight = 1;
+        }
+        else { // Idle edit mode
             if (isSelected) {
                 fillColor = isDefault ? DEFAULT_COLOR.fill : SAVED_COLOR.fill;
                 strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
