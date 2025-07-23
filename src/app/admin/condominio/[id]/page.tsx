@@ -600,8 +600,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         activeOverlay.setMap(null);
     }
     
-    if(isCancel && (isDrawingMode || isCreating) && lastSelectedGeofenceId) {
-        setSelectedGeofenceId(lastSelectedGeofenceId);
+    if(isCancel && (isDrawingMode || isCreating)) {
+       if (lastSelectedGeofenceId) {
+            setSelectedGeofenceId(lastSelectedGeofenceId);
+       }
     }
     
     setActiveOverlay(null);
@@ -726,21 +728,14 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       if (isEditing) {
           return geofences.filter(g => g.id === editingGeofenceId);
       }
-
       if (isDrawingMode) {
-          // Show only the reference geofence with low opacity
           return geofences.filter(g => g.id === lastSelectedGeofenceId);
       }
-
       if (isCreating) {
-          return []; // Temp shape is handled separately
-      }
-
-      // Idle edit mode (not editing, not drawing)
-      if (viewAll) {
-          return geofences;
+          return []; // Temp shape is handled separately by <RenderedGeofence> with activeOverlay
       }
       
+      // Default state in edit mode: show only the selected geofence
       return geofences.filter(g => g.id === selectedGeofenceId);
 
   }, [isEditingEnabled, viewAll, isEditing, isDrawingMode, isCreating, geofences, defaultGeofenceId, editingGeofenceId, lastSelectedGeofenceId, selectedGeofenceId]);
@@ -799,26 +794,13 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 strokeWeight = 1;
             }
         } else { // Idle edit mode
-            if (viewAll) {
-                if (isDefault) {
-                    fillColor = DEFAULT_COLOR.fill;
-                    strokeColor = DEFAULT_COLOR.stroke;
-                    fillOpacity = isSelected ? 0.4 : 0.2;
-                    strokeWeight = isSelected ? 3 : 1;
-                } else if (isSelected) {
-                     fillColor = SAVED_COLOR.fill;
-                     strokeColor = SAVED_COLOR.stroke;
-                     fillOpacity = 0.4;
-                     strokeWeight = 3;
-                } else {
-                    fillColor = VIEW_ALL_COLOR.fill;
-                    strokeColor = VIEW_ALL_COLOR.stroke;
-                    fillOpacity = 0.2;
-                    strokeWeight = 1;
-                }
-            } else if (isSelected) {
+            if (isSelected) {
                 fillColor = isDefault ? DEFAULT_COLOR.fill : SAVED_COLOR.fill;
                 strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
+                strokeWeight = 3;
+            } else {
+                 // Should not happen with the new geofencesToRender logic
+                 fillOpacity = 0;
             }
         }
     }
