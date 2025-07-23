@@ -573,7 +573,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   
   const [viewAll, setViewAll] = useState(false);
   const [editingGeofenceId, setEditingGeofenceId] = useState<string | null>(null);
+  const [originalShapeBeforeEdit, setOriginalShapeBeforeEdit] = useState<google.maps.MVCObject | null>(null);
+  
   const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [lastSelectedGeofenceId, setLastSelectedGeofenceId] = useState<string | null>(null);
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
   const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
 
@@ -612,13 +615,26 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       return `Geocerca_${String(nextNumber).padStart(2, '0')}`;
   }
   
-  const resetToDefaultState = () => {
+  const resetToDefaultState = (isCancel: boolean = false) => {
+    // Restore original shape if editing was cancelled
+    if (isCancel && editingGeofenceId && originalShapeBeforeEdit) {
+      setGeofences(prev => prev.map(g => 
+        g.id === editingGeofenceId ? { ...g, shape: originalShapeBeforeEdit } : g
+      ));
+    }
+    
     if(activeOverlay && !geofences.find(g => g.shape === activeOverlay)) {
         // @ts-ignore
         activeOverlay.setMap(null);
     }
+    
+    if(isDrawingMode && lastSelectedGeofenceId) {
+        setSelectedGeofenceId(lastSelectedGeofenceId);
+    }
+    
     setActiveOverlay(null);
     setEditingGeofenceId(null);
+    setOriginalShapeBeforeEdit(null);
     setIsDrawingMode(false);
   }
 
@@ -669,6 +685,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     if (!geofenceToEdit) return;
 
     resetToDefaultState();
+    setOriginalShapeBeforeEdit(geofenceToEdit.shape);
     setActiveOverlay(geofenceToEdit.shape);
     setEditingGeofenceId(geofenceToEdit.id);
   }
@@ -700,8 +717,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   
   const handleToggleDrawing = () => {
     if(isActionActive) {
-        resetToDefaultState();
+        resetToDefaultState(true); // Pass true to indicate it's a cancellation
     } else {
+        setLastSelectedGeofenceId(selectedGeofenceId);
         setIsDrawingMode(true);
         setSelectedGeofenceId(null);
     }
@@ -712,27 +730,22 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     setDefaultGeofenceId(selectedGeofenceId);
     toast({ title: "Geocerca por Defecto", description: "Se ha establecido la geocerca seleccionada como predeterminada."});
   }
-
-  useEffect(() => {
-    if (isEditing) {
-      const geofence = geofences.find(g => g.id === editingGeofenceId);
-      if(geofence) setActiveOverlay(geofence.shape);
-    }
-  }, [editingGeofenceId, geofences]);
   
   useEffect(() => {
     if (!isEditingEnabled) {
-        resetToDefaultState();
+        resetToDefaultState(true);
     }
   }, [isEditingEnabled]);
 
   let currentlySelectedIdForView: string | null = null;
   if (isEditingEnabled) {
-    if (isEditing) {
+      if(isEditing) {
         currentlySelectedIdForView = editingGeofenceId;
-    } else {
+      } else if (isCreating) {
+        currentlySelectedIdForView = null; // Don't highlight anything while creating a new one
+      } else {
         currentlySelectedIdForView = selectedGeofenceId;
-    }
+      }
   } else {
     currentlySelectedIdForView = defaultGeofenceId;
   }
@@ -766,8 +779,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     key={gf.id}
                                     geofence={gf}
                                     isBeingEdited={editingGeofenceId === gf.id}
-                                    isSelected={currentlySelectedIdForView === gf.id}
-                                    isDefault={defaultGeofenceId === gf.id}
+                                    isSelected={(!viewAll && currentlySelectedIdForView === gf.id) || (viewAll && defaultGeofenceId === gf.id)}
+                                    isDefault={defaultGeofenceId === gf.id || (isDrawingMode && lastSelectedGeofenceId === gf.id)}
                                     viewAll={viewAll}
                                     isDrawing={isDrawingMode}
                                     onUpdate={(newShape) => setActiveOverlay(newShape)}
@@ -795,9 +808,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 </div>
             </div>
             <div className="w-1/3 p-4 space-y-4 overflow-y-auto">
-                <div className="p-4 border rounded-lg space-y-4">
-                     <h3 className="text-lg font-semibold">Geocerca</h3>
-                     <div className="flex items-center justify-between gap-4">
+                <div className="p-4 border rounded-lg space-y-4 relative">
+                     <h3 className="text-lg font-semibold absolute -top-3 left-3 bg-card px-1">Geocerca</h3>
+                     
+                     <div className="flex items-center justify-between gap-4 pt-4">
                         <div className="flex-grow grid gap-2">
                             <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
                             <div className="relative">
