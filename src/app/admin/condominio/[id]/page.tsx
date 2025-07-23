@@ -597,7 +597,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
 
   const isEditing = editingGeofenceId !== null;
-  const isCreating = activeOverlay !== null && !isEditing;
+  const isCreating = activeOverlay !== null && !editingGeofenceId;
   const isActionActive = isDrawingMode || isEditing || isCreating;
 
   const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || "Ninguna";
@@ -706,7 +706,12 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         clonedShape.setPaths(geofenceToEdit.shape.getPaths());
     } else { // Circle or Rectangle
         // @ts-ignore
-        clonedShape.setOptions(geofenceToEdit.shape.get());
+        clonedShape.setOptions({
+            // @ts-ignore
+            ...geofenceToEdit.shape.get(),
+            // @ts-ignore
+            map: geofenceToEdit.shape.getMap(),
+        });
     }
     setOriginalShapeBeforeEdit(clonedShape);
     
@@ -803,7 +808,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     key={gf.id}
                                     geofence={gf}
                                     isBeingEdited={editingGeofenceId === gf.id}
-                                    isSelected={(!viewAll && currentlySelectedIdForView === gf.id) || (viewAll && defaultGeofenceId === gf.id)}
+                                    isSelected={(!viewAll && currentlySelectedIdForView === gf.id) || (viewAll && isEditing && editingGeofenceId === gf.id)}
                                     isDefault={defaultGeofenceId === gf.id}
                                     viewAll={viewAll}
                                     isDrawing={isDrawingMode}
