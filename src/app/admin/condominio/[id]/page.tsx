@@ -417,7 +417,7 @@ const DEFAULT_COLOR = {
 };
 
 
-const RenderedGeofence = ({ geofence, options, onUpdate }: { geofence: GeofenceObject; options: any; onUpdate: (newShape: google.maps.MVCObject) => void; }) => {
+function RenderedGeofence({ geofence, options, onUpdate }: { geofence: GeofenceObject; options: any; onUpdate: (newShape: google.maps.MVCObject) => void; }) {
     const map = useMap();
     const shapeRef = useRef<google.maps.MVCObject | null>(null);
     const listenersRef = useRef<google.maps.MapsEventListener[]>([]);
@@ -594,11 +594,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   
   const resetToDefaultState = (isCancel: boolean = false) => {
     if (isCancel && editingGeofenceId && originalShapeBeforeEdit) {
-        const fenceToReset = geofences.find(g => g.id === editingGeofenceId);
-        if (fenceToReset) {
-            // @ts-ignore
-            fenceToReset.shape.setMap(null); // Remove the edited shape from the map
-        }
         setGeofences(prev => prev.map(g => 
             g.id === editingGeofenceId ? { ...g, shape: originalShapeBeforeEdit } : g
         ));
@@ -680,12 +675,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       if (!selectedGeofenceId) return;
       const idToDelete = selectedGeofenceId;
 
-      const geofenceToDelete = geofences.find(g => g.id === idToDelete);
-      if(geofenceToDelete) {
-          // @ts-ignore
-          geofenceToDelete.shape.setMap(null);
-      }
-
       setGeofences(prev => {
         const newGeofences = prev.filter(g => g.id !== idToDelete);
         
@@ -733,7 +722,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     }
   }, [isEditingEnabled]);
 
-  const getGeofencesToRender = () => {
+  const geofencesToRender = useMemo(() => {
     if (isEditingEnabled) {
         if (isEditing) {
             return geofences.filter(g => g.id === editingGeofenceId);
@@ -745,6 +734,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             const refGeofence = geofences.find(g => g.id === lastSelectedGeofenceId);
             return refGeofence ? [refGeofence] : [];
         }
+        if (viewAll) {
+             return geofences;
+        }
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
         return selectedGeofence ? [selectedGeofence] : [];
     }
@@ -755,9 +747,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     
     const defaultGeofence = geofences.find(g => g.id === defaultGeofenceId);
     return defaultGeofence ? [defaultGeofence] : [];
-  };
-
-  const geofencesToRender = getGeofencesToRender();
+  }, [isEditingEnabled, isEditing, isCreating, isDrawingMode, viewAll, geofences, selectedGeofenceId, editingGeofenceId, defaultGeofenceId, lastSelectedGeofenceId]);
 
   
   if (!apiKey) {
@@ -787,6 +777,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     const isDefault = defaultGeofenceId === gf.id;
     
     if (isEditingEnabled) {
+        const isSelectedInDropdown = selectedGeofenceId === gf.id;
+        
         if (isEditing && gf.id === editingGeofenceId) {
             fillColor = EDIT_COLOR.fill;
             strokeColor = EDIT_COLOR.stroke;
@@ -799,11 +791,17 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             strokeColor = EDIT_COLOR.stroke;
             fillOpacity = 0.1;
             strokeWeight = 1;
-        } else {
+        } else if (isSelectedInDropdown) {
             // Geofence selected in dropdown (idle edit mode)
             fillColor = isDefault ? DEFAULT_COLOR.fill : SAVED_COLOR.fill;
             strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
             strokeWeight = 3;
+        } else {
+             // Other geofences in viewAll mode
+             fillColor = VIEW_ALL_COLOR.fill;
+             strokeColor = VIEW_ALL_COLOR.stroke;
+             fillOpacity = 0.2;
+             strokeWeight = 1;
         }
     } else { // VIEW MODE
         if (viewAll) {
@@ -870,7 +868,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         <div className="flex items-center justify-between">
                             <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
                             <div className="flex items-center space-x-2">
-                                <Checkbox id="view-all" checked={viewAll} disabled={isEditingEnabled} onCheckedChange={(checked) => setViewAll(!!checked)}/>
+                                <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)}/>
                                 <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                     Ver Todas
                                 </label>
