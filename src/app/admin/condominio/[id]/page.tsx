@@ -26,7 +26,8 @@ import {
   CheckCircle,
   ChevronDown,
   Save,
-  Eye
+  Eye,
+  Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -413,24 +414,26 @@ const VIEW_ALL_COLOR = {
 
 const RenderedGeofence = ({ 
     geofence, 
-    isBeingEdited, 
+    isBeingEdited,
+    isSelected,
     viewAll, 
     onUpdate 
 }: { 
     geofence: GeofenceObject, 
-    isBeingEdited: boolean, 
+    isBeingEdited: boolean,
+    isSelected: boolean,
     viewAll: boolean,
     onUpdate: (newShape: google.maps.MVCObject) => void;
 }) => {
     const map = useMap();
     
-    const isVisible = isBeingEdited || viewAll;
+    const isVisible = isBeingEdited || viewAll || isSelected;
     
     const options = {
-        fillColor: isBeingEdited ? EDIT_COLOR.fill : viewAll ? VIEW_ALL_COLOR.fill : SAVED_COLOR.fill,
-        strokeColor: isBeingEdited ? EDIT_COLOR.stroke : viewAll ? VIEW_ALL_COLOR.stroke : SAVED_COLOR.stroke,
-        fillOpacity: isBeingEdited ? 0.3 : viewAll ? 0.2 : 0.4,
-        strokeWeight: isBeingEdited ? 2 : viewAll ? 1 : 3,
+        fillColor: isBeingEdited ? EDIT_COLOR.fill : isSelected ? SAVED_COLOR.fill : viewAll ? VIEW_ALL_COLOR.fill : SAVED_COLOR.fill,
+        strokeColor: isBeingEdited ? EDIT_COLOR.stroke : isSelected ? SAVED_COLOR.stroke : viewAll ? VIEW_ALL_COLOR.stroke : SAVED_COLOR.stroke,
+        fillOpacity: isBeingEdited ? 0.3 : isSelected ? 0.4 : viewAll ? 0.2 : 0.4,
+        strokeWeight: isBeingEdited ? 2 : isSelected ? 3 : viewAll ? 1 : 3,
         editable: isBeingEdited,
         draggable: isBeingEdited,
     };
@@ -472,7 +475,7 @@ const RenderedGeofence = ({
              listeners.forEach(l => l.remove());
         }
 
-    }, [map, geofence, isBeingEdited, viewAll, JSON.stringify(options)]); // Using JSON.stringify for options to avoid deep comparison issues
+    }, [map, geofence, isBeingEdited, isSelected, viewAll, JSON.stringify(options)]); // Using JSON.stringify for options to avoid deep comparison issues
     
     return null; // The shapes are rendered via the Google Maps API directly, not React components
 };
@@ -530,6 +533,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const [viewAll, setViewAll] = useState(false);
   const [editingGeofenceId, setEditingGeofenceId] = useState<string | null>(null);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
+  const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
 
   const isEditing = editingGeofenceId !== null;
   const isActionActive = isDrawingMode || isEditing || (activeOverlay && !isEditing);
@@ -584,7 +589,15 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
           shape: activeOverlay
       };
       
-      setGeofences(prev => [...prev, newGeofence]);
+      setGeofences(prev => {
+        const newGeofences = [...prev, newGeofence];
+        if(newGeofences.length === 1) {
+            setDefaultGeofenceId(newId); // Make first geofence default
+        }
+        return newGeofences;
+      });
+
+      setSelectedGeofenceId(newId);
       resetToDefaultState();
       
       toast({
@@ -609,6 +622,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     resetToDefaultState(); // Cancel any ongoing action before starting a new one
     setActiveOverlay(geofence.shape);
     setEditingGeofenceId(geofence.id);
+    setSelectedGeofenceId(geofence.id);
   }
 
   const handleDelete = (idToDelete: string) => {
@@ -621,7 +635,16 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
           // @ts-ignore
           geofenceToDelete.shape.setMap(null);
       }
-      setGeofences(prev => prev.filter(g => g.id !== idToDelete));
+      setGeofences(prev => {
+        const newGeofences = prev.filter(g => g.id !== idToDelete);
+        if(idToDelete === defaultGeofenceId) {
+            setDefaultGeofenceId(newGeofences.length > 0 ? newGeofences[0].id : null);
+        }
+        if(idToDelete === selectedGeofenceId){
+            setSelectedGeofenceId(newGeofences.length > 0 ? newGeofences[0].id : null);
+        }
+        return newGeofences;
+      });
       toast({ title: "Geocerca Eliminada", variant: "destructive" });
   }
   
@@ -630,6 +653,14 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         resetToDefaultState();
     } else {
         setIsDrawingMode(true);
+        setSelectedGeofenceId(null);
+    }
+  }
+
+  const handleSetAsDefault = () => {
+    if(selectedGeofenceId) {
+        setDefaultGeofenceId(selectedGeofenceId);
+        toast({ title: "Geocerca por Defecto", description: "Se ha establecido la geocerca seleccionada como predeterminada."});
     }
   }
 
@@ -662,6 +693,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     key={gf.id}
                                     geofence={gf}
                                     isBeingEdited={editingGeofenceId === gf.id}
+                                    isSelected={selectedGeofenceId === gf.id && !viewAll}
                                     viewAll={viewAll && editingGeofenceId !== gf.id}
                                     onUpdate={(newShape) => setActiveOverlay(newShape)}
                                 />
@@ -672,7 +704,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     drawingMode={drawingMode} 
                                 />
                             )}
-                            {activeOverlay && !isEditing && <RenderedGeofence geofence={{id: 'temp', name: 'temp', shape: activeOverlay}} isBeingEdited={true} viewAll={false} onUpdate={() => {}} />}
+                            {activeOverlay && !isEditing && <RenderedGeofence geofence={{id: 'temp', name: 'temp', shape: activeOverlay}} isBeingEdited={true} isSelected={false} viewAll={false} onUpdate={() => {}} />}
                         </MapComponent>
                     </APIProvider>
                 </div>
@@ -714,37 +746,57 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         </Button>
                     )}
                     <div className="flex items-center space-x-2 pt-2">
-                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isListDisabled && !isDrawingMode} />
+                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isDrawingMode} />
                         <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                             Ver Todas
                         </label>
                     </div>
-                </div>
-
-                <div className="p-4 border rounded-lg space-y-2">
-                     <h3 className="font-semibold text-lg">Selección y Edición</h3>
-                     {geofences.length === 0 ? (
-                         <p className="text-sm text-muted-foreground text-center py-4">No hay geocercas guardadas.</p>
-                     ) : (
-                        <div className="space-y-2">
-                            {geofences.map(gf => (
-                                <div key={gf.id} className={cn(
-                                    "flex items-center justify-between p-2 rounded-md",
-                                    editingGeofenceId === gf.id ? "bg-blue-100 dark:bg-blue-900" : "bg-muted/50"
-                                )}>
-                                    <span className="font-medium">{gf.name}</span>
-                                    <div className="flex items-center gap-1">
-                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(gf)} disabled={isListDisabled}>
-                                            <Edit className="h-4 w-4"/>
-                                        </Button>
-                                         <Button variant="ghost" size="icon" onClick={() => handleDelete(gf.id)} disabled={isListDisabled}>
-                                            <Trash2 className="h-4 w-4 text-destructive"/>
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                     )}
+                     
+                    <div className="pt-4 border-t space-y-2">
+                        <h3 className="font-semibold text-lg">Selección y Edición</h3>
+                        {geofences.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">No hay geocercas guardadas.</p>
+                        ) : (
+                           <>
+                           <div className='flex items-center gap-2'>
+                             <Select value={selectedGeofenceId || ''} onValueChange={id => setSelectedGeofenceId(id)} disabled={isListDisabled}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar geocerca" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {geofences.map(gf => (
+                                        <SelectItem key={gf.id} value={gf.id}>{gf.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                             </Select>
+                              <Button variant="outline" size="icon" onClick={handleSetAsDefault} disabled={!selectedGeofenceId || isListDisabled}>
+                                 <Star className={cn("h-4 w-4", defaultGeofenceId === selectedGeofenceId && "fill-yellow-400 text-yellow-500")} />
+                              </Button>
+                           </div>
+                           <div className="space-y-2 pt-2">
+                               {geofences.map(gf => (
+                                   <div key={gf.id} className={cn(
+                                       "flex items-center justify-between p-2 rounded-md",
+                                       editingGeofenceId === gf.id ? "bg-blue-100 dark:bg-blue-900" : selectedGeofenceId === gf.id ? "bg-muted" : "bg-muted/50"
+                                   )}>
+                                       <div className="flex items-center gap-2">
+                                           {defaultGeofenceId === gf.id && <Star className="h-4 w-4 text-yellow-500" />}
+                                           <span className="font-medium">{gf.name}</span>
+                                       </div>
+                                       <div className="flex items-center gap-1">
+                                           <Button variant="ghost" size="icon" onClick={() => handleEdit(gf)} disabled={isListDisabled}>
+                                               <Edit className="h-4 w-4"/>
+                                           </Button>
+                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(gf.id)} disabled={isListDisabled}>
+                                               <Trash2 className="h-4 w-4 text-destructive"/>
+                                           </Button>
+                                       </div>
+                                   </div>
+                               ))}
+                           </div>
+                           </>
+                        )}
+                   </div>
                 </div>
             </div>
         </div>
