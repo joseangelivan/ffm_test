@@ -717,45 +717,36 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }
   
   useEffect(() => {
-    // This effect ensures that when we exit edit mode, we reset all editing states
-    // and the view reverts to the default visualization logic.
     if (!isEditingEnabled) {
       resetToDefaultState(true);
-      // The viewAll state is preserved, so the render logic will correctly
-      // show either the default geofence or all of them.
     }
   }, [isEditingEnabled]);
 
-  const getGeofencesToRender = () => {
+  const geofencesToRender = useMemo(() => {
       if (isEditingEnabled) {
-          // In EDIT mode, we are very strict about what is shown.
           if (isEditing) {
-              // Only show the geofence being edited.
               return geofences.filter(g => g.id === editingGeofenceId);
           }
           if (isCreating) {
-              // Show nothing saved, only the new overlay which is handled separately.
               return [];
           }
           if (isDrawingMode) {
-              // Show only the reference geofence.
-              return geofences.filter(g => g.id === lastSelectedGeofenceId);
+              const refGeofence = geofences.find(g => g.id === lastSelectedGeofenceId);
+              return refGeofence ? [refGeofence] : [];
           }
-          // Idle in edit mode: show only the one selected in the dropdown.
-          return geofences.filter(g => g.id === selectedGeofenceId);
+          const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
+          return selectedGeofence ? [selectedGeofence] : [];
       }
   
-      // In VIEW mode, "viewAll" checkbox dictates the view.
       if (viewAll) {
           return geofences;
       }
       
-      // Default view mode: show only the default geofence.
-      return geofences.filter(g => g.id === defaultGeofenceId);
-  };
-  
-  const geofencesToRender = getGeofencesToRender();
+      const defaultGeofence = geofences.find(g => g.id === defaultGeofenceId);
+      return defaultGeofence ? [defaultGeofence] : [];
 
+  }, [isEditingEnabled, viewAll, isEditing, isCreating, isDrawingMode, geofences, editingGeofenceId, selectedGeofenceId, lastSelectedGeofenceId, defaultGeofenceId]);
+  
   if (!apiKey) {
     return (
         <Card>
@@ -780,7 +771,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     let editable = false;
     let draggable = false;
 
-    const isSelected = selectedGeofenceId === gf.id;
     const isDefault = defaultGeofenceId === gf.id;
     const isReference = isDrawingMode && lastSelectedGeofenceId === gf.id;
 
@@ -809,15 +799,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             fillOpacity = 0.1;
             strokeWeight = 1;
         }
-        else { // Idle edit mode
-            if (isSelected) {
-                fillColor = isDefault ? DEFAULT_COLOR.fill : SAVED_COLOR.fill;
-                strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
-                strokeWeight = 3;
-            } else {
-                 // Should not happen due to getGeofencesToRender logic, but as a fallback:
-                 return { visible: false };
-            }
+        else { // Idle edit mode (just selected from dropdown)
+            fillColor = isDefault ? DEFAULT_COLOR.fill : SAVED_COLOR.fill;
+            strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
+            strokeWeight = 3;
         }
     }
 
