@@ -777,15 +777,18 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             </div>
             <div className="w-1/3 p-4 space-y-4 overflow-y-auto">
                 <div className="p-4 border rounded-lg space-y-4">
-                     <div className="flex items-center space-x-2">
-                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} />
-                        <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                            Ver Todas
-                        </label>
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
-                        <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled />
+                    <h3 className="text-lg font-semibold">Geocerca</h3>
+                    <div className="flex items-end gap-4">
+                        <div className="flex-grow grid gap-2">
+                            <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
+                            <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled />
+                        </div>
+                        <div className="flex items-center space-x-2 pb-2">
+                            <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} />
+                            <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                Ver Todas
+                            </label>
+                        </div>
                     </div>
 
                     <div className="pt-4 border-t space-y-2">
@@ -822,29 +825,31 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                             </div>
                             
                             <div className="space-y-2 pt-2">
-                               <Select value={selectedGeofenceId || ''} onValueChange={id => setSelectedGeofenceId(id)} disabled={isActionActive}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar geocerca para gestionar" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {geofences.map(gf => (
-                                            <SelectItem key={gf.id} value={gf.id}>{gf.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                               </Select>
-                               <div className="flex items-center gap-2">
-                                    <Button variant="ghost" size="icon" onClick={handleSetAsDefault} disabled={isActionActive || !selectedGeofenceId}>
-                                        <Star className={cn("h-4 w-4", defaultGeofenceId === selectedGeofenceId && "fill-yellow-400 text-yellow-500")} />
-                                        <span className="sr-only">Establecer como Default</span>
-                                    </Button>
-                                   <Button variant="ghost" size="icon" onClick={handleEdit} disabled={isActionActive || !selectedGeofenceId}>
-                                       <Edit className="h-4 w-4"/>
-                                       <span className="sr-only">Editar</span>
-                                   </Button>
-                                    <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isActionActive || !selectedGeofenceId}>
-                                       <Trash2 className="h-4 w-4 text-destructive"/>
-                                       <span className="sr-only">Eliminar</span>
-                                   </Button>
+                                <div className="flex items-center gap-2">
+                                   <Select value={selectedGeofenceId || ''} onValueChange={id => setSelectedGeofenceId(id)} disabled={isActionActive}>
+                                        <SelectTrigger className="flex-1">
+                                            <SelectValue placeholder="Seleccionar geocerca para gestionar" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {geofences.map(gf => (
+                                                <SelectItem key={gf.id} value={gf.id}>{gf.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                   </Select>
+                                   <div className="flex items-center">
+                                        <Button variant="ghost" size="icon" onClick={handleSetAsDefault} disabled={isActionActive || !selectedGeofenceId}>
+                                            <Star className={cn("h-4 w-4", defaultGeofenceId === selectedGeofenceId && "fill-yellow-400 text-yellow-500")} />
+                                            <span className="sr-only">Establecer como Default</span>
+                                        </Button>
+                                       <Button variant="ghost" size="icon" onClick={handleEdit} disabled={isActionActive || !selectedGeofenceId}>
+                                           <Edit className="h-4 w-4"/>
+                                           <span className="sr-only">Editar</span>
+                                       </Button>
+                                        <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isActionActive || !selectedGeofenceId}>
+                                           <Trash2 className="h-4 w-4 text-destructive"/>
+                                           <span className="sr-only">Eliminar</span>
+                                       </Button>
+                                   </div>
                                </div>
                             </div>
 
@@ -892,7 +897,7 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
                 </div>
             </div>
           </div>
-          <Tabs defaultValue="users">
+          <Tabs defaultValue="map">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="users" className="flex items-center gap-2"><Users className="h-4 w-4"/>{t('condoDashboard.tabs.users')}</TabsTrigger>
               <TabsTrigger value="devices" className="flex items-center gap-2"><Smartphone className="h-4 w-4"/>{t('condoDashboard.tabs.devices')}</TabsTrigger>
