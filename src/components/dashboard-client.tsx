@@ -22,6 +22,7 @@ import {
   User,
   Watch,
 } from 'lucide-react';
+import { APIProvider } from '@vis.gl/react-google-maps';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -80,6 +81,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import MapComponent, { Marker } from '@/components/map';
 
 type Device = {
   id: string;
@@ -263,12 +265,14 @@ export default function DashboardClient({
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(
     initialDevices.find(d => d.status === 'Online') || initialDevices[0] || null
   );
-
+  
   const { toast } = useToast();
   const { t, setLocale, locale } = useLocale();
   const router = useRouter();
 
   const [theme, setTheme] = useState('light');
+
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') || 'light';
@@ -344,6 +348,31 @@ export default function DashboardClient({
   const handleLogout = () => {
     router.push('/');
   }
+  
+  const mapCenter = selectedDevice 
+    ? { 
+        lat: parseFloat(selectedDevice.lastLocation.split(',')[0]), 
+        lng: parseFloat(selectedDevice.lastLocation.split(',')[1]) 
+      }
+    : { lat: 40.7128, lng: -74.0060 }; // Default center if no device selected
+
+  const mapMarkers: Marker[] = devices
+    .map(device => {
+        try {
+            const [lat, lng] = device.lastLocation.split(',').map(s => parseFloat(s.trim()));
+            if (isNaN(lat) || isNaN(lng)) return null;
+            return {
+                id: device.id,
+                position: { lat, lng },
+                label: device.name,
+                isActive: device.id === selectedDevice?.id
+            };
+        } catch (error) {
+            return null;
+        }
+    })
+    .filter((marker): marker is Marker => marker !== null);
+
 
   if (isLoading) {
     return <DashboardSkeleton />;
@@ -468,18 +497,15 @@ export default function DashboardClient({
             </CardHeader>
             <CardContent>
               <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden relative shadow-inner">
-                 <Image
-                    src="https://placehold.co/1200x800.png"
-                    alt="Map view of tracked device"
-                    layout="fill"
-                    objectFit="cover"
-                    data-ai-hint="map satellite"
-                  />
-                  {selectedDevice && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                        <MapPin className="h-10 w-10 text-accent drop-shadow-lg animate-bounce" />
+                 {!apiKey ? (
+                    <div className="flex items-center justify-center h-full">
+                        <p>API Key for Google Maps is missing.</p>
                     </div>
-                  )}
+                 ) : (
+                    <APIProvider apiKey={apiKey}>
+                        <MapComponent center={mapCenter} markers={mapMarkers} />
+                    </APIProvider>
+                 )}
               </div>
             </CardContent>
           </Card>
@@ -554,5 +580,3 @@ export default function DashboardClient({
     </div>
   );
 }
-
-    

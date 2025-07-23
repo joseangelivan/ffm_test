@@ -56,12 +56,15 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { APIProvider } from '@vis.gl/react-google-maps';
+import MapComponent from '@/components/map';
 
 // Mock data
 const mockCondoDetails = {
   id: 'condo-001',
   name: 'Residencial Jardins',
   address: 'Rua das Flores, 123',
+  location: { lat: -23.5505, lng: -46.6333 }
 };
 
 const mockDevices = [
@@ -379,8 +382,26 @@ function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
 }
 
 
-function CondoMapTab() {
+function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const { t } = useLocale();
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  if (!apiKey) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
+                <CardDescription>API Key for Google Maps is missing.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
+                    <p>Google Maps could not be loaded.</p>
+                </div>
+            </CardContent>
+        </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -389,29 +410,13 @@ function CondoMapTab() {
             <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
             <CardDescription>{t('condoDashboard.map.description')}</CardDescription>
           </div>
-          <div className="w-full sm:w-64">
-             <Select defaultValue="default">
-                <SelectTrigger>
-                  <SelectValue placeholder={t('condoDashboard.map.selectMapPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">{t('condoDashboard.map.defaultOSM')}</SelectItem>
-                  <SelectItem value="custom1">{t('condoDashboard.map.customMap1')}</SelectItem>
-                  <SelectItem value="custom2">{t('condoDashboard.map.customMap2')}</SelectItem>
-                </SelectContent>
-              </Select>
-          </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden relative shadow-inner">
-            <Image
-                src="https://placehold.co/1200x800.png"
-                alt="Vista de mapa del condominio"
-                layout="fill"
-                objectFit="cover"
-                data-ai-hint="map openstreetmap"
-            />
+            <APIProvider apiKey={apiKey}>
+                <MapComponent center={center} />
+            </APIProvider>
         </div>
       </CardContent>
     </Card>
@@ -455,7 +460,7 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
               <ManageDevicesTab initialDevices={mockDevices} />
             </TabsContent>
              <TabsContent value="map" className="mt-4">
-              <CondoMapTab />
+              <CondoMapTab center={condo.location} />
             </TabsContent>
           </Tabs>
         </div>
