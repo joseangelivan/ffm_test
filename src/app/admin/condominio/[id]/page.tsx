@@ -567,6 +567,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const isEditing = editingGeofenceId !== null;
   const isActionActive = isDrawingMode || isEditing;
 
+  const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || "Ninguna";
+
   const handleOverlayComplete = useCallback((overlay: google.maps.MVCObject) => {
     setActiveOverlay(overlay);
     setIsDrawingMode(false);
@@ -731,7 +733,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     key={gf.id}
                                     geofence={gf}
                                     isBeingEdited={editingGeofenceId === gf.id}
-                                    isSelected={selectedGeofenceId === gf.id}
+                                    isSelected={selectedGeofenceId === gf.id && !viewAll}
                                     viewAll={viewAll}
                                     onUpdate={(newShape) => setActiveOverlay(newShape)}
                                 />
@@ -759,20 +761,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
                     <div className="pt-4 border-t space-y-2">
                         <h3 className="font-semibold text-lg">Selección</h3>
-                        {geofences.length === 0 && !isActionActive ? (
-                            <p className="text-sm text-muted-foreground text-center py-4">No hay geocercas guardadas.</p>
-                        ) : (
-                           <Select value={selectedGeofenceId || ''} onValueChange={id => setSelectedGeofenceId(id)} disabled={isActionActive}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Seleccionar geocerca" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {geofences.map(gf => (
-                                    <SelectItem key={gf.id} value={gf.id}>{gf.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                           </Select>
-                        )}
+                        <div className="grid gap-2">
+                            <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
+                            <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled />
+                        </div>
                    </div>
                      
                     <div className="pt-4 border-t space-y-2">
@@ -892,3 +884,5 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
+    
