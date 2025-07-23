@@ -427,13 +427,43 @@ const RenderedGeofence = ({
 }) => {
     const map = useMap();
     
-    const isVisible = isBeingEdited || viewAll || isSelected;
+    let isVisible = isBeingEdited || viewAll || isSelected;
+    let fillColor = SAVED_COLOR.fill;
+    let strokeColor = SAVED_COLOR.stroke;
+    let fillOpacity = 0.4;
+    let strokeWeight = 3;
+    
+    if (isBeingEdited) {
+        fillColor = EDIT_COLOR.fill;
+        strokeColor = EDIT_COLOR.stroke;
+        fillOpacity = 0.3;
+        strokeWeight = 2;
+    } else if (viewAll) {
+        // When viewAll is true, we check if it is the selected one to keep its color
+        if (isSelected) {
+            fillColor = SAVED_COLOR.fill;
+            strokeColor = SAVED_COLOR.stroke;
+            fillOpacity = 0.4;
+            strokeWeight = 3;
+        } else {
+            fillColor = VIEW_ALL_COLOR.fill;
+            strokeColor = VIEW_ALL_COLOR.stroke;
+            fillOpacity = 0.2;
+            strokeWeight = 1;
+        }
+    } else if (isSelected) {
+        // This case handles when viewAll is false, but it's selected
+        fillColor = SAVED_COLOR.fill;
+        strokeColor = SAVED_COLOR.stroke;
+        fillOpacity = 0.4;
+        strokeWeight = 3;
+    }
     
     const options = {
-        fillColor: isBeingEdited ? EDIT_COLOR.fill : isSelected ? SAVED_COLOR.fill : viewAll ? VIEW_ALL_COLOR.fill : SAVED_COLOR.fill,
-        strokeColor: isBeingEdited ? EDIT_COLOR.stroke : isSelected ? SAVED_COLOR.stroke : viewAll ? VIEW_ALL_COLOR.stroke : SAVED_COLOR.stroke,
-        fillOpacity: isBeingEdited ? 0.3 : isSelected ? 0.4 : viewAll ? 0.2 : 0.4,
-        strokeWeight: isBeingEdited ? 2 : isSelected ? 3 : viewAll ? 1 : 3,
+        fillColor,
+        strokeColor,
+        fillOpacity,
+        strokeWeight,
         editable: isBeingEdited,
         draggable: isBeingEdited,
     };
@@ -693,7 +723,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     key={gf.id}
                                     geofence={gf}
                                     isBeingEdited={editingGeofenceId === gf.id}
-                                    isSelected={selectedGeofenceId === gf.id && !viewAll}
+                                    isSelected={selectedGeofenceId === gf.id}
                                     viewAll={viewAll && editingGeofenceId !== gf.id}
                                     onUpdate={(newShape) => setActiveOverlay(newShape)}
                                 />
