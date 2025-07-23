@@ -433,7 +433,7 @@ const RenderedGeofence = ({
 }) => {
     const map = useMap();
     
-    const isVisible = isBeingEdited || viewAll || isSelected || isDefault;
+    const isVisible = isBeingEdited || viewAll || isSelected;
     let fillColor = SAVED_COLOR.fill;
     let strokeColor = SAVED_COLOR.stroke;
     let fillOpacity = 0.4;
@@ -457,7 +457,7 @@ const RenderedGeofence = ({
             fillOpacity = 0.2;
             strokeWeight = 1;
         }
-    } else if (isSelected || isDefault) {
+    } else if (isSelected) {
         fillColor = isDefault ? DEFAULT_COLOR.fill : SAVED_COLOR.fill;
         strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
     }
@@ -539,7 +539,7 @@ const DrawingManager = ({
         const listener = (event: any) => {
             onOverlayComplete(event.overlay);
             newDrawingManager.setDrawingMode(null);
-            event.overlay.setMap(null);
+            event.overlay.setMap(null); // The overlay is handled by our state now
         };
         
         const overlayCompleteListener = google.maps.event.addListener(newDrawingManager, 'overlaycomplete', listener);
@@ -573,7 +573,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
 
   const isEditing = editingGeofenceId !== null;
-  const isActionActive = isDrawingMode || isEditing;
+  const isCreating = activeOverlay !== null && !isEditing;
+  const isActionActive = isDrawingMode || isEditing || isCreating;
 
   const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || "Ninguna";
 
@@ -717,8 +718,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     }
   }, [isEditingEnabled]);
 
-  const currentlySelectedIdForView = isEditingEnabled ? selectedGeofenceId : null;
-  const currentlySelectedIdForHighlight = isEditing ? editingGeofenceId : currentlySelectedIdForView;
+  const currentlySelectedIdForView = isEditingEnabled ? (editingGeofenceId || selectedGeofenceId) : defaultGeofenceId;
 
   if (!apiKey) {
     return (
@@ -744,29 +744,33 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 <div className="h-full bg-muted overflow-hidden relative shadow-inner">
                     <APIProvider apiKey={apiKey} libraries={['drawing']}>
                         <MapComponent center={center} zoom={15}>
-                            {geofences.map(gf => {
-                                const isSelected = !isEditingEnabled ? gf.id === defaultGeofenceId : 
-                                    isActionActive ? gf.id === editingGeofenceId : gf.id === selectedGeofenceId;
-                                
-                                return (
-                                    <RenderedGeofence 
-                                        key={gf.id}
-                                        geofence={gf}
-                                        isBeingEdited={editingGeofenceId === gf.id}
-                                        isSelected={isSelected}
-                                        isDefault={defaultGeofenceId === gf.id}
-                                        viewAll={viewAll}
-                                        onUpdate={(newShape) => setActiveOverlay(newShape)}
-                                    />
-                                );
-                            })}
+                            {geofences.map(gf => (
+                                <RenderedGeofence 
+                                    key={gf.id}
+                                    geofence={gf}
+                                    isBeingEdited={editingGeofenceId === gf.id}
+                                    isSelected={gf.id === currentlySelectedIdForView}
+                                    isDefault={defaultGeofenceId === gf.id}
+                                    viewAll={viewAll}
+                                    onUpdate={(newShape) => setActiveOverlay(newShape)}
+                                />
+                            ))}
                             {isDrawingMode && (
                                 <DrawingManager 
                                     onOverlayComplete={handleOverlayComplete} 
                                     drawingMode={drawingMode} 
                                 />
                             )}
-                            {activeOverlay && !isEditing && <RenderedGeofence geofence={{id: 'temp', name: 'temp', shape: activeOverlay}} isBeingEdited={true} isSelected={false} isDefault={false} viewAll={false} onUpdate={() => {}} />}
+                            {isCreating && (
+                                <RenderedGeofence 
+                                    geofence={{id: 'temp', name: 'temp', shape: activeOverlay}} 
+                                    isBeingEdited={true} 
+                                    isSelected={true} 
+                                    isDefault={false} 
+                                    viewAll={false} 
+                                    onUpdate={() => {}} 
+                                />
+                            )}
                         </MapComponent>
                     </APIProvider>
                 </div>
@@ -774,7 +778,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             <div className="w-1/3 p-4 space-y-4 overflow-y-auto">
                 <div className="p-4 border rounded-lg space-y-4">
                      <div className="flex items-center space-x-2">
-                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isActionActive} />
+                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} />
                         <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                             Ver Todas
                         </label>
@@ -796,7 +800,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                             <div className="flex items-center gap-2">
                                 <Button onClick={handleToggleDrawing} variant={isActionActive ? "destructive" : "outline"} className="flex-1">
                                     <PencilRuler className="mr-2 h-4 w-4"/>
-                                    {isEditing ? 'Cancelar Edición' : isDrawingMode ? 'Cancelar Dibujo' : 'Dibujar'}
+                                    {isEditing ? 'Cancelar Edición' : isActionActive ? 'Cancelar Dibujo' : 'Dibujar'}
                                 </Button>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -844,7 +848,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                </div>
                             </div>
 
-                             {activeOverlay && !isEditing && (
+                             {isCreating && (
                                 <Button onClick={handleSaveGeofence} className="w-full">
                                     <Save className="mr-2 h-4 w-4" /> Guardar Geocerca
                                 </Button>
