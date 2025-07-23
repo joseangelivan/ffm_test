@@ -23,7 +23,8 @@ import {
   Phone,
   Building2,
   PencilRuler,
-  CheckCircle
+  CheckCircle,
+  ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -385,7 +386,13 @@ function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
     );
 }
 
-const DrawingManager = ({ onGeofenceComplete }: { onGeofenceComplete: (polygon: google.maps.Polygon) => void }) => {
+const DrawingManager = ({
+    onOverlayComplete,
+    drawingMode,
+}: {
+    onOverlayComplete: (overlay: google.maps.MVCObject) => void;
+    drawingMode: google.maps.drawing.OverlayType;
+}) => {
     const map = useMap();
     const drawing = useMapsLibrary('drawing');
     const [drawingManager, setDrawingManager] = useState<google.maps.drawing.DrawingManager | null>(null);
@@ -394,13 +401,31 @@ const DrawingManager = ({ onGeofenceComplete }: { onGeofenceComplete: (polygon: 
         if (!map || !drawing) return;
 
         const newDrawingManager = new drawing.DrawingManager({
-            drawingMode: google.maps.drawing.OverlayType.POLYGON,
+            drawingMode: drawingMode,
             drawingControl: false,
             polygonOptions: {
-                fillColor: '#1ABC9C',
+                fillColor: '#3498db',
                 fillOpacity: 0.3,
                 strokeWeight: 2,
-                strokeColor: '#1ABC9C',
+                strokeColor: '#2980b9',
+                clickable: false,
+                editable: true,
+                zIndex: 1,
+            },
+            rectangleOptions: {
+                fillColor: '#3498db',
+                fillOpacity: 0.3,
+                strokeWeight: 2,
+                strokeColor: '#2980b9',
+                clickable: false,
+                editable: true,
+                zIndex: 1,
+            },
+            circleOptions: {
+                fillColor: '#3498db',
+                fillOpacity: 0.3,
+                strokeWeight: 2,
+                strokeColor: '#2980b9',
                 clickable: false,
                 editable: true,
                 zIndex: 1,
@@ -409,22 +434,31 @@ const DrawingManager = ({ onGeofenceComplete }: { onGeofenceComplete: (polygon: 
         
         newDrawingManager.setMap(map);
 
-        google.maps.event.addListener(
-            newDrawingManager,
-            'polygoncomplete',
-            (polygon: google.maps.Polygon) => {
-                onGeofenceComplete(polygon);
-                newDrawingManager.setDrawingMode(null); // Exit drawing mode after one polygon
-            }
+        const listener = (type: google.maps.drawing.OverlayType, event: any) => {
+            onOverlayComplete(event);
+            newDrawingManager.setDrawingMode(null);
+        };
+        
+        const polygonListener = google.maps.event.addListener(
+            newDrawingManager, 'polygoncomplete', (polygon: google.maps.Polygon) => listener('polygon', polygon)
         );
+        const rectangleListener = google.maps.event.addListener(
+            newDrawingManager, 'rectanglecomplete', (rectangle: google.maps.Rectangle) => listener('rectangle', rectangle)
+        );
+        const circleListener = google.maps.event.addListener(
+            newDrawingManager, 'circlecomplete', (circle: google.maps.Circle) => listener('circle', circle)
+        );
+
 
         setDrawingManager(newDrawingManager);
 
         return () => {
-            google.maps.event.clearInstanceListeners(newDrawingManager);
+            google.maps.event.removeListener(polygonListener);
+            google.maps.event.removeListener(rectangleListener);
+            google.maps.event.removeListener(circleListener);
             newDrawingManager.setMap(null);
         };
-    }, [map, drawing, onGeofenceComplete]);
+    }, [map, drawing, onOverlayComplete, drawingMode]);
 
     return null;
 };
@@ -436,13 +470,16 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   const [isDrawing, setIsDrawing] = useState(false);
-  const [geofence, setGeofence] = useState<google.maps.Polygon | null>(null);
+  const [geofence, setGeofence] = useState<google.maps.MVCObject | null>(null);
+  const [drawingMode, setDrawingMode] = useState<google.maps.drawing.OverlayType>(google.maps.drawing.OverlayType.POLYGON);
+  const [renderedGeofence, setRenderedGeofence] = useState<React.ReactNode | null>(null);
 
-  const handleGeofenceComplete = useCallback((polygon: google.maps.Polygon) => {
+  const handleOverlayComplete = useCallback((overlay: google.maps.MVCObject) => {
     if (geofence) {
-        geofence.setMap(null); // Remove previous geofence
+        // @ts-ignore
+        geofence.setMap(null);
     }
-    setGeofence(polygon);
+    setGeofence(overlay);
     setIsDrawing(false);
     toast({
         title: "Geocerca Creada",
@@ -452,8 +489,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const toggleDrawing = () => {
     if (geofence) {
+        // @ts-ignore
         geofence.setMap(null);
         setGeofence(null);
+        setRenderedGeofence(null);
     }
     setIsDrawing(prev => !prev);
   }
@@ -467,13 +506,26 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
           });
           return;
       }
-       // In a real app, you'd get the path and save it to your database
-      // const path = geofence.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
-      // console.log("Saving geofence:", path);
+      // @ts-ignore
+      geofence.setMap(null); // Hide the editable geofence
+      
+      let renderedComponent = null;
+      if (geofence instanceof google.maps.Polygon) {
+          const path = (geofence as google.maps.Polygon).getPath().getArray();
+          renderedComponent = <google.maps.PolygonF path={path} fillColor="#1ABC9C" strokeColor="#16A085" strokeWeight={3} fillOpacity={0.4} />;
+      } else if (geofence instanceof google.maps.Rectangle) {
+          const bounds = (geofence as google.maps.Rectangle).getBounds();
+          renderedComponent = <google.maps.RectangleF bounds={bounds} fillColor="#1ABC9C" strokeColor="#16A085" strokeWeight={3} fillOpacity={0.4} />;
+      } else if (geofence instanceof google.maps.Circle) {
+          const center = (geofence as google.maps.Circle).getCenter();
+          const radius = (geofence as google.maps.Circle).getRadius();
+          renderedComponent = <google.maps.CircleF center={center} radius={radius} fillColor="#1ABC9C" strokeColor="#16A085" strokeWeight={3} fillOpacity={0.4} />;
+      }
+      setRenderedGeofence(renderedComponent);
       
       toast({
           title: "Geocerca Guardada",
-          description: "La geocerca se ha guardado correctamente."
+          description: "La geocerca se ha guardado correctamente y ahora está visible en el mapa."
       })
   }
 
@@ -499,16 +551,34 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
             <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-            <CardDescription>Dibuja un polígono para definir la geocerca del condominio.</CardDescription>
+            <CardDescription>Dibuja una forma para definir la geocerca del condominio.</CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center justify-end gap-2 ml-auto">
+             <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-40 justify-between">
+                       <span>
+                            {drawingMode === 'polygon' && 'Polígono'}
+                            {drawingMode === 'rectangle' && 'Rectángulo'}
+                            {drawingMode === 'circle' && 'Círculo'}
+                       </span>
+                       <ChevronDown className="h-4 w-4"/>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                    <DropdownMenuItem onSelect={() => setDrawingMode(google.maps.drawing.OverlayType.POLYGON)}>Polígono</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setDrawingMode(google.maps.drawing.OverlayType.RECTANGLE)}>Rectángulo</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setDrawingMode(google.maps.drawing.OverlayType.CIRCLE)}>Círculo</DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button onClick={toggleDrawing} variant={isDrawing ? "destructive" : "outline"}>
                 <PencilRuler className="mr-2 h-4 w-4"/>
-                {isDrawing ? 'Cancelar' : 'Dibujar Geocerca'}
+                {isDrawing ? 'Cancelar' : 'Dibujar'}
             </Button>
-            <Button onClick={handleSaveGeofence} disabled={!geofence}>
+            <Button onClick={handleSaveGeofence} disabled={!geofence || renderedGeofence !== null}>
                 <CheckCircle className="mr-2 h-4 w-4" />
-                Guardar Geocerca
+                Guardar
             </Button>
           </div>
         </div>
@@ -517,7 +587,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden relative shadow-inner">
             <APIProvider apiKey={apiKey} libraries={['drawing']}>
                 <MapComponent center={center} zoom={15}>
-                   {isDrawing && <DrawingManager onGeofenceComplete={handleGeofenceComplete} />}
+                   {isDrawing && <DrawingManager onOverlayComplete={handleOverlayComplete} drawingMode={drawingMode} />}
+                   {renderedGeofence}
                 </MapComponent>
             </APIProvider>
         </div>
@@ -571,3 +642,5 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
+    
