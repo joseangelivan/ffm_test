@@ -423,6 +423,7 @@ const RenderedGeofence = ({
     isDefault,
     viewAll, 
     isDrawing,
+    drawingReferenceId,
     onUpdate 
 }: { 
     geofence: GeofenceObject, 
@@ -431,29 +432,36 @@ const RenderedGeofence = ({
     isDefault: boolean,
     viewAll: boolean,
     isDrawing: boolean,
+    drawingReferenceId: string | null;
     onUpdate: (newShape: google.maps.MVCObject) => void;
 }) => {
     const map = useMap();
     
-    let isVisible = isBeingEdited || viewAll || isSelected || (isDrawing && isDefault);
+    let isVisible = false;
     let fillColor = SAVED_COLOR.fill;
     let strokeColor = SAVED_COLOR.stroke;
     let fillOpacity = 0.4;
     let strokeWeight = 3;
-    
-    if (isBeingEdited) {
+
+    if (isDrawing) {
+        if (geofence.id === drawingReferenceId) {
+            isVisible = true;
+            fillColor = EDIT_COLOR.fill;
+            strokeColor = EDIT_COLOR.stroke;
+            fillOpacity = 0.1; // Very low opacity for reference
+            strokeWeight = 2;
+        } else {
+            isVisible = false;
+        }
+    } else if (isBeingEdited) {
+        isVisible = geofence.id === geofence.id;
         fillColor = EDIT_COLOR.fill;
         strokeColor = EDIT_COLOR.stroke;
         fillOpacity = 0.3;
         strokeWeight = 2;
-    } else if (isDrawing && isDefault) {
-        fillColor = DEFAULT_COLOR.fill;
-        strokeColor = DEFAULT_COLOR.stroke;
-        fillOpacity = 0.1; // very low opacity
-        strokeWeight = 1;
-        isVisible = true;
     } else if (viewAll) {
-         if (isDefault) {
+        isVisible = true;
+        if (isDefault) {
             fillColor = DEFAULT_COLOR.fill;
             strokeColor = DEFAULT_COLOR.stroke;
         } else if (isSelected) {
@@ -466,8 +474,13 @@ const RenderedGeofence = ({
             strokeWeight = 1;
         }
     } else if (isSelected) {
+        isVisible = true;
         fillColor = isDefault ? DEFAULT_COLOR.fill : SAVED_COLOR.fill;
         strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
+    } else if (isDefault && !isDrawing) {
+        isVisible = true;
+        fillColor = DEFAULT_COLOR.fill;
+        strokeColor = DEFAULT_COLOR.stroke;
     }
     
     const options = {
@@ -516,7 +529,7 @@ const RenderedGeofence = ({
              listeners.forEach(l => l.remove());
         }
 
-    }, [map, geofence, isBeingEdited, isSelected, viewAll, isDefault, isDrawing, JSON.stringify(options)]);
+    }, [map, geofence, isVisible, isBeingEdited, JSON.stringify(options)]);
     
     return null;
 };
@@ -685,7 +698,18 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     if (!geofenceToEdit) return;
 
     resetToDefaultState();
-    setOriginalShapeBeforeEdit(geofenceToEdit.shape);
+    // Deep clone the shape to store its original state
+    const clonedShape = new (geofenceToEdit.shape.constructor as any)();
+    // @ts-ignore
+    if (clonedShape.setPaths) { // Polygon
+        // @ts-ignore
+        clonedShape.setPaths(geofenceToEdit.shape.getPaths());
+    } else { // Circle or Rectangle
+        // @ts-ignore
+        clonedShape.setOptions(geofenceToEdit.shape.get());
+    }
+    setOriginalShapeBeforeEdit(clonedShape);
+    
     setActiveOverlay(geofenceToEdit.shape);
     setEditingGeofenceId(geofenceToEdit.id);
   }
@@ -721,7 +745,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     } else {
         setLastSelectedGeofenceId(selectedGeofenceId);
         setIsDrawingMode(true);
-        setSelectedGeofenceId(null);
+        // Do not clear selectedGeofenceId, so we can use it as reference
     }
   }
 
@@ -738,7 +762,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, [isEditingEnabled]);
 
   let currentlySelectedIdForView: string | null = null;
-  if (isEditingEnabled) {
+  if (isEditingEnabled && !isDrawingMode) {
       if(isEditing) {
         currentlySelectedIdForView = editingGeofenceId;
       } else if (isCreating) {
@@ -746,7 +770,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       } else {
         currentlySelectedIdForView = selectedGeofenceId;
       }
-  } else {
+  } else if (!isDrawingMode){
     currentlySelectedIdForView = defaultGeofenceId;
   }
   
@@ -780,9 +804,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     geofence={gf}
                                     isBeingEdited={editingGeofenceId === gf.id}
                                     isSelected={(!viewAll && currentlySelectedIdForView === gf.id) || (viewAll && defaultGeofenceId === gf.id)}
-                                    isDefault={defaultGeofenceId === gf.id || (isDrawingMode && lastSelectedGeofenceId === gf.id)}
+                                    isDefault={defaultGeofenceId === gf.id}
                                     viewAll={viewAll}
                                     isDrawing={isDrawingMode}
+                                    drawingReferenceId={lastSelectedGeofenceId}
                                     onUpdate={(newShape) => setActiveOverlay(newShape)}
                                 />
                             ))}
@@ -799,7 +824,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     isSelected={true} 
                                     isDefault={false} 
                                     viewAll={false}
-                                    isDrawing={isDrawingMode} 
+                                    isDrawing={false}
+                                    drawingReferenceId={null} 
                                     onUpdate={() => {}} 
                                 />
                             )}
@@ -815,7 +841,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         <div className="flex-grow grid gap-2">
                             <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
                             <div className="relative">
-                                <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled className="pl-8"/>
+                                <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled/>
                                 {defaultGeofenceId && (
                                     <Star className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-500 fill-orange-400" />
                                 )}
@@ -876,7 +902,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                 </Button>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="w-40 justify-between" disabled={isActionActive && !isDrawingMode}>
+                                        <Button variant="outline" className="w-40 justify-between" disabled={isActionActive}>
                                             <span>
                                                 {drawingMode === 'polygon' && 'Polígono'}
                                                 {drawingMode === 'rectangle' && 'Rectángulo'}
