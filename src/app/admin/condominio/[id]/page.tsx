@@ -464,7 +464,7 @@ const RenderedGeofence = ({
              listeners.forEach(l => l.remove());
         }
 
-    }, [map, geofence, JSON.stringify(options)]); // Using JSON.stringify for deep comparison of options
+    }, [map, geofence, JSON.stringify(options)]);
     
     return null;
 };
@@ -495,7 +495,7 @@ const DrawingManager = ({
         const listener = (event: any) => {
             onOverlayComplete(event.overlay);
             newDrawingManager.setDrawingMode(null);
-            event.overlay.setMap(null); // The overlay is handled by our state now
+            event.overlay.setMap(null);
         };
         
         const overlayCompleteListener = google.maps.event.addListener(newDrawingManager, 'overlaycomplete', listener);
@@ -583,27 +583,23 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     }
   }
   
- const resetToDefaultState = (isCancel: boolean = false) => {
+  const resetToDefaultState = (isCancel: boolean = false) => {
     if (isCancel && editingGeofenceId && originalShapeBeforeEdit) {
-        // Find the geofence and manually hide its current shape before replacing it
         const fenceToReset = geofences.find(g => g.id === editingGeofenceId);
         // @ts-ignore
         if (fenceToReset) fenceToReset.shape.setMap(null);
 
-        // Restore the original shape, this also handles hiding the edited one via RenderedGeofence
         setGeofences(prev => prev.map(g => 
             g.id === editingGeofenceId ? { ...g, shape: originalShapeBeforeEdit } : g
         ));
     }
     
     if(activeOverlay && !geofences.find(g => g.shape === activeOverlay)) {
-        // Hide overlay that was being drawn but not saved
         // @ts-ignore
         activeOverlay.setMap(null);
     }
     
     if(isCancel && (isDrawingMode || isCreating)) {
-       // Restore selection after canceling a draw action
        if (lastSelectedGeofenceId) {
             setSelectedGeofenceId(lastSelectedGeofenceId);
        }
@@ -661,14 +657,14 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     const geofenceToEdit = geofences.find(g => g.id === selectedGeofenceId);
     if (!geofenceToEdit) return;
 
-    resetToDefaultState(); // Clear any previous state
+    resetToDefaultState();
 
     const shapeToClone = geofenceToEdit.shape;
     const clonedShapeForBackup = cloneShape(shapeToClone);
     if (!clonedShapeForBackup) return;
     
     setOriginalShapeBeforeEdit(clonedShapeForBackup);
-    setActiveOverlay(shapeToClone); // The shape being edited is the active overlay
+    setActiveOverlay(shapeToClone); 
     setEditingGeofenceId(geofenceToEdit.id);
   }
 
@@ -681,7 +677,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       }
       const geofenceToDelete = geofences.find(g => g.id === idToDelete);
       if(geofenceToDelete) {
-          // Explicitly hide from map before removing from state
           // @ts-ignore
           geofenceToDelete.shape.setMap(null);
       }
@@ -723,37 +718,36 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   
   useEffect(() => {
     if (!isEditingEnabled) {
-        resetToDefaultState(true);
+      resetToDefaultState(true);
+      // Force re-render based on view mode
+      setGeofences(prev => [...prev]);
     }
   }, [isEditingEnabled]);
 
   const getGeofencesToRender = () => {
-    if (isEditingEnabled) {
-        if (isEditing) {
-            // Only the one being edited
-            return geofences.filter(g => g.id === editingGeofenceId);
-        }
-        if (isDrawingMode) {
-            // Only the reference one (if any)
-            return geofences.filter(g => g.id === lastSelectedGeofenceId);
-        }
-        if (isCreating) {
-            // None of the saved ones, only the new shape overlay
-            return [];
-        }
-        // Idle in edit mode: show only the selected one, or none if nothing is selected
-        return geofences.filter(g => g.id === selectedGeofenceId);
-    }
-
-    // VIEW MODE (isEditingEnabled is false)
-    if (viewAll) {
-        return geofences;
-    }
-    
-    // Default view mode: show only the default one
-    return geofences.filter(g => g.id === defaultGeofenceId);
+      if (isEditingEnabled) {
+          if (isEditing) {
+              return geofences.filter(g => g.id === editingGeofenceId);
+          }
+          if (isCreating) {
+              return [];
+          }
+          if (isDrawingMode) {
+              return geofences.filter(g => g.id === lastSelectedGeofenceId);
+          }
+          // Idle in edit mode: show only the selected one
+          return geofences.filter(g => g.id === selectedGeofenceId);
+      }
+  
+      // VIEW MODE (isEditingEnabled is false)
+      if (viewAll) {
+          return geofences;
+      }
+      
+      // Default view mode: show only the default one
+      return geofences.filter(g => g.id === defaultGeofenceId);
   };
-
+  
   const geofencesToRender = getGeofencesToRender();
 
   if (!apiKey) {
@@ -815,9 +809,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
                 strokeWeight = 3;
             } else {
-                 // Should not happen with the new render logic, but as a fallback, make it invisible
-                 fillOpacity = 0;
-                 strokeWeight = 0;
+                 // Make invisible if not selected in edit mode
+                 return { visible: false };
             }
         }
     }
