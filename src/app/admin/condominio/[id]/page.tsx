@@ -585,6 +585,11 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   
  const resetToDefaultState = (isCancel: boolean = false) => {
     if (isCancel && editingGeofenceId && originalShapeBeforeEdit) {
+        // Find the geofence and manually hide its current shape before replacing it
+        const fenceToReset = geofences.find(g => g.id === editingGeofenceId);
+        // @ts-ignore
+        if (fenceToReset) fenceToReset.shape.setMap(null);
+
         // Restore the original shape, this also handles hiding the edited one via RenderedGeofence
         setGeofences(prev => prev.map(g => 
             g.id === editingGeofenceId ? { ...g, shape: originalShapeBeforeEdit } : g
@@ -736,7 +741,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             // None of the saved ones, only the new shape overlay
             return [];
         }
-        // Idle in edit mode: show only the selected one
+        // Idle in edit mode: show only the selected one, or none if nothing is selected
         return geofences.filter(g => g.id === selectedGeofenceId);
     }
 
@@ -810,6 +815,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
                 strokeWeight = 3;
             } else {
+                 // Should not happen with the new render logic, but as a fallback, make it invisible
                  fillOpacity = 0;
                  strokeWeight = 0;
             }
@@ -853,7 +859,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                         editable: true,
                                         draggable: true,
                                     }}
-                                    onUpdate={() => {}} 
+                                    onUpdate={(newShape) => setActiveOverlay(newShape)} 
                                 />
                             )}
                         </MapComponent>
