@@ -136,7 +136,9 @@
         "selectMapPlaceholder": "Seleccionar mapa",
         "defaultOSM": "Mapa por Defecto (OSM)",
         "customMap1": "Mapa Personalizado 1",
-        "customMap2": "Mapa Personalizado 2"
+        "customMap2": "Mapa Personalizado 2",
+        "undo": "Deshacer",
+        "redo": "Rehacer"
       },
       "users": {
         "title": "Gestionar Usuarios",

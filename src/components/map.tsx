@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect } from 'react';
-import { Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
+import { Map, AdvancedMarker, useMap, APIProvider } from '@vis.gl/react-google-maps';
 
 export interface Marker {
     id: string;
