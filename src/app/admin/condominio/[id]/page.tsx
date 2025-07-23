@@ -417,84 +417,22 @@ const DEFAULT_COLOR = {
 };
 
 const RenderedGeofence = ({ 
-    geofence, 
-    isBeingEdited,
-    isSelected,
-    isDefault,
-    viewAll, 
-    isDrawing,
-    drawingReferenceId,
-    onUpdate 
+    geofence,
+    options,
+    onUpdate
 }: { 
     geofence: GeofenceObject, 
-    isBeingEdited: boolean,
-    isSelected: boolean,
-    isDefault: boolean,
-    viewAll: boolean,
-    isDrawing: boolean,
-    drawingReferenceId: string | null;
+    options: google.maps.PolygonOptions & { visible: boolean; editable?: boolean; draggable?: boolean; },
     onUpdate: (newShape: google.maps.MVCObject) => void;
 }) => {
     const map = useMap();
-    
-    let isVisible = false;
-    let fillColor = SAVED_COLOR.fill;
-    let strokeColor = SAVED_COLOR.stroke;
-    let fillOpacity = 0.4;
-    let strokeWeight = 3;
-
-    if (isDrawing) {
-        if (geofence.id === drawingReferenceId) {
-            isVisible = true;
-            fillColor = EDIT_COLOR.fill;
-            strokeColor = EDIT_COLOR.stroke;
-            fillOpacity = 0.1; // Very low opacity for reference
-            strokeWeight = 2;
-        } else {
-            isVisible = false;
-        }
-    } else if (isBeingEdited) {
-        isVisible = true; // Always show the one being edited
-        fillColor = EDIT_COLOR.fill;
-        strokeColor = EDIT_COLOR.stroke;
-        fillOpacity = 0.3;
-        strokeWeight = 2;
-    } else if (viewAll) {
-        isVisible = true;
-        if (isDefault) {
-            fillColor = DEFAULT_COLOR.fill;
-            strokeColor = DEFAULT_COLOR.stroke;
-        } else if (isSelected) {
-            // This case might be obsolete if selection is tied to edit mode
-             fillColor = SAVED_COLOR.fill;
-             strokeColor = SAVED_COLOR.stroke;
-        } else {
-            fillColor = VIEW_ALL_COLOR.fill;
-            strokeColor = VIEW_ALL_COLOR.stroke;
-            fillOpacity = 0.2;
-            strokeWeight = 1;
-        }
-    } else if (isSelected || isDefault) {
-         isVisible = true;
-         fillColor = isDefault ? DEFAULT_COLOR.fill : SAVED_COLOR.fill;
-         strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
-    }
-    
-    const options = {
-        fillColor,
-        strokeColor,
-        fillOpacity,
-        strokeWeight,
-        editable: isBeingEdited,
-        draggable: isBeingEdited,
-    };
-    
+        
     useEffect(() => {
         const shape = geofence.shape;
         if (!map || !shape) return;
 
         // @ts-ignore
-        shape.setMap(isVisible ? map : null);
+        shape.setMap(options.visible ? map : null);
         // @ts-ignore
         shape.setOptions(options);
 
@@ -505,7 +443,7 @@ const RenderedGeofence = ({
             listeners.push(google.maps.event.addListener(shape, event, handler));
         };
         
-        if (isBeingEdited) {
+        if (options.editable) {
             const updateShape = () => onUpdate(shape);
             
             // @ts-ignore
@@ -526,7 +464,7 @@ const RenderedGeofence = ({
              listeners.forEach(l => l.remove());
         }
 
-    }, [map, geofence, isVisible, isBeingEdited, JSON.stringify(options)]);
+    }, [map, geofence, JSON.stringify(options)]); // Using JSON.stringify for deep comparison of options
     
     return null;
 };
@@ -626,6 +564,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }
   
   const cloneShape = (shape: google.maps.MVCObject) => {
+    if (!google?.maps) return null;
     // @ts-ignore
     const shapeType = shape.getPaths ? 'polygon' : shape.getBounds ? 'rectangle' : 'circle';
     
@@ -646,6 +585,11 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   
  const resetToDefaultState = (isCancel: boolean = false) => {
     if (isCancel && editingGeofenceId && originalShapeBeforeEdit) {
+        const fenceToRestore = geofences.find(g => g.id === editingGeofenceId);
+        if (fenceToRestore) {
+            // @ts-ignore
+            fenceToRestore.shape.setMap(null); // Hide the edited shape
+        }
         setGeofences(prev => prev.map(g => 
             g.id === editingGeofenceId ? { ...g, shape: originalShapeBeforeEdit } : g
         ));
@@ -715,10 +659,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     resetToDefaultState();
 
     const shapeToClone = geofenceToEdit.shape;
-    const clonedShape = cloneShape(shapeToClone);
-    if (!clonedShape) return;
+    const clonedShapeForBackup = cloneShape(shapeToClone);
+    if (!clonedShapeForBackup) return;
     
-    setOriginalShapeBeforeEdit(clonedShape);
+    setOriginalShapeBeforeEdit(clonedShapeForBackup);
     setActiveOverlay(shapeToClone);
     setEditingGeofenceId(geofenceToEdit.id);
   }
@@ -769,21 +713,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         resetToDefaultState(true);
     }
   }, [isEditingEnabled]);
-
-  let currentlySelectedIdForView: string | null = null;
-    if (isEditingEnabled) {
-        if(isEditing) {
-            currentlySelectedIdForView = editingGeofenceId;
-        } else if (isDrawingMode) {
-             currentlySelectedIdForView = null; // Don't show any selection while drawing
-        } else {
-            currentlySelectedIdForView = selectedGeofenceId;
-        }
-    } else {
-        if (!viewAll) {
-             currentlySelectedIdForView = defaultGeofenceId;
-        }
-    }
   
   if (!apiKey) {
     return (
@@ -801,6 +730,78 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     )
   }
   
+  const getRenderOptions = (gf: GeofenceObject) => {
+    let visible = false;
+    let fillColor = SAVED_COLOR.fill;
+    let strokeColor = SAVED_COLOR.stroke;
+    let fillOpacity = 0.4;
+    let strokeWeight = 2;
+    let editable = false;
+    let draggable = false;
+
+    const isSelected = selectedGeofenceId === gf.id;
+    const isDefault = defaultGeofenceId === gf.id;
+
+    if (!isEditingEnabled) { // VIEW MODE
+        if (viewAll) {
+            visible = true;
+            fillColor = isDefault ? DEFAULT_COLOR.fill : VIEW_ALL_COLOR.fill;
+            strokeColor = isDefault ? DEFAULT_COLOR.stroke : VIEW_ALL_COLOR.stroke;
+            fillOpacity = isDefault ? 0.4 : 0.2;
+            strokeWeight = isDefault ? 3 : 1;
+        } else if (isDefault) {
+            visible = true;
+            fillColor = DEFAULT_COLOR.fill;
+            strokeColor = DEFAULT_COLOR.stroke;
+        }
+    } else { // EDITING ENABLED MODE
+        if (isEditing) {
+            if (gf.id === editingGeofenceId) {
+                visible = true;
+                fillColor = EDIT_COLOR.fill;
+                strokeColor = EDIT_COLOR.stroke;
+                fillOpacity = 0.3;
+                editable = true;
+                draggable = true;
+            }
+        } else if (isDrawingMode) {
+            if (gf.id === lastSelectedGeofenceId) { // The reference
+                visible = true;
+                fillColor = EDIT_COLOR.fill;
+                strokeColor = EDIT_COLOR.stroke;
+                fillOpacity = 0.1;
+                strokeWeight = 1;
+            }
+        } else { // Idle edit mode
+            if (viewAll) {
+                visible = true;
+                if (isDefault) {
+                    fillColor = DEFAULT_COLOR.fill;
+                    strokeColor = DEFAULT_COLOR.stroke;
+                    fillOpacity = isSelected ? 0.4 : 0.2;
+                    strokeWeight = isSelected ? 3 : 1;
+                } else if (isSelected) {
+                     fillColor = SAVED_COLOR.fill;
+                     strokeColor = SAVED_COLOR.stroke;
+                     fillOpacity = 0.4;
+                     strokeWeight = 3;
+                } else {
+                    fillColor = VIEW_ALL_COLOR.fill;
+                    strokeColor = VIEW_ALL_COLOR.stroke;
+                    fillOpacity = 0.2;
+                    strokeWeight = 1;
+                }
+            } else if (isSelected) {
+                visible = true;
+                fillColor = isDefault ? DEFAULT_COLOR.fill : SAVED_COLOR.fill;
+                strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
+            }
+        }
+    }
+
+    return { visible, fillColor, strokeColor, fillOpacity, strokeWeight, editable, draggable };
+  }
+  
   return (
     <Card>
       <CardContent className="p-0">
@@ -809,25 +810,14 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 <div className="h-full bg-muted overflow-hidden relative shadow-inner">
                     <APIProvider apiKey={apiKey} libraries={['drawing']}>
                         <MapComponent center={center} zoom={15}>
-                            {geofences.map(gf => {
-                                const isSelectedForView = isEditingEnabled 
-                                    ? currentlySelectedIdForView === gf.id 
-                                    : !viewAll && defaultGeofenceId === gf.id;
-
-                                return (
-                                    <RenderedGeofence 
-                                        key={gf.id}
-                                        geofence={gf}
-                                        isBeingEdited={editingGeofenceId === gf.id}
-                                        isSelected={isSelectedForView}
-                                        isDefault={defaultGeofenceId === gf.id}
-                                        viewAll={isEditingEnabled ? viewAll : true} // In view mode, always show all
-                                        isDrawing={isDrawingMode}
-                                        drawingReferenceId={lastSelectedGeofenceId}
-                                        onUpdate={(newShape) => setActiveOverlay(newShape)}
-                                    />
-                                );
-                            })}
+                            {geofences.map(gf => (
+                                <RenderedGeofence
+                                    key={gf.id}
+                                    geofence={gf}
+                                    options={getRenderOptions(gf)}
+                                    onUpdate={(newShape) => setActiveOverlay(newShape)}
+                                />
+                            ))}
                             {isDrawingMode && (
                                 <DrawingManager 
                                     onOverlayComplete={handleOverlayComplete} 
@@ -837,12 +827,15 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                             {isCreating && (
                                 <RenderedGeofence 
                                     geofence={{id: 'temp', name: 'temp', shape: activeOverlay}} 
-                                    isBeingEdited={true} 
-                                    isSelected={true} 
-                                    isDefault={false} 
-                                    viewAll={false}
-                                    isDrawing={false}
-                                    drawingReferenceId={null} 
+                                    options={{
+                                        visible: true,
+                                        fillColor: EDIT_COLOR.fill,
+                                        strokeColor: EDIT_COLOR.stroke,
+                                        fillOpacity: 0.3,
+                                        strokeWeight: 2,
+                                        editable: true,
+                                        draggable: true,
+                                    }}
                                     onUpdate={() => {}} 
                                 />
                             )}
@@ -858,7 +851,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         <div className="flex items-center justify-between">
                             <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
                             <div className="flex items-center space-x-2">
-                                <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={!isEditingEnabled}/>
+                                <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)}/>
                                 <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                     Ver Todas
                                 </label>
