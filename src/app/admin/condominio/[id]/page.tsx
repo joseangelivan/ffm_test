@@ -439,7 +439,6 @@ const RenderedGeofence = ({
         fillOpacity = 0.3;
         strokeWeight = 2;
     } else if (viewAll) {
-        // When viewAll is true, we check if it is the selected one to keep its color
         if (isSelected) {
             fillColor = SAVED_COLOR.fill;
             strokeColor = SAVED_COLOR.stroke;
@@ -452,7 +451,6 @@ const RenderedGeofence = ({
             strokeWeight = 1;
         }
     } else if (isSelected) {
-        // This case handles when viewAll is false, but it's selected
         fillColor = SAVED_COLOR.fill;
         strokeColor = SAVED_COLOR.stroke;
         fillOpacity = 0.4;
@@ -505,9 +503,9 @@ const RenderedGeofence = ({
              listeners.forEach(l => l.remove());
         }
 
-    }, [map, geofence, isBeingEdited, isSelected, viewAll, JSON.stringify(options)]); // Using JSON.stringify for options to avoid deep comparison issues
+    }, [map, geofence, isBeingEdited, isSelected, viewAll, JSON.stringify(options)]);
     
-    return null; // The shapes are rendered via the Google Maps API directly, not React components
+    return null;
 };
 
 const DrawingManager = ({
@@ -536,7 +534,7 @@ const DrawingManager = ({
         const listener = (event: any) => {
             onOverlayComplete(event.overlay);
             newDrawingManager.setDrawingMode(null);
-            event.overlay.setMap(null); // Hide the overlay from drawing manager, we will render it ourselves
+            event.overlay.setMap(null);
         };
         
         const overlayCompleteListener = google.maps.event.addListener(newDrawingManager, 'overlaycomplete', listener);
@@ -568,12 +566,11 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const isEditing = editingGeofenceId !== null;
   const isActionActive = isDrawingMode || isEditing || (activeOverlay && !isEditing);
-  const isListDisabled = isDrawingMode || isEditing || !!activeOverlay;
-
+  const isListDisabled = isDrawingMode || isEditing;
 
   const handleOverlayComplete = useCallback((overlay: google.maps.MVCObject) => {
     setActiveOverlay(overlay);
-    setIsDrawingMode(false); // Drawing is complete, now in "preview" before saving
+    setIsDrawingMode(false);
     toast({
         title: "Forma Dibujada",
         description: "Ahora puedes guardar la geocerca para este condominio."
@@ -598,7 +595,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }
   
   const resetToDefaultState = () => {
-    if(activeOverlay) {
+    if(activeOverlay && !geofences.find(g => g.shape === activeOverlay)) {
         // @ts-ignore
         activeOverlay.setMap(null);
     }
@@ -622,7 +619,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       setGeofences(prev => {
         const newGeofences = [...prev, newGeofence];
         if(newGeofences.length === 1) {
-            setDefaultGeofenceId(newId); // Make first geofence default
+            setDefaultGeofenceId(newId);
         }
         return newGeofences;
       });
@@ -649,7 +646,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }
 
   const handleEdit = (geofence: GeofenceObject) => {
-    resetToDefaultState(); // Cancel any ongoing action before starting a new one
+    resetToDefaultState();
     setActiveOverlay(geofence.shape);
     setEditingGeofenceId(geofence.id);
     setSelectedGeofenceId(geofence.id);
@@ -659,7 +656,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       if (editingGeofenceId === idToDelete) {
           resetToDefaultState();
       }
-      // Make sure to remove the shape from the map
       const geofenceToDelete = geofences.find(g => g.id === idToDelete);
       if(geofenceToDelete) {
           // @ts-ignore
@@ -679,7 +675,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }
   
   const handleToggleDrawing = () => {
-    if(isDrawingMode || isEditing || activeOverlay) {
+    if(isActionActive) {
         resetToDefaultState();
     } else {
         setIsDrawingMode(true);
@@ -687,12 +683,18 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     }
   }
 
-  const handleSetAsDefault = () => {
-    if(selectedGeofenceId) {
-        setDefaultGeofenceId(selectedGeofenceId);
-        toast({ title: "Geocerca por Defecto", description: "Se ha establecido la geocerca seleccionada como predeterminada."});
-    }
+  const handleSetAsDefault = (id: string) => {
+    setDefaultGeofenceId(id);
+    toast({ title: "Geocerca por Defecto", description: "Se ha establecido la geocerca seleccionada como predeterminada."});
   }
+
+  useEffect(() => {
+    if (selectedGeofenceId && isEditing) {
+      const geofence = geofences.find(g => g.id === selectedGeofenceId);
+      if(geofence) setActiveOverlay(geofence.shape);
+    }
+  }, [selectedGeofenceId, isEditing, geofences]);
+
 
   if (!apiKey) {
     return (
@@ -742,67 +744,66 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             <div className="w-1/3 p-4 space-y-4 overflow-y-auto">
                 <div className="p-4 border rounded-lg space-y-4">
                     <h3 className="font-semibold text-lg">Geocerca</h3>
-                    <div className="flex items-center gap-2">
-                        <Button onClick={handleToggleDrawing} variant={isActionActive ? "destructive" : "outline"} className="flex-1">
-                            <PencilRuler className="mr-2 h-4 w-4"/>
-                            {isEditing ? 'Cancelar Edición' : isActionActive ? 'Cancelar Dibujo' : 'Dibujar'}
-                        </Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="w-40 justify-between" disabled={isListDisabled && !isDrawingMode}>
-                                <span>
-                                        {drawingMode === 'polygon' && 'Polígono'}
-                                        {drawingMode === 'rectangle' && 'Rectángulo'}
-                                        {drawingMode === 'circle' && 'Círculo'}
-                                </span>
-                                <ChevronDown className="h-4 w-4"/>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuItem onSelect={() => setDrawingMode('polygon')}>Polígono</DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => setDrawingMode('rectangle')}>Rectángulo</DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => setDrawingMode('circle')}>Círculo</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                     {activeOverlay && !isEditing && (
-                        <Button onClick={handleSaveGeofence} className="w-full">
-                            <Save className="mr-2 h-4 w-4" /> Guardar Geocerca
-                        </Button>
-                    )}
-                    {isEditing && (
-                        <Button onClick={handleSaveChanges} className="w-full">
-                            <Save className="mr-2 h-4 w-4" /> Guardar Cambios
-                        </Button>
-                    )}
                     <div className="flex items-center space-x-2 pt-2">
-                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isDrawingMode} />
+                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} />
                         <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                             Ver Todas
                         </label>
                     </div>
+
+                    <div className="pt-4 border-t space-y-2">
+                        <h3 className="font-semibold text-lg">Edición</h3>
+                        <div className="flex items-center gap-2">
+                            <Button onClick={handleToggleDrawing} variant={isActionActive ? "destructive" : "outline"} className="flex-1">
+                                <PencilRuler className="mr-2 h-4 w-4"/>
+                                {isEditing ? 'Cancelar Edición' : isDrawingMode ? 'Cancelar Dibujo' : 'Dibujar'}
+                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" className="w-40 justify-between" disabled={isListDisabled}>
+                                        <span>
+                                            {drawingMode === 'polygon' && 'Polígono'}
+                                            {drawingMode === 'rectangle' && 'Rectángulo'}
+                                            {drawingMode === 'circle' && 'Círculo'}
+                                        </span>
+                                        <ChevronDown className="h-4 w-4"/>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuItem onSelect={() => setDrawingMode('polygon')}>Polígono</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setDrawingMode('rectangle')}>Rectángulo</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setDrawingMode('circle')}>Círculo</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                         {activeOverlay && !isEditing && (
+                            <Button onClick={handleSaveGeofence} className="w-full">
+                                <Save className="mr-2 h-4 w-4" /> Guardar Geocerca
+                            </Button>
+                        )}
+                        {isEditing && (
+                            <Button onClick={handleSaveChanges} className="w-full">
+                                <Save className="mr-2 h-4 w-4" /> Guardar Cambios
+                            </Button>
+                        )}
+                    </div>
                      
                     <div className="pt-4 border-t space-y-2">
-                        <h3 className="font-semibold text-lg">Selección y Edición</h3>
+                        <h3 className="font-semibold text-lg">Selección</h3>
                         {geofences.length === 0 ? (
                             <p className="text-sm text-muted-foreground text-center py-4">No hay geocercas guardadas.</p>
                         ) : (
                            <>
-                           <div className='flex items-center gap-2'>
-                             <Select value={selectedGeofenceId || ''} onValueChange={id => setSelectedGeofenceId(id)} disabled={isListDisabled}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar geocerca" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {geofences.map(gf => (
-                                        <SelectItem key={gf.id} value={gf.id}>{gf.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                             </Select>
-                              <Button variant="outline" size="icon" onClick={handleSetAsDefault} disabled={!selectedGeofenceId || isListDisabled}>
-                                 <Star className={cn("h-4 w-4", defaultGeofenceId === selectedGeofenceId && "fill-yellow-400 text-yellow-500")} />
-                              </Button>
-                           </div>
+                           <Select value={selectedGeofenceId || ''} onValueChange={id => setSelectedGeofenceId(id)} disabled={isListDisabled}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar geocerca" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {geofences.map(gf => (
+                                    <SelectItem key={gf.id} value={gf.id}>{gf.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                           </Select>
                            <div className="space-y-2 pt-2">
                                {geofences.map(gf => (
                                    <div key={gf.id} className={cn(
@@ -810,7 +811,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                        editingGeofenceId === gf.id ? "bg-blue-100 dark:bg-blue-900" : selectedGeofenceId === gf.id ? "bg-muted" : "bg-muted/50"
                                    )}>
                                        <div className="flex items-center gap-2">
-                                           {defaultGeofenceId === gf.id && <Star className="h-4 w-4 text-yellow-500" />}
+                                           <Button variant="ghost" size="icon" onClick={() => handleSetAsDefault(gf.id)} disabled={isListDisabled}>
+                                                <Star className={cn("h-4 w-4", defaultGeofenceId === gf.id && "fill-yellow-400 text-yellow-500")} />
+                                           </Button>
                                            <span className="font-medium">{gf.name}</span>
                                        </div>
                                        <div className="flex items-center gap-1">
