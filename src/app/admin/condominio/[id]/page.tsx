@@ -600,7 +600,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         activeOverlay.setMap(null);
     }
     
-    if(isCancel && isDrawingMode && lastSelectedGeofenceId) {
+    if(isCancel && (isDrawingMode || isCreating) && lastSelectedGeofenceId) {
         setSelectedGeofenceId(lastSelectedGeofenceId);
     }
     
@@ -713,6 +713,35 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         resetToDefaultState(true);
     }
   }, [isEditingEnabled]);
+
+  const geofencesToRender = React.useMemo(() => {
+    if (!isEditingEnabled) {
+      if (viewAll) {
+        return geofences;
+      }
+      return geofences.filter(g => g.id === defaultGeofenceId);
+    }
+
+    // Editing is enabled
+    if (isEditing) {
+      return geofences.filter(g => g.id === editingGeofenceId);
+    }
+
+    if (isDrawingMode) {
+        return geofences.filter(g => g.id === lastSelectedGeofenceId);
+    }
+
+    if (isCreating) {
+        return []; // The temp shape is handled separately
+    }
+    
+    // Idle edit mode
+    if(viewAll) {
+        return geofences;
+    }
+    return geofences.filter(g => g.id === selectedGeofenceId);
+
+  }, [isEditingEnabled, viewAll, isEditing, isDrawingMode, isCreating, geofences, defaultGeofenceId, editingGeofenceId, lastSelectedGeofenceId, selectedGeofenceId]);
   
   if (!apiKey) {
     return (
@@ -731,7 +760,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }
   
   const getRenderOptions = (gf: GeofenceObject) => {
-    let visible = false;
     let fillColor = SAVED_COLOR.fill;
     let strokeColor = SAVED_COLOR.stroke;
     let fillOpacity = 0.4;
@@ -744,20 +772,17 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
     if (!isEditingEnabled) { // VIEW MODE
         if (viewAll) {
-            visible = true;
             fillColor = isDefault ? DEFAULT_COLOR.fill : VIEW_ALL_COLOR.fill;
             strokeColor = isDefault ? DEFAULT_COLOR.stroke : VIEW_ALL_COLOR.stroke;
             fillOpacity = isDefault ? 0.4 : 0.2;
             strokeWeight = isDefault ? 3 : 1;
         } else if (isDefault) {
-            visible = true;
             fillColor = DEFAULT_COLOR.fill;
             strokeColor = DEFAULT_COLOR.stroke;
         }
     } else { // EDITING ENABLED MODE
         if (isEditing) {
             if (gf.id === editingGeofenceId) {
-                visible = true;
                 fillColor = EDIT_COLOR.fill;
                 strokeColor = EDIT_COLOR.stroke;
                 fillOpacity = 0.3;
@@ -765,8 +790,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 draggable = true;
             }
         } else if (isDrawingMode) {
-            if (gf.id === lastSelectedGeofenceId) { // The reference
-                visible = true;
+            if (gf.id === lastSelectedGeofenceId) {
                 fillColor = EDIT_COLOR.fill;
                 strokeColor = EDIT_COLOR.stroke;
                 fillOpacity = 0.1;
@@ -774,7 +798,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             }
         } else { // Idle edit mode
             if (viewAll) {
-                visible = true;
                 if (isDefault) {
                     fillColor = DEFAULT_COLOR.fill;
                     strokeColor = DEFAULT_COLOR.stroke;
@@ -792,14 +815,13 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                     strokeWeight = 1;
                 }
             } else if (isSelected) {
-                visible = true;
                 fillColor = isDefault ? DEFAULT_COLOR.fill : SAVED_COLOR.fill;
                 strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
             }
         }
     }
 
-    return { visible, fillColor, strokeColor, fillOpacity, strokeWeight, editable, draggable };
+    return { visible: true, fillColor, strokeColor, fillOpacity, strokeWeight, editable, draggable };
   }
   
   return (
@@ -810,7 +832,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 <div className="h-full bg-muted overflow-hidden relative shadow-inner">
                     <APIProvider apiKey={apiKey} libraries={['drawing']}>
                         <MapComponent center={center} zoom={15}>
-                            {geofences.map(gf => (
+                            {geofencesToRender.map(gf => (
                                 <RenderedGeofence
                                     key={gf.id}
                                     geofence={gf}
@@ -858,7 +880,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                             </div>
                         </div>
                         <div className="relative">
-                            <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled/>
+                            <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled className="pl-8"/>
                             {defaultGeofenceId && (
                                 <Star className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-500 fill-orange-400" />
                             )}
