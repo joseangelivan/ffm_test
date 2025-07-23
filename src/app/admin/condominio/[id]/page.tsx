@@ -797,12 +797,17 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             <div className="w-1/3 p-4 space-y-4 overflow-y-auto">
                 <div className="p-4 border rounded-lg space-y-4">
                      <h3 className="text-lg font-semibold">Geocerca</h3>
-                     <div className="flex items-end gap-4">
+                     <div className="flex items-center justify-between gap-4">
                         <div className="flex-grow grid gap-2">
                             <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
-                            <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled className={cn(defaultGeofenceId && 'text-[#e67e22] font-bold')}/>
+                            <div className="relative">
+                                <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled className="pl-8"/>
+                                {defaultGeofenceId && (
+                                    <Star className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-500 fill-orange-400" />
+                                )}
+                            </div>
                         </div>
-                        <div className="flex items-center space-x-2 pb-2">
+                        <div className="flex items-center space-x-2 pt-6">
                             <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} />
                             <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                 Ver Todas
@@ -827,7 +832,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                         <SelectContent>
                                             {geofences.map(gf => (
                                                 <SelectItem key={gf.id} value={gf.id}>
-                                                     {gf.id === defaultGeofenceId && '★ '} {gf.name}
+                                                    <div className='flex items-center gap-2'>
+                                                        {gf.id === defaultGeofenceId && <Star className="h-4 w-4 text-orange-500 fill-orange-400" />}
+                                                        <span>{gf.name}</span>
+                                                    </div>
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -931,5 +939,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
-    
