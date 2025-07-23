@@ -24,7 +24,9 @@ import {
   Building2,
   PencilRuler,
   CheckCircle,
-  ChevronDown
+  ChevronDown,
+  Save,
+  Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,6 +64,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { APIProvider, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import MapComponent from '@/components/map';
 import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 // Mock data
@@ -386,7 +389,95 @@ function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
     );
 }
 
+// Geofence Types
 type DrawingMode = 'polygon' | 'rectangle' | 'circle';
+type GeofenceObject = {
+    id: string;
+    name: string;
+    shape: google.maps.MVCObject;
+};
+
+// Colors for Geofences
+const EDIT_COLOR = {
+    fill: '#3498db',
+    stroke: '#2980b9'
+};
+const SAVED_COLOR = {
+    fill: '#1ABC9C',
+    stroke: '#16A085'
+};
+const VIEW_ALL_COLOR = {
+    fill: '#95a5a6',
+    stroke: '#7f8c8d'
+};
+
+const RenderedGeofence = ({ 
+    geofence, 
+    isBeingEdited, 
+    viewAll, 
+    onUpdate 
+}: { 
+    geofence: GeofenceObject, 
+    isBeingEdited: boolean, 
+    viewAll: boolean,
+    onUpdate: (newShape: google.maps.MVCObject) => void;
+}) => {
+    const map = useMap();
+    const [polygon, setPolygon] = useState<google.maps.Polygon | null>(null);
+    const [rectangle, setRectangle] = useState<google.maps.Rectangle | null>(null);
+    const [circle, setCircle] = useState<google.maps.Circle | null>(null);
+
+    const isVisible = isBeingEdited || viewAll;
+    
+    const options = {
+        fillColor: isBeingEdited ? EDIT_COLOR.fill : SAVED_COLOR.fill,
+        strokeColor: isBeingEdited ? EDIT_COLOR.stroke : SAVED_COLOR.stroke,
+        fillOpacity: isBeingEdited ? 0.3 : viewAll ? 0.2 : 0.4,
+        strokeWeight: isBeingEdited ? 2 : viewAll ? 1 : 3,
+        editable: isBeingEdited,
+        draggable: isBeingEdited,
+    };
+    
+    useEffect(() => {
+        const shape = geofence.shape;
+        if (!map || !shape) return;
+
+        // @ts-ignore
+        shape.setMap(isVisible ? map : null);
+        // @ts-ignore
+        shape.setOptions(options);
+
+        const listeners: google.maps.MapsEventListener[] = [];
+        
+        const addListener = (event: string, handler: (e: any) => void) => {
+            // @ts-ignore
+            listeners.push(google.maps.event.addListener(shape, event, handler));
+        };
+        
+        if (isBeingEdited) {
+            const updateShape = () => onUpdate(shape);
+            
+            if (shape instanceof google.maps.Polygon) {
+                addListener('dragend', updateShape);
+                // @ts-ignore
+                addListener('mouseup', updateShape); // For path changes
+            } else if (shape instanceof google.maps.Rectangle) {
+                addListener('bounds_changed', updateShape);
+            } else if (shape instanceof google.maps.Circle) {
+                addListener('center_changed', updateShape);
+                addListener('radius_changed', updateShape);
+            }
+        }
+
+        return () => {
+             listeners.forEach(l => l.remove());
+        }
+
+    }, [map, geofence, isBeingEdited, viewAll, options]);
+    
+    return null; // The shapes are rendered via the Google Maps API directly, not React components
+};
+
 
 const DrawingManager = ({
     onOverlayComplete,
@@ -403,61 +494,27 @@ const DrawingManager = ({
         if (!map || !drawing) return;
 
         const newDrawingManager = new drawing.DrawingManager({
-            drawingMode: drawing[drawingMode.toUpperCase() as keyof typeof google.maps.drawing.OverlayType] as google.maps.drawing.OverlayType,
+            drawingMode: drawing.OverlayType[drawingMode.toUpperCase() as keyof typeof google.maps.drawing.OverlayType],
             drawingControl: false,
-            polygonOptions: {
-                fillColor: '#3498db',
-                fillOpacity: 0.3,
-                strokeWeight: 2,
-                strokeColor: '#2980b9',
-                clickable: false,
-                editable: true,
-                zIndex: 1,
-            },
-            rectangleOptions: {
-                fillColor: '#3498db',
-                fillOpacity: 0.3,
-                strokeWeight: 2,
-                strokeColor: '#2980b9',
-                clickable: false,
-                editable: true,
-                zIndex: 1,
-            },
-            circleOptions: {
-                fillColor: '#3498db',
-                fillOpacity: 0.3,
-                strokeWeight: 2,
-                strokeColor: '#2980b9',
-                clickable: false,
-                editable: true,
-                zIndex: 1,
-            },
+            polygonOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, zIndex: 1 },
+            rectangleOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, zIndex: 1 },
+            circleOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, zIndex: 1 },
         });
         
         newDrawingManager.setMap(map);
 
-        const listener = (type: string, event: any) => {
-            onOverlayComplete(event);
+        const listener = (event: any) => {
+            onOverlayComplete(event.overlay);
             newDrawingManager.setDrawingMode(null);
+            event.overlay.setMap(null); // Hide the overlay from drawing manager, we will render it ourselves
         };
         
-        const polygonListener = google.maps.event.addListener(
-            newDrawingManager, 'polygoncomplete', (polygon: google.maps.Polygon) => listener('polygon', polygon)
-        );
-        const rectangleListener = google.maps.event.addListener(
-            newDrawingManager, 'rectanglecomplete', (rectangle: google.maps.Rectangle) => listener('rectangle', rectangle)
-        );
-        const circleListener = google.maps.event.addListener(
-            newDrawingManager, 'circlecomplete', (circle: google.maps.Circle) => listener('circle', circle)
-        );
-
+        const overlayCompleteListener = google.maps.event.addListener(newDrawingManager, 'overlaycomplete', listener);
 
         setDrawingManager(newDrawingManager);
 
         return () => {
-            google.maps.event.removeListener(polygonListener);
-            google.maps.event.removeListener(rectangleListener);
-            google.maps.event.removeListener(circleListener);
+            google.maps.event.removeListener(overlayCompleteListener);
             newDrawingManager.setMap(null);
         };
     }, [map, drawing, onOverlayComplete, drawingMode]);
@@ -471,64 +528,104 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const { toast } = useToast();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [geofence, setGeofence] = useState<google.maps.MVCObject | null>(null);
+  const [geofences, setGeofences] = useState<GeofenceObject[]>([]);
   const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
-  const [renderedGeofence, setRenderedGeofence] = useState<React.ReactNode | null>(null);
+  const [activeOverlay, setActiveOverlay] = useState<google.maps.MVCObject | null>(null);
+  
+  const [viewAll, setViewAll] = useState(true);
+  const [editingGeofenceId, setEditingGeofenceId] = useState<string | null>(null);
+
+  const isDrawing = activeOverlay !== null && editingGeofenceId === null;
+  const isEditing = editingGeofenceId !== null;
 
   const handleOverlayComplete = useCallback((overlay: google.maps.MVCObject) => {
-    if (geofence) {
-        // @ts-ignore
-        geofence.setMap(null);
-    }
-    setGeofence(overlay);
-    setIsDrawing(false);
+    setActiveOverlay(overlay);
     toast({
-        title: "Geocerca Creada",
+        title: "Forma Dibujada",
         description: "Ahora puedes guardar la geocerca para este condominio."
     });
-  }, [geofence, toast]);
-
-  const toggleDrawing = () => {
-    if (geofence) {
-        // @ts-ignore
-        geofence.setMap(null);
-        setGeofence(null);
-        setRenderedGeofence(null);
-    }
-    setIsDrawing(prev => !prev);
-  }
+  }, [toast]);
   
-  const handleSaveGeofence = () => {
-      if (!geofence) {
-          toast({
-              title: "Error",
-              description: "No hay ninguna geocerca dibujada para guardar.",
-              variant: "destructive"
-          });
-          return;
-      }
-      // @ts-ignore
-      geofence.setMap(null); // Hide the editable geofence
+  const getNextGeofenceName = () => {
+      const existingNumbers = geofences.map(g => {
+          const match = g.name.match(/^Geocerca_(\d+)$/);
+          return match ? parseInt(match[1], 10) : 0;
+      }).filter(n => n > 0).sort((a,b) => a-b);
       
-      let renderedComponent = null;
-      if (geofence instanceof google.maps.Polygon) {
-          const path = (geofence as google.maps.Polygon).getPath().getArray();
-          renderedComponent = <google.maps.PolygonF path={path} fillColor="#1ABC9C" strokeColor="#16A085" strokeWeight={3} fillOpacity={0.4} />;
-      } else if (geofence instanceof google.maps.Rectangle) {
-          const bounds = (geofence as google.maps.Rectangle).getBounds();
-          renderedComponent = <google.maps.RectangleF bounds={bounds} fillColor="#1ABC9C" strokeColor="#16A085" strokeWeight={3} fillOpacity={0.4} />;
-      } else if (geofence instanceof google.maps.Circle) {
-          const center = (geofence as google.maps.Circle).getCenter();
-          const radius = (geofence as google.maps.Circle).getRadius();
-          renderedComponent = <google.maps.CircleF center={center} radius={radius} fillColor="#1ABC9C" strokeColor="#16A085" strokeWeight={3} fillOpacity={0.4} />;
+      let nextNumber = 1;
+      for (const num of existingNumbers) {
+          if (num === nextNumber) {
+              nextNumber++;
+          } else {
+              break;
+          }
       }
-      setRenderedGeofence(renderedComponent);
+      return `Geocerca_${String(nextNumber).padStart(2, '0')}`;
+  }
+
+  const handleSaveGeofence = () => {
+      if (!activeOverlay) return;
+
+      const newId = `gf-${Date.now()}`;
+      const newName = getNextGeofenceName();
+      
+      const newGeofence: GeofenceObject = {
+          id: newId,
+          name: newName,
+          shape: activeOverlay
+      };
+      
+      setGeofences(prev => [...prev, newGeofence]);
+      setActiveOverlay(null);
       
       toast({
           title: "Geocerca Guardada",
-          description: "La geocerca se ha guardado correctamente y ahora está visible en el mapa."
-      })
+          description: `La geocerca "${newName}" se ha guardado correctamente.`
+      });
+  };
+  
+  const handleSaveChanges = () => {
+    if(!editingGeofenceId || !activeOverlay) return;
+    
+    setGeofences(prev => prev.map(g => g.id === editingGeofenceId ? {...g, shape: activeOverlay} : g));
+    
+    toast({
+        title: "Geocerca Actualizada",
+        description: "Los cambios en la geocerca se han guardado."
+    });
+    setEditingGeofenceId(null);
+    setActiveOverlay(null);
+  }
+
+  const handleEdit = (geofence: GeofenceObject) => {
+    if (activeOverlay) { // Cancel any ongoing drawing/editing
+        // @ts-ignore
+        activeOverlay.setMap(null);
+    }
+    setActiveOverlay(geofence.shape);
+    setEditingGeofenceId(geofence.id);
+  }
+
+  const handleDelete = (idToDelete: string) => {
+      if (editingGeofenceId === idToDelete) {
+          setEditingGeofenceId(null);
+          setActiveOverlay(null);
+      }
+      setGeofences(prev => prev.filter(g => g.id !== idToDelete));
+      toast({ title: "Geocerca Eliminada", variant: "destructive" });
+  }
+  
+  const handleToggleDrawing = () => {
+      if(isDrawing || isEditing) { // Cancel drawing/editing
+          if(activeOverlay) {
+            // @ts-ignore
+            activeOverlay.setMap(null);
+          }
+          setActiveOverlay(null);
+          setEditingGeofenceId(null);
+      } else {
+        // Start drawing - overlay will be set on complete
+      }
   }
 
   if (!apiKey) {
@@ -549,50 +646,102 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
-            <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-            <CardDescription>Dibuja una forma para definir la geocerca del condominio.</CardDescription>
-          </div>
-          <div className="flex items-center justify-end gap-2 ml-auto">
-             <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-40 justify-between">
-                       <span>
-                            {drawingMode === 'polygon' && 'Polígono'}
-                            {drawingMode === 'rectangle' && 'Rectángulo'}
-                            {drawingMode === 'circle' && 'Círculo'}
-                       </span>
-                       <ChevronDown className="h-4 w-4"/>
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                    <DropdownMenuItem onSelect={() => setDrawingMode('polygon')}>Polígono</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setDrawingMode('rectangle')}>Rectángulo</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setDrawingMode('circle')}>Círculo</DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
+      <CardContent className="p-0">
+        <div className="flex h-[70vh]">
+            <div className="w-2/3 border-r">
+                <div className="h-full bg-muted overflow-hidden relative shadow-inner">
+                    <APIProvider apiKey={apiKey} libraries={['drawing']}>
+                        <MapComponent center={center} zoom={15}>
+                            {geofences.map(gf => (
+                                <RenderedGeofence 
+                                    key={gf.id}
+                                    geofence={gf}
+                                    isBeingEdited={editingGeofenceId === gf.id}
+                                    viewAll={viewAll}
+                                    onUpdate={(newShape) => setActiveOverlay(newShape)}
+                                />
+                            ))}
+                            {(isDrawing || isEditing) && (
+                                <DrawingManager 
+                                    onOverlayComplete={handleOverlayComplete} 
+                                    drawingMode={drawingMode} 
+                                />
+                            )}
+                            {isDrawing && activeOverlay && <RenderedGeofence geofence={{id: 'temp', name: 'temp', shape: activeOverlay}} isBeingEdited={true} viewAll={true} onUpdate={() => {}} />}
+                        </MapComponent>
+                    </APIProvider>
+                </div>
+            </div>
+            <div className="w-1/3 p-4 space-y-4 overflow-y-auto">
+                <div className="p-4 border rounded-lg space-y-4">
+                    <h3 className="font-semibold text-lg">Geocerca</h3>
+                    <div className="flex items-center gap-2">
+                        <Button onClick={handleToggleDrawing} variant={isDrawing || isEditing ? "destructive" : "outline"} className="flex-1">
+                            <PencilRuler className="mr-2 h-4 w-4"/>
+                            {isDrawing ? 'Cancelar Dibujo' : isEditing ? 'Cancelar Edición' : 'Dibujar'}
+                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="w-40 justify-between" disabled={isDrawing || isEditing}>
+                                <span>
+                                        {drawingMode === 'polygon' && 'Polígono'}
+                                        {drawingMode === 'rectangle' && 'Rectángulo'}
+                                        {drawingMode === 'circle' && 'Círculo'}
+                                </span>
+                                <ChevronDown className="h-4 w-4"/>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuItem onSelect={() => setDrawingMode('polygon')}>Polígono</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setDrawingMode('rectangle')}>Rectángulo</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setDrawingMode('circle')}>Círculo</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                     {isDrawing && (
+                        <Button onClick={handleSaveGeofence} disabled={!activeOverlay} className="w-full">
+                            <Save className="mr-2 h-4 w-4" /> Guardar Geocerca
+                        </Button>
+                    )}
+                    {isEditing && (
+                        <Button onClick={handleSaveChanges} className="w-full">
+                            <Save className="mr-2 h-4 w-4" /> Guardar Cambios
+                        </Button>
+                    )}
+                    <div className="flex items-center space-x-2 pt-2">
+                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} />
+                        <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            Ver Todas
+                        </label>
+                    </div>
+                </div>
 
-            <Button onClick={toggleDrawing} variant={isDrawing ? "destructive" : "outline"}>
-                <PencilRuler className="mr-2 h-4 w-4"/>
-                {isDrawing ? 'Cancelar' : 'Dibujar'}
-            </Button>
-            <Button onClick={handleSaveGeofence} disabled={!geofence || renderedGeofence !== null}>
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Guardar
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden relative shadow-inner">
-            <APIProvider apiKey={apiKey} libraries={['drawing']}>
-                <MapComponent center={center} zoom={15}>
-                   {isDrawing && <DrawingManager onOverlayComplete={handleOverlayComplete} drawingMode={drawingMode} />}
-                   {renderedGeofence}
-                </MapComponent>
-            </APIProvider>
+                <div className="p-4 border rounded-lg space-y-2">
+                     <h3 className="font-semibold text-lg">Selección y Edición</h3>
+                     {geofences.length === 0 ? (
+                         <p className="text-sm text-muted-foreground text-center py-4">No hay geocercas guardadas.</p>
+                     ) : (
+                        <div className="space-y-2">
+                            {geofences.map(gf => (
+                                <div key={gf.id} className={cn(
+                                    "flex items-center justify-between p-2 rounded-md",
+                                    editingGeofenceId === gf.id ? "bg-blue-100 dark:bg-blue-900" : "bg-muted/50"
+                                )}>
+                                    <span className="font-medium">{gf.name}</span>
+                                    <div className="flex items-center gap-1">
+                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(gf)} disabled={isDrawing || (isEditing && editingGeofenceId !== gf.id)}>
+                                            <Edit className="h-4 w-4"/>
+                                        </Button>
+                                         <Button variant="ghost" size="icon" onClick={() => handleDelete(gf.id)} disabled={isDrawing || isEditing}>
+                                            <Trash2 className="h-4 w-4 text-destructive"/>
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                     )}
+                </div>
+            </div>
         </div>
       </CardContent>
     </Card>
