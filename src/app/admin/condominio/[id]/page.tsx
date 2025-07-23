@@ -717,6 +717,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     }
   }, [isEditingEnabled]);
 
+  const currentlySelectedId = isEditingEnabled ? selectedGeofenceId : null;
+
 
   if (!apiKey) {
     return (
@@ -747,7 +749,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     key={gf.id}
                                     geofence={gf}
                                     isBeingEdited={editingGeofenceId === gf.id}
-                                    isSelected={selectedGeofenceId === gf.id || (!viewAll && !isActionActive && defaultGeofenceId === gf.id)}
+                                    isSelected={!isActionActive && !viewAll ? defaultGeofenceId === gf.id : currentlySelectedId === gf.id}
                                     isDefault={defaultGeofenceId === gf.id}
                                     viewAll={viewAll}
                                     onUpdate={(newShape) => setActiveOverlay(newShape)}
