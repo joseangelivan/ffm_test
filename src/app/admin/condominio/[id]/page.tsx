@@ -717,27 +717,30 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, [isEditingEnabled]);
 
   const geofencesToRender = React.useMemo(() => {
-      if (!isEditingEnabled) {
-          if (viewAll) {
-              return geofences;
-          }
-          return geofences.filter(g => g.id === defaultGeofenceId);
-      }
+    if (!isEditingEnabled) {
+        if (viewAll) {
+            return geofences;
+        }
+        return geofences.filter(g => g.id === defaultGeofenceId);
+    }
 
-      // --- EDITING IS ENABLED ---
-      if (isEditing) {
-          return geofences.filter(g => g.id === editingGeofenceId);
-      }
-      if (isDrawingMode) {
-          return geofences.filter(g => g.id === lastSelectedGeofenceId);
-      }
-      if (isCreating) {
-          return []; // Temp shape is handled separately by <RenderedGeofence> with activeOverlay
-      }
-      
-      // Default state in edit mode: show only the selected geofence
-      return geofences.filter(g => g.id === selectedGeofenceId);
-
+    // --- EDITING IS ENABLED ---
+    if (isEditing) {
+        // Show only the one being actively edited.
+        return geofences.filter(g => g.id === editingGeofenceId);
+    }
+    if (isDrawingMode) {
+        // Show only the reference geofence.
+        return geofences.filter(g => g.id === lastSelectedGeofenceId);
+    }
+    if (isCreating) {
+        // When creating, we only want to see the new shape, not the old ones.
+        // The new shape is handled by `activeOverlay` separately.
+        return [];
+    }
+    
+    // Default state in edit mode: show only the selected geofence
+    return geofences.filter(g => g.id === selectedGeofenceId);
   }, [isEditingEnabled, viewAll, isEditing, isDrawingMode, isCreating, geofences, defaultGeofenceId, editingGeofenceId, lastSelectedGeofenceId, selectedGeofenceId]);
   
   if (!apiKey) {
@@ -799,7 +802,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
                 strokeWeight = 3;
             } else {
-                 // Should not happen with the new geofencesToRender logic
                  fillOpacity = 0;
             }
         }
