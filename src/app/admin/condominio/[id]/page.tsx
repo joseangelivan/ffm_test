@@ -629,11 +629,17 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }
   
   const resetToDefaultState = (isCancel: boolean = false) => {
-    // Restore original shape if editing was cancelled
     if (isCancel && editingGeofenceId && originalShapeBeforeEdit) {
-      setGeofences(prev => prev.map(g => 
-        g.id === editingGeofenceId ? { ...g, shape: originalShapeBeforeEdit } : g
-      ));
+      setGeofences(prev => {
+        const originalGeofence = prev.find(g => g.id === editingGeofenceId);
+        if (originalGeofence) {
+            // @ts-ignore
+            originalShapeBeforeEdit.setMap(originalGeofence.shape.getMap()); 
+        }
+        return prev.map(g => 
+          g.id === editingGeofenceId ? { ...g, shape: originalShapeBeforeEdit } : g
+        );
+      });
     }
     
     if(activeOverlay && !geofences.find(g => g.shape === activeOverlay)) {
@@ -698,24 +704,31 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     if (!geofenceToEdit) return;
 
     resetToDefaultState();
-    // Deep clone the shape to store its original state
-    const clonedShape = new (geofenceToEdit.shape.constructor as any)();
+
+    const shape = geofenceToEdit.shape;
+    let clonedShape;
     // @ts-ignore
-    if (clonedShape.setPaths) { // Polygon
-        // @ts-ignore
-        clonedShape.setPaths(geofenceToEdit.shape.getPaths());
-    } else { // Circle or Rectangle
-        // @ts-ignore
-        clonedShape.setOptions({
-            // @ts-ignore
-            ...geofenceToEdit.shape.get(),
-            // @ts-ignore
-            map: geofenceToEdit.shape.getMap(),
-        });
-    }
-    setOriginalShapeBeforeEdit(clonedShape);
+    const shapeType = shape.getPaths ? 'polygon' : shape.getBounds ? 'rectangle' : 'circle';
     
-    setActiveOverlay(geofenceToEdit.shape);
+    switch(shapeType) {
+        case 'polygon':
+            // @ts-ignore
+            clonedShape = new google.maps.Polygon({ paths: shape.getPaths().getArray().map(p => p.getArray()) });
+            break;
+        case 'rectangle':
+            // @ts-ignore
+            clonedShape = new google.maps.Rectangle({ bounds: shape.getBounds() });
+            break;
+        case 'circle':
+            // @ts-ignore
+            clonedShape = new google.maps.Circle({ center: shape.getCenter(), radius: shape.getRadius() });
+            break;
+        default:
+            return;
+    }
+    
+    setOriginalShapeBeforeEdit(clonedShape);
+    setActiveOverlay(shape);
     setEditingGeofenceId(geofenceToEdit.id);
   }
 
@@ -750,7 +763,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     } else {
         setLastSelectedGeofenceId(selectedGeofenceId);
         setIsDrawingMode(true);
-        // Do not clear selectedGeofenceId, so we can use it as reference
+        setSelectedGeofenceId(null); 
     }
   }
 
@@ -767,17 +780,17 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, [isEditingEnabled]);
 
   let currentlySelectedIdForView: string | null = null;
-  if (isEditingEnabled && !isDrawingMode) {
-      if(isEditing) {
-        currentlySelectedIdForView = editingGeofenceId;
-      } else if (isCreating) {
-        currentlySelectedIdForView = null; // Don't highlight anything while creating a new one
-      } else {
-        currentlySelectedIdForView = selectedGeofenceId;
-      }
-  } else if (!isDrawingMode){
-    currentlySelectedIdForView = defaultGeofenceId;
-  }
+    if (isEditingEnabled) {
+        if(isEditing) {
+            currentlySelectedIdForView = editingGeofenceId;
+        } else if (!isDrawingMode) {
+            currentlySelectedIdForView = selectedGeofenceId;
+        }
+    } else {
+        if (!viewAll && defaultGeofenceId) {
+            currentlySelectedIdForView = defaultGeofenceId;
+        }
+    }
   
   if (!apiKey) {
     return (
@@ -810,7 +823,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     isBeingEdited={editingGeofenceId === gf.id}
                                     isSelected={(!viewAll && currentlySelectedIdForView === gf.id) || (viewAll && isEditing && editingGeofenceId === gf.id)}
                                     isDefault={defaultGeofenceId === gf.id}
-                                    viewAll={viewAll}
+                                    viewAll={viewAll || !isEditingEnabled}
                                     isDrawing={isDrawingMode}
                                     drawingReferenceId={lastSelectedGeofenceId}
                                     onUpdate={(newShape) => setActiveOverlay(newShape)}
@@ -903,7 +916,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                             <div className="flex items-center gap-2">
                                 <Button onClick={handleToggleDrawing} variant={isActionActive ? "destructive" : "outline"} className="flex-1">
                                     <PencilRuler className="mr-2 h-4 w-4"/>
-                                    {isCreating ? 'Cancelar Dibujo' : isEditing ? 'Cancelar Edición' : 'Dibujar'}
+                                    {isCreating ? 'Cancelar Dibujo' : isEditing ? 'Cancelar Edición' : isDrawingMode ? 'Cancelar Dibujo' : 'Dibujar'}
                                 </Button>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
