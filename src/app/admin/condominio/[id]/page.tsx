@@ -716,33 +716,28 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     }
   }, [isEditingEnabled]);
 
-  const geofencesToRender = React.useMemo(() => {
+  const getGeofencesToRender = () => {
     if (!isEditingEnabled) {
-        if (viewAll) {
-            return geofences;
-        }
-        return geofences.filter(g => g.id === defaultGeofenceId);
+        return viewAll ? geofences : geofences.filter(g => g.id === defaultGeofenceId);
     }
 
     // --- EDITING IS ENABLED ---
     if (isEditing) {
-        // Show only the one being actively edited.
         return geofences.filter(g => g.id === editingGeofenceId);
     }
     if (isDrawingMode) {
-        // Show only the reference geofence.
         return geofences.filter(g => g.id === lastSelectedGeofenceId);
     }
     if (isCreating) {
-        // When creating, we only want to see the new shape, not the old ones.
-        // The new shape is handled by `activeOverlay` separately.
         return [];
     }
     
-    // Default state in edit mode: show only the selected geofence
+    // Default idle state in edit mode: show only the selected one
     return geofences.filter(g => g.id === selectedGeofenceId);
-  }, [isEditingEnabled, viewAll, isEditing, isDrawingMode, isCreating, geofences, defaultGeofenceId, editingGeofenceId, lastSelectedGeofenceId, selectedGeofenceId]);
-  
+  }
+
+  const geofencesToRender = getGeofencesToRender();
+
   if (!apiKey) {
     return (
         <Card>
@@ -803,6 +798,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 strokeWeight = 3;
             } else {
                  fillOpacity = 0;
+                 strokeWeight = 0;
             }
         }
     }
@@ -832,7 +828,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     drawingMode={drawingMode} 
                                 />
                             )}
-                            {isCreating && (
+                            {isCreating && activeOverlay && (
                                 <RenderedGeofence 
                                     geofence={{id: 'temp', name: 'temp', shape: activeOverlay}} 
                                     options={{
@@ -859,17 +855,17 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         <div className="flex items-center justify-between">
                             <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
                             <div className="flex items-center space-x-2">
-                                <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)}/>
+                                <Checkbox id="view-all" checked={viewAll} disabled={isEditingEnabled} onCheckedChange={(checked) => setViewAll(!!checked)}/>
                                 <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                     Ver Todas
                                 </label>
                             </div>
                         </div>
-                        <div className="relative">
-                            <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled className="pl-8"/>
+                        <div className="relative flex items-center">
                             {defaultGeofenceId && (
                                 <Star className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-500 fill-orange-400" />
                             )}
+                            <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled className="pl-8"/>
                         </div>
                     </div>
 
