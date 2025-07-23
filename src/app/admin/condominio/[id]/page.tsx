@@ -715,31 +715,33 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, [isEditingEnabled]);
 
   const geofencesToRender = React.useMemo(() => {
-    if (!isEditingEnabled) {
-      if (viewAll) {
-        return geofences;
+      if (!isEditingEnabled) {
+          if (viewAll) {
+              return geofences;
+          }
+          return geofences.filter(g => g.id === defaultGeofenceId);
       }
-      return geofences.filter(g => g.id === defaultGeofenceId);
-    }
 
-    // Editing is enabled
-    if (isEditing) {
-      return geofences.filter(g => g.id === editingGeofenceId);
-    }
+      // --- EDITING IS ENABLED ---
+      if (isEditing) {
+          return geofences.filter(g => g.id === editingGeofenceId);
+      }
 
-    if (isDrawingMode) {
-        return geofences.filter(g => g.id === lastSelectedGeofenceId);
-    }
+      if (isDrawingMode) {
+          // Show only the reference geofence with low opacity
+          return geofences.filter(g => g.id === lastSelectedGeofenceId);
+      }
 
-    if (isCreating) {
-        return []; // The temp shape is handled separately
-    }
-    
-    // Idle edit mode
-    if(viewAll) {
-        return geofences;
-    }
-    return geofences.filter(g => g.id === selectedGeofenceId);
+      if (isCreating) {
+          return []; // Temp shape is handled separately
+      }
+
+      // Idle edit mode (not editing, not drawing)
+      if (viewAll) {
+          return geofences;
+      }
+      
+      return geofences.filter(g => g.id === selectedGeofenceId);
 
   }, [isEditingEnabled, viewAll, isEditing, isDrawingMode, isCreating, geofences, defaultGeofenceId, editingGeofenceId, lastSelectedGeofenceId, selectedGeofenceId]);
   
