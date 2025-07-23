@@ -487,20 +487,20 @@ const DrawingManager = ({
 
 // Colors for Geofences
 const EDIT_COLOR = {
-    fill: '#3498db', // Blue
-    stroke: '#2980b9'
+    fillColor: '#3498db', // Blue
+    strokeColor: '#2980b9'
 };
 const SAVED_COLOR = {
-    fill: '#1ABC9C', // Turquoise
-    stroke: '#16A085'
+    fillColor: '#1ABC9C', // Turquoise
+    strokeColor: '#16A085'
 };
 const VIEW_ALL_COLOR = {
-    fill: '#95a5a6', // Gray
-    stroke: '#7f8c8d'
+    fillColor: '#95a5a6', // Gray
+    strokeColor: '#7f8c8d'
 };
 const DEFAULT_COLOR = {
-    fill: '#f39c12', // Orange
-    stroke: '#e67e22'
+    fillColor: '#f39c12', // Orange
+    strokeColor: '#e67e22'
 };
 
 function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
@@ -542,7 +542,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, [history, historyIndex]);
 
   const handleUndo = useCallback(() => {
-    if (historyIndex <= 0) return;
+    if (historyIndex <= 0 || !activeOverlay) return;
 
     const previousShapeData = history[historyIndex - 1];
     // @ts-ignore
@@ -559,7 +559,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, [activeOverlay, history, historyIndex]);
 
   const handleRedo = useCallback(() => {
-    if (historyIndex >= history.length - 1) return;
+    if (historyIndex >= history.length - 1 || !activeOverlay) return;
     
     const nextShapeData = history[historyIndex + 1];
     // @ts-ignore
@@ -604,6 +604,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 overlayListeners.current.push(google.maps.event.addListener(paths, 'remove_at', updateAndRecordHistory));
             } else { // Rectangle and Circle
                 overlayListeners.current.push(google.maps.event.addListener(activeOverlay, 'bounds_changed', updateAndRecordHistory));
+                // @ts-ignore
                 overlayListeners.current.push(google.maps.event.addListener(activeOverlay, 'radius_changed', updateAndRecordHistory));
             }
              overlayListeners.current.push(google.maps.event.addListener(activeOverlay, 'dragend', updateAndRecordHistory));
@@ -785,19 +786,22 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       if (isEditingEnabled) {
           if (isActionActive) {
               if (isCreating) {
-                  return [];
+                  return []; // Don't show any saved geofences while drawing a new one
               }
-              const refGeofenceId = lastSelectedGeofenceId.current;
-              if (refGeofenceId && isEditing) {
+              const refGeofenceId = isEditing ? selectedGeofenceId : lastSelectedGeofenceId.current;
+              if (refGeofenceId) {
+                  // Show only the reference geofence (the one being edited) with low opacity
                   const refGeofence = geofences.find(g => g.id === refGeofenceId);
                   return refGeofence ? [refGeofence] : [];
               }
               return [];
           }
+          // When idle in edit mode, show only the selected geofence
           const selected = geofences.find(g => g.id === selectedGeofenceId);
           return selected ? [selected] : [];
       }
 
+      // VIEW MODE
       if (viewAll) {
           return geofences;
       }
@@ -823,8 +827,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }
   
   const getRenderOptions = (gf: GeofenceObject) => {
-    let fillColor = SAVED_COLOR.fill;
-    let strokeColor = SAVED_COLOR.stroke;
+    let fillColor = SAVED_COLOR.fillColor;
+    let strokeColor = SAVED_COLOR.strokeColor;
     let fillOpacity = 0.4;
     let strokeWeight = 2;
     let editable = false;
@@ -834,24 +838,24 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     
     if (isEditingEnabled) {
         if(isActionActive) { // Reference geofence when drawing/editing
-            fillColor = VIEW_ALL_COLOR.fill;
-            strokeColor = VIEW_ALL_COLOR.stroke;
+            fillColor = VIEW_ALL_COLOR.fillColor;
+            strokeColor = VIEW_ALL_COLOR.strokeColor;
             fillOpacity = 0.1;
             strokeWeight = 1;
         } else { // Geofence selected in dropdown (idle edit mode)
-            fillColor = isDefault ? DEFAULT_COLOR.fill : SAVED_COLOR.fill;
-            strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
+            fillColor = isDefault ? DEFAULT_COLOR.fillColor : SAVED_COLOR.fillColor;
+            strokeColor = isDefault ? DEFAULT_COLOR.strokeColor : SAVED_COLOR.strokeColor;
             strokeWeight = 3;
         }
     } else { // VIEW MODE
         if (viewAll) {
-            fillColor = isDefault ? DEFAULT_COLOR.fill : VIEW_ALL_COLOR.fill;
-            strokeColor = isDefault ? DEFAULT_COLOR.stroke : VIEW_ALL_COLOR.stroke;
+            fillColor = isDefault ? DEFAULT_COLOR.fillColor : VIEW_ALL_COLOR.fillColor;
+            strokeColor = isDefault ? DEFAULT_COLOR.strokeColor : VIEW_ALL_COLOR.strokeColor;
             fillOpacity = isDefault ? 0.4 : 0.2;
             strokeWeight = isDefault ? 3 : 1;
         } else { // Only default is visible
-            fillColor = DEFAULT_COLOR.fill;
-            strokeColor = DEFAULT_COLOR.stroke;
+            fillColor = DEFAULT_COLOR.fillColor;
+            strokeColor = DEFAULT_COLOR.strokeColor;
         }
     }
 
@@ -1058,3 +1062,5 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
+    
