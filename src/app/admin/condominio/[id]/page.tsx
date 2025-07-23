@@ -46,7 +46,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import {
     Dialog,
@@ -1057,5 +1058,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
-    
