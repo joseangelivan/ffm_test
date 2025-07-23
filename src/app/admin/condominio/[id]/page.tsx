@@ -717,8 +717,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     }
   }, [isEditingEnabled]);
 
-  const currentlySelectedId = isEditingEnabled ? selectedGeofenceId : null;
-
+  const currentlySelectedIdForView = isEditingEnabled ? selectedGeofenceId : null;
+  const currentlySelectedIdForHighlight = isEditing ? editingGeofenceId : currentlySelectedIdForView;
 
   if (!apiKey) {
     return (
@@ -744,17 +744,22 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 <div className="h-full bg-muted overflow-hidden relative shadow-inner">
                     <APIProvider apiKey={apiKey} libraries={['drawing']}>
                         <MapComponent center={center} zoom={15}>
-                            {geofences.map(gf => (
-                                <RenderedGeofence 
-                                    key={gf.id}
-                                    geofence={gf}
-                                    isBeingEdited={editingGeofenceId === gf.id}
-                                    isSelected={!isActionActive && !viewAll ? defaultGeofenceId === gf.id : currentlySelectedId === gf.id}
-                                    isDefault={defaultGeofenceId === gf.id}
-                                    viewAll={viewAll}
-                                    onUpdate={(newShape) => setActiveOverlay(newShape)}
-                                />
-                            ))}
+                            {geofences.map(gf => {
+                                const isSelected = !isEditingEnabled ? gf.id === defaultGeofenceId : 
+                                    isActionActive ? gf.id === editingGeofenceId : gf.id === selectedGeofenceId;
+                                
+                                return (
+                                    <RenderedGeofence 
+                                        key={gf.id}
+                                        geofence={gf}
+                                        isBeingEdited={editingGeofenceId === gf.id}
+                                        isSelected={isSelected}
+                                        isDefault={defaultGeofenceId === gf.id}
+                                        viewAll={viewAll}
+                                        onUpdate={(newShape) => setActiveOverlay(newShape)}
+                                    />
+                                );
+                            })}
                             {isDrawingMode && (
                                 <DrawingManager 
                                     onOverlayComplete={handleOverlayComplete} 
