@@ -46,7 +46,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import {
@@ -613,14 +612,16 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     return clearListeners;
   }, [activeOverlay, map, updateHistory])
 
-  const resetActionStates = useCallback(() => {
+  const resetActionStates = useCallback((overlayToClean?: google.maps.MVCObject | null) => {
+    const overlay = overlayToClean || activeOverlay;
+    if (overlay) {
+        // @ts-ignore
+        overlay.setMap(null);
+    }
+    
     setIsDrawingMode(false);
     setIsEditing(false);
-    if (activeOverlay) {
-        // @ts-ignore
-        activeOverlay.setMap(null);
-        setActiveOverlay(null);
-    }
+    setActiveOverlay(null);
     setHistory([]);
     setHistoryIndex(-1);
   }, [activeOverlay]);
@@ -675,7 +676,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       });
 
       setSelectedGeofenceId(newId);
-      resetActionStates();
+      resetActionStates(activeOverlay);
       
       toast({
           title: "Geocerca Guardada",
@@ -696,7 +697,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         title: "Geocerca Actualizada",
         description: "Los cambios en la geocerca se han guardado."
     });
-    resetActionStates();
+    resetActionStates(activeOverlay);
   }
 
   const handleStartEdit = () => {
@@ -720,10 +721,11 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }
   
   const handleCancelAction = () => {
+    const overlayToClean = activeOverlay;
     if ((isDrawingMode || isCreating || isEditing) && lastSelectedGeofenceId.current) {
          setSelectedGeofenceId(lastSelectedGeofenceId.current);
     }
-    resetActionStates();
+    resetActionStates(overlayToClean);
   }
 
   const handleDelete = () => {
@@ -781,14 +783,13 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const geofencesToRender = useMemo(() => {
       if (isEditingEnabled) {
           if (isActionActive) {
-              const refGeofenceId = lastSelectedGeofenceId.current;
-              if (refGeofenceId && isEditing) {
-                  // Don't show original while editing clone
+              if (isCreating) {
                   return [];
               }
-              if (refGeofenceId) {
-                 const refGeofence = geofences.find(g => g.id === refGeofenceId);
-                 return refGeofence ? [refGeofence] : [];
+              const refGeofenceId = lastSelectedGeofenceId.current;
+              if (refGeofenceId && isEditing) {
+                  const refGeofence = geofences.find(g => g.id === refGeofenceId);
+                  return refGeofence ? [refGeofence] : [];
               }
               return [];
           }
@@ -802,7 +803,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       
       const defaultGeofence = geofences.find(g => g.id === defaultGeofenceId);
       return defaultGeofence ? [defaultGeofence] : [];
-  }, [isEditingEnabled, isActionActive, isEditing, viewAll, geofences, selectedGeofenceId, defaultGeofenceId]);
+  }, [isEditingEnabled, isActionActive, isEditing, isCreating, viewAll, geofences, selectedGeofenceId, defaultGeofenceId]);
   
   if (!apiKey) {
     return (
@@ -967,7 +968,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                 </DropdownMenu>
                             </div>
                             
-                            {isEditing && (
+                            {(isEditing || isCreating) && (
                                <div className="flex items-center gap-2">
                                   <Button onClick={handleUndo} variant="outline" size="icon" disabled={historyIndex <= 0}>
                                     <Undo className="h-4 w-4"/>
@@ -1056,3 +1057,5 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
+    
