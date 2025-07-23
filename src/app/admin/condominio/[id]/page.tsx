@@ -430,8 +430,8 @@ const RenderedGeofence = ({
     const isVisible = isBeingEdited || viewAll;
     
     const options = {
-        fillColor: isBeingEdited ? EDIT_COLOR.fill : SAVED_COLOR.fill,
-        strokeColor: isBeingEdited ? EDIT_COLOR.stroke : SAVED_COLOR.stroke,
+        fillColor: isBeingEdited ? EDIT_COLOR.fill : viewAll ? VIEW_ALL_COLOR.fill : SAVED_COLOR.fill,
+        strokeColor: isBeingEdited ? EDIT_COLOR.stroke : viewAll ? VIEW_ALL_COLOR.stroke : SAVED_COLOR.stroke,
         fillOpacity: isBeingEdited ? 0.3 : viewAll ? 0.2 : 0.4,
         strokeWeight: isBeingEdited ? 2 : viewAll ? 1 : 3,
         editable: isBeingEdited,
@@ -473,7 +473,7 @@ const RenderedGeofence = ({
              listeners.forEach(l => l.remove());
         }
 
-    }, [map, geofence, isBeingEdited, viewAll, options]);
+    }, [map, geofence, isBeingEdited, viewAll, JSON.stringify(options)]); // Using JSON.stringify for options to avoid deep comparison issues
     
     return null; // The shapes are rendered via the Google Maps API directly, not React components
 };
@@ -532,7 +532,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
   const [activeOverlay, setActiveOverlay] = useState<google.maps.MVCObject | null>(null);
   
-  const [viewAll, setViewAll] = useState(true);
+  const [viewAll, setViewAll] = useState(false);
   const [editingGeofenceId, setEditingGeofenceId] = useState<string | null>(null);
 
   const isDrawing = activeOverlay !== null && editingGeofenceId === null;
@@ -562,6 +562,15 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       }
       return `Geocerca_${String(nextNumber).padStart(2, '0')}`;
   }
+  
+  const resetToDefaultState = () => {
+    if(activeOverlay && (isDrawing || isEditing)) {
+        // @ts-ignore
+        activeOverlay.setMap(null);
+    }
+    setActiveOverlay(null);
+    setEditingGeofenceId(null);
+  }
 
   const handleSaveGeofence = () => {
       if (!activeOverlay) return;
@@ -576,7 +585,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       };
       
       setGeofences(prev => [...prev, newGeofence]);
-      setActiveOverlay(null);
+      resetToDefaultState();
       
       toast({
           title: "Geocerca Guardada",
@@ -593,39 +602,30 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         title: "Geocerca Actualizada",
         description: "Los cambios en la geocerca se han guardado."
     });
-    setEditingGeofenceId(null);
-    setActiveOverlay(null);
+    resetToDefaultState();
   }
 
   const handleEdit = (geofence: GeofenceObject) => {
-    if (activeOverlay) { // Cancel any ongoing drawing/editing
-        // @ts-ignore
-        activeOverlay.setMap(null);
-    }
+    resetToDefaultState(); // Cancel any ongoing action before starting a new one
     setActiveOverlay(geofence.shape);
     setEditingGeofenceId(geofence.id);
   }
 
   const handleDelete = (idToDelete: string) => {
       if (editingGeofenceId === idToDelete) {
-          setEditingGeofenceId(null);
-          setActiveOverlay(null);
+          resetToDefaultState();
       }
       setGeofences(prev => prev.filter(g => g.id !== idToDelete));
       toast({ title: "Geocerca Eliminada", variant: "destructive" });
   }
   
   const handleToggleDrawing = () => {
-      if(isDrawing || isEditing) { // Cancel drawing/editing
-          if(activeOverlay) {
-            // @ts-ignore
-            activeOverlay.setMap(null);
-          }
-          setActiveOverlay(null);
-          setEditingGeofenceId(null);
-      } else {
-        // Start drawing - overlay will be set on complete
-      }
+    if(isDrawing || isEditing) {
+        resetToDefaultState();
+    } else {
+      // Entering draw mode is handled by the DrawingManager which will be rendered
+      // The overlay will be set on complete via handleOverlayComplete
+    }
   }
 
   if (!apiKey) {
@@ -661,7 +661,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     onUpdate={(newShape) => setActiveOverlay(newShape)}
                                 />
                             ))}
-                            {(isDrawing || isEditing) && (
+                            {!(isDrawing || isEditing) ? null : (
                                 <DrawingManager 
                                     onOverlayComplete={handleOverlayComplete} 
                                     drawingMode={drawingMode} 
@@ -793,5 +793,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
-    
