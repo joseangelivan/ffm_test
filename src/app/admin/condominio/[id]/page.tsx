@@ -532,6 +532,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const [isDrawingMode, setIsDrawingMode] = useState(false);
 
   const isEditing = editingGeofenceId !== null;
+  const isActionActive = isDrawingMode || isEditing || (activeOverlay && !isEditing);
+  const isListDisabled = isDrawingMode || isEditing || !!activeOverlay;
+
 
   const handleOverlayComplete = useCallback((overlay: google.maps.MVCObject) => {
     setActiveOverlay(overlay);
@@ -646,8 +649,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     )
   }
   
-  const isActionActive = isDrawingMode || isEditing || (activeOverlay && !isEditing);
-
   return (
     <Card>
       <CardContent className="p-0">
@@ -686,7 +687,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="w-40 justify-between" disabled={isActionActive}>
+                                <Button variant="outline" className="w-40 justify-between" disabled={isListDisabled && !isDrawingMode}>
                                 <span>
                                         {drawingMode === 'polygon' && 'Polígono'}
                                         {drawingMode === 'rectangle' && 'Rectángulo'}
@@ -713,7 +714,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         </Button>
                     )}
                     <div className="flex items-center space-x-2 pt-2">
-                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isActionActive} />
+                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isListDisabled && !isDrawingMode} />
                         <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                             Ver Todas
                         </label>
@@ -733,10 +734,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                 )}>
                                     <span className="font-medium">{gf.name}</span>
                                     <div className="flex items-center gap-1">
-                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(gf)} disabled={isActionActive}>
+                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(gf)} disabled={isListDisabled}>
                                             <Edit className="h-4 w-4"/>
                                         </Button>
-                                         <Button variant="ghost" size="icon" onClick={() => handleDelete(gf.id)} disabled={isActionActive}>
+                                         <Button variant="ghost" size="icon" onClick={() => handleDelete(gf.id)} disabled={isListDisabled}>
                                             <Trash2 className="h-4 w-4 text-destructive"/>
                                         </Button>
                                     </div>
