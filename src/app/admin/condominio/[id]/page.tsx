@@ -566,7 +566,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const isEditing = editingGeofenceId !== null;
   const isActionActive = isDrawingMode || isEditing;
-  const isListDisabled = isDrawingMode || isEditing;
 
   const handleOverlayComplete = useCallback((overlay: google.maps.MVCObject) => {
     setActiveOverlay(overlay);
@@ -645,14 +644,20 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     resetToDefaultState();
   }
 
-  const handleEdit = (geofence: GeofenceObject) => {
+  const handleEdit = () => {
+    if (!selectedGeofenceId) return;
+    const geofenceToEdit = geofences.find(g => g.id === selectedGeofenceId);
+    if (!geofenceToEdit) return;
+
     resetToDefaultState();
-    setActiveOverlay(geofence.shape);
-    setEditingGeofenceId(geofence.id);
-    setSelectedGeofenceId(geofence.id);
+    setActiveOverlay(geofenceToEdit.shape);
+    setEditingGeofenceId(geofenceToEdit.id);
   }
 
-  const handleDelete = (idToDelete: string) => {
+  const handleDelete = () => {
+      if (!selectedGeofenceId) return;
+      const idToDelete = selectedGeofenceId;
+
       if (editingGeofenceId === idToDelete) {
           resetToDefaultState();
       }
@@ -666,9 +671,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         if(idToDelete === defaultGeofenceId) {
             setDefaultGeofenceId(newGeofences.length > 0 ? newGeofences[0].id : null);
         }
-        if(idToDelete === selectedGeofenceId){
-            setSelectedGeofenceId(newGeofences.length > 0 ? newGeofences[0].id : null);
-        }
+        
+        const newSelectedId = newGeofences.length > 0 ? newGeofences[0].id : null;
+        setSelectedGeofenceId(newSelectedId);
         return newGeofences;
       });
       toast({ title: "Geocerca Eliminada", variant: "destructive" });
@@ -683,8 +688,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     }
   }
 
-  const handleSetAsDefault = (id: string) => {
-    setDefaultGeofenceId(id);
+  const handleSetAsDefault = () => {
+    if (!selectedGeofenceId) return;
+    setDefaultGeofenceId(selectedGeofenceId);
     toast({ title: "Geocerca por Defecto", description: "Se ha establecido la geocerca seleccionada como predeterminada."});
   }
 
@@ -726,7 +732,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     geofence={gf}
                                     isBeingEdited={editingGeofenceId === gf.id}
                                     isSelected={selectedGeofenceId === gf.id}
-                                    viewAll={viewAll && editingGeofenceId !== gf.id}
+                                    viewAll={viewAll}
                                     onUpdate={(newShape) => setActiveOverlay(newShape)}
                                 />
                             ))}
@@ -745,7 +751,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 <div className="p-4 border rounded-lg space-y-4">
                     <h3 className="font-semibold text-lg">Geocerca</h3>
                      <div className="flex items-center space-x-2 pt-2">
-                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isDrawingMode} />
+                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} />
                         <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                             Ver Todas
                         </label>
@@ -756,8 +762,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         {geofences.length === 0 && !isActionActive ? (
                             <p className="text-sm text-muted-foreground text-center py-4">No hay geocercas guardadas.</p>
                         ) : (
-                           <>
-                           <Select value={selectedGeofenceId || ''} onValueChange={id => setSelectedGeofenceId(id)} disabled={isListDisabled}>
+                           <Select value={selectedGeofenceId || ''} onValueChange={id => setSelectedGeofenceId(id)} disabled={isActionActive}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Seleccionar geocerca" />
                             </SelectTrigger>
@@ -767,7 +772,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                 ))}
                             </SelectContent>
                            </Select>
-                           </>
                         )}
                    </div>
                      
@@ -780,7 +784,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                             </Button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="w-40 justify-between" disabled={isListDisabled}>
+                                    <Button variant="outline" className="w-40 justify-between" disabled={isActionActive}>
                                         <span>
                                             {drawingMode === 'polygon' && 'Polígono'}
                                             {drawingMode === 'rectangle' && 'Rectángulo'}
@@ -796,6 +800,34 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
+                        
+                        <div className="space-y-2 pt-2">
+                           <Select value={selectedGeofenceId || ''} onValueChange={id => setSelectedGeofenceId(id)} disabled={isActionActive}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar geocerca para editar" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {geofences.map(gf => (
+                                        <SelectItem key={gf.id} value={gf.id}>{gf.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                           </Select>
+                           <div className="flex items-center gap-2">
+                                <Button variant="ghost" size="icon" onClick={handleSetAsDefault} disabled={isActionActive || !selectedGeofenceId}>
+                                    <Star className={cn("h-4 w-4", defaultGeofenceId === selectedGeofenceId && "fill-yellow-400 text-yellow-500")} />
+                                    <span className="sr-only">Establecer como Default</span>
+                                </Button>
+                               <Button variant="ghost" size="icon" onClick={handleEdit} disabled={isActionActive || !selectedGeofenceId}>
+                                   <Edit className="h-4 w-4"/>
+                                   <span className="sr-only">Editar</span>
+                               </Button>
+                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isActionActive || !selectedGeofenceId}>
+                                   <Trash2 className="h-4 w-4 text-destructive"/>
+                                   <span className="sr-only">Eliminar</span>
+                               </Button>
+                           </div>
+                        </div>
+
                          {activeOverlay && !isEditing && (
                             <Button onClick={handleSaveGeofence} className="w-full">
                                 <Save className="mr-2 h-4 w-4" /> Guardar Geocerca
@@ -806,30 +838,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                 <Save className="mr-2 h-4 w-4" /> Guardar Cambios
                             </Button>
                         )}
-
-                        <div className="space-y-2 pt-2">
-                               {geofences.map(gf => (
-                                   <div key={gf.id} className={cn(
-                                       "flex items-center justify-between p-2 rounded-md",
-                                       editingGeofenceId === gf.id ? "bg-blue-100 dark:bg-blue-900" : selectedGeofenceId === gf.id ? "bg-muted" : "bg-muted/50"
-                                   )}>
-                                       <div className="flex items-center gap-2">
-                                           <Button variant="ghost" size="icon" onClick={() => handleSetAsDefault(gf.id)} disabled={isListDisabled}>
-                                                <Star className={cn("h-4 w-4", defaultGeofenceId === gf.id && "fill-yellow-400 text-yellow-500")} />
-                                           </Button>
-                                           <span className="font-medium">{gf.name}</span>
-                                       </div>
-                                       <div className="flex items-center gap-1">
-                                           <Button variant="ghost" size="icon" onClick={() => handleEdit(gf)} disabled={isListDisabled}>
-                                               <Edit className="h-4 w-4"/>
-                                           </Button>
-                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(gf.id)} disabled={isListDisabled}>
-                                               <Trash2 className="h-4 w-4 text-destructive"/>
-                                           </Button>
-                                       </div>
-                                   </div>
-                               ))}
-                           </div>
                     </div>
                 </div>
             </div>
