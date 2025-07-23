@@ -628,26 +628,27 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       return `Geocerca_${String(nextNumber).padStart(2, '0')}`;
   }
   
-  const resetToDefaultState = (isCancel: boolean = false) => {
+ const resetToDefaultState = (isCancel: boolean = false) => {
+    // If we are cancelling an edit, restore the original shape
     if (isCancel && editingGeofenceId && originalShapeBeforeEdit) {
-      setGeofences(prev => {
-        const originalGeofence = prev.find(g => g.id === editingGeofenceId);
+        const originalGeofence = geofences.find(g => g.id === editingGeofenceId);
         if (originalGeofence) {
-            // @ts-ignore
-            originalShapeBeforeEdit.setMap(originalGeofence.shape.getMap()); 
+             // @ts-ignore
+            originalGeofence.shape.setMap(null);
+            setGeofences(prev => prev.map(g => 
+                g.id === editingGeofenceId ? { ...g, shape: originalShapeBeforeEdit } : g
+            ));
         }
-        return prev.map(g => 
-          g.id === editingGeofenceId ? { ...g, shape: originalShapeBeforeEdit } : g
-        );
-      });
     }
     
+    // If there's an active overlay that hasn't been saved, remove it from the map.
     if(activeOverlay && !geofences.find(g => g.shape === activeOverlay)) {
         // @ts-ignore
         activeOverlay.setMap(null);
     }
     
-    if(isDrawingMode && lastSelectedGeofenceId) {
+    // If drawing is cancelled, restore the previously selected geofence.
+    if(isCancel && isDrawingMode && lastSelectedGeofenceId) {
         setSelectedGeofenceId(lastSelectedGeofenceId);
     }
     
@@ -787,8 +788,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             currentlySelectedIdForView = selectedGeofenceId;
         }
     } else {
-        if (!viewAll && defaultGeofenceId) {
-            currentlySelectedIdForView = defaultGeofenceId;
+        if (!viewAll) {
+             currentlySelectedIdForView = defaultGeofenceId;
         }
     }
   
@@ -821,7 +822,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     key={gf.id}
                                     geofence={gf}
                                     isBeingEdited={editingGeofenceId === gf.id}
-                                    isSelected={(!viewAll && currentlySelectedIdForView === gf.id) || (viewAll && isEditing && editingGeofenceId === gf.id)}
+                                    isSelected={(isEditingEnabled && currentlySelectedIdForView === gf.id) || (!isEditingEnabled && !viewAll && defaultGeofenceId === gf.id)}
                                     isDefault={defaultGeofenceId === gf.id}
                                     viewAll={viewAll || !isEditingEnabled}
                                     isDrawing={isDrawingMode}
@@ -855,21 +856,21 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 <div className="p-4 border rounded-lg space-y-4 relative">
                      <h3 className="text-lg font-semibold absolute -top-3 left-3 bg-card px-1">Geocerca</h3>
                      
-                     <div className="flex items-center justify-between gap-4 pt-4">
-                        <div className="flex-grow grid gap-2">
+                     <div className="flex flex-col gap-4 pt-4">
+                        <div className="flex items-center justify-between">
                             <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
-                            <div className="relative">
-                                <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled/>
-                                {defaultGeofenceId && (
-                                    <Star className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-500 fill-orange-400" />
-                                )}
+                            <div className="flex items-center space-x-2">
+                                <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} />
+                                <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    Ver Todas
+                                </label>
                             </div>
                         </div>
-                        <div className="flex items-center space-x-2 pt-6">
-                            <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} />
-                            <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                Ver Todas
-                            </label>
+                        <div className="relative">
+                            <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled/>
+                            {defaultGeofenceId && (
+                                <Star className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-500 fill-orange-400" />
+                            )}
                         </div>
                     </div>
 
