@@ -386,12 +386,14 @@ function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
     );
 }
 
+type DrawingMode = 'polygon' | 'rectangle' | 'circle';
+
 const DrawingManager = ({
     onOverlayComplete,
     drawingMode,
 }: {
     onOverlayComplete: (overlay: google.maps.MVCObject) => void;
-    drawingMode: google.maps.drawing.OverlayType;
+    drawingMode: DrawingMode;
 }) => {
     const map = useMap();
     const drawing = useMapsLibrary('drawing');
@@ -401,7 +403,7 @@ const DrawingManager = ({
         if (!map || !drawing) return;
 
         const newDrawingManager = new drawing.DrawingManager({
-            drawingMode: drawingMode,
+            drawingMode: drawing[drawingMode.toUpperCase() as keyof typeof google.maps.drawing.OverlayType] as google.maps.drawing.OverlayType,
             drawingControl: false,
             polygonOptions: {
                 fillColor: '#3498db',
@@ -434,7 +436,7 @@ const DrawingManager = ({
         
         newDrawingManager.setMap(map);
 
-        const listener = (type: google.maps.drawing.OverlayType, event: any) => {
+        const listener = (type: string, event: any) => {
             onOverlayComplete(event);
             newDrawingManager.setDrawingMode(null);
         };
@@ -471,7 +473,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [geofence, setGeofence] = useState<google.maps.MVCObject | null>(null);
-  const [drawingMode, setDrawingMode] = useState<google.maps.drawing.OverlayType>(google.maps.drawing.OverlayType.POLYGON);
+  const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
   const [renderedGeofence, setRenderedGeofence] = useState<React.ReactNode | null>(null);
 
   const handleOverlayComplete = useCallback((overlay: google.maps.MVCObject) => {
@@ -566,9 +568,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                    <DropdownMenuItem onSelect={() => setDrawingMode(google.maps.drawing.OverlayType.POLYGON)}>Polígono</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setDrawingMode(google.maps.drawing.OverlayType.RECTANGLE)}>Rectángulo</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setDrawingMode(google.maps.drawing.OverlayType.CIRCLE)}>Círculo</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setDrawingMode('polygon')}>Polígono</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setDrawingMode('rectangle')}>Rectángulo</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setDrawingMode('circle')}>Círculo</DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
 
