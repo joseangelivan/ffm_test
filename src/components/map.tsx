@@ -15,6 +15,7 @@ interface MapProps {
     center: { lat: number; lng: number };
     markers?: Marker[];
     zoom?: number;
+    children?: React.ReactNode;
 }
 
 const BoundsUpdater = ({ markers }: { markers?: Marker[] }) => {
@@ -47,7 +48,7 @@ const BoundsUpdater = ({ markers }: { markers?: Marker[] }) => {
     return null;
   };
 
-const MapComponent: React.FC<MapProps> = ({ center, markers, zoom = 12 }) => {
+const MapComponent: React.FC<MapProps> = ({ center, markers, zoom = 12, children }) => {
     return (
         <Map
             defaultCenter={center}
@@ -71,7 +72,8 @@ const MapComponent: React.FC<MapProps> = ({ center, markers, zoom = 12 }) => {
                      </div>
                 </AdvancedMarker>
             ))}
-             <BoundsUpdater markers={markers} />
+            {markers && markers.length > 0 && <BoundsUpdater markers={markers} />}
+            {children}
         </Map>
     );
 };

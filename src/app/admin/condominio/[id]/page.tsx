@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -21,7 +21,9 @@ import {
   Copy,
   Home,
   Phone,
-  Building2
+  Building2,
+  PencilRuler,
+  CheckCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,8 +58,10 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { APIProvider } from '@vis.gl/react-google-maps';
+import { APIProvider, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import MapComponent from '@/components/map';
+import { cn } from '@/lib/utils';
+
 
 // Mock data
 const mockCondoDetails = {
@@ -381,10 +385,97 @@ function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
     );
 }
 
+const DrawingManager = ({ onGeofenceComplete }: { onGeofenceComplete: (polygon: google.maps.Polygon) => void }) => {
+    const map = useMap();
+    const drawing = useMapsLibrary('drawing');
+    const [drawingManager, setDrawingManager] = useState<google.maps.drawing.DrawingManager | null>(null);
+
+    useEffect(() => {
+        if (!map || !drawing) return;
+
+        const newDrawingManager = new drawing.DrawingManager({
+            drawingMode: google.maps.drawing.OverlayType.POLYGON,
+            drawingControl: false,
+            polygonOptions: {
+                fillColor: '#1ABC9C',
+                fillOpacity: 0.3,
+                strokeWeight: 2,
+                strokeColor: '#1ABC9C',
+                clickable: false,
+                editable: true,
+                zIndex: 1,
+            },
+        });
+        
+        newDrawingManager.setMap(map);
+
+        google.maps.event.addListener(
+            newDrawingManager,
+            'polygoncomplete',
+            (polygon: google.maps.Polygon) => {
+                onGeofenceComplete(polygon);
+                newDrawingManager.setDrawingMode(null); // Exit drawing mode after one polygon
+            }
+        );
+
+        setDrawingManager(newDrawingManager);
+
+        return () => {
+            google.maps.event.clearInstanceListeners(newDrawingManager);
+            newDrawingManager.setMap(null);
+        };
+    }, [map, drawing, onGeofenceComplete]);
+
+    return null;
+};
+
 
 function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const { t } = useLocale();
+  const { toast } = useToast();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [geofence, setGeofence] = useState<google.maps.Polygon | null>(null);
+
+  const handleGeofenceComplete = useCallback((polygon: google.maps.Polygon) => {
+    if (geofence) {
+        geofence.setMap(null); // Remove previous geofence
+    }
+    setGeofence(polygon);
+    setIsDrawing(false);
+    toast({
+        title: "Geocerca Creada",
+        description: "Ahora puedes guardar la geocerca para este condominio."
+    });
+  }, [geofence, toast]);
+
+  const toggleDrawing = () => {
+    if (geofence) {
+        geofence.setMap(null);
+        setGeofence(null);
+    }
+    setIsDrawing(prev => !prev);
+  }
+  
+  const handleSaveGeofence = () => {
+      if (!geofence) {
+          toast({
+              title: "Error",
+              description: "No hay ninguna geocerca dibujada para guardar.",
+              variant: "destructive"
+          });
+          return;
+      }
+       // In a real app, you'd get the path and save it to your database
+      // const path = geofence.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
+      // console.log("Saving geofence:", path);
+      
+      toast({
+          title: "Geocerca Guardada",
+          description: "La geocerca se ha guardado correctamente."
+      })
+  }
 
   if (!apiKey) {
     return (
@@ -405,17 +496,29 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
             <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-            <CardDescription>{t('condoDashboard.map.description')}</CardDescription>
+            <CardDescription>Dibuja un polígono para definir la geocerca del condominio.</CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={toggleDrawing} variant={isDrawing ? "destructive" : "outline"}>
+                <PencilRuler className="mr-2 h-4 w-4"/>
+                {isDrawing ? 'Cancelar' : 'Dibujar Geocerca'}
+            </Button>
+            <Button onClick={handleSaveGeofence} disabled={!geofence}>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Guardar Geocerca
+            </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden relative shadow-inner">
-            <APIProvider apiKey={apiKey}>
-                <MapComponent center={center} />
+            <APIProvider apiKey={apiKey} libraries={['drawing']}>
+                <MapComponent center={center} zoom={15}>
+                   {isDrawing && <DrawingManager onGeofenceComplete={handleGeofenceComplete} />}
+                </MapComponent>
             </APIProvider>
         </div>
       </CardContent>
