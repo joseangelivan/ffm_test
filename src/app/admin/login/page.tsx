@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mail, Lock, Shield } from 'lucide-react';
+import { Mail, Lock } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
 import { LanguageSwitcher } from '@/components/language-switcher';
@@ -27,7 +27,7 @@ export default function AdminLoginPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="space-y-4 text-center">
           <div className="flex justify-center">
-            <Shield className="h-12 w-12 text-primary" />
+            <Logo />
           </div>
           <CardTitle className="font-headline text-3xl">{t('adminLogin.title')}</CardTitle>
           <CardDescription>
