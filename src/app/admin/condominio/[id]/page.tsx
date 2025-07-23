@@ -423,10 +423,7 @@ const RenderedGeofence = ({
     onUpdate: (newShape: google.maps.MVCObject) => void;
 }) => {
     const map = useMap();
-    const [polygon, setPolygon] = useState<google.maps.Polygon | null>(null);
-    const [rectangle, setRectangle] = useState<google.maps.Rectangle | null>(null);
-    const [circle, setCircle] = useState<google.maps.Circle | null>(null);
-
+    
     const isVisible = isBeingEdited || viewAll;
     
     const options = {
@@ -457,13 +454,15 @@ const RenderedGeofence = ({
         if (isBeingEdited) {
             const updateShape = () => onUpdate(shape);
             
-            if (shape instanceof google.maps.Polygon) {
+            // @ts-ignore
+            if (shape.getPaths) { // Polygon
                 addListener('dragend', updateShape);
                 // @ts-ignore
                 addListener('mouseup', updateShape); // For path changes
-            } else if (shape instanceof google.maps.Rectangle) {
+            // @ts-ignore
+            } else if (shape.getBounds) { // Rectangle
                 addListener('bounds_changed', updateShape);
-            } else if (shape instanceof google.maps.Circle) {
+            } else { // Circle
                 addListener('center_changed', updateShape);
                 addListener('radius_changed', updateShape);
             }
@@ -478,7 +477,6 @@ const RenderedGeofence = ({
     return null; // The shapes are rendered via the Google Maps API directly, not React components
 };
 
-
 const DrawingManager = ({
     onOverlayComplete,
     drawingMode,
@@ -488,8 +486,7 @@ const DrawingManager = ({
 }) => {
     const map = useMap();
     const drawing = useMapsLibrary('drawing');
-    const [drawingManager, setDrawingManager] = useState<google.maps.drawing.DrawingManager | null>(null);
-
+    
     useEffect(() => {
         if (!map || !drawing) return;
 
@@ -510,8 +507,6 @@ const DrawingManager = ({
         };
         
         const overlayCompleteListener = google.maps.event.addListener(newDrawingManager, 'overlaycomplete', listener);
-
-        setDrawingManager(newDrawingManager);
 
         return () => {
             google.maps.event.removeListener(overlayCompleteListener);
@@ -534,12 +529,13 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   
   const [viewAll, setViewAll] = useState(false);
   const [editingGeofenceId, setEditingGeofenceId] = useState<string | null>(null);
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
 
-  const isDrawing = activeOverlay !== null && editingGeofenceId === null;
   const isEditing = editingGeofenceId !== null;
 
   const handleOverlayComplete = useCallback((overlay: google.maps.MVCObject) => {
     setActiveOverlay(overlay);
+    setIsDrawingMode(false); // Drawing is complete, now in "preview" before saving
     toast({
         title: "Forma Dibujada",
         description: "Ahora puedes guardar la geocerca para este condominio."
@@ -564,12 +560,13 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }
   
   const resetToDefaultState = () => {
-    if(activeOverlay && (isDrawing || isEditing)) {
+    if(activeOverlay) {
         // @ts-ignore
         activeOverlay.setMap(null);
     }
     setActiveOverlay(null);
     setEditingGeofenceId(null);
+    setIsDrawingMode(false);
   }
 
   const handleSaveGeofence = () => {
@@ -615,16 +612,21 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       if (editingGeofenceId === idToDelete) {
           resetToDefaultState();
       }
+      // Make sure to remove the shape from the map
+      const geofenceToDelete = geofences.find(g => g.id === idToDelete);
+      if(geofenceToDelete) {
+          // @ts-ignore
+          geofenceToDelete.shape.setMap(null);
+      }
       setGeofences(prev => prev.filter(g => g.id !== idToDelete));
       toast({ title: "Geocerca Eliminada", variant: "destructive" });
   }
   
   const handleToggleDrawing = () => {
-    if(isDrawing || isEditing) {
+    if(isDrawingMode || isEditing || activeOverlay) {
         resetToDefaultState();
     } else {
-      // Entering draw mode is handled by the DrawingManager which will be rendered
-      // The overlay will be set on complete via handleOverlayComplete
+        setIsDrawingMode(true);
     }
   }
 
@@ -643,6 +645,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         </Card>
     )
   }
+  
+  const isActionActive = isDrawingMode || isEditing || (activeOverlay && !isEditing);
 
   return (
     <Card>
@@ -657,17 +661,17 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     key={gf.id}
                                     geofence={gf}
                                     isBeingEdited={editingGeofenceId === gf.id}
-                                    viewAll={viewAll}
+                                    viewAll={viewAll && editingGeofenceId !== gf.id}
                                     onUpdate={(newShape) => setActiveOverlay(newShape)}
                                 />
                             ))}
-                            {!(isDrawing || isEditing) ? null : (
+                            {isDrawingMode && (
                                 <DrawingManager 
                                     onOverlayComplete={handleOverlayComplete} 
                                     drawingMode={drawingMode} 
                                 />
                             )}
-                            {isDrawing && activeOverlay && <RenderedGeofence geofence={{id: 'temp', name: 'temp', shape: activeOverlay}} isBeingEdited={true} viewAll={true} onUpdate={() => {}} />}
+                            {activeOverlay && !isEditing && <RenderedGeofence geofence={{id: 'temp', name: 'temp', shape: activeOverlay}} isBeingEdited={true} viewAll={false} onUpdate={() => {}} />}
                         </MapComponent>
                     </APIProvider>
                 </div>
@@ -676,13 +680,13 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 <div className="p-4 border rounded-lg space-y-4">
                     <h3 className="font-semibold text-lg">Geocerca</h3>
                     <div className="flex items-center gap-2">
-                        <Button onClick={handleToggleDrawing} variant={isDrawing || isEditing ? "destructive" : "outline"} className="flex-1">
+                        <Button onClick={handleToggleDrawing} variant={isActionActive ? "destructive" : "outline"} className="flex-1">
                             <PencilRuler className="mr-2 h-4 w-4"/>
-                            {isDrawing ? 'Cancelar Dibujo' : isEditing ? 'Cancelar Edición' : 'Dibujar'}
+                            {isEditing ? 'Cancelar Edición' : isActionActive ? 'Cancelar Dibujo' : 'Dibujar'}
                         </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="w-40 justify-between" disabled={isDrawing || isEditing}>
+                                <Button variant="outline" className="w-40 justify-between" disabled={isActionActive}>
                                 <span>
                                         {drawingMode === 'polygon' && 'Polígono'}
                                         {drawingMode === 'rectangle' && 'Rectángulo'}
@@ -698,8 +702,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
-                     {isDrawing && (
-                        <Button onClick={handleSaveGeofence} disabled={!activeOverlay} className="w-full">
+                     {activeOverlay && !isEditing && (
+                        <Button onClick={handleSaveGeofence} className="w-full">
                             <Save className="mr-2 h-4 w-4" /> Guardar Geocerca
                         </Button>
                     )}
@@ -709,7 +713,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         </Button>
                     )}
                     <div className="flex items-center space-x-2 pt-2">
-                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} />
+                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isActionActive} />
                         <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                             Ver Todas
                         </label>
@@ -729,10 +733,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                 )}>
                                     <span className="font-medium">{gf.name}</span>
                                     <div className="flex items-center gap-1">
-                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(gf)} disabled={isDrawing || (isEditing && editingGeofenceId !== gf.id)}>
+                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(gf)} disabled={isActionActive}>
                                             <Edit className="h-4 w-4"/>
                                         </Button>
-                                         <Button variant="ghost" size="icon" onClick={() => handleDelete(gf.id)} disabled={isDrawing || isEditing}>
+                                         <Button variant="ghost" size="icon" onClick={() => handleDelete(gf.id)} disabled={isActionActive}>
                                             <Trash2 className="h-4 w-4 text-destructive"/>
                                         </Button>
                                     </div>
