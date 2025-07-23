@@ -565,7 +565,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
 
   const isEditing = editingGeofenceId !== null;
-  const isActionActive = isDrawingMode || isEditing || (activeOverlay && !isEditing);
+  const isActionActive = isDrawingMode || isEditing;
   const isListDisabled = isDrawingMode || isEditing;
 
   const handleOverlayComplete = useCallback((overlay: google.maps.MVCObject) => {
@@ -744,15 +744,35 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             <div className="w-1/3 p-4 space-y-4 overflow-y-auto">
                 <div className="p-4 border rounded-lg space-y-4">
                     <h3 className="font-semibold text-lg">Geocerca</h3>
-                    <div className="flex items-center space-x-2 pt-2">
-                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} />
+                     <div className="flex items-center space-x-2 pt-2">
+                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isDrawingMode} />
                         <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                             Ver Todas
                         </label>
                     </div>
 
                     <div className="pt-4 border-t space-y-2">
-                        <h3 className="font-semibold text-lg">Edición</h3>
+                        <h3 className="font-semibold text-lg">Selección</h3>
+                        {geofences.length === 0 && !isActionActive ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">No hay geocercas guardadas.</p>
+                        ) : (
+                           <>
+                           <Select value={selectedGeofenceId || ''} onValueChange={id => setSelectedGeofenceId(id)} disabled={isListDisabled}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar geocerca" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {geofences.map(gf => (
+                                    <SelectItem key={gf.id} value={gf.id}>{gf.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                           </Select>
+                           </>
+                        )}
+                   </div>
+                     
+                    <div className="pt-4 border-t space-y-2">
+                         <h3 className="font-semibold text-lg">Edición</h3>
                         <div className="flex items-center gap-2">
                             <Button onClick={handleToggleDrawing} variant={isActionActive ? "destructive" : "outline"} className="flex-1">
                                 <PencilRuler className="mr-2 h-4 w-4"/>
@@ -786,25 +806,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                 <Save className="mr-2 h-4 w-4" /> Guardar Cambios
                             </Button>
                         )}
-                    </div>
-                     
-                    <div className="pt-4 border-t space-y-2">
-                        <h3 className="font-semibold text-lg">Selección</h3>
-                        {geofences.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-4">No hay geocercas guardadas.</p>
-                        ) : (
-                           <>
-                           <Select value={selectedGeofenceId || ''} onValueChange={id => setSelectedGeofenceId(id)} disabled={isListDisabled}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Seleccionar geocerca" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {geofences.map(gf => (
-                                    <SelectItem key={gf.id} value={gf.id}>{gf.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                           </Select>
-                           <div className="space-y-2 pt-2">
+
+                        <div className="space-y-2 pt-2">
                                {geofences.map(gf => (
                                    <div key={gf.id} className={cn(
                                        "flex items-center justify-between p-2 rounded-md",
@@ -827,9 +830,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                    </div>
                                ))}
                            </div>
-                           </>
-                        )}
-                   </div>
+                    </div>
                 </div>
             </div>
         </div>
