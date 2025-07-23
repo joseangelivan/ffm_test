@@ -411,17 +411,23 @@ const VIEW_ALL_COLOR = {
     fill: '#95a5a6',
     stroke: '#7f8c8d'
 };
+const DEFAULT_COLOR = {
+    fill: '#f39c12',
+    stroke: '#e67e22'
+};
 
 const RenderedGeofence = ({ 
     geofence, 
     isBeingEdited,
     isSelected,
+    isDefault,
     viewAll, 
     onUpdate 
 }: { 
     geofence: GeofenceObject, 
     isBeingEdited: boolean,
     isSelected: boolean,
+    isDefault: boolean,
     viewAll: boolean,
     onUpdate: (newShape: google.maps.MVCObject) => void;
 }) => {
@@ -439,7 +445,12 @@ const RenderedGeofence = ({
         fillOpacity = 0.3;
         strokeWeight = 2;
     } else if (viewAll) {
-        if (isSelected) {
+        if (isDefault) {
+            fillColor = DEFAULT_COLOR.fill;
+            strokeColor = DEFAULT_COLOR.stroke;
+            fillOpacity = 0.4;
+            strokeWeight = 3;
+        } else if (isSelected) {
             fillColor = SAVED_COLOR.fill;
             strokeColor = SAVED_COLOR.stroke;
             fillOpacity = 0.4;
@@ -451,8 +462,8 @@ const RenderedGeofence = ({
             strokeWeight = 1;
         }
     } else if (isSelected) {
-        fillColor = SAVED_COLOR.fill;
-        strokeColor = SAVED_COLOR.stroke;
+        fillColor = isDefault ? DEFAULT_COLOR.fill : SAVED_COLOR.fill;
+        strokeColor = isDefault ? DEFAULT_COLOR.stroke : SAVED_COLOR.stroke;
         fillOpacity = 0.4;
         strokeWeight = 3;
     }
@@ -503,7 +514,7 @@ const RenderedGeofence = ({
              listeners.forEach(l => l.remove());
         }
 
-    }, [map, geofence, isBeingEdited, isSelected, viewAll, JSON.stringify(options)]);
+    }, [map, geofence, isBeingEdited, isSelected, viewAll, isDefault, JSON.stringify(options)]);
     
     return null;
 };
@@ -697,11 +708,11 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }
 
   useEffect(() => {
-    if (selectedGeofenceId && isEditing) {
-      const geofence = geofences.find(g => g.id === selectedGeofenceId);
+    if (isEditing) {
+      const geofence = geofences.find(g => g.id === editingGeofenceId);
       if(geofence) setActiveOverlay(geofence.shape);
     }
-  }, [selectedGeofenceId, isEditing, geofences]);
+  }, [editingGeofenceId, geofences]);
 
 
   if (!apiKey) {
@@ -733,7 +744,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     key={gf.id}
                                     geofence={gf}
                                     isBeingEdited={editingGeofenceId === gf.id}
-                                    isSelected={selectedGeofenceId === gf.id && !viewAll}
+                                    isSelected={selectedGeofenceId === gf.id}
+                                    isDefault={defaultGeofenceId === gf.id}
                                     viewAll={viewAll}
                                     onUpdate={(newShape) => setActiveOverlay(newShape)}
                                 />
@@ -744,7 +756,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     drawingMode={drawingMode} 
                                 />
                             )}
-                            {activeOverlay && !isEditing && <RenderedGeofence geofence={{id: 'temp', name: 'temp', shape: activeOverlay}} isBeingEdited={true} isSelected={false} viewAll={false} onUpdate={() => {}} />}
+                            {activeOverlay && !isEditing && <RenderedGeofence geofence={{id: 'temp', name: 'temp', shape: activeOverlay}} isBeingEdited={true} isSelected={false} isDefault={false} viewAll={false} onUpdate={() => {}} />}
                         </MapComponent>
                     </APIProvider>
                 </div>
@@ -753,7 +765,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 <div className="p-4 border rounded-lg space-y-4">
                     <h3 className="font-semibold text-lg">Geocerca</h3>
                      <div className="flex items-center space-x-2 pt-2">
-                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} />
+                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isActionActive && !isDrawingMode}/>
                         <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                             Ver Todas
                         </label>
@@ -776,7 +788,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                             </Button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="w-40 justify-between" disabled={isActionActive}>
+                                    <Button variant="outline" className="w-40 justify-between" disabled={isActionActive && !isDrawingMode}>
                                         <span>
                                             {drawingMode === 'polygon' && 'Polígono'}
                                             {drawingMode === 'rectangle' && 'Rectángulo'}
@@ -796,7 +808,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         <div className="space-y-2 pt-2">
                            <Select value={selectedGeofenceId || ''} onValueChange={id => setSelectedGeofenceId(id)} disabled={isActionActive}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar geocerca para editar" />
+                                    <SelectValue placeholder="Seleccionar geocerca para gestionar" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {geofences.map(gf => (
@@ -884,5 +896,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
-    
