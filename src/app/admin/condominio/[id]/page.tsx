@@ -715,7 +715,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     if (!isEditingEnabled) {
         resetToDefaultState();
     }
-  }, [isEditingEnabled])
+  }, [isEditingEnabled]);
 
 
   if (!apiKey) {
@@ -766,9 +766,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             </div>
             <div className="w-1/3 p-4 space-y-4 overflow-y-auto">
                 <div className="p-4 border rounded-lg space-y-4">
-                    <h3 className="font-semibold text-lg">Geocerca</h3>
-                     <div className="flex items-center space-x-2 pt-2">
-                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} />
+                     <div className="flex items-center space-x-2">
+                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isActionActive} />
                         <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                             Ver Todas
                         </label>
@@ -903,5 +902,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
-    
