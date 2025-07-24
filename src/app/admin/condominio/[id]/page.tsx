@@ -538,14 +538,15 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || "Ninguna";
   
   const updateHistory = useCallback((newShape: any) => {
-      setHistory(currentHistory => {
-          const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
-          const newHistory = [...newHistorySlice, newShape];
-          setHistoryIndex(newHistory.length - 1);
-          return newHistory;
-      });
+    setHistory(currentHistory => {
+        // If we are editing and not at the end of history, truncate the future
+        const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
+        const newHistory = [...newHistorySlice, newShape];
+        setHistoryIndex(newHistory.length - 1);
+        return newHistory;
+    });
   }, [historyIndex]);
-  
+
   const applyHistoryState = useCallback((geometry: any) => {
     if (!activeOverlay || !geometry) return;
     
@@ -822,8 +823,11 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
         if (isEditingEnabled) {
              if (isActionActive) {
-                if (isSelected) {
-                    visible = true;
+                // When drawing or editing, show the original selected geofence as a reference
+                if (isSelected && isEditing) {
+                    visible = false; // The active overlay is the one being edited, not this one
+                } else if (isSelected && isDrawingMode) {
+                    visible = true; // Show reference when starting to draw
                     options = {
                         fillColor: REF_COLOR.fillColor,
                         strokeColor: REF_COLOR.strokeColor,
@@ -868,7 +872,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         // @ts-ignore
         gf.shape.setOptions({ ...options, editable: false, draggable: false, map: visible ? map : null });
     });
-  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isActionActive, map]);
+  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isActionActive, isEditing, isDrawingMode, map]);
 
   
   if (!apiKey) {
@@ -1070,9 +1074,7 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
               ) : (
                 <Card>
                     <CardHeader>
-                        <CardTitle>
-                          {t('condoDashboard.map.title')}
-                        </CardTitle>
+                        <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
                         <CardDescription>API Key for Google Maps is missing.</CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -1089,4 +1091,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
