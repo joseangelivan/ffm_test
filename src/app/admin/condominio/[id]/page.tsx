@@ -567,7 +567,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   
 
   const updateHistory = useCallback((newGeometry: any) => {
-    // Si estamos a mitad del historial, truncamos el futuro para crear una nueva línea de tiempo
+    // If we are in the middle of history, truncate the future to create a new timeline
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
     newHistory.push(newGeometry);
     historyRef.current = newHistory;
@@ -578,27 +578,27 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, []);
   
   const handleUndo = useCallback(() => {
-    if (historyIndexRef.current > 0) {
-        const newIndex = historyIndexRef.current - 1;
-        historyIndexRef.current = newIndex;
-        const geometry = historyRef.current[newIndex];
-        applyGeometryToShape(activeOverlay, geometry);
+      if (!activeOverlay || historyIndexRef.current <= 0) return;
+      
+      const newIndex = historyIndexRef.current - 1;
+      historyIndexRef.current = newIndex;
+      const geometry = historyRef.current[newIndex];
+      applyGeometryToShape(activeOverlay, geometry);
 
-        setCanUndo(newIndex > 0);
-        setCanRedo(true);
-    }
+      setCanUndo(newIndex > 0);
+      setCanRedo(true);
   }, [activeOverlay]);
   
   const handleRedo = useCallback(() => {
-    if (historyIndexRef.current < historyRef.current.length - 1) {
-        const newIndex = historyIndexRef.current + 1;
-        historyIndexRef.current = newIndex;
-        const geometry = historyRef.current[newIndex];
-        applyGeometryToShape(activeOverlay, geometry);
+      if (!activeOverlay || historyIndexRef.current >= historyRef.current.length - 1) return;
+      
+      const newIndex = historyIndexRef.current + 1;
+      historyIndexRef.current = newIndex;
+      const geometry = historyRef.current[newIndex];
+      applyGeometryToShape(activeOverlay, geometry);
 
-        setCanUndo(true);
-        setCanRedo(newIndex < historyRef.current.length - 1);
-    }
+      setCanUndo(true);
+      setCanRedo(newIndex < historyRef.current.length - 1);
   }, [activeOverlay]);
 
 
