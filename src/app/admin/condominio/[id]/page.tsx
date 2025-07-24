@@ -539,7 +539,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   
   const updateHistory = useCallback((newShape: any) => {
     setHistory(currentHistory => {
-        // If we are editing and not at the end of history, truncate the future
         const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
         const newHistory = [...newHistorySlice, newShape];
         setHistoryIndex(newHistory.length - 1);
@@ -572,20 +571,28 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, [activeOverlay]);
 
   const handleUndo = useCallback(() => {
-    if (historyIndex > 0) {
-        const newIndex = historyIndex - 1;
-        applyHistoryState(history[newIndex]);
-        setHistoryIndex(newIndex);
-    }
-  }, [history, historyIndex, applyHistoryState]);
-
+    setHistoryIndex(prevIndex => {
+        if (prevIndex > 0) {
+            const newIndex = prevIndex - 1;
+            // Use a timeout to ensure the state update has propagated before applying
+            setTimeout(() => applyHistoryState(history[newIndex]), 0);
+            return newIndex;
+        }
+        return prevIndex;
+    });
+  }, [history, applyHistoryState]);
+  
   const handleRedo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-        const newIndex = historyIndex + 1;
-        applyHistoryState(history[newIndex]);
-        setHistoryIndex(newIndex);
-    }
-  }, [history, historyIndex, applyHistoryState]);
+    setHistoryIndex(prevIndex => {
+       if (prevIndex < history.length - 1) {
+           const newIndex = prevIndex + 1;
+           // Use a timeout to ensure the state update has propagated before applying
+           setTimeout(() => applyHistoryState(history[newIndex]), 0);
+           return newIndex;
+       }
+       return prevIndex;
+    });
+  }, [history, applyHistoryState]);
 
 
   const clearListeners = useCallback(() => {
