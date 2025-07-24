@@ -979,7 +979,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                 </DropdownMenu>
                             </div>
                             
-                            {(isEditing || isCreating) && (
+                            {(isEditing) && (
                                <div className="flex items-center gap-2">
                                   <Button onClick={handleUndo} variant="outline" size="icon" disabled={historyIndex <= 0}>
                                     <Undo className="h-4 w-4"/>
@@ -989,6 +989,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     <Redo className="h-4 w-4"/>
                                      <span className="sr-only">{t('condoDashboard.map.redo')}</span>
                                   </Button>
+                                  <Button variant="link" onClick={() => {}} className="text-muted-foreground">{t('condoDashboard.map.undoLast')}</Button>
                                </div>
                             )}
 
@@ -1068,3 +1069,5 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
+    

@@ -138,7 +138,8 @@
         "customMap1": "Mapa Personalizado 1",
         "customMap2": "Mapa Personalizado 2",
         "undo": "Desfazer",
-        "redo": "Refazer"
+        "redo": "Refazer",
+        "undoLast": "Desfazer a última edição"
       },
       "users": {
         "title": "Gerenciar Usuários",
@@ -190,5 +191,8 @@
   }
 
     
+
+    
+
 
     
