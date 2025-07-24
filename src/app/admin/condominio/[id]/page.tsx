@@ -604,8 +604,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 overlayListeners.current.push(google.maps.event.addListener(activeOverlay, 'bounds_changed', updateAndRecordHistory));
                 // @ts-ignore
                 overlayListeners.current.push(google.maps.event.addListener(activeOverlay, 'radius_changed', updateAndRecordHistory));
+                 // @ts-ignore
+                overlayListeners.current.push(google.maps.event.addListener(activeOverlay, 'dragend', updateAndRecordHistory));
             }
-             overlayListeners.current.push(google.maps.event.addListener(activeOverlay, 'dragend', updateAndRecordHistory));
         }
     }
 
@@ -1063,7 +1064,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
-    
-
-    
