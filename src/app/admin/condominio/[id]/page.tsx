@@ -565,6 +565,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const updateHistory = useCallback((newShape: any) => {
     setHistory(currentHistory => {
+        // Truncate history if we're branching off from an old state
         const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
         const newHistory = [...newHistorySlice, newShape];
         setHistoryIndex(newHistory.length - 1);
@@ -573,26 +574,26 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, [historyIndex]);
   
   const handleUndo = useCallback(() => {
-    setHistoryIndex(prevIndex => {
-        const newIndex = prevIndex > 0 ? prevIndex - 1 : 0;
+    if (historyIndex > 0) {
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
         const historyState = history[newIndex];
         if (historyState) {
             applyHistoryState(historyState);
         }
-        return newIndex;
-    });
-  }, [history, applyHistoryState]);
+    }
+  }, [history, historyIndex, applyHistoryState]);
   
   const handleRedo = useCallback(() => {
-    setHistoryIndex(prevIndex => {
-        const newIndex = prevIndex < history.length - 1 ? prevIndex + 1 : prevIndex;
+    if (historyIndex < history.length - 1) {
+        const newIndex = historyIndex + 1;
+        setHistoryIndex(newIndex);
         const historyState = history[newIndex];
         if (historyState) {
             applyHistoryState(historyState);
         }
-        return newIndex;
-    });
-  }, [history, applyHistoryState]);
+    }
+  }, [history, historyIndex, applyHistoryState]);
 
 
   const clearListeners = useCallback(() => {
