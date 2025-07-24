@@ -417,7 +417,8 @@ const VIEW_ALL_COLOR = {
 };
 const DEFAULT_COLOR = {
     fillColor: '#f39c12', // Orange
-    strokeColor: '#e67e22'
+    strokeColor: '#e67e22',
+    fillOpacity: 0
 };
 const REF_COLOR = {
     fillColor: '#bdc3c7', // Silver
@@ -651,7 +652,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 options = { 
                     fillColor: isDefault ? DEFAULT_COLOR.fillColor : SAVED_COLOR.fillColor,
                     strokeColor: isDefault ? DEFAULT_COLOR.strokeColor : SAVED_COLOR.strokeColor,
-                    fillOpacity: 0.4, strokeWeight: 3, zIndex: 1
+                    fillOpacity: isDefault ? DEFAULT_COLOR.fillOpacity : 0.4, 
+                    strokeWeight: 3, 
+                    zIndex: 1
                 };
             }
         } else {
@@ -660,14 +663,16 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 options = {
                     fillColor: isDefault ? DEFAULT_COLOR.fillColor : VIEW_ALL_COLOR.fillColor,
                     strokeColor: isDefault ? DEFAULT_COLOR.strokeColor : VIEW_ALL_COLOR.strokeColor,
-                    fillOpacity: isDefault ? 0.4 : 0.2, strokeWeight: isDefault ? 3 : 1,
+                    fillOpacity: isDefault ? DEFAULT_COLOR.fillOpacity : 0.2, 
+                    strokeWeight: isDefault ? 3 : 1,
                     zIndex: isDefault ? 2 : 1
                 };
             } else if (isDefault) {
                 visible = true;
                 options = {
-                    fillColor: DEFAULT_COLOR.fillColor, strokeColor: DEFAULT_COLOR.strokeColor,
-                    fillOpacity: 0.4, strokeWeight: 2, zIndex: 1
+                    ...DEFAULT_COLOR,
+                    strokeWeight: 2, 
+                    zIndex: 1
                 };
             }
         }
