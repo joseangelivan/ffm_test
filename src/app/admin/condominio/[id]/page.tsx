@@ -538,12 +538,13 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || "Ninguna";
   
   const updateHistory = useCallback((newShape: any) => {
-    // If we make a new change after undoing, we clear the 'redo' history
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(newShape);
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  }, [history, historyIndex]);
+    setHistory(currentHistory => {
+        const newHistory = currentHistory.slice(0, historyIndex + 1);
+        newHistory.push(newShape);
+        setHistoryIndex(newHistory.length - 1);
+        return newHistory;
+    });
+  }, [historyIndex]);
   
   const applyHistoryState = useCallback((shape: google.maps.MVCObject, geometry: any) => {
       // @ts-ignore
@@ -1070,3 +1071,5 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
+    
