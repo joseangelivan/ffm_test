@@ -538,12 +538,13 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || "Ninguna";
   
   const updateHistory = useCallback((newShape: any) => {
-      // When a new edit is made after an undo, we must slice the history
-      const newHistorySlice = history.slice(0, historyIndex + 1);
-      const newHistory = [...newHistorySlice, newShape];
-      setHistory(newHistory);
-      setHistoryIndex(newHistory.length - 1);
-  }, [history, historyIndex]);
+      setHistory(currentHistory => {
+          const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
+          const newHistory = [...newHistorySlice, newShape];
+          setHistoryIndex(newHistory.length - 1);
+          return newHistory;
+      });
+  }, [historyIndex]);
   
   const applyHistoryState = useCallback((geometry: any) => {
     if (!activeOverlay || !geometry) return;
@@ -820,7 +821,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         let options: google.maps.PolygonOptions = {};
 
         if (isEditingEnabled) {
-             if (isActionActive && isCreating) { // Drawing new or editing existing
+             if (isActionActive) {
                 if (isSelected) {
                     visible = true;
                     options = {
@@ -831,9 +832,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         zIndex: 0,
                     };
                 }
-            } else if (isActionActive && isEditing) {
-                 // The active overlay is already handled, so we do nothing here for the original geofence
-            } else if (isSelected && !isActionActive) { // Selected but not in action
+            } else if (isSelected) { // Selected but not in action
                 visible = true;
                 options = { 
                     fillColor: isDefault ? DEFAULT_COLOR.fillColor : SAVED_COLOR.fillColor,
@@ -869,7 +868,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         // @ts-ignore
         gf.shape.setOptions({ ...options, editable: false, draggable: false, map: visible ? map : null });
     });
-  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isActionActive, isCreating, isEditing, map]);
+  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isActionActive, map]);
 
   
   if (!apiKey) {
@@ -896,18 +895,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                  <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
                  <CardDescription>{t('condoDashboard.map.description')}</CardDescription>
             </div>
-            {isEditing && (
-              <div className="flex items-center gap-2 p-2 border rounded-md">
-                 <Button onClick={handleUndo} variant="outline" size="icon" disabled={historyIndex <= 0}>
-                   <Undo className="h-4 w-4"/>
-                   <span className="sr-only">{t('condoDashboard.map.undo')}</span>
-                 </Button>
-                 <Button onClick={handleRedo} variant="outline" size="icon" disabled={historyIndex >= history.length - 1}>
-                   <Redo className="h-4 w-4"/>
-                    <span className="sr-only">{t('condoDashboard.map.redo')}</span>
-                 </Button>
-              </div>
-            )}
         </div>
       </CardHeader>
       <CardContent className="p-0">
@@ -986,6 +973,19 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                        </Button>
                                    </div>
                                </div>
+
+                            {isEditing && (
+                                <div className="flex items-center justify-center gap-2 p-2 border rounded-md">
+                                    <Button onClick={handleUndo} variant="outline" size="icon" disabled={historyIndex <= 0}>
+                                        <Undo className="h-4 w-4"/>
+                                        <span className="sr-only">{t('condoDashboard.map.undo')}</span>
+                                    </Button>
+                                    <Button onClick={handleRedo} variant="outline" size="icon" disabled={historyIndex >= history.length - 1}>
+                                        <Redo className="h-4 w-4"/>
+                                        <span className="sr-only">{t('condoDashboard.map.redo')}</span>
+                                    </Button>
+                                </div>
+                            )}
                             
                             <div className="flex items-center gap-2">
                                 <Button onClick={handleToggleDrawing} variant={isActionActive ? "destructive" : "outline"} className="flex-1">
@@ -1089,3 +1089,4 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
