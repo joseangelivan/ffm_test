@@ -866,13 +866,11 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                    )}
                 </div>
             </div>
-            <div className="w-1/3 flex flex-col p-4 space-y-4">
-                <Card className="flex-1 flex flex-col">
-                     <CardHeader>
-                        <CardTitle>Módulos del Mapa</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-1 flex flex-col space-y-4">
-                         <div className="space-y-4 pt-4 border-t">
+            <div className="w-1/3 p-1 pl-0">
+                <div className="relative border h-full rounded-md p-4 pt-2">
+                    <h2 className="text-sm font-semibold tracking-tight bg-background px-2 absolute -top-2.5 left-4">Módulos del Mapa</h2>
+                     <div className="flex-1 flex flex-col space-y-4 pt-4">
+                         <div className="space-y-4">
                              <h3 className="text-lg font-semibold -mt-1">Geocerca</h3>
                              
                              <div className="flex flex-col gap-4">
@@ -966,8 +964,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                 </fieldset>
                             </div>
                          </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
             </div>
         </div>
       </CardContent>
