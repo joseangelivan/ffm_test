@@ -407,9 +407,13 @@ const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null =
     const shapeType = shape.getPaths ? 'polygon' : shape.getBounds ? 'rectangle' : 'circle';
 
     switch (shapeType) {
-        case 'polygon':
-            // @ts-ignore
-            return shape.getPaths().getArray().map(path => path.getArray().map(latLng => ({ lat: latLng.lat(), lng: latLng.lng() })));
+        case 'polygon': {
+             // @ts-ignore
+            const paths = shape.getPaths();
+            return paths.getArray().map((path: google.maps.MVCArray<google.maps.LatLng>) => 
+                path.getArray().map(latLng => ({ lat: latLng.lat(), lng: latLng.lng() }))
+            );
+        }
         case 'rectangle':
              // @ts-ignore
             return shape.getBounds()?.toJSON();
@@ -560,31 +564,36 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             break;
     }
   }, [activeOverlay]);
-  
+
   const updateHistory = useCallback((newShape: any) => {
     setHistory(currentHistory => {
+        // Truncate history if we are not at the end (i.e., after an undo)
         const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
         const newHistory = [...newHistorySlice, newShape];
         setHistoryIndex(newHistory.length - 1);
         return newHistory;
     });
   }, [historyIndex]);
-
+  
   const handleUndo = useCallback(() => {
-    if (historyIndex > 0) {
-        const newIndex = historyIndex - 1;
-        applyHistoryState(history[newIndex]);
-        setHistoryIndex(newIndex);
-    }
-  }, [history, historyIndex, applyHistoryState]);
+    setHistoryIndex(prevIndex => {
+        const newIndex = prevIndex - 1;
+        if (newIndex >= 0) {
+            applyHistoryState(history[newIndex]);
+        }
+        return newIndex;
+    });
+  }, [history, applyHistoryState]);
   
   const handleRedo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-       const newIndex = historyIndex + 1;
-       applyHistoryState(history[newIndex]);
-       setHistoryIndex(newIndex);
-    }
-  }, [history, historyIndex, applyHistoryState]);
+    setHistoryIndex(prevIndex => {
+        const newIndex = prevIndex + 1;
+        if (newIndex < history.length) {
+            applyHistoryState(history[newIndex]);
+        }
+        return newIndex;
+    });
+  }, [history, applyHistoryState]);
 
 
   const clearListeners = useCallback(() => {
@@ -594,6 +603,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const setupListeners = useCallback((shape: google.maps.MVCObject) => {
     clearListeners();
+    // Use a debounce/throttle here in a real app to avoid excessive history entries
     const updateAndRecordHistory = () => {
         const newGeometry = getGeometryFromShape(shape);
         if (newGeometry) {
@@ -1090,3 +1100,4 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
