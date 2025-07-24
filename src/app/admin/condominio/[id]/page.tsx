@@ -872,99 +872,101 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                    )}
                 </div>
             </div>
-            <div className="w-1/3 p-4 space-y-4 overflow-y-auto">
-                <div className="p-4 border rounded-lg space-y-4 relative">
-                     <h3 className="text-lg font-semibold absolute -top-3 left-3 bg-card px-1">Geocerca</h3>
-                     
-                     <div className="flex flex-col gap-4 pt-4">
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
-                            <div className="flex items-center space-x-2">
-                                <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isEditingEnabled}/>
-                                <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                    Ver Todas
+            <div className="w-1/3 flex flex-col p-4 space-y-4">
+                <div className="border rounded-lg flex-1 flex flex-col">
+                    <div className="p-4 space-y-4">
+                         <h3 className="text-lg font-semibold -mt-1">Geocerca</h3>
+                         
+                         <div className="flex flex-col gap-4 pt-4">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isEditingEnabled}/>
+                                    <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Ver Todas
+                                    </label>
+                                </div>
+                            </div>
+                            <div className="relative flex items-center">
+                                {defaultGeofenceId && (
+                                    <Star className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-500 fill-orange-400" />
+                                )}
+                                <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled className="pl-8"/>
+                            </div>
+                        </div>
+
+                        <div className="pt-4 border-t space-y-2">
+                             <div className="flex items-center space-x-2">
+                                <Checkbox id="enable-editing" checked={isEditingEnabled} onCheckedChange={(checked) => setIsEditingEnabled(!!checked)}/>
+                                <label htmlFor="enable-editing" className="text-lg font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    Edición
                                 </label>
                             </div>
-                        </div>
-                        <div className="relative flex items-center">
-                            {defaultGeofenceId && (
-                                <Star className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-500 fill-orange-400" />
-                            )}
-                            <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled className="pl-8"/>
-                        </div>
-                    </div>
 
-                    <div className="pt-4 border-t space-y-2">
-                         <div className="flex items-center space-x-2">
-                            <Checkbox id="enable-editing" checked={isEditingEnabled} onCheckedChange={(checked) => setIsEditingEnabled(!!checked)}/>
-                            <label htmlFor="enable-editing" className="text-lg font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                Edición
-                            </label>
-                        </div>
-
-                        <fieldset disabled={!isEditingEnabled} className="space-y-4">
-                             <div className="flex items-center gap-2">
-                                   <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive}>
-                                        <SelectTrigger className={cn("flex-1", isEditingShape && "text-[#2980b9] border-[#2980b9] font-bold")}>
-                                            <SelectValue placeholder="Seleccionar geocerca para gestionar" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {geofences.map(gf => (
-                                                <SelectItem key={gf.id} value={gf.id}>
-                                                    <div className='flex items-center gap-2'>
-                                                        {gf.id === defaultGeofenceId && <Star className="h-4 w-4 text-orange-500 fill-orange-400" />}
-                                                        <span>{gf.name}</span>
-                                                    </div>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                   </Select>
-                                   <div className="flex items-center">
-                                        <Button variant="ghost" size="icon" onClick={handleSetAsDefault} disabled={isActionActive || !selectedGeofenceId}>
-                                            <Star className={cn("h-4 w-4", defaultGeofenceId === selectedGeofenceId && "fill-orange-400 text-orange-500")} />
-                                            <span className="sr-only">Establecer como Default</span>
-                                        </Button>
-                                       <Button variant="ghost" size="icon" onClick={handleStartEdit} disabled={isActionActive || !selectedGeofenceId}>
-                                           <Edit className="h-4 w-4"/>
-                                           <span className="sr-only">Editar</span>
-                                       </Button>
-                                        <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isActionActive || !selectedGeofenceId}>
-                                           <Trash2 className="h-4 w-4 text-destructive"/>
-                                           <span className="sr-only">Eliminar</span>
-                                       </Button>
+                            <fieldset disabled={!isEditingEnabled} className="space-y-4">
+                                 <div className="flex items-center gap-2">
+                                       <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive}>
+                                            <SelectTrigger className={cn("flex-1", isEditingShape && "text-[#2980b9] border-[#2980b9] font-bold")}>
+                                                <SelectValue placeholder="Seleccionar geocerca para gestionar" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {geofences.map(gf => (
+                                                    <SelectItem key={gf.id} value={gf.id}>
+                                                        <div className='flex items-center gap-2'>
+                                                            {gf.id === defaultGeofenceId && <Star className="h-4 w-4 text-orange-500 fill-orange-400" />}
+                                                            <span>{gf.name}</span>
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                       </Select>
+                                       <div className="flex items-center">
+                                            <Button variant="ghost" size="icon" onClick={handleSetAsDefault} disabled={isActionActive || !selectedGeofenceId}>
+                                                <Star className={cn("h-4 w-4", defaultGeofenceId === selectedGeofenceId && "fill-orange-400 text-orange-500")} />
+                                                <span className="sr-only">Establecer como Default</span>
+                                            </Button>
+                                           <Button variant="ghost" size="icon" onClick={handleStartEdit} disabled={isActionActive || !selectedGeofenceId}>
+                                               <Edit className="h-4 w-4"/>
+                                               <span className="sr-only">Editar</span>
+                                           </Button>
+                                            <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isActionActive || !selectedGeofenceId}>
+                                               <Trash2 className="h-4 w-4 text-destructive"/>
+                                               <span className="sr-only">Eliminar</span>
+                                           </Button>
+                                       </div>
                                    </div>
-                               </div>
-                            
-                            <div className="flex items-center gap-2">
-                                <Button onClick={handleToggleDrawing} variant={isActionActive ? "destructive" : "outline"} className="flex-1">
-                                    <PencilRuler className="mr-2 h-4 w-4"/>
-                                    {isActionActive ? 'Cancelar' : 'Dibujar'}
-                                </Button>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="w-40 justify-between" disabled={isActionActive}>
-                                            <span>
-                                                {drawingMode === 'polygon' && 'Polígono'}
-                                                {drawingMode === 'rectangle' && 'Rectángulo'}
-                                                {drawingMode === 'circle' && 'Círculo'}
-                                            </span>
-                                            <ChevronDown className="h-4 w-4"/>
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent>
-                                        <DropdownMenuItem onSelect={() => setDrawingMode('polygon')}>Polígono</DropdownMenuItem>
-                                        <DropdownMenuItem onSelect={() => setDrawingMode('rectangle')}>Rectángulo</DropdownMenuItem>
-                                        <DropdownMenuItem onSelect={() => setDrawingMode('circle')}>Círculo</DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-                            
-                             {isEditingShape && (
-                                <Button onClick={handleSaveGeofence} className="w-full">
-                                    <Save className="mr-2 h-4 w-4" /> {isCreating ? 'Guardar Geocerca' : 'Guardar Cambios'}
-                                </Button>
-                            )}
-                        </fieldset>
+                                
+                                <div className="flex items-center gap-2">
+                                    <Button onClick={handleToggleDrawing} variant={isActionActive ? "destructive" : "outline"} className="flex-1">
+                                        <PencilRuler className="mr-2 h-4 w-4"/>
+                                        {isActionActive ? 'Cancelar' : 'Dibujar'}
+                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="outline" className="w-40 justify-between" disabled={isActionActive}>
+                                                <span>
+                                                    {drawingMode === 'polygon' && 'Polígono'}
+                                                    {drawingMode === 'rectangle' && 'Rectángulo'}
+                                                    {drawingMode === 'circle' && 'Círculo'}
+                                                </span>
+                                                <ChevronDown className="h-4 w-4"/>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <DropdownMenuItem onSelect={() => setDrawingMode('polygon')}>Polígono</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setDrawingMode('rectangle')}>Rectángulo</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setDrawingMode('circle')}>Círculo</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                                
+                                 {isEditingShape && (
+                                    <Button onClick={handleSaveGeofence} className="w-full">
+                                        <Save className="mr-2 h-4 w-4" /> {isCreating ? 'Guardar Geocerca' : 'Guardar Cambios'}
+                                    </Button>
+                                )}
+                            </fieldset>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1035,3 +1037,5 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
+    
