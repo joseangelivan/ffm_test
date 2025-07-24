@@ -530,7 +530,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const [isEditing, setIsEditing] = useState(false);
   
   const [history, setHistory] = useState<any[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   
@@ -564,29 +564,35 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, [activeOverlay]);
 
   const updateHistory = useCallback((newShape: any) => {
-      setHistory(currentHistory => {
-          const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
-          const newHistory = [...newHistorySlice, newShape];
-          setHistoryIndex(newHistory.length - 1);
-          return newHistory;
-      });
+    setHistory(currentHistory => {
+        const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
+        const newHistory = [...newHistorySlice, newShape];
+        setHistoryIndex(newHistory.length - 1);
+        return newHistory;
+    });
   }, [historyIndex]);
   
   const handleUndo = useCallback(() => {
-    const newIndex = historyIndex - 1;
-    if (newIndex >= 0) {
-        applyHistoryState(history[newIndex]);
-        setHistoryIndex(newIndex);
-    }
-  }, [history, historyIndex, applyHistoryState]);
+    setHistoryIndex(prevIndex => {
+        const newIndex = prevIndex > 0 ? prevIndex - 1 : 0;
+        const historyState = history[newIndex];
+        if (historyState) {
+            applyHistoryState(historyState);
+        }
+        return newIndex;
+    });
+  }, [history, applyHistoryState]);
   
   const handleRedo = useCallback(() => {
-    const newIndex = historyIndex + 1;
-    if (newIndex < history.length) {
-        applyHistoryState(history[newIndex]);
-        setHistoryIndex(newIndex);
-    }
-  }, [history, historyIndex, applyHistoryState]);
+    setHistoryIndex(prevIndex => {
+        const newIndex = prevIndex < history.length - 1 ? prevIndex + 1 : prevIndex;
+        const historyState = history[newIndex];
+        if (historyState) {
+            applyHistoryState(historyState);
+        }
+        return newIndex;
+    });
+  }, [history, applyHistoryState]);
 
 
   const clearListeners = useCallback(() => {
@@ -607,10 +613,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     // @ts-ignore
     if (shape.getPaths) { // Polygon
         // @ts-ignore
-        const paths = shape.getPath();
-        overlayListeners.current.push(google.maps.event.addListener(paths, 'set_at', updateAndRecordHistory));
-        overlayListeners.current.push(google.maps.event.addListener(paths, 'insert_at', updateAndRecordHistory));
-        overlayListeners.current.push(google.maps.event.addListener(paths, 'remove_at', updateAndRecordHistory));
+        const path = shape.getPath();
+        overlayListeners.current.push(google.maps.event.addListener(path, 'set_at', updateAndRecordHistory));
+        overlayListeners.current.push(google.maps.event.addListener(path, 'insert_at', updateAndRecordHistory));
+        overlayListeners.current.push(google.maps.event.addListener(path, 'remove_at', updateAndRecordHistory));
     } else { // Rectangle and Circle
         // @ts-ignore
         overlayListeners.current.push(google.maps.event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
