@@ -811,9 +811,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         let options: google.maps.PolygonOptions = {};
 
         if (isEditingEnabled) {
-            // EDIT MODE
-            if (isActionActive && !isEditing) { // We are CREATING a new geofence
-                 if (isSelected) {
+             if (isActionActive && !isEditing) { // We are CREATING a new geofence
+                 if (isSelected) { // This is the reference geofence
                      visible = true;
                      options = {
                         fillColor: REF_COLOR.fillColor,
@@ -958,7 +957,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                    </div>
                                </div>
                             {isEditing && (
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 p-2 border rounded-md justify-center">
                                    <Button onClick={handleUndo} variant="outline" size="icon" disabled={historyIndex <= 0}>
                                      <Undo className="h-4 w-4"/>
                                      <span className="sr-only">{t('condoDashboard.map.undo')}</span>
@@ -1071,5 +1070,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
-    
