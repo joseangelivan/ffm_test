@@ -866,8 +866,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                    )}
                 </div>
             </div>
-            <div className="w-1/3">
-                <div className="relative border h-full p-4 pt-2 bg-card">
+            <div className="w-1/3 p-1">
+                <div className="relative border h-full p-4 pt-2 bg-card rounded-md">
                     <h2 className="text-lg font-semibold tracking-tight px-2 absolute -top-3.5 left-4 bg-card">Módulos del Mapa</h2>
                      <div className="flex-1 flex flex-col space-y-4 pt-4">
                          <div className="space-y-4">
