@@ -874,10 +874,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 <div className="relative border h-full p-4 pt-2 bg-card rounded-md">
                     <h2 className="text-lg font-semibold tracking-tight px-2 absolute -top-3.5 left-4 bg-card">Módulos del Mapa</h2>
                      <div className="flex-1 flex flex-col space-y-4 pt-4">
-                        <div className="px-1 space-y-2">
-                            <Label>Seleccionar Módulo</Label>
+                        <div className="px-1 flex items-center gap-2">
+                            <Label htmlFor="module-select" className="shrink-0">Módulo:</Label>
                             <Select value={activeModule} onValueChange={setActiveModule}>
-                                <SelectTrigger>
+                                <SelectTrigger id="module-select">
                                     <SelectValue placeholder="Seleccionar módulo" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -888,7 +888,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         </div>
                         {activeModule === 'geofence' && (
                          <div className="space-y-4 pt-2 border-t">
-                             <h3 className="text-base font-semibold">Gestión de Geocerca</h3>
+                             <h3 className="text-base font-semibold">Geocerca</h3>
                              <div className="flex flex-col gap-4">
                                 <div className="flex items-center justify-between">
                                     <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
@@ -1059,6 +1059,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
-
-    
