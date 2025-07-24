@@ -554,7 +554,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, []);
   
   const handleUndo = useCallback(() => {
-    if (historyIndexRef.current <= 0) return;
+    if (!canUndo) return;
 
     const newIndex = historyIndexRef.current - 1;
     historyIndexRef.current = newIndex;
@@ -567,10 +567,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     
     setCanUndo(newIndex > 0);
     setCanRedo(true);
-  }, []);
+  }, [canUndo]);
 
   const handleRedo = useCallback(() => {
-    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+    if (!canRedo) return;
     
     const newIndex = historyIndexRef.current + 1;
     historyIndexRef.current = newIndex;
@@ -583,7 +583,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
     setCanUndo(true);
     setCanRedo(newIndex < historyRef.current.length - 1);
-  }, []);
+  }, [canRedo]);
   
   // --- Shape Listeners ---
   const clearListeners = useCallback(() => {
@@ -872,7 +872,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         {canUndo && (
                              <Button onClick={handleUndo} variant="ghost" size="sm" className="flex items-center gap-2">
                                 <Undo className="h-4 w-4"/>
-                                {t('condoDashboard.map.undoLast')}
+                                {t('condoDashboard.map.undo')}
                             </Button>
                         )}
                         {canRedo && (
