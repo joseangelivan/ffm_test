@@ -922,6 +922,18 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         </div>
 
                         <fieldset disabled={!isEditingEnabled} className="space-y-4">
+                            {isEditing && (
+                               <div className="flex items-center gap-2">
+                                  <Button onClick={handleUndo} variant="outline" size="icon" disabled={historyIndex <= 0}>
+                                    <Undo className="h-4 w-4"/>
+                                    <span className="sr-only">{t('condoDashboard.map.undo')}</span>
+                                  </Button>
+                                  <Button onClick={handleRedo} variant="outline" size="icon" disabled={historyIndex >= history.length - 1}>
+                                    <Redo className="h-4 w-4"/>
+                                     <span className="sr-only">{t('condoDashboard.map.redo')}</span>
+                                  </Button>
+                               </div>
+                            )}
                              <div className="flex items-center gap-2">
                                    <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive}>
                                         <SelectTrigger className={cn("flex-1", isEditing && "text-[#2980b9] border-[#2980b9] font-bold")}>
@@ -977,18 +989,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                 </DropdownMenu>
                             </div>
                             
-                            {isEditing && (
-                               <div className="flex items-center gap-2">
-                                  <Button onClick={handleUndo} variant="outline" size="icon" disabled={historyIndex <= 0}>
-                                    <Undo className="h-4 w-4"/>
-                                    <span className="sr-only">{t('condoDashboard.map.undo')}</span>
-                                  </Button>
-                                  <Button onClick={handleRedo} variant="outline" size="icon" disabled={historyIndex >= history.length - 1}>
-                                    <Redo className="h-4 w-4"/>
-                                     <span className="sr-only">{t('condoDashboard.map.redo')}</span>
-                                  </Button>
-                               </div>
-                            )}
+                            
 
                              {(isCreating || isEditing) && (
                                 <Button onClick={isCreating ? handleSaveNewGeofence : handleSaveChanges} className="w-full">
