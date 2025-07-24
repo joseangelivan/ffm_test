@@ -502,6 +502,10 @@ const DEFAULT_COLOR = {
     fillColor: '#f39c12', // Orange
     strokeColor: '#e67e22'
 };
+const REF_COLOR = {
+    fillColor: '#bdc3c7', // Silver
+    strokeColor: '#95a5a6' // Gray
+};
 
 function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const { t } = useLocale();
@@ -700,9 +704,15 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         originalGeofence.shape.setMap(null);
     }
     
+    const clonedActiveOverlay = cloneShape(activeOverlay); // Clone the edited shape
+    if (!clonedActiveOverlay) {
+        toast({ title: "Error", description: "No se pudo guardar la forma.", variant: "destructive"});
+        return;
+    }
+    
     setGeofences(prev => prev.map(g => 
         g.id === selectedGeofenceId 
-        ? {...g, shape: activeOverlay} 
+        ? {...g, shape: clonedActiveOverlay} 
         : g
     ));
     
@@ -710,7 +720,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         title: "Geocerca Actualizada",
         description: "Los cambios en la geocerca se han guardado."
     });
-    resetActionStates(null); // The activeOverlay becomes the new permanent shape, no need to clean it
+    resetActionStates(activeOverlay);
   }
 
   const handleStartEdit = () => {
@@ -781,7 +791,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }
   
   useEffect(() => {
-    // Hide all geofences when edit mode is toggled, then let the main effect handle visibility
+    // Hide all geofences when edit mode is toggled on/off to prevent visual glitches
     geofences.forEach(g => {
         // @ts-ignore
         g.shape.setMap(null);
@@ -800,19 +810,19 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
         if (isEditingEnabled) {
             // EDIT MODE
-            if (isDrawingMode) {
-                 if(isSelected) {
+            if (isActionActive && !isEditing) { // We are CREATING a new geofence
+                 if (isSelected) {
                      visible = true;
                      options = {
-                        fillColor: VIEW_ALL_COLOR.fillColor,
-                        strokeColor: VIEW_ALL_COLOR.strokeColor,
-                        fillOpacity: 0.1,
+                        fillColor: REF_COLOR.fillColor,
+                        strokeColor: REF_COLOR.strokeColor,
+                        fillOpacity: 0.2,
                         strokeWeight: 1,
-                        zIndex: 1
+                        zIndex: 0,
                     };
                  }
             }
-            else if (isSelected && !isActionActive) {
+            else if (isSelected && !isActionActive) { // Idle in edit mode, showing the selected one
                 visible = true;
                 options = { 
                     fillColor: isDefault ? DEFAULT_COLOR.fillColor : SAVED_COLOR.fillColor,
@@ -848,7 +858,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         // @ts-ignore
         gf.shape.setOptions({ ...options, editable: false, draggable: false, map: visible ? map : null });
     });
-  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isActionActive, isDrawingMode, map]);
+  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isActionActive, isEditing, map]);
 
   
   if (!apiKey) {
@@ -915,7 +925,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
                         <fieldset disabled={!isEditingEnabled} className="space-y-4">
                              <div className="flex items-center gap-2">
-                                   <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive && !isDrawingMode}>
+                                   <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive}>
                                         <SelectTrigger className={cn("flex-1", isEditing && "text-[#2980b9] border-[#2980b9] font-bold")}>
                                             <SelectValue placeholder="Seleccionar geocerca para gestionar" />
                                         </SelectTrigger>
@@ -1058,7 +1068,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
-    
-
-    
