@@ -32,7 +32,6 @@ import {
   Redo,
   Layers,
   Video,
-  Doorbell,
   Square,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -1028,7 +1027,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                                         <div className="flex items-center gap-2"><Video className="h-4 w-4" />Cámara de Vigilancia</div>
                                                     </SelectItem>
                                                     <SelectItem value="gatehouse">
-                                                        <div className="flex items-center gap-2"><Doorbell className="h-4 w-4" />Portería / Garita</div>
+                                                        <div className="flex items-center gap-2"><Building2 className="h-4 w-4" />Portería / Garita</div>
                                                     </SelectItem>
                                                     <SelectItem value="housing_area">
                                                         <div className="flex items-center gap-2"><Home className="h-4 w-4" />Área de Vivienda</div>
@@ -1124,3 +1123,5 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
+    
