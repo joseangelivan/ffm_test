@@ -430,12 +430,12 @@ const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null =
     switch (shapeType) {
         case 'polygon': {
             const path = (shape as google.maps.Polygon).getPath();
-            return path.getArray().map((latLng: google.maps.LatLng) => ({ lat: latLng.lat(), lng: latLng.lng() }));
+            return { type: 'polygon', paths: path.getArray().map((latLng: google.maps.LatLng) => ({ lat: latLng.lat(), lng: latLng.lng() })) };
         }
         case 'rectangle':
-            return (shape as google.maps.Rectangle).getBounds()?.toJSON();
+            return { type: 'rectangle', bounds: (shape as google.maps.Rectangle).getBounds()?.toJSON() };
         case 'circle':
-            return { center: (shape as google.maps.Circle).getCenter()?.toJSON(), radius: (shape as google.maps.Circle).getRadius() };
+            return { type: 'circle', center: (shape as google.maps.Circle).getCenter()?.toJSON(), radius: (shape as google.maps.Circle).getRadius() };
         default:
             return null;
     }
@@ -446,24 +446,11 @@ const createShapeFromGeometry = (geometry: any): google.maps.MVCObject | null =>
     
     let shape: google.maps.MVCObject | null = null;
     
-    // Check if it's a legacy array of LatLng literals for a polygon
-    if (Array.isArray(geometry)) { 
-        shape = new google.maps.Polygon({ paths: geometry });
-    } 
-    // Check for new structured geometry
-    else if (geometry.type === 'polygon' && Array.isArray(geometry.paths)) {
+    if (geometry.type === 'polygon' && Array.isArray(geometry.paths)) {
         shape = new google.maps.Polygon({ paths: geometry.paths });
     } else if (geometry.type === 'rectangle' && geometry.bounds) {
         shape = new google.maps.Rectangle({ bounds: geometry.bounds });
     } else if (geometry.type === 'circle' && geometry.center && geometry.radius) {
-        shape = new google.maps.Circle({ center: geometry.center, radius: geometry.radius });
-    }
-    // Fallback for old rectangle format
-    else if (geometry.north) { 
-        shape = new google.maps.Rectangle({ bounds: geometry });
-    } 
-    // Fallback for old circle format
-    else if (geometry.center) { 
         shape = new google.maps.Circle({ center: geometry.center, radius: geometry.radius });
     }
     return shape;
@@ -485,9 +472,9 @@ const DrawingManager = ({
         const newDrawingManager = new drawing.DrawingManager({
             drawingMode: drawing.OverlayType[drawingMode.toUpperCase() as keyof typeof google.maps.drawing.OverlayType],
             drawingControl: false,
-            polygonOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, zIndex: 1 },
-            rectangleOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, zIndex: 1 },
-            circleOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, zIndex: 1 },
+            polygonOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, zIndex: 1, suppressUndo: true },
+            rectangleOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, zIndex: 1, suppressUndo: true },
+            circleOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, zIndex: 1, suppressUndo: true },
         });
         
         newDrawingManager.setMap(map);
@@ -527,9 +514,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [activeOverlay, setActiveOverlay] = useState<google.maps.MVCObject | null>(null);
   
   // Undo/Redo State
+  const [activeOverlay, setActiveOverlay] = useState<google.maps.MVCObject | null>(null);
   const historyRef = useRef<any[]>([]);
   const historyIndexRef = useRef<number>(-1);
   const [canUndo, setCanUndo] = useState(false);
@@ -542,21 +529,23 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || "Ninguna";
 
-  // --- History Management (User's Algorithm) ---
+  // --- History Management ---
   const updateHistory = useCallback((geometry: any) => {
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
     newHistory.push(geometry);
     historyRef.current = newHistory;
-    historyIndexRef.current = newHistory.length - 1;
-
-    setCanUndo(historyIndexRef.current > 0);
+    historyIndexRef.current++;
+    
+    setCanUndo(true);
     setCanRedo(false);
   }, []);
   
   const handleUndo = useCallback(() => {
-    if (!canUndo) return;
+    if (!canUndo || !activeOverlay) return;
 
     const newIndex = historyIndexRef.current - 1;
+    if (newIndex < 0) return;
+
     historyIndexRef.current = newIndex;
     const previousGeometry = historyRef.current[newIndex];
     const newShape = createShapeFromGeometry(previousGeometry);
@@ -567,12 +556,14 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     
     setCanUndo(newIndex > 0);
     setCanRedo(true);
-  }, [canUndo]);
+  }, [canUndo, activeOverlay]);
 
   const handleRedo = useCallback(() => {
-    if (!canRedo) return;
+    if (!canRedo || !activeOverlay) return;
     
     const newIndex = historyIndexRef.current + 1;
+    if (newIndex >= historyRef.current.length) return;
+
     historyIndexRef.current = newIndex;
     const nextGeometry = historyRef.current[newIndex];
     const newShape = createShapeFromGeometry(nextGeometry);
@@ -583,7 +574,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
     setCanUndo(true);
     setCanRedo(newIndex < historyRef.current.length - 1);
-  }, [canRedo]);
+  }, [canRedo, activeOverlay]);
   
   // --- Shape Listeners ---
   const clearListeners = useCallback(() => {
@@ -636,7 +627,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     
     if (activeOverlay && isEditingShape) {
       // @ts-ignore
-      activeOverlay.setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2 });
+      activeOverlay.setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2, suppressUndo: true });
       // @ts-ignore
       activeOverlay.setMap(map);
       setupListeners(activeOverlay);
@@ -869,18 +860,14 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                    </MapComponent>
                    {isEditingShape && (canUndo || canRedo) && (
                      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex gap-1 backdrop-blur-sm">
-                        {canUndo && (
-                             <Button onClick={handleUndo} variant="ghost" size="sm" className="flex items-center gap-2">
-                                <Undo className="h-4 w-4"/>
-                                {t('condoDashboard.map.undo')}
-                            </Button>
-                        )}
-                        {canRedo && (
-                             <Button onClick={handleRedo} variant="ghost" size="sm" className="flex items-center gap-2">
-                                <Redo className="h-4 w-4"/>
-                                {t('condoDashboard.map.redo')}
-                            </Button>
-                        )}
+                        <Button onClick={handleUndo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
+                            <Undo className="h-4 w-4"/>
+                            {t('condoDashboard.map.undo')}
+                        </Button>
+                        <Button onClick={handleRedo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canRedo}>
+                            <Redo className="h-4 w-4"/>
+                            {t('condoDashboard.map.redo')}
+                        </Button>
                      </div>
                    )}
                 </div>
