@@ -935,19 +935,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                    </div>
                                </div>
                             
-                            {isEditingShape && (
-                                <div className="flex items-center justify-center gap-2 p-2 border rounded-md">
-                                    <Button onClick={handleUndo} variant="outline" size="icon" disabled={!canUndo}>
-                                        <Undo className="h-4 w-4"/>
-                                        <span className="sr-only">{t('condoDashboard.map.undo')}</span>
-                                    </Button>
-                                    <Button onClick={handleRedo} variant="outline" size="icon" disabled={!canRedo}>
-                                        <Redo className="h-4 w-4"/>
-                                        <span className="sr-only">{t('condoDashboard.map.redo')}</span>
-                                    </Button>
-                                </div>
-                            )}
-                            
                             <div className="flex items-center gap-2">
                                 <Button onClick={handleToggleDrawing} variant={isActionActive ? "destructive" : "outline"} className="flex-1">
                                     <PencilRuler className="mr-2 h-4 w-4"/>
