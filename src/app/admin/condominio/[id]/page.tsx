@@ -543,40 +543,35 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
   }, [history, historyIndex]);
+  
+  const applyHistoryState = useCallback((shape: google.maps.MVCObject, geometry: any) => {
+      // @ts-ignore
+      const shapeType = shape.getPaths ? 'polygon' : shape.getBounds ? 'rectangle' : 'circle';
+      // @ts-ignore
+      if (shapeType === 'polygon') shape.setPaths(geometry);
+      // @ts-ignore
+      else if (shapeType === 'rectangle') shape.setBounds(geometry);
+      // @ts-ignore
+      else if (shapeType === 'circle') { shape.setCenter(geometry.center); shape.setRadius(geometry.radius); }
+  }, []);
 
   const handleUndo = useCallback(() => {
     if (historyIndex <= 0 || !activeOverlay) return;
 
-    const previousShapeData = history[historyIndex - 1];
-    // @ts-ignore
-    const shapeType = activeOverlay.getPaths ? 'polygon' : activeOverlay.getBounds ? 'rectangle' : 'circle';
-    
-    // @ts-ignore
-    if (shapeType === 'polygon') activeOverlay.setPaths(previousShapeData);
-    // @ts-ignore
-    else if (shapeType === 'rectangle') activeOverlay.setBounds(previousShapeData);
-    // @ts-ignore
-    else if (shapeType === 'circle') { activeOverlay.setCenter(previousShapeData.center); activeOverlay.setRadius(previousShapeData.radius); }
-
-    setHistoryIndex(prev => prev - 1);
-  }, [activeOverlay, history, historyIndex]);
+    const newIndex = historyIndex - 1;
+    const previousShapeData = history[newIndex];
+    applyHistoryState(activeOverlay, previousShapeData);
+    setHistoryIndex(newIndex);
+  }, [activeOverlay, history, historyIndex, applyHistoryState]);
 
   const handleRedo = useCallback(() => {
     if (historyIndex >= history.length - 1 || !activeOverlay) return;
     
-    const nextShapeData = history[historyIndex + 1];
-    // @ts-ignore
-    const shapeType = activeOverlay.getPaths ? 'polygon' : activeOverlay.getBounds ? 'rectangle' : 'circle';
-
-    // @ts-ignore
-    if (shapeType === 'polygon') activeOverlay.setPaths(nextShapeData);
-    // @ts-ignore
-    else if (shapeType === 'rectangle') activeOverlay.setBounds(nextShapeData);
-    // @ts-ignore
-    else if (shapeType === 'circle') { activeOverlay.setCenter(nextShapeData.center); activeOverlay.setRadius(nextShapeData.radius); }
-
-    setHistoryIndex(prev => prev + 1);
-  }, [activeOverlay, history, historyIndex]);
+    const newIndex = historyIndex + 1;
+    const nextShapeData = history[newIndex];
+    applyHistoryState(activeOverlay, nextShapeData);
+    setHistoryIndex(newIndex);
+  }, [activeOverlay, history, historyIndex, applyHistoryState]);
 
 
   const clearListeners = () => {
@@ -989,7 +984,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     <Redo className="h-4 w-4"/>
                                      <span className="sr-only">{t('condoDashboard.map.redo')}</span>
                                   </Button>
-                                  <Button variant="link" onClick={() => {}} className="text-muted-foreground">{t('condoDashboard.map.undoLast')}</Button>
                                </div>
                             )}
 
@@ -1069,5 +1063,7 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
+    
 
     
