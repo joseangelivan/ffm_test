@@ -1254,7 +1254,7 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
                     <CardHeader>
                         <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
                         <CardDescription>API Key for Google Maps is missing.</CardDescription>
-                    </CardHeader>
+                    </Header>
                     <CardContent>
                         <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
                             <p>Google Maps could not be loaded.</p>
