@@ -30,7 +30,10 @@ import {
   Star,
   Undo,
   Redo,
-  Layers
+  Layers,
+  Video,
+  Doorbell,
+  Square,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -526,6 +529,11 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   // Active Module State
   const [activeModule, setActiveModule] = useState('geofence');
+  
+  // Elements Module State
+  type MapElementType = 'camera' | 'gatehouse' | 'housing_area' | 'other';
+  const [isElementEditing, setIsElementEditing] = useState(false);
+  const [selectedElementType, setSelectedElementType] = useState<MapElementType>('camera');
 
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
 
@@ -985,12 +993,66 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                          </div>
                         )}
                         {activeModule === 'elements' && (
-                             <div className="space-y-4 pt-2 border-t">
-                                <h3 className="text-base font-semibold">Elementos del Mapa</h3>
-                                <div className="flex items-center justify-center text-center p-4 h-48 border-2 border-dashed rounded-md">
-                                    <p className="text-muted-foreground">Aquí se gestionarán los elementos del mapa.</p>
+                            <div className="space-y-4 pt-2 border-t">
+                                <div className="space-y-2">
+                                    <h3 className="text-base font-semibold">Gestión de Elementos</h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        Agrega y gestiona elementos como cámaras, porterías o áreas de viviendas.
+                                    </p>
                                 </div>
-                             </div>
+
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2">
+                                        <Checkbox 
+                                            id="enable-element-editing" 
+                                            checked={isElementEditing} 
+                                            onCheckedChange={(checked) => setIsElementEditing(!!checked)}
+                                        />
+                                        <label 
+                                            htmlFor="enable-element-editing" 
+                                            className="text-base font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                        >
+                                            Edición de Elementos
+                                        </label>
+                                    </div>
+
+                                    <fieldset disabled={!isElementEditing} className="space-y-4">
+                                        <div>
+                                            <Label htmlFor="element-type">Tipo de Elemento</Label>
+                                            <Select value={selectedElementType} onValueChange={(v) => setSelectedElementType(v as MapElementType)}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Seleccionar tipo de elemento" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="camera">
+                                                        <div className="flex items-center gap-2"><Video className="h-4 w-4" />Cámara de Vigilancia</div>
+                                                    </SelectItem>
+                                                    <SelectItem value="gatehouse">
+                                                        <div className="flex items-center gap-2"><Doorbell className="h-4 w-4" />Portería / Garita</div>
+                                                    </SelectItem>
+                                                    <SelectItem value="housing_area">
+                                                        <div className="flex items-center gap-2"><Home className="h-4 w-4" />Área de Vivienda</div>
+                                                    </SelectItem>
+                                                      <SelectItem value="other">
+                                                        <div className="flex items-center gap-2"><Square className="h-4 w-4" />Otro</div>
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <Button variant="outline">
+                                                <PlusCircle className="h-4 w-4 mr-2" />
+                                                {selectedElementType === 'housing_area' ? 'Dibujar Área' : 'Agregar Elemento'}
+                                            </Button>
+                                            <Button variant="secondary">
+                                                <Settings className="h-4 w-4 mr-2" />
+                                                Gestionar
+                                            </Button>
+                                        </div>
+                                    </fieldset>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>
