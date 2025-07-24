@@ -876,7 +876,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                      <div className="flex-1 flex flex-col space-y-4 pt-4">
                         <div className="px-1 flex items-center gap-2">
                             <Select value={activeModule} onValueChange={setActiveModule}>
-                                <SelectTrigger id="module-select">
+                                <SelectTrigger id="module-select" className="text-base font-bold text-primary">
                                     <SelectValue placeholder="Seleccionar módulo" />
                                 </SelectTrigger>
                                 <SelectContent>
