@@ -539,14 +539,15 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   
   const updateHistory = useCallback((newShape: any) => {
     setHistory(currentHistory => {
-        const newHistory = currentHistory.slice(0, historyIndex + 1);
-        newHistory.push(newShape);
+        const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
+        const newHistory = [...newHistorySlice, newShape];
         setHistoryIndex(newHistory.length - 1);
         return newHistory;
     });
   }, [historyIndex]);
   
   const applyHistoryState = useCallback((shape: google.maps.MVCObject, geometry: any) => {
+      if (!geometry) return;
       // @ts-ignore
       const shapeType = shape.getPaths ? 'polygon' : shape.getBounds ? 'rectangle' : 'circle';
       // @ts-ignore
@@ -559,7 +560,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const handleUndo = useCallback(() => {
     if (historyIndex <= 0 || !activeOverlay) return;
-
     const newIndex = historyIndex - 1;
     setHistoryIndex(newIndex);
     const previousShapeData = history[newIndex];
@@ -568,7 +568,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const handleRedo = useCallback(() => {
     if (historyIndex >= history.length - 1 || !activeOverlay) return;
-    
     const newIndex = historyIndex + 1;
     setHistoryIndex(newIndex);
     const nextShapeData = history[newIndex];
@@ -582,16 +581,16 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, []);
 
   const setupListeners = useCallback((shape: google.maps.MVCObject) => {
-    clearListeners(); // Ensure no old listeners are hanging around
+    clearListeners();
     const updateAndRecordHistory = () => {
         const newGeometry = getGeometryFromShape(shape);
         if (newGeometry) {
             updateHistory(newGeometry);
         }
     };
+
     // @ts-ignore
-    const shapeType = shape.getPaths ? 'polygon' : shape.getBounds ? 'rectangle' : 'circle';
-    if (shapeType === 'polygon') {
+    if (shape.getPaths) { // Polygon
         // @ts-ignore
         const paths = shape.getPaths();
         overlayListeners.current.push(google.maps.event.addListener(paths, 'set_at', updateAndRecordHistory));
@@ -601,9 +600,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         // @ts-ignore
         overlayListeners.current.push(google.maps.event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
         // @ts-ignore
-        overlayListeners.current.push(google.maps.event.addListener(shape, 'center_changed', updateAndRecordHistory));
-        // @ts-ignore
-        overlayListeners.current.push(google.maps.event.addListener(shape, 'radius_changed', updateAndRecordHistory));
+        overlayListeners.current.push(google.maps.event.addListener(shape, 'radius_changed', updateAndRecordHistory)); // Circle specific
     }
   }, [updateHistory, clearListeners]);
 
@@ -812,8 +809,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         let options: google.maps.PolygonOptions = {};
 
         if (isEditingEnabled) {
-             if (isActionActive && !isEditing) { // We are CREATING a new geofence
-                 if (isSelected) { // This is the reference geofence
+            if (isActionActive && isCreating) { // We are CREATING a new geofence
+                 if (isSelected) { // This is the reference geofence, show it.
                      visible = true;
                      options = {
                         fillColor: REF_COLOR.fillColor,
@@ -860,7 +857,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         // @ts-ignore
         gf.shape.setOptions({ ...options, editable: false, draggable: false, map: visible ? map : null });
     });
-  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isActionActive, isEditing, map]);
+  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isActionActive, isCreating, map]);
 
   
   if (!apiKey) {
@@ -1071,5 +1068,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
-    
