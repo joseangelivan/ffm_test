@@ -526,7 +526,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
-  const lastSelectedGeofenceId = useRef<string | null>(null);
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   
   const isCreating = isDrawingMode || (activeOverlay && !isEditing);
@@ -694,6 +693,12 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   
   const handleSaveChanges = () => {
     if(!activeOverlay || !isEditing || !selectedGeofenceId) return;
+
+    const originalGeofence = geofences.find(g => g.id === selectedGeofenceId);
+    if (originalGeofence) {
+        // @ts-ignore
+        originalGeofence.shape.setMap(null);
+    }
     
     setGeofences(prev => prev.map(g => 
         g.id === selectedGeofenceId 
@@ -705,15 +710,13 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         title: "Geocerca Actualizada",
         description: "Los cambios en la geocerca se han guardado."
     });
-    resetActionStates(null); // The activeOverlay becomes the new permanent shape
+    resetActionStates(null); // The activeOverlay becomes the new permanent shape, no need to clean it
   }
 
   const handleStartEdit = () => {
     if (!selectedGeofenceId) return;
     const geofenceToEdit = geofences.find(g => g.id === selectedGeofenceId);
     if (!geofenceToEdit) return;
-
-    resetActionStates();
     
     const clonedShape = cloneShape(geofenceToEdit.shape);
     if (!clonedShape) {
@@ -721,6 +724,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         return;
     }
     
+    resetActionStates();
+
     setIsEditing(true);
     // @ts-ignore
     clonedShape.setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2 });
@@ -729,11 +734,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }
   
   const handleCancelAction = () => {
-    const overlayToClean = activeOverlay;
-    if ((isDrawingMode || isCreating || isEditing) && lastSelectedGeofenceId.current) {
-         setSelectedGeofenceId(lastSelectedGeofenceId.current);
-    }
-    resetActionStates(overlayToClean);
+    resetActionStates(activeOverlay);
   }
 
   const handleDelete = () => {
@@ -769,10 +770,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     if(isActionActive) {
         handleCancelAction();
     } else {
-        lastSelectedGeofenceId.current = selectedGeofenceId;
-        resetActionStates();
         setIsDrawingMode(true);
-        setSelectedGeofenceId(null); 
     }
   }
 
@@ -802,7 +800,19 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
         if (isEditingEnabled) {
             // EDIT MODE
-            if (isSelected && !isActionActive) {
+            if (isDrawingMode) {
+                 if(isSelected) {
+                     visible = true;
+                     options = {
+                        fillColor: VIEW_ALL_COLOR.fillColor,
+                        strokeColor: VIEW_ALL_COLOR.strokeColor,
+                        fillOpacity: 0.1,
+                        strokeWeight: 1,
+                        zIndex: 1
+                    };
+                 }
+            }
+            else if (isSelected && !isActionActive) {
                 visible = true;
                 options = { 
                     fillColor: isDefault ? DEFAULT_COLOR.fillColor : SAVED_COLOR.fillColor,
@@ -838,7 +848,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         // @ts-ignore
         gf.shape.setOptions({ ...options, editable: false, draggable: false, map: visible ? map : null });
     });
-  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isActionActive, map]);
+  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isActionActive, isDrawingMode, map]);
 
   
   if (!apiKey) {
@@ -905,7 +915,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
                         <fieldset disabled={!isEditingEnabled} className="space-y-4">
                              <div className="flex items-center gap-2">
-                                   <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive}>
+                                   <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive && !isDrawingMode}>
                                         <SelectTrigger className={cn("flex-1", isEditing && "text-[#2980b9] border-[#2980b9] font-bold")}>
                                             <SelectValue placeholder="Seleccionar geocerca para gestionar" />
                                         </SelectTrigger>
@@ -1048,5 +1058,7 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
+    
 
     
