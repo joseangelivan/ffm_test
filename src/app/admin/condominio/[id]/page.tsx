@@ -564,34 +564,35 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, [activeOverlay]);
 
   const updateHistory = useCallback((newShape: any) => {
-    setHistory(currentHistory => {
-        const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
-        const newHistory = [...newHistorySlice, newShape];
-        setHistoryIndex(newHistory.length - 1);
-        return newHistory;
-    });
+      setHistory(currentHistory => {
+          // Truncate history if we are not at the end (e.g., after an undo)
+          const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
+          const newHistory = [...newHistorySlice, newShape];
+          setHistoryIndex(newHistory.length - 1);
+          return newHistory;
+      });
   }, [historyIndex]);
   
   const handleUndo = useCallback(() => {
     setHistoryIndex(prevIndex => {
-      const newIndex = prevIndex > 0 ? prevIndex - 1 : 0;
-      const historyState = history[newIndex];
-      if (historyState) {
-        applyHistoryState(historyState);
-      }
-      return newIndex;
+        const newIndex = prevIndex > 0 ? prevIndex - 1 : 0;
+        const historyState = history[newIndex];
+        if (historyState) {
+            applyHistoryState(historyState);
+        }
+        return newIndex;
     });
   }, [history, applyHistoryState]);
   
   const handleRedo = useCallback(() => {
-    setHistoryIndex(prevIndex => {
-      const newIndex = prevIndex < history.length - 1 ? prevIndex + 1 : prevIndex;
-      const historyState = history[newIndex];
-      if (historyState) {
-        applyHistoryState(historyState);
-      }
-      return newIndex;
-    });
+      setHistoryIndex(prevIndex => {
+          const newIndex = prevIndex < history.length - 1 ? prevIndex + 1 : prevIndex;
+          const historyState = history[newIndex];
+          if (historyState) {
+              applyHistoryState(historyState);
+          }
+          return newIndex;
+      });
   }, [history, applyHistoryState]);
 
 
@@ -1098,4 +1099,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
