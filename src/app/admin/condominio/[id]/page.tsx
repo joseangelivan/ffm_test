@@ -409,10 +409,8 @@ const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null =
     switch (shapeType) {
         case 'polygon': {
              // @ts-ignore
-            const paths = shape.getPaths();
-            return paths.getArray().map((path: google.maps.MVCArray<google.maps.LatLng>) => 
-                path.getArray().map(latLng => ({ lat: latLng.lat(), lng: latLng.lng() }))
-            );
+            const path = shape.getPath();
+            return path.getArray().map((latLng: google.maps.LatLng) => ({ lat: latLng.lat(), lng: latLng.lng() }));
         }
         case 'rectangle':
              // @ts-ignore
@@ -566,34 +564,29 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, [activeOverlay]);
 
   const updateHistory = useCallback((newShape: any) => {
-    setHistory(currentHistory => {
-        // Truncate history if we are not at the end (i.e., after an undo)
-        const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
-        const newHistory = [...newHistorySlice, newShape];
-        setHistoryIndex(newHistory.length - 1);
-        return newHistory;
-    });
+      setHistory(currentHistory => {
+          const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
+          const newHistory = [...newHistorySlice, newShape];
+          setHistoryIndex(newHistory.length - 1);
+          return newHistory;
+      });
   }, [historyIndex]);
   
   const handleUndo = useCallback(() => {
-    setHistoryIndex(prevIndex => {
-        const newIndex = prevIndex - 1;
-        if (newIndex >= 0) {
-            applyHistoryState(history[newIndex]);
-        }
-        return newIndex;
-    });
-  }, [history, applyHistoryState]);
+    const newIndex = historyIndex - 1;
+    if (newIndex >= 0) {
+        applyHistoryState(history[newIndex]);
+        setHistoryIndex(newIndex);
+    }
+  }, [history, historyIndex, applyHistoryState]);
   
   const handleRedo = useCallback(() => {
-    setHistoryIndex(prevIndex => {
-        const newIndex = prevIndex + 1;
-        if (newIndex < history.length) {
-            applyHistoryState(history[newIndex]);
-        }
-        return newIndex;
-    });
-  }, [history, applyHistoryState]);
+    const newIndex = historyIndex + 1;
+    if (newIndex < history.length) {
+        applyHistoryState(history[newIndex]);
+        setHistoryIndex(newIndex);
+    }
+  }, [history, historyIndex, applyHistoryState]);
 
 
   const clearListeners = useCallback(() => {
@@ -614,7 +607,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     // @ts-ignore
     if (shape.getPaths) { // Polygon
         // @ts-ignore
-        const paths = shape.getPaths();
+        const paths = shape.getPath();
         overlayListeners.current.push(google.maps.event.addListener(paths, 'set_at', updateAndRecordHistory));
         overlayListeners.current.push(google.maps.event.addListener(paths, 'insert_at', updateAndRecordHistory));
         overlayListeners.current.push(google.maps.event.addListener(paths, 'remove_at', updateAndRecordHistory));
