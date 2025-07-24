@@ -537,15 +537,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || "Ninguna";
   
-  const updateHistory = useCallback((newShape: any) => {
-    setHistory(currentHistory => {
-        const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
-        const newHistory = [...newHistorySlice, newShape];
-        setHistoryIndex(newHistory.length - 1);
-        return newHistory;
-    });
-  }, [historyIndex]);
-
   const applyHistoryState = useCallback((geometry: any) => {
     if (!activeOverlay || !geometry) return;
     
@@ -569,30 +560,31 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             break;
     }
   }, [activeOverlay]);
+  
+  const updateHistory = useCallback((newShape: any) => {
+    setHistory(currentHistory => {
+        const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
+        const newHistory = [...newHistorySlice, newShape];
+        setHistoryIndex(newHistory.length - 1);
+        return newHistory;
+    });
+  }, [historyIndex]);
 
   const handleUndo = useCallback(() => {
-    setHistoryIndex(prevIndex => {
-        if (prevIndex > 0) {
-            const newIndex = prevIndex - 1;
-            // Use a timeout to ensure the state update has propagated before applying
-            setTimeout(() => applyHistoryState(history[newIndex]), 0);
-            return newIndex;
-        }
-        return prevIndex;
-    });
-  }, [history, applyHistoryState]);
+    if (historyIndex > 0) {
+        const newIndex = historyIndex - 1;
+        applyHistoryState(history[newIndex]);
+        setHistoryIndex(newIndex);
+    }
+  }, [history, historyIndex, applyHistoryState]);
   
   const handleRedo = useCallback(() => {
-    setHistoryIndex(prevIndex => {
-       if (prevIndex < history.length - 1) {
-           const newIndex = prevIndex + 1;
-           // Use a timeout to ensure the state update has propagated before applying
-           setTimeout(() => applyHistoryState(history[newIndex]), 0);
-           return newIndex;
-       }
-       return prevIndex;
-    });
-  }, [history, applyHistoryState]);
+    if (historyIndex < history.length - 1) {
+       const newIndex = historyIndex + 1;
+       applyHistoryState(history[newIndex]);
+       setHistoryIndex(newIndex);
+    }
+  }, [history, historyIndex, applyHistoryState]);
 
 
   const clearListeners = useCallback(() => {
