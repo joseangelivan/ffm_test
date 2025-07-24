@@ -445,12 +445,25 @@ const createShapeFromGeometry = (geometry: any): google.maps.MVCObject | null =>
     if (!geometry) return null;
     
     let shape: google.maps.MVCObject | null = null;
-
-    if (Array.isArray(geometry)) { // Polygon
+    
+    // Check if it's a legacy array of LatLng literals for a polygon
+    if (Array.isArray(geometry)) { 
         shape = new google.maps.Polygon({ paths: geometry });
-    } else if (geometry.north) { // Rectangle
+    } 
+    // Check for new structured geometry
+    else if (geometry.type === 'polygon' && Array.isArray(geometry.paths)) {
+        shape = new google.maps.Polygon({ paths: geometry.paths });
+    } else if (geometry.type === 'rectangle' && geometry.bounds) {
+        shape = new google.maps.Rectangle({ bounds: geometry.bounds });
+    } else if (geometry.type === 'circle' && geometry.center && geometry.radius) {
+        shape = new google.maps.Circle({ center: geometry.center, radius: geometry.radius });
+    }
+    // Fallback for old rectangle format
+    else if (geometry.north) { 
         shape = new google.maps.Rectangle({ bounds: geometry });
-    } else if (geometry.center) { // Circle
+    } 
+    // Fallback for old circle format
+    else if (geometry.center) { 
         shape = new google.maps.Circle({ center: geometry.center, radius: geometry.radius });
     }
     return shape;
@@ -531,36 +544,45 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   // --- History Management (User's Algorithm) ---
   const updateHistory = useCallback((geometry: any) => {
-    historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
-    historyRef.current.push(geometry);
-    historyIndexRef.current = historyRef.current.length - 1;
+    const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+    newHistory.push(geometry);
+    historyRef.current = newHistory;
+    historyIndexRef.current = newHistory.length - 1;
 
-    setCanUndo(true);
+    setCanUndo(historyIndexRef.current > 0);
     setCanRedo(false);
   }, []);
   
   const handleUndo = useCallback(() => {
     if (historyIndexRef.current <= 0) return;
 
-    historyIndexRef.current--;
-    const previousGeometry = historyRef.current[historyIndexRef.current];
+    const newIndex = historyIndexRef.current - 1;
+    historyIndexRef.current = newIndex;
+    const previousGeometry = historyRef.current[newIndex];
     const newShape = createShapeFromGeometry(previousGeometry);
-
+    
     if (newShape) {
-      setActiveOverlay(newShape);
+        setActiveOverlay(newShape);
     }
+    
+    setCanUndo(newIndex > 0);
+    setCanRedo(true);
   }, []);
 
   const handleRedo = useCallback(() => {
     if (historyIndexRef.current >= historyRef.current.length - 1) return;
     
-    historyIndexRef.current++;
-    const nextGeometry = historyRef.current[historyIndexRef.current];
+    const newIndex = historyIndexRef.current + 1;
+    historyIndexRef.current = newIndex;
+    const nextGeometry = historyRef.current[newIndex];
     const newShape = createShapeFromGeometry(nextGeometry);
-
+    
     if (newShape) {
-      setActiveOverlay(newShape);
+        setActiveOverlay(newShape);
     }
+
+    setCanUndo(true);
+    setCanRedo(newIndex < historyRef.current.length - 1);
   }, []);
   
   // --- Shape Listeners ---
@@ -578,15 +600,15 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         }
     };
     
-    let changedEvent = 'bounds_changed'; // Rectangle default
-    if ('getRadius' in shape) changedEvent = 'radius_changed'; // Circle
-    if ('getPath' in shape) { // Polygon
-         // @ts-ignore
+    let changedEvent = 'bounds_changed';
+    if ('getRadius' in shape) changedEvent = 'radius_changed';
+    if ('getPaths' in shape) {
+        // @ts-ignore
         const path = shape.getPath();
         overlayListeners.current.push(google.maps.event.addListener(path, 'set_at', updateAndRecordHistory));
         overlayListeners.current.push(google.maps.event.addListener(path, 'insert_at', updateAndRecordHistory));
         overlayListeners.current.push(google.maps.event.addListener(path, 'remove_at', updateAndRecordHistory));
-    } else { // Circle, Rectangle
+    } else {
         overlayListeners.current.push(google.maps.event.addListener(shape, changedEvent, updateAndRecordHistory));
         overlayListeners.current.push(google.maps.event.addListener(shape, 'dragend', updateAndRecordHistory));
     }
@@ -622,10 +644,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         clearListeners();
     }
     
-    setCanUndo(historyIndexRef.current > 0);
-    setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
   }, [activeOverlay, isEditingShape, map, setupListeners, clearListeners]);
-
 
   // Effect to manage geofence visibility
   useEffect(() => {
@@ -848,6 +867,22 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                            />
                        )}
                    </MapComponent>
+                   {isEditingShape && (canUndo || canRedo) && (
+                     <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex gap-1 backdrop-blur-sm">
+                        {canUndo && (
+                             <Button onClick={handleUndo} variant="ghost" size="sm" className="flex items-center gap-2">
+                                <Undo className="h-4 w-4"/>
+                                {t('condoDashboard.map.undoLast')}
+                            </Button>
+                        )}
+                        {canRedo && (
+                             <Button onClick={handleRedo} variant="ghost" size="sm" className="flex items-center gap-2">
+                                <Redo className="h-4 w-4"/>
+                                {t('condoDashboard.map.redo')}
+                            </Button>
+                        )}
+                     </div>
+                   )}
                 </div>
             </div>
             <div className="w-1/3 p-4 space-y-4 overflow-y-auto">
@@ -1026,5 +1061,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
-    
