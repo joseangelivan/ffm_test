@@ -848,8 +848,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       </CardHeader>
       <CardContent className="p-0">
         <div className="flex h-[70vh]">
-            <div className="w-2/3 border-r">
-                <div className="h-full bg-muted overflow-hidden relative shadow-inner">
+            <div className="w-2/3 border-r p-1">
+                 <div className="h-full w-full bg-muted overflow-hidden relative shadow-inner rounded-md border">
                    <MapComponent center={center} zoom={15}>
                        {isDrawing && (
                            <DrawingManager 
