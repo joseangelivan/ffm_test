@@ -866,9 +866,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                    )}
                 </div>
             </div>
-            <div className="w-1/3 p-1 pl-0">
-                <div className="relative border h-full rounded-md p-4 pt-2 bg-background">
-                    <h2 className="text-base font-semibold tracking-tight px-2 absolute -top-3 left-4 bg-background">Módulos del Mapa</h2>
+            <div className="w-1/3">
+                <div className="relative border-t border-l border-b h-full p-4 pt-2 bg-card">
+                    <h2 className="text-base font-semibold tracking-tight px-2 absolute -top-3 left-4 bg-card">Módulos del Mapa</h2>
                      <div className="flex-1 flex flex-col space-y-4 pt-4">
                          <div className="space-y-4">
                              <h3 className="text-lg font-semibold -mt-1">Geocerca</h3>
@@ -1038,4 +1038,5 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     
 
     
+
 
