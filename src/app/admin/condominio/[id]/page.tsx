@@ -29,7 +29,8 @@ import {
   Eye,
   Star,
   Undo,
-  Redo
+  Redo,
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -522,6 +523,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
 
+  // Active Module State
+  const [activeModule, setActiveModule] = useState('geofence');
+
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
 
   const isActionActive = isDrawing || isEditing || isCreating;
@@ -870,9 +874,21 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                 <div className="relative border h-full p-4 pt-2 bg-card rounded-md">
                     <h2 className="text-lg font-semibold tracking-tight px-2 absolute -top-3.5 left-4 bg-card">Módulos del Mapa</h2>
                      <div className="flex-1 flex flex-col space-y-4 pt-4">
-                         <div className="space-y-4">
-                             <h3 className="text-lg font-semibold -mt-1">Geocerca</h3>
-                             
+                        <div className="px-1 space-y-2">
+                            <Label>Seleccionar Módulo</Label>
+                            <Select value={activeModule} onValueChange={setActiveModule}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar módulo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="geofence">Geocerca</SelectItem>
+                                    <SelectItem value="elements">Elementos del mapa</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {activeModule === 'geofence' && (
+                         <div className="space-y-4 pt-2 border-t">
+                             <h3 className="text-base font-semibold">Gestión de Geocerca</h3>
                              <div className="flex flex-col gap-4">
                                 <div className="flex items-center justify-between">
                                     <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
@@ -894,7 +910,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                             <div className="pt-4 border-t space-y-2">
                                  <div className="flex items-center space-x-2">
                                     <Checkbox id="enable-editing" checked={isEditingEnabled} onCheckedChange={(checked) => setIsEditingEnabled(!!checked)}/>
-                                    <label htmlFor="enable-editing" className="text-lg font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    <label htmlFor="enable-editing" className="text-base font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                         Edición
                                     </label>
                                 </div>
@@ -903,7 +919,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                      <div className="flex items-center gap-2">
                                            <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive}>
                                                 <SelectTrigger className={cn("flex-1", isEditingShape && "text-[#2980b9] border-[#2980b9] font-bold")}>
-                                                    <SelectValue placeholder="Seleccionar geocerca para gestionar" />
+                                                    <SelectValue placeholder="Seleccionar geocerca" />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     {geofences.map(gf => (
@@ -964,6 +980,15 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                 </fieldset>
                             </div>
                          </div>
+                        )}
+                        {activeModule === 'elements' && (
+                             <div className="space-y-4 pt-2 border-t">
+                                <h3 className="text-base font-semibold">Elementos del Mapa</h3>
+                                <div className="flex items-center justify-center text-center p-4 h-48 border-2 border-dashed rounded-md">
+                                    <p className="text-muted-foreground">Aquí se gestionarán los elementos del mapa.</p>
+                                </div>
+                             </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1034,3 +1059,6 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
+
+    
