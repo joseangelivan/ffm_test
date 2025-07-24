@@ -513,6 +513,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   // Action State (Drawing, Editing)
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [activeOverlay, setActiveOverlay] = useState<google.maps.MVCObject | null>(null);
   
   // Undo/Redo State
@@ -523,46 +524,44 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
 
-  const isActionActive = isDrawing || isEditing;
-  const isCreating = isDrawing || (activeOverlay && !isEditing);
+  const isActionActive = isDrawing || isEditing || isCreating;
+  const isEditingShape = isEditing || isCreating;
+
   const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || "Ninguna";
 
   // --- History Management (User's Algorithm) ---
   const updateHistory = useCallback((geometry: any) => {
-      const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-      newHistory.push(geometry);
-      historyRef.current = newHistory;
-      historyIndexRef.current = newHistory.length - 1;
+    historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
+    historyRef.current.push(geometry);
+    historyIndexRef.current = historyRef.current.length - 1;
 
-      setCanUndo(historyIndexRef.current > 0);
-      setCanRedo(false);
+    setCanUndo(true);
+    setCanRedo(false);
   }, []);
-
+  
   const handleUndo = useCallback(() => {
-    if (!activeOverlay || historyIndexRef.current <= 0) return;
-    
+    if (historyIndexRef.current <= 0) return;
+
     historyIndexRef.current--;
     const previousGeometry = historyRef.current[historyIndexRef.current];
     const newShape = createShapeFromGeometry(previousGeometry);
+
     if (newShape) {
-       // @ts-ignore
-        newShape.setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2 });
-        setActiveOverlay(newShape);
+      setActiveOverlay(newShape);
     }
-  }, [activeOverlay]);
+  }, []);
 
   const handleRedo = useCallback(() => {
-    if (!activeOverlay || historyIndexRef.current >= historyRef.current.length - 1) return;
+    if (historyIndexRef.current >= historyRef.current.length - 1) return;
     
     historyIndexRef.current++;
     const nextGeometry = historyRef.current[historyIndexRef.current];
     const newShape = createShapeFromGeometry(nextGeometry);
+
     if (newShape) {
-       // @ts-ignore
-        newShape.setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2 });
-        setActiveOverlay(newShape);
+      setActiveOverlay(newShape);
     }
-  }, [activeOverlay]);
+  }, []);
   
   // --- Shape Listeners ---
   const clearListeners = useCallback(() => {
@@ -606,13 +605,16 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   // Effect to manage active overlay and its listeners
   useEffect(() => {
-    // Hide previous overlay
-    const prevOverlay = activeOverlay;
+    geofences.forEach(gf => {
+      // @ts-ignore
+      if (gf.shape) gf.shape.setMap(null);
+    });
     // @ts-ignore
-    if(prevOverlay) prevOverlay.setMap(null);
+    if(activeOverlay) activeOverlay.setMap(null);
     
-    // Show current overlay and attach listeners
-    if (activeOverlay && isActionActive) {
+    if (activeOverlay && isEditingShape) {
+      // @ts-ignore
+      activeOverlay.setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2 });
       // @ts-ignore
       activeOverlay.setMap(map);
       setupListeners(activeOverlay);
@@ -620,15 +622,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         clearListeners();
     }
     
-    // Update button states
     setCanUndo(historyIndexRef.current > 0);
     setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-    
-    return () => {
-        // @ts-ignore
-        if(activeOverlay) activeOverlay.setMap(null);
-    };
-  }, [activeOverlay, isActionActive, map, setupListeners, clearListeners]);
+  }, [activeOverlay, isEditingShape, map, setupListeners, clearListeners]);
 
 
   // Effect to manage geofence visibility
@@ -639,11 +635,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         let visible = false;
         let options: any = {};
 
-        if (isEditingEnabled) {
-            if (isActionActive) {
-                // When drawing or editing, show original selected geofence as ref
-                if (isSelected && isEditing) visible = false;
-            } else if (isSelected) {
+        if (isEditingShape && isSelected) {
+            visible = false; // Hide original while editing
+        } else if (isEditingEnabled) {
+            if (isSelected) {
                 visible = true;
                 options = { 
                     fillColor: isDefault ? DEFAULT_COLOR.fillColor : SAVED_COLOR.fillColor,
@@ -671,7 +666,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         // @ts-ignore
         gf.shape.setOptions({ ...options, editable: false, draggable: false, map: visible ? map : null });
     });
-  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isActionActive, isEditing, map]);
+  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isEditingShape, map]);
 
   // --- Action Handlers ---
   const resetActionStates = useCallback(() => {
@@ -681,6 +676,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     }
     setIsDrawing(false);
     setIsEditing(false);
+    setIsCreating(false);
     setActiveOverlay(null);
     historyRef.current = [];
     historyIndexRef.current = -1;
@@ -691,9 +687,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const handleOverlayComplete = useCallback((overlay: google.maps.MVCObject) => {
     setIsDrawing(false);
-    setIsEditing(true);
-    // @ts-ignore
-    overlay.setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2 });
+    setIsCreating(true);
     setActiveOverlay(overlay);
     updateHistory(getGeometryFromShape(overlay));
     toast({
@@ -720,23 +714,17 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }
 
   const handleSaveGeofence = () => {
-    if (!activeOverlay || !selectedGeofenceId && isEditing) return;
+    if (!activeOverlay) return;
 
     const geometryToSave = getGeometryFromShape(activeOverlay);
     const shapeToSave = createShapeFromGeometry(geometryToSave);
+    
     if (!shapeToSave) {
         toast({ title: "Error", description: "No se pudo clonar la forma para guardar.", variant: "destructive"});
         return;
     }
     
-    if (isEditing) { // Editing existing
-        setGeofences(prev => prev.map(g => 
-            g.id === selectedGeofenceId 
-            ? {...g, shape: shapeToSave} 
-            : g
-        ));
-        toast({ title: "Geocerca Actualizada" });
-    } else { // Saving new
+    if (isCreating) { // Saving new
         const newId = `gf-${Date.now()}`;
         const newName = getNextGeofenceName();
         const newGeofence: GeofenceObject = { id: newId, name: newName, shape: shapeToSave };
@@ -749,6 +737,14 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
         setSelectedGeofenceId(newId);
         toast({ title: "Geocerca Guardada", description: `La geocerca "${newName}" se ha guardado.`});
+
+    } else if (isEditing && selectedGeofenceId) { // Editing existing
+        setGeofences(prev => prev.map(g => 
+            g.id === selectedGeofenceId 
+            ? {...g, shape: shapeToSave} 
+            : g
+        ));
+        toast({ title: "Geocerca Actualizada" });
     }
 
     resetActionStates();
@@ -761,16 +757,14 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
     const geometry = getGeometryFromShape(geofenceToEdit.shape);
     const shape = createShapeFromGeometry(geometry);
+    
     if (!shape) {
         toast({ title: "Error", description: "No se pudo clonar la forma para editar.", variant: "destructive"});
         return;
     }
     
     resetActionStates();
-
     setIsEditing(true);
-    // @ts-ignore
-    shape.setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2 });
     setActiveOverlay(shape);
     updateHistory(geometry);
   }
@@ -806,7 +800,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         return newGeofences;
       });
 
-      if (isEditing) resetActionStates();
+      if (isEditing || isCreating) resetActionStates();
       toast({ title: "Geocerca Eliminada", variant: "destructive" });
   }
 
@@ -889,7 +883,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         <fieldset disabled={!isEditingEnabled} className="space-y-4">
                              <div className="flex items-center gap-2">
                                    <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive}>
-                                        <SelectTrigger className={cn("flex-1", isEditing && "text-[#2980b9] border-[#2980b9] font-bold")}>
+                                        <SelectTrigger className={cn("flex-1", isEditingShape && "text-[#2980b9] border-[#2980b9] font-bold")}>
                                             <SelectValue placeholder="Seleccionar geocerca para gestionar" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -919,7 +913,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                    </div>
                                </div>
                             
-                            {isEditing && (
+                            {isEditingShape && (
                                 <div className="flex items-center justify-center gap-2 p-2 border rounded-md">
                                     <Button onClick={handleUndo} variant="outline" size="icon" disabled={!canUndo}>
                                         <Undo className="h-4 w-4"/>
@@ -956,7 +950,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                 </DropdownMenu>
                             </div>
                             
-                             {isActionActive && (
+                             {isEditingShape && (
                                 <Button onClick={handleSaveGeofence} className="w-full">
                                     <Save className="mr-2 h-4 w-4" /> {isCreating ? 'Guardar Geocerca' : 'Guardar Cambios'}
                                 </Button>
