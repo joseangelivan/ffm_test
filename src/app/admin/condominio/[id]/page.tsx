@@ -538,6 +538,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || "Ninguna";
   
   const updateHistory = useCallback((newShape: any) => {
+    // If we make a new change after undoing, we clear the 'redo' history
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push(newShape);
     setHistory(newHistory);
@@ -559,18 +560,18 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     if (historyIndex <= 0 || !activeOverlay) return;
 
     const newIndex = historyIndex - 1;
+    setHistoryIndex(newIndex);
     const previousShapeData = history[newIndex];
     applyHistoryState(activeOverlay, previousShapeData);
-    setHistoryIndex(newIndex);
   }, [activeOverlay, history, historyIndex, applyHistoryState]);
 
   const handleRedo = useCallback(() => {
     if (historyIndex >= history.length - 1 || !activeOverlay) return;
     
     const newIndex = historyIndex + 1;
+    setHistoryIndex(newIndex);
     const nextShapeData = history[newIndex];
     applyHistoryState(activeOverlay, nextShapeData);
-    setHistoryIndex(newIndex);
   }, [activeOverlay, history, historyIndex, applyHistoryState]);
 
 
@@ -580,6 +581,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, []);
 
   const setupListeners = useCallback((shape: google.maps.MVCObject) => {
+    clearListeners(); // Ensure no old listeners are hanging around
     const updateAndRecordHistory = () => {
         const newGeometry = getGeometryFromShape(shape);
         if (newGeometry) {
@@ -598,16 +600,17 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         // @ts-ignore
         overlayListeners.current.push(google.maps.event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
         // @ts-ignore
-        overlayListeners.current.push(google.maps.event.addListener(shape, 'radius_changed', updateAndRecordHistory));
+        overlayListeners.current.push(google.maps.event.addListener(shape, 'center_changed', updateAndRecordHistory));
         // @ts-ignore
-        overlayListeners.current.push(google.maps.event.addListener(shape, 'dragend', updateAndRecordHistory));
+        overlayListeners.current.push(google.maps.event.addListener(shape, 'radius_changed', updateAndRecordHistory));
     }
-  }, [updateHistory]);
+  }, [updateHistory, clearListeners]);
 
   useEffect(() => {
-    clearListeners();
     if (activeOverlay && isEditing) {
         setupListeners(activeOverlay);
+    } else {
+        clearListeners();
     }
     return clearListeners;
   }, [activeOverlay, isEditing, clearListeners, setupListeners]);
@@ -625,7 +628,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     setActiveOverlay(null);
     setHistory([]);
     setHistoryIndex(-1);
-  }, [activeOverlay]);
+    clearListeners();
+  }, [activeOverlay, clearListeners]);
 
   const handleOverlayComplete = useCallback((overlay: google.maps.MVCObject) => {
     setIsDrawingMode(false);
@@ -922,18 +926,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         </div>
 
                         <fieldset disabled={!isEditingEnabled} className="space-y-4">
-                            {isEditing && (
-                               <div className="flex items-center gap-2">
-                                  <Button onClick={handleUndo} variant="outline" size="icon" disabled={historyIndex <= 0}>
-                                    <Undo className="h-4 w-4"/>
-                                    <span className="sr-only">{t('condoDashboard.map.undo')}</span>
-                                  </Button>
-                                  <Button onClick={handleRedo} variant="outline" size="icon" disabled={historyIndex >= history.length - 1}>
-                                    <Redo className="h-4 w-4"/>
-                                     <span className="sr-only">{t('condoDashboard.map.redo')}</span>
-                                  </Button>
-                               </div>
-                            )}
                              <div className="flex items-center gap-2">
                                    <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive}>
                                         <SelectTrigger className={cn("flex-1", isEditing && "text-[#2980b9] border-[#2980b9] font-bold")}>
@@ -965,6 +957,18 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                        </Button>
                                    </div>
                                </div>
+                            {isEditing && (
+                                <div className="flex items-center gap-2">
+                                   <Button onClick={handleUndo} variant="outline" size="icon" disabled={historyIndex <= 0}>
+                                     <Undo className="h-4 w-4"/>
+                                     <span className="sr-only">{t('condoDashboard.map.undo')}</span>
+                                   </Button>
+                                   <Button onClick={handleRedo} variant="outline" size="icon" disabled={historyIndex >= history.length - 1}>
+                                     <Redo className="h-4 w-4"/>
+                                      <span className="sr-only">{t('condoDashboard.map.redo')}</span>
+                                   </Button>
+                                </div>
+                             )}
                             <div className="flex items-center gap-2">
                                 <Button onClick={handleToggleDrawing} variant={isActionActive ? "destructive" : "outline"} className="flex-1">
                                     <PencilRuler className="mr-2 h-4 w-4"/>
@@ -1067,3 +1071,5 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
+    
