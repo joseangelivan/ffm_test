@@ -565,7 +565,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const updateHistory = useCallback((newShape: any) => {
     setHistory(currentHistory => {
-        // Truncate history if we're branching off from an old state
         const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
         const newHistory = [...newHistorySlice, newShape];
         setHistoryIndex(newHistory.length - 1);
@@ -574,26 +573,26 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, [historyIndex]);
   
   const handleUndo = useCallback(() => {
-    if (historyIndex > 0) {
-        const newIndex = historyIndex - 1;
-        setHistoryIndex(newIndex);
-        const historyState = history[newIndex];
-        if (historyState) {
-            applyHistoryState(historyState);
-        }
-    }
-  }, [history, historyIndex, applyHistoryState]);
+    setHistoryIndex(prevIndex => {
+      const newIndex = prevIndex > 0 ? prevIndex - 1 : 0;
+      const historyState = history[newIndex];
+      if (historyState) {
+        applyHistoryState(historyState);
+      }
+      return newIndex;
+    });
+  }, [history, applyHistoryState]);
   
   const handleRedo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-        const newIndex = historyIndex + 1;
-        setHistoryIndex(newIndex);
-        const historyState = history[newIndex];
-        if (historyState) {
-            applyHistoryState(historyState);
-        }
-    }
-  }, [history, historyIndex, applyHistoryState]);
+    setHistoryIndex(prevIndex => {
+      const newIndex = prevIndex < history.length - 1 ? prevIndex + 1 : prevIndex;
+      const historyState = history[newIndex];
+      if (historyState) {
+        applyHistoryState(historyState);
+      }
+      return newIndex;
+    });
+  }, [history, applyHistoryState]);
 
 
   const clearListeners = useCallback(() => {
@@ -603,7 +602,6 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const setupListeners = useCallback((shape: google.maps.MVCObject) => {
     clearListeners();
-    // Use a debounce/throttle here in a real app to avoid excessive history entries
     const updateAndRecordHistory = () => {
         const newGeometry = getGeometryFromShape(shape);
         if (newGeometry) {
