@@ -447,6 +447,30 @@ const cloneShape = (shape: google.maps.MVCObject): google.maps.MVCObject | null 
     }
 };
 
+const applyGeometryToShape = (shape: google.maps.MVCObject | null, geometry: any) => {
+    if (!shape || !geometry) return;
+    
+    // @ts-ignore
+    const shapeType = shape.getPaths ? 'polygon' : shape.getBounds ? 'rectangle' : 'circle';
+
+    switch (shapeType) {
+        case 'polygon':
+            // @ts-ignore
+            shape.setPaths(geometry);
+            break;
+        case 'rectangle':
+             // @ts-ignore
+            shape.setBounds(geometry);
+            break;
+        case 'circle':
+             // @ts-ignore
+            shape.setCenter(geometry.center);
+            // @ts-ignore
+            shape.setRadius(geometry.radius);
+            break;
+    }
+};
+
 
 const DrawingManager = ({
     onOverlayComplete,
@@ -541,31 +565,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || "Ninguna";
   
-  const applyGeometryToShape = (shape: google.maps.MVCObject | null, geometry: any) => {
-    if (!shape || !geometry) return;
-    
-    // @ts-ignore
-    const shapeType = shape.getPaths ? 'polygon' : shape.getBounds ? 'rectangle' : 'circle';
-
-    switch (shapeType) {
-        case 'polygon':
-            // @ts-ignore
-            shape.setPaths(geometry);
-            break;
-        case 'rectangle':
-             // @ts-ignore
-            shape.setBounds(geometry);
-            break;
-        case 'circle':
-             // @ts-ignore
-            shape.setCenter(geometry.center);
-            // @ts-ignore
-            shape.setRadius(geometry.radius);
-            break;
-    }
-  };
 
   const updateHistory = useCallback((newGeometry: any) => {
+    // Si estamos a mitad del historial, truncamos el futuro para crear una nueva línea de tiempo
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
     newHistory.push(newGeometry);
     historyRef.current = newHistory;
