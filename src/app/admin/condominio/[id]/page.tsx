@@ -529,8 +529,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const [activeOverlay, setActiveOverlay] = useState<google.maps.MVCObject | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   
-  const [history, setHistory] = useState<any[]>([]);
-  const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  const historyRef = useRef<any[]>([]);
+  const historyIndexRef = useRef<number>(-1);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   
@@ -539,61 +541,63 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
   const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || "Ninguna";
   
-  const applyHistoryState = useCallback((geometry: any) => {
-    if (!activeOverlay || !geometry) return;
+  const applyGeometryToShape = (shape: google.maps.MVCObject | null, geometry: any) => {
+    if (!shape || !geometry) return;
     
     // @ts-ignore
-    const shapeType = activeOverlay.getPaths ? 'polygon' : activeOverlay.getBounds ? 'rectangle' : 'circle';
+    const shapeType = shape.getPaths ? 'polygon' : shape.getBounds ? 'rectangle' : 'circle';
 
     switch (shapeType) {
         case 'polygon':
             // @ts-ignore
-            activeOverlay.setPaths(geometry);
+            shape.setPaths(geometry);
             break;
         case 'rectangle':
              // @ts-ignore
-            activeOverlay.setBounds(geometry);
+            shape.setBounds(geometry);
             break;
         case 'circle':
              // @ts-ignore
-            activeOverlay.setCenter(geometry.center);
+            shape.setCenter(geometry.center);
             // @ts-ignore
-            activeOverlay.setRadius(geometry.radius);
+            shape.setRadius(geometry.radius);
             break;
     }
-  }, [activeOverlay]);
+  };
 
-  const updateHistory = useCallback((newShape: any) => {
-      setHistory(currentHistory => {
-          // Truncate history if we are not at the end (e.g., after an undo)
-          const newHistorySlice = currentHistory.slice(0, historyIndex + 1);
-          const newHistory = [...newHistorySlice, newShape];
-          setHistoryIndex(newHistory.length - 1);
-          return newHistory;
-      });
-  }, [historyIndex]);
+  const updateHistory = useCallback((newGeometry: any) => {
+    const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+    newHistory.push(newGeometry);
+    historyRef.current = newHistory;
+    historyIndexRef.current = newHistory.length - 1;
+    
+    setCanUndo(historyIndexRef.current > 0);
+    setCanRedo(false);
+  }, []);
   
   const handleUndo = useCallback(() => {
-    setHistoryIndex(prevIndex => {
-        const newIndex = prevIndex > 0 ? prevIndex - 1 : 0;
-        const historyState = history[newIndex];
-        if (historyState) {
-            applyHistoryState(historyState);
-        }
-        return newIndex;
-    });
-  }, [history, applyHistoryState]);
+    if (historyIndexRef.current > 0) {
+        const newIndex = historyIndexRef.current - 1;
+        historyIndexRef.current = newIndex;
+        const geometry = historyRef.current[newIndex];
+        applyGeometryToShape(activeOverlay, geometry);
+
+        setCanUndo(newIndex > 0);
+        setCanRedo(true);
+    }
+  }, [activeOverlay]);
   
   const handleRedo = useCallback(() => {
-      setHistoryIndex(prevIndex => {
-          const newIndex = prevIndex < history.length - 1 ? prevIndex + 1 : prevIndex;
-          const historyState = history[newIndex];
-          if (historyState) {
-              applyHistoryState(historyState);
-          }
-          return newIndex;
-      });
-  }, [history, applyHistoryState]);
+    if (historyIndexRef.current < historyRef.current.length - 1) {
+        const newIndex = historyIndexRef.current + 1;
+        historyIndexRef.current = newIndex;
+        const geometry = historyRef.current[newIndex];
+        applyGeometryToShape(activeOverlay, geometry);
+
+        setCanUndo(true);
+        setCanRedo(newIndex < historyRef.current.length - 1);
+    }
+  }, [activeOverlay]);
 
 
   const clearListeners = useCallback(() => {
@@ -645,8 +649,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     setIsDrawingMode(false);
     setIsEditing(false);
     setActiveOverlay(null);
-    setHistory([]);
-    setHistoryIndex(-1);
+    historyRef.current = [];
+    historyIndexRef.current = -1;
+    setCanUndo(false);
+    setCanRedo(false);
     clearListeners();
   }, [activeOverlay, clearListeners]);
 
@@ -988,11 +994,11 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 
                             {isEditing && (
                                 <div className="flex items-center justify-center gap-2 p-2 border rounded-md">
-                                    <Button onClick={handleUndo} variant="outline" size="icon" disabled={historyIndex <= 0}>
+                                    <Button onClick={handleUndo} variant="outline" size="icon" disabled={!canUndo}>
                                         <Undo className="h-4 w-4"/>
                                         <span className="sr-only">{t('condoDashboard.map.undo')}</span>
                                     </Button>
-                                    <Button onClick={handleRedo} variant="outline" size="icon" disabled={historyIndex >= history.length - 1}>
+                                    <Button onClick={handleRedo} variant="outline" size="icon" disabled={!canRedo}>
                                         <Redo className="h-4 w-4"/>
                                         <span className="sr-only">{t('condoDashboard.map.redo')}</span>
                                     </Button>
