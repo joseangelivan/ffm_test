@@ -574,44 +574,44 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   }, [activeOverlay, history, historyIndex, applyHistoryState]);
 
 
-  const clearListeners = () => {
+  const clearListeners = useCallback(() => {
     overlayListeners.current.forEach(l => l.remove());
     overlayListeners.current = [];
-  }
+  }, []);
+
+  const setupListeners = useCallback((shape: google.maps.MVCObject) => {
+    const updateAndRecordHistory = () => {
+        const newGeometry = getGeometryFromShape(shape);
+        if (newGeometry) {
+            updateHistory(newGeometry);
+        }
+    };
+    // @ts-ignore
+    const shapeType = shape.getPaths ? 'polygon' : shape.getBounds ? 'rectangle' : 'circle';
+    if (shapeType === 'polygon') {
+        // @ts-ignore
+        const paths = shape.getPaths();
+        overlayListeners.current.push(google.maps.event.addListener(paths, 'set_at', updateAndRecordHistory));
+        overlayListeners.current.push(google.maps.event.addListener(paths, 'insert_at', updateAndRecordHistory));
+        overlayListeners.current.push(google.maps.event.addListener(paths, 'remove_at', updateAndRecordHistory));
+    } else { // Rectangle and Circle
+        // @ts-ignore
+        overlayListeners.current.push(google.maps.event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
+        // @ts-ignore
+        overlayListeners.current.push(google.maps.event.addListener(shape, 'radius_changed', updateAndRecordHistory));
+        // @ts-ignore
+        overlayListeners.current.push(google.maps.event.addListener(shape, 'dragend', updateAndRecordHistory));
+    }
+  }, [updateHistory]);
 
   useEffect(() => {
     clearListeners();
-    if(activeOverlay) {
-        // @ts-ignore
-        activeOverlay.setMap(map);
-        // @ts-ignore
-        if (activeOverlay && activeOverlay.getEditable()) {
-            const updateAndRecordHistory = () => {
-                const newGeometry = getGeometryFromShape(activeOverlay);
-                if (newGeometry) {
-                    updateHistory(newGeometry);
-                }
-            };
-             // @ts-ignore
-            const shapeType = activeOverlay.getPaths ? 'polygon' : activeOverlay.getBounds ? 'rectangle' : 'circle';
-            if (shapeType === 'polygon') {
-                 // @ts-ignore
-                const paths = activeOverlay.getPaths();
-                overlayListeners.current.push(google.maps.event.addListener(paths, 'set_at', updateAndRecordHistory));
-                overlayListeners.current.push(google.maps.event.addListener(paths, 'insert_at', updateAndRecordHistory));
-                overlayListeners.current.push(google.maps.event.addListener(paths, 'remove_at', updateAndRecordHistory));
-            } else { // Rectangle and Circle
-                overlayListeners.current.push(google.maps.event.addListener(activeOverlay, 'bounds_changed', updateAndRecordHistory));
-                // @ts-ignore
-                overlayListeners.current.push(google.maps.event.addListener(activeOverlay, 'radius_changed', updateAndRecordHistory));
-                 // @ts-ignore
-                overlayListeners.current.push(google.maps.event.addListener(activeOverlay, 'dragend', updateAndRecordHistory));
-            }
-        }
+    if (activeOverlay && isEditing) {
+        setupListeners(activeOverlay);
     }
-
     return clearListeners;
-  }, [activeOverlay, map, updateHistory])
+  }, [activeOverlay, isEditing, clearListeners, setupListeners]);
+
 
   const resetActionStates = useCallback((overlayToClean?: google.maps.MVCObject | null) => {
     const overlay = overlayToClean || activeOverlay;
@@ -683,7 +683,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     });
 
     setSelectedGeofenceId(newId);
-    resetActionStates(activeOverlay); // Pass activeOverlay to ensure it's removed
+    resetActionStates(activeOverlay);
     
     toast({
         title: "Geocerca Guardada",
@@ -700,7 +700,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         originalGeofence.shape.setMap(null);
     }
     
-    const clonedActiveOverlay = cloneShape(activeOverlay); // Clone the edited shape
+    const clonedActiveOverlay = cloneShape(activeOverlay); 
     if (!clonedActiveOverlay) {
         toast({ title: "Error", description: "No se pudo guardar la forma.", variant: "destructive"});
         return;
@@ -735,6 +735,8 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     setIsEditing(true);
     // @ts-ignore
     clonedShape.setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2 });
+    // @ts-ignore
+    clonedShape.setMap(map);
     setActiveOverlay(clonedShape);
     updateHistory(getGeometryFromShape(clonedShape));
   }
@@ -975,7 +977,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                 </DropdownMenu>
                             </div>
                             
-                            {(isEditing) && (
+                            {isEditing && (
                                <div className="flex items-center gap-2">
                                   <Button onClick={handleUndo} variant="outline" size="icon" disabled={historyIndex <= 0}>
                                     <Undo className="h-4 w-4"/>
