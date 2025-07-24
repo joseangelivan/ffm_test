@@ -2,8 +2,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
 import {
   ArrowLeft,
   Building,
@@ -77,6 +75,7 @@ import MapComponent from '@/components/map';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import Link from 'next/link';
 
 
 // Mock data
@@ -777,7 +776,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         clearListeners();
     }
     
-  }, [activeOverlay, isEditingShape, map, setupListeners, clearListeners]);
+  }, [activeOverlay, isEditingShape, map, setupListeners, clearListeners, geofences]);
 
   // Effect to manage geofence visibility
   useEffect(() => {
@@ -1254,7 +1253,7 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
                     <CardHeader>
                         <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
                         <CardDescription>API Key for Google Maps is missing.</CardDescription>
-                    </Header>
+                    </CardHeader>
                     <CardContent>
                         <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
                             <p>Google Maps could not be loaded.</p>
