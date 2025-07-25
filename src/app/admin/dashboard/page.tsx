@@ -11,7 +11,8 @@ type Session = {
 }
 
 export default async function AdminDashboardPage() {
-  const sessionToken = cookies().get('session')?.value;
+  const sessionCookie = cookies().get('session');
+  const sessionToken = sessionCookie?.value;
   const session = await getSession(sessionToken);
 
   if (!session) {
