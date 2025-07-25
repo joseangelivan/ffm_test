@@ -1,0 +1,16 @@
+diff --git a/node_modules/bcrypt/bcrypt.js b/node_modules/bcrypt/bcrypt.js
+index b89c6af..34ab63e 100644
+--- a/node_modules/bcrypt/bcrypt.js
++++ b/node_modules/bcrypt/bcrypt.js
+@@ -7,7 +7,10 @@
+  * @license MIT
+  */
+ 
+-var fs = require('fs'),
++var fs = require('fs');
++if (typeof fs.readFileSync === 'undefined') {
++    fs.readFileSync = () => { throw new Error("bcrypt.js: 'fs.readFileSync' is not available on this platform."); };
++}
+ 
+ /**
+  * @param {string} file
