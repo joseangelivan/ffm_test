@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mail, Lock, AlertCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Loader } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
 import { LanguageSwitcher } from '@/components/language-switcher';
@@ -23,9 +23,21 @@ import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { useRouter } from 'next/navigation';
 import { Textarea } from './ui/textarea';
+import { cn } from '@/lib/utils';
 
 interface AdminLoginFormProps {
     authenticateAdmin: (prevState: any, formData: FormData) => Promise<any>;
+}
+
+function LoadingOverlay() {
+    return (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 backdrop-blur-sm">
+            <div className="flex items-center gap-2 text-lg text-muted-foreground">
+                <Loader className="h-6 w-6 animate-spin" />
+                <span>Cargando...</span>
+            </div>
+        </div>
+    );
 }
 
 function SubmitButton() {
@@ -44,6 +56,7 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
   const { t } = useLocale();
   const [state, formAction] = useActionState(authenticateAdmin, undefined);
   const { toast } = useToast();
+  const { pending } = useFormStatus();
   
   // Ref to track if the toast has been shown for the current success state.
   const hasShownSuccessToast = useRef(false);
@@ -66,83 +79,90 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
   return (
     <div className="light relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
       <LanguageSwitcher />
-      <Card className="w-full max-w-md shadow-2xl">
-        <CardHeader className="space-y-4 text-center">
-          <div className="flex justify-center">
-            <Logo />
-          </div>
-          <CardTitle className="font-headline text-3xl">{t('adminLogin.title')}</CardTitle>
-          <CardDescription>
-            {t('adminLogin.description')}
-          </CardDescription>
-        </CardHeader>
-        <form action={formAction}>
-          <CardContent>
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="email">{t('adminLogin.email')}</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="admin@ejemplo.com"
-                    className="pl-10"
-                    required
-                    autoComplete="email"
-                  />
-                </div>
+      <Card className={cn("w-full max-w-md shadow-2xl transition-opacity", pending && "opacity-50")}>
+        <div className="relative">
+            {pending && <LoadingOverlay />}
+            <CardHeader className="space-y-4 text-center">
+              <div className="flex justify-center">
+                <Logo />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">{t('adminLogin.password')}</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="••••••••"
-                    className="pl-10"
-                    required
-                    autoComplete="current-password"
-                  />
+              <CardTitle className="font-headline text-3xl">{t('adminLogin.title')}</CardTitle>
+              <CardDescription>
+                {t('adminLogin.description')}
+              </CardDescription>
+            </CardHeader>
+            <form action={formAction}>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">{t('adminLogin.email')}</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="admin@ejemplo.com"
+                        className="pl-10"
+                        required
+                        autoComplete="email"
+                        disabled={pending}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">{t('adminLogin.password')}</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                      <Input
+                        id="password"
+                        name="password"
+                        type="password"
+                        placeholder="••••••••"
+                        className="pl-10"
+                        required
+                        autoComplete="current-password"
+                        disabled={pending}
+                      />
+                    </div>
+                  </div>
+                  {state?.success === false && state.message && (
+                      <Alert variant="destructive" className="mt-4">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Login Failed</AlertTitle>
+                          <AlertDescription>
+                              {state.message}
+                          </AlertDescription>
+                      </Alert>
+                  )}
+                   {process.env.NODE_ENV === 'development' && state?.debugInfo && (
+                    <div className="space-y-2 pt-4">
+                        <Label htmlFor="debug-info">Debug Information</Label>
+                        <Textarea 
+                            id="debug-info"
+                            readOnly
+                            className="h-32 text-xs bg-muted/50 font-mono"
+                            value={state.debugInfo}
+                        />
+                    </div>
+                  )}
                 </div>
-              </div>
-              {state?.success === false && state.message && (
-                  <Alert variant="destructive" className="mt-4">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Login Failed</AlertTitle>
-                      <AlertDescription>
-                          {state.message}
-                      </AlertDescription>
-                  </Alert>
-              )}
-               {process.env.NODE_ENV === 'development' && state?.debugInfo && (
-                <div className="space-y-2 pt-4">
-                    <Label htmlFor="debug-info">Debug Information</Label>
-                    <Textarea 
-                        id="debug-info"
-                        readOnly
-                        className="h-32 text-xs bg-muted/50 font-mono"
-                        value={state.debugInfo}
-                    />
+              </CardContent>
+              <CardFooter className="flex flex-col gap-4 px-6 pb-6">
+                <SubmitButton />
+                <div className="text-center text-sm w-full">
+                  <Link
+                    href="/"
+                    className={cn("text-muted-foreground hover:text-primary hover:underline", pending && "pointer-events-none")}
+                    aria-disabled={pending}
+                    tabIndex={pending ? -1 : undefined}
+                  >
+                    {t('adminLogin.returnToMainLogin')}
+                  </Link>
                 </div>
-              )}
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-4 px-6 pb-6">
-            <SubmitButton />
-            <div className="text-center text-sm w-full">
-              <Link
-                href="/"
-                className="text-muted-foreground hover:text-primary hover:underline"
-              >
-                {t('adminLogin.returnToMainLogin')}
-              </Link>
-            </div>
-          </CardFooter>
-        </form>
+              </CardFooter>
+            </form>
+        </div>
       </Card>
     </div>
   );
