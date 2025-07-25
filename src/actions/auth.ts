@@ -41,6 +41,38 @@ export async function runMigrations() {
                 applied_at TIMESTAMPTZ DEFAULT NOW()
             );
         `);
+        
+        // Create base tables if they don't exist
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS admins (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+        
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS sessions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                admin_id UUID REFERENCES admins(id) ON DELETE CASCADE,
+                token TEXT NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+        
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS admin_settings (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                admin_id UUID UNIQUE REFERENCES admins(id) ON DELETE CASCADE,
+                theme VARCHAR(50) DEFAULT 'light' NOT NULL,
+                language VARCHAR(10) DEFAULT 'es' NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
 
         // 2. Process migration files
         const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
@@ -283,6 +315,8 @@ export async function getCurrentSession() {
 }
 
 
+
+    
 
     
 
