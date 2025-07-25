@@ -2,7 +2,6 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/actions/auth';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
-import { cookies } from 'next/headers';
 
 type Session = {
     id: string;
@@ -11,9 +10,7 @@ type Session = {
 }
 
 export default async function AdminDashboardPage() {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session')?.value;
-  const session = await getSession(sessionToken);
+  const session = await getSession();
 
   if (!session) {
     redirect('/admin/login');
