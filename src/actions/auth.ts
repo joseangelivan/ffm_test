@@ -32,17 +32,24 @@ export async function runMigrations() {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-
-        // 1. Create the migration tracking table if it doesn't exist
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS schema_migrations (
-                id SERIAL PRIMARY KEY,
-                migration_name VARCHAR(255) UNIQUE NOT NULL,
-                applied_at TIMESTAMPTZ DEFAULT NOW()
-            );
-        `);
         
-        // Create base tables if they don't exist
+        // 1. Process migration files to ensure migration table exists first.
+        const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
+        const migrationFiles = (await fs.readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
+        
+        // Ensure the very first migration (creating the schema_migrations table) is run.
+        if (migrationFiles.length > 0 && migrationFiles[0].startsWith('0000_')) {
+             const migrationTableScript = migrationFiles[0];
+             const sql = await fs.readFile(path.join(migrationsDir, migrationTableScript), 'utf-8');
+             await client.query(sql);
+        }
+
+        // 2. Get already applied migrations
+        const appliedMigrationsResult = await client.query('SELECT migration_name FROM schema_migrations');
+        const appliedMigrations = new Set(appliedMigrationsResult.rows.map(r => r.migration_name));
+
+        // 3. Create base tables if they don't exist
+        // These tables are essential for the app to start and will be migrated to scripts later.
         await client.query(`
             CREATE TABLE IF NOT EXISTS admins (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -74,13 +81,7 @@ export async function runMigrations() {
             );
         `);
 
-        // 2. Process migration files
-        const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
-        const migrationFiles = (await fs.readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
-        
-        const appliedMigrationsResult = await client.query('SELECT migration_name FROM schema_migrations');
-        const appliedMigrations = new Set(appliedMigrationsResult.rows.map(r => r.migration_name));
-
+        // 4. Run remaining migrations
         for (const file of migrationFiles) {
             if (!appliedMigrations.has(file)) {
                 console.log(`Applying migration: ${file}`);
@@ -309,7 +310,7 @@ export async function logout() {
     redirect('/admin/login');
 }
 export async function getCurrentSession() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const sessionToken = cookieStore.get('session');
   return await getSession(sessionToken?.value);
 }
