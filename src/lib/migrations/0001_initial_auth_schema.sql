@@ -1,26 +1,33 @@
--- Fase 1: Limpieza Exhaustiva de Tablas Obsoletas
--- Eliminamos todas las tablas que no forman parte del esquema final para asegurar un estado limpio.
-DROP TABLE IF EXISTS "Usuarios";
-DROP TABLE IF EXISTS "user_preferences";
--- Agregamos aquí cualquier otra tabla que sepamos que es obsoleta.
--- Por ejemplo:
--- DROP TABLE IF EXISTS "old_logs";
--- DROP TABLE IF EXISTS "temp_data";
+-- Comprehensive Schema Transformation Script
+-- Objective: Move the database from any previous state to the final auth-focused schema.
 
--- Fase 2: Creación y Sincronización del Esquema Final
--- Nos aseguramos de que todas las tablas requeridas por la aplicación existan
--- y tengan la estructura correcta. Usar "IF NOT EXISTS" es seguro aquí
--- porque la fase 1 ya ha limpiado cualquier posible conflicto de nombres.
+-- Phase 1: Radical Cleanup
+-- Drop all tables that are no longer part of the final schema.
+-- Using CASCADE to handle any potential foreign key relationships automatically.
+DROP TABLE IF EXISTS condominios CASCADE;
+DROP TABLE IF EXISTS devices CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS geofences CASCADE;
+DROP TABLE IF EXISTS map_elements CASCADE;
+DROP TABLE IF EXISTS element_types CASCADE;
+DROP TABLE IF EXISTS "Usuarios" CASCADE; -- Legacy table from previous attempts
+DROP TABLE IF EXISTS "user_preferences" CASCADE; -- Legacy table from previous attempts
 
+-- Phase 2: Establish Final Schema
+-- Create the tables required for the admin authentication system.
+-- Using IF NOT EXISTS to make the script safely rerunnable.
+
+-- Table for administrators
 CREATE TABLE IF NOT EXISTS admins (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255),
+    name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Table for admin session management
 CREATE TABLE IF NOT EXISTS sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     admin_id UUID REFERENCES admins(id) ON DELETE CASCADE,
@@ -29,6 +36,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Table for storing admin-specific settings like theme and language
 CREATE TABLE IF NOT EXISTS admin_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     admin_id UUID UNIQUE REFERENCES admins(id) ON DELETE CASCADE,
@@ -38,5 +46,7 @@ CREATE TABLE IF NOT EXISTS admin_settings (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Nota: La tabla `migrations` es gestionada directamente por la función `runMigrations`
--- y no necesita ser incluida en este script.
+-- Optional: Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email);
+CREATE INDEX IF NOT EXISTS idx_sessions_admin_id ON sessions(admin_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
