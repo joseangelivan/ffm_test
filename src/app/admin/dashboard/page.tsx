@@ -1,6 +1,6 @@
-import { redirect } from 'next/navigation';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
 import { getSession } from '@/actions/auth';
+import { redirect } from 'next/navigation';
 
 const mockCondominios = [
     { id: 'condo-001', name: 'Residencial Jardins', address: 'Rua das Flores, 123', devices: 15, residents: 45, doormen: 3 },
@@ -11,9 +11,17 @@ const mockCondominios = [
 export default async function AdminDashboardPage() {
   const session = await getSession();
 
-  if (!session) {
-    redirect('/admin/login');
-  }
+  // if (!session) {
+  //   redirect('/admin/login');
+  // }
 
-  return <AdminDashboardClient initialCondominios={mockCondominios} />;
+  return (
+    <div>
+        <h1 className="text-2xl font-bold p-4">Session Debug</h1>
+        <pre className="bg-gray-100 p-4 rounded-md m-4">
+            {JSON.stringify(session, null, 2)}
+        </pre>
+        <AdminDashboardClient initialCondominios={mockCondominios} />
+    </div>
+  );
 }
