@@ -93,6 +93,7 @@ export async function getSession() {
     } catch (error) {
         // This will catch errors from jwtVerify (e.g., signature invalid) or DB errors.
         console.error('Failed to verify session:', error);
+        cookies().delete('session');
         return null;
     } finally {
         if (client) {
