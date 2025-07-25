@@ -24,48 +24,56 @@ const pool = new Pool({
 const JWT_ALG = 'HS256';
 
 /**
- * Migration Runner (Optimized).
+ * Migration Runner.
  * Ensures the database schema is up to date by applying migration scripts
  * from the src/lib/migrations directory.
- * This function checks the 'migrations' table in the DB to see which migrations
- * have already been applied.
+ * This function checks a dedicated 'migrations' table to see which migrations
+ * have already been applied and only runs the new ones.
  */
 export async function runMigrations() {
     const client = await pool.connect();
     try {
+        // Step 1: Ensure the migrations tracking table exists.
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS migrations (
+                id VARCHAR(255) PRIMARY KEY,
+                applied_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+
         const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
         const allFiles = await fs.readdir(migrationsDir);
 
-        // First, always execute base_schema.sql if it exists. It's not tracked as a migration.
-        // It's expected to be idempotent (using CREATE TABLE IF NOT EXISTS).
-        if (allFiles.includes('base_schema.sql')) {
-            const baseSchemaPath = path.join(migrationsDir, 'base_schema.sql');
-            const baseSql = await fs.readFile(baseSchemaPath, 'utf-8');
-            await client.query(baseSql);
-        }
-
-        // Now, process the actual migration files.
-        // The migrations table itself should be created by the base schema.
+        // Step 2: Get all previously applied migration IDs.
         const appliedMigrationsResult = await client.query('SELECT id FROM migrations');
         const appliedMigrationIds = new Set(appliedMigrationsResult.rows.map(r => r.id));
 
+        // Step 3: Filter for .sql files, ignore empty ones, and sort them.
         const migrationFiles = allFiles
-            .filter(file => file.endsWith('.sql') && file !== 'base_schema.sql')
-            .sort(); // Sort alphabetically to ensure order (e.g., 0001, 0002)
+            .filter(file => file.endsWith('.sql'))
+            .filter(file => {
+                const filePath = path.join(migrationsDir, file);
+                // Exclude empty files like the now-obsolete base_schema.sql
+                return fs.statSync(filePath).size > 0;
+            })
+            .sort();
 
+        // Step 4: Apply any new migrations sequentially.
         for (const fileName of migrationFiles) {
             const migrationId = path.basename(fileName, '.sql');
             if (!appliedMigrationIds.has(migrationId)) {
+                console.log(`Applying migration: ${migrationId}`);
                 const sql = await fs.readFile(path.join(migrationsDir, fileName), 'utf-8');
-                await client.query('BEGIN');
+                await client.query('BEGIN'); // Start transaction
                 try {
                     await client.query(sql);
                     await client.query('INSERT INTO migrations (id) VALUES ($1)', [migrationId]);
-                    await client.query('COMMIT');
+                    await client.query('COMMIT'); // Commit transaction
+                    console.log(`Successfully applied migration: ${migrationId}`);
                 } catch (e) {
-                    await client.query('ROLLBACK');
+                    await client.query('ROLLBACK'); // Rollback on error
                     console.error(`Failed to apply migration ${migrationId}:`, e);
-                    throw e; // Re-throw to stop further execution if a migration fails
+                    throw e; // Stop further execution if a migration fails
                 }
             }
         }
