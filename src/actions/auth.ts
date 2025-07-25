@@ -36,7 +36,8 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
   let client;
   try {
     client = await pool.connect();
-    const result = await client.query('SELECT * FROM platform_admins WHERE email = $1', [email]);
+    // Corrected table name from "platform_admins" to "admins"
+    const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
     
     if (result.rows.length === 0) {
       return { 

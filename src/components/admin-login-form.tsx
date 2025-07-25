@@ -110,7 +110,7 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
                       </AlertDescription>
                   </Alert>
               )}
-               {state?.debugInfo && (
+               {process.env.NODE_ENV === 'development' && state?.debugInfo && (
                 <div className="space-y-2 pt-4">
                     <Label htmlFor="debug-info">Debug Information</Label>
                     <Textarea 
