@@ -294,3 +294,4 @@ export async function getCurrentSession() {
   const sessionToken = cookieStore.get('session');
   return await getSession(sessionToken?.value);
 }
+
