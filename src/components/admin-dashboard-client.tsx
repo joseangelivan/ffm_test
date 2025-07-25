@@ -76,7 +76,7 @@ import { useLocale } from '@/lib/i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { logout } from '@/actions/auth';
+import { logout, getAdminSettings, updateAdminSettings } from '@/actions/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 
 
@@ -95,7 +95,6 @@ type Session = {
     name: string;
 }
 
-// Mock data is now defined inside the client component
 const mockCondominios = [
     { id: 'condo-001', name: 'Residencial Jardins', address: 'Rua das Flores, 123', devices: 15, residents: 45, doormen: 3 },
     { id: 'condo-002', name: 'Condomínio Morada do Sol', address: 'Av. Principal, 456', devices: 25, residents: 80, doormen: 5 },
@@ -109,31 +108,38 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
 
   const [condominios, setCondominios] = useState<Condominio[]>(mockCondominios);
   
-  // State for new condo dialog
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
   const [newCondoName, setNewCondoName] = useState('');
   const [newCondoAddress, setNewCondoAddress] = useState('');
 
-  // State for edit condo dialog
   const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
   const [editingCondo, setEditingCondo] = useState<Condominio | null>(null);
   const [editCondoName, setEditCondoName] = useState('');
   const [editCondoAddress, setEditCondoAddress] = useState('');
 
-  // State for theme
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
-    // Ensure theme is applied only on the client-side
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    setTheme(savedTheme);
-    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
-  }, []);
+    async function fetchSettings() {
+        const settings = await getAdminSettings();
+        if (settings) {
+            setTheme(settings.theme);
+            setLocale(settings.language);
+            document.documentElement.classList.toggle('dark', settings.theme === 'dark');
+        }
+    }
+    fetchSettings();
+  }, [setLocale]);
 
-  const handleSetTheme = (newTheme: 'light' | 'dark') => {
+  const handleSetTheme = async (newTheme: 'light' | 'dark') => {
     setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    await updateAdminSettings({ theme: newTheme });
+  }
+
+  const handleSetLocale = async (newLocale: 'es' | 'pt') => {
+      setLocale(newLocale);
+      await updateAdminSettings({ language: newLocale });
   }
 
   useEffect(() => {
@@ -256,10 +262,10 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                                 </DropdownMenuSubTrigger>
                                 <DropdownMenuPortal>
                                     <DropdownMenuSubContent>
-                                        <DropdownMenuItem onClick={() => setLocale('es')}>
+                                        <DropdownMenuItem onClick={() => handleSetLocale('es')}>
                                         Español {locale === 'es' && <span className="ml-auto">✓</span>}
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setLocale('pt')}>
+                                        <DropdownMenuItem onClick={() => handleSetLocale('pt')}>
                                         Português {locale === 'pt' && <span className="ml-auto">✓</span>}
                                         </DropdownMenuItem>
                                     </DropdownMenuSubContent>

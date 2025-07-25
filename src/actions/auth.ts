@@ -25,7 +25,7 @@ const JWT_ALG = 'HS256';
 async function ensureTablesExist() {
   const client = await pool.connect();
   try {
-    // Create admins table first because sessions depends on it
+    // Create admins table first
     await client.query(`
       CREATE TABLE IF NOT EXISTS admins (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -35,7 +35,7 @@ async function ensureTablesExist() {
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    // Then create sessions table with a foreign key to admins
+    // Then create sessions table
     await client.query(`
       CREATE TABLE IF NOT EXISTS sessions (
         id SERIAL PRIMARY KEY,
@@ -45,6 +45,23 @@ async function ensureTablesExist() {
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    // Create settings table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS admin_settings (
+        admin_id UUID PRIMARY KEY REFERENCES admins(id) ON DELETE CASCADE,
+        theme VARCHAR(255) DEFAULT 'light',
+        language VARCHAR(10) DEFAULT 'es',
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Ensure settings row exists for new admins
+    await client.query(`
+      INSERT INTO admin_settings (admin_id)
+      SELECT id FROM admins WHERE id NOT IN (SELECT admin_id FROM admin_settings)
+      ON CONFLICT (admin_id) DO NOTHING;
+    `);
+    
   } finally {
     client.release();
   }
@@ -56,6 +73,57 @@ type AuthState = {
   debugInfo?: string;
 };
 
+type AdminSettings = {
+    theme: 'light' | 'dark';
+    language: 'es' | 'pt';
+}
+
+export async function getAdminSettings(): Promise<AdminSettings | null> {
+    const session = await getSession();
+    if (!session) return null;
+
+    let client;
+    try {
+        client = await pool.connect();
+        const result = await client.query('SELECT theme, language FROM admin_settings WHERE admin_id = $1', [session.id]);
+        if (result.rows.length > 0) {
+            return result.rows[0] as AdminSettings;
+        }
+        // If no settings found, create default ones
+        await client.query('INSERT INTO admin_settings (admin_id, theme, language) VALUES ($1, $2, $3) ON CONFLICT (admin_id) DO NOTHING', [session.id, 'light', 'es']);
+        return { theme: 'light', language: 'es' };
+
+    } catch (error) {
+        console.error('Failed to get admin settings:', error);
+        return null;
+    } finally {
+        if (client) client.release();
+    }
+}
+
+export async function updateAdminSettings(settings: Partial<AdminSettings>): Promise<{success: boolean}> {
+    const session = await getSession();
+    if (!session) return { success: false };
+
+    let client;
+    try {
+        client = await pool.connect();
+        if (settings.theme) {
+            await client.query('UPDATE admin_settings SET theme = $1, updated_at = NOW() WHERE admin_id = $2', [settings.theme, session.id]);
+        }
+        if (settings.language) {
+            await client.query('UPDATE admin_settings SET language = $1, updated_at = NOW() WHERE admin_id = $2', [settings.language, session.id]);
+        }
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to update admin settings:', error);
+        return { success: false };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+
 export async function getSession() {
     await ensureTablesExist();
     const sessionToken = cookies().get('session')?.value;
@@ -63,8 +131,6 @@ export async function getSession() {
 
     let client;
     try {
-        // The database is the source of truth.
-        // Check if the session token exists in the database and is not expired.
         client = await pool.connect();
         const result = await client.query(
             'SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()', 
@@ -72,13 +138,10 @@ export async function getSession() {
         );
 
         if (result.rows.length === 0) {
-            // If the session is not in our DB or is expired, invalidate cookie and return null.
             cookies().delete('session');
             return null;
         }
 
-        // If the session exists in the DB, we can trust the JWT.
-        // We verify it to get the payload. We can ignore expiration here because the DB already checked it.
         const { payload } = await jwtVerify(sessionToken, JWT_SECRET, {
             algorithms: [JWT_ALG],
             ignoreExpiration: true, 
@@ -91,7 +154,6 @@ export async function getSession() {
         };
 
     } catch (error) {
-        // This will catch errors from jwtVerify (e.g., signature invalid) or DB errors.
         console.error('Failed to verify session:', error);
         cookies().delete('session');
         return null;
@@ -152,7 +214,10 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       .setExpirationTime(expirationTime)
       .sign(JWT_SECRET);
     
-    // Store session in the database
+    // Clear any existing sessions for this user to enforce one session at a time
+    await client.query('DELETE FROM sessions WHERE admin_id = $1', [admin.id]);
+    
+    // Store new session in the database
     await client.query('INSERT INTO sessions (admin_id, token, expires_at) VALUES ($1, $2, $3)', [admin.id, token, expirationDate]);
 
     // Set the cookie
@@ -186,7 +251,6 @@ export async function logout() {
         let client;
         try {
             client = await pool.connect();
-            // Delete the specific session token from the database
             await client.query('DELETE FROM sessions WHERE token = $1', [sessionToken]);
         } catch (error) {
             console.error('Error clearing session from DB:', error);
@@ -196,7 +260,6 @@ export async function logout() {
             }
         }
     }
-    // In any case, delete the cookie
     cookies().delete('session');
     redirect('/admin/login');
 }

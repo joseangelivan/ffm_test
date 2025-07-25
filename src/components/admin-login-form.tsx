@@ -58,7 +58,7 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
 
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
+    <div className="light relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
       <LanguageSwitcher />
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="space-y-4 text-center">

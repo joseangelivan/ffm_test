@@ -28,7 +28,7 @@ import { LanguageSwitcher } from '@/components/language-switcher';
 export default function LoginPage() {
   const { t } = useLocale();
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="light relative flex min-h-screen items-center justify-center bg-background px-4">
        <LanguageSwitcher />
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="space-y-4 text-center">
