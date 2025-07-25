@@ -93,11 +93,18 @@ type Session = {
     name: string;
 }
 
-export default function AdminDashboardClient({ initialCondominios, session }: { initialCondominios: Condominio[], session: Session }) {
+// Mock data is now defined inside the client component
+const mockCondominios = [
+    { id: 'condo-001', name: 'Residencial Jardins', address: 'Rua das Flores, 123', devices: 15, residents: 45, doormen: 3 },
+    { id: 'condo-002', name: 'Condomínio Morada do Sol', address: 'Av. Principal, 456', devices: 25, residents: 80, doormen: 5 },
+    { id: 'condo-003', name: 'Parque das Águas', address: 'Alameda dos Pássaros, 789', devices: 8, residents: 22, doormen: 2 },
+];
+
+export default function AdminDashboardClient({ session }: { session: Session }) {
   const { t, setLocale, locale } = useLocale();
   const { toast } = useToast();
   const router = useRouter();
-  const [condominios, setCondominios] = useState<Condominio[]>(initialCondominios);
+  const [condominios, setCondominios] = useState<Condominio[]>(mockCondominios);
   
   // State for new condo dialog
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
@@ -114,6 +121,7 @@ export default function AdminDashboardClient({ initialCondominios, session }: { 
   const [theme, setTheme] = useState('light');
 
   useEffect(() => {
+    // Ensure theme is applied only on the client-side
     const savedTheme = localStorage.getItem('theme') || 'light';
     setTheme(savedTheme);
     document.documentElement.classList.toggle('dark', savedTheme === 'dark');

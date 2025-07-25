@@ -76,6 +76,8 @@ import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
+import { getSession } from '@/actions/auth';
+import { redirect } from 'next/navigation';
 
 
 // Mock data
@@ -1214,6 +1216,17 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
   // In a real app, you'd fetch condo details based on params.id
   const condo = mockCondoDetails;
 
+  // This is a client component, but we need to check session on the client-side.
+  useEffect(() => {
+    async function checkSession() {
+      const session = await getSession();
+      if (!session) {
+        redirect('/admin/login');
+      }
+    }
+    checkSession();
+  }, []);
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
@@ -1268,3 +1281,4 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
+
