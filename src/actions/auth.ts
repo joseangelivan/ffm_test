@@ -34,65 +34,30 @@ export async function runMigrations() {
     try {
         await client.query('BEGIN');
         
-        // The first migration script (0000_*) should create the schema_migrations table.
-        // We will run it first to ensure the table exists.
         const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
         const migrationFiles = (await fs.readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
 
-        if (migrationFiles.length > 0 && migrationFiles[0].startsWith('0000_')) {
-             const firstMigrationFile = migrationFiles.shift(); // Remove it from the list to process
-             if(firstMigrationFile) {
-                console.log(`--- Detectada migración inicial: ${firstMigrationFile}. Aplicando primero. ---`);
-                const sql = await fs.readFile(path.join(migrationsDir, firstMigrationFile), 'utf-8');
-                await client.query(sql);
-                // We don't log this one in the table, as it creates the table itself.
-                console.log(`--- Migración inicial '${firstMigrationFile}' aplicada. ---`);
-             }
-        } else {
-            console.log("No se encontró un script de migración inicial (0000_*). Asegúrate de que exista para crear la tabla de migraciones.");
-            // If the table might not exist, we should probably stop here or have a fallback.
-            // For now, we assume the user will create the 0000_* script as requested.
+        // 1. Ensure migrations table exists (it should be created by 0000_*)
+        // This is a check, but we rely on the first migration script.
+         try {
+            await client.query('SELECT 1 FROM schema_migrations LIMIT 1');
+        } catch (tableError) {
+             console.log("La tabla 'schema_migrations' no existe. Se creará con la primera migración (0000_).");
+             // The table is expected to be created by the first migration script.
+             // If 0000_* script is not present, subsequent operations will fail, which is correct.
         }
 
         // 2. Get already applied migrations
-        const appliedMigrationsResult = await client.query('SELECT migration_name FROM schema_migrations');
-        const appliedMigrations = new Set(appliedMigrationsResult.rows.map(r => r.migration_name));
-        console.log('Migraciones ya aplicadas:', Array.from(appliedMigrations));
-
-        // 3. Create base tables if they don't exist
-        // These tables are essential for the app to start and will be migrated to scripts later.
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS admins (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                name VARCHAR(255) NOT NULL,
-                email VARCHAR(255) UNIQUE NOT NULL,
-                password_hash VARCHAR(255) NOT NULL,
-                created_at TIMESTAMPTZ DEFAULT NOW()
-            );
-        `);
-        
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS sessions (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                admin_id UUID REFERENCES admins(id) ON DELETE CASCADE,
-                token TEXT NOT NULL,
-                expires_at TIMESTAMPTZ NOT NULL,
-                created_at TIMESTAMPTZ DEFAULT NOW()
-            );
-        `);
-        
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS admin_settings (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                admin_id UUID UNIQUE REFERENCES admins(id) ON DELETE CASCADE,
-                theme VARCHAR(50) DEFAULT 'light' NOT NULL,
-                language VARCHAR(10) DEFAULT 'es' NOT NULL,
-                created_at TIMESTAMPTZ DEFAULT NOW(),
-                updated_at TIMESTAMPTZ DEFAULT NOW()
-            );
-        `);
-
-        // 4. Run remaining migrations from files if any
+        let appliedMigrations = new Set<string>();
+        try {
+            const appliedMigrationsResult = await client.query('SELECT migration_name FROM schema_migrations');
+            appliedMigrations = new Set(appliedMigrationsResult.rows.map(r => r.migration_name));
+            console.log('Migraciones ya aplicadas:', Array.from(appliedMigrations));
+        } catch (e) {
+            console.log("No se pudieron obtener las migraciones aplicadas. La tabla podría no existir todavía, lo cual es esperado si la migración 0000 aún no se ha ejecutado.");
+        }
+       
+        // 3. Run migrations from files if any
         for (const file of migrationFiles) {
             if (!appliedMigrations.has(file)) {
                 console.log(`--- Aplicando nueva migración: ${file} ---`);
