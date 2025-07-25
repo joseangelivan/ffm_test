@@ -40,70 +40,72 @@ export default function LoginPage() {
             {t('login.description')}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            <div className="space-y-2">
-                <Label htmlFor="user-type">{t('login.userType')}</Label>
-                 <div className="relative">
-                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Select defaultValue="residente">
-                    <SelectTrigger id="user-type" className="pl-10">
-                        <SelectValue placeholder={t('login.selectUserType')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="residente">{t('userTypes.residente')}</SelectItem>
-                        <SelectItem value="porteria">{t('userTypes.portería')}</SelectItem>
-                    </SelectContent>
-                    </Select>
-                 </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="nombre@ejemplo.com"
-                  className="pl-10"
-                />
+        <form onSubmit={(e) => e.preventDefault()}>
+          <CardContent>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                  <Label htmlFor="user-type">{t('login.userType')}</Label>
+                   <div className="relative">
+                      <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                      <Select defaultValue="residente">
+                      <SelectTrigger id="user-type" className="pl-10">
+                          <SelectValue placeholder={t('login.selectUserType')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="residente">{t('userTypes.residente')}</SelectItem>
+                          <SelectItem value="porteria">{t('userTypes.portería')}</SelectItem>
+                      </SelectContent>
+                      </Select>
+                   </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="nombre@ejemplo.com"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">{t('login.password')}</Label>
+                  <Link
+                    href="#"
+                    className="text-sm text-accent-foreground hover:underline"
+                  >
+                    {t('login.forgotPassword')}
+                  </Link>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    className="pl-10"
+                  />
+                </div>
               </div>
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">{t('login.password')}</Label>
-                <Link
-                  href="#"
-                  className="text-sm text-accent-foreground hover:underline"
-                >
-                  {t('login.forgotPassword')}
-                </Link>
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  className="pl-10"
-                />
-              </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-4">
+            <Button asChild className="w-full bg-accent hover:bg-accent/90">
+              <Link href="/dashboard">{t('login.loginButton')}</Link>
+            </Button>
+             <div className="mt-2 text-center text-sm">
+              <Link
+                href="/admin/login"
+                className="text-muted-foreground hover:text-primary hover:underline"
+              >
+                {t('login.adminLogin')}
+              </Link>
             </div>
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-          <Button asChild className="w-full bg-accent hover:bg-accent/90">
-            <Link href="/dashboard">{t('login.loginButton')}</Link>
-          </Button>
-           <div className="mt-2 text-center text-sm">
-            <Link
-              href="/admin/login"
-              className="text-muted-foreground hover:text-primary hover:underline"
-            >
-              {t('login.adminLogin')}
-            </Link>
-          </div>
-        </CardFooter>
+          </CardFooter>
+        </form>
       </Card>
     </div>
   );
