@@ -21,7 +21,12 @@ const pool = new Pool({
 
 const JWT_ALG = 'HS256';
 
-// Function to ensure the tables exist in the correct order
+/**
+ * Ensures the database schema is up to date by creating initial tables 
+ * and applying any necessary incremental migrations.
+ * This function will be expanded in the future to run ALTER TABLE scripts
+ * to preserve existing data when the schema changes.
+ */
 async function ensureTablesExist() {
   const client = await pool.connect();
   try {
@@ -35,7 +40,8 @@ async function ensureTablesExist() {
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    // Then create sessions table
+    
+    // Then create sessions table with a foreign key to admins
     await client.query(`
       CREATE TABLE IF NOT EXISTS sessions (
         id SERIAL PRIMARY KEY,
@@ -45,7 +51,8 @@ async function ensureTablesExist() {
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    // Create settings table
+
+    // Create admin_settings table with a foreign key to admins
     await client.query(`
       CREATE TABLE IF NOT EXISTS admin_settings (
         admin_id UUID PRIMARY KEY REFERENCES admins(id) ON DELETE CASCADE,
@@ -55,12 +62,8 @@ async function ensureTablesExist() {
       );
     `);
 
-    // Ensure settings row exists for new admins
-    await client.query(`
-      INSERT INTO admin_settings (admin_id)
-      SELECT id FROM admins WHERE id NOT IN (SELECT admin_id FROM admin_settings)
-      ON CONFLICT (admin_id) DO NOTHING;
-    `);
+    // Ensure settings row exists for new admins after they are created
+    // This part is handled within the login logic to ensure it runs for new users.
     
   } finally {
     client.release();
@@ -79,6 +82,7 @@ type AdminSettings = {
 }
 
 export async function getAdminSettings(): Promise<AdminSettings | null> {
+    await ensureTablesExist();
     const session = await getSession();
     if (!session) return null;
 
@@ -86,9 +90,11 @@ export async function getAdminSettings(): Promise<AdminSettings | null> {
     try {
         client = await pool.connect();
         const result = await client.query('SELECT theme, language FROM admin_settings WHERE admin_id = $1', [session.id]);
+        
         if (result.rows.length > 0) {
             return result.rows[0] as AdminSettings;
         }
+
         // If no settings found, create default ones
         await client.query('INSERT INTO admin_settings (admin_id, theme, language) VALUES ($1, $2, $3) ON CONFLICT (admin_id) DO NOTHING', [session.id, 'light', 'es']);
         return { theme: 'light', language: 'es' };
@@ -102,18 +108,35 @@ export async function getAdminSettings(): Promise<AdminSettings | null> {
 }
 
 export async function updateAdminSettings(settings: Partial<AdminSettings>): Promise<{success: boolean}> {
+    await ensureTablesExist();
     const session = await getSession();
     if (!session) return { success: false };
 
     let client;
     try {
         client = await pool.connect();
+        const setClauses = [];
+        const values = [];
+        let valueIndex = 1;
+
         if (settings.theme) {
-            await client.query('UPDATE admin_settings SET theme = $1, updated_at = NOW() WHERE admin_id = $2', [settings.theme, session.id]);
+            setClauses.push(`theme = $${valueIndex++}`);
+            values.push(settings.theme);
         }
         if (settings.language) {
-            await client.query('UPDATE admin_settings SET language = $1, updated_at = NOW() WHERE admin_id = $2', [settings.language, session.id]);
+            setClauses.push(`language = $${valueIndex++}`);
+            values.push(settings.language);
         }
+
+        if (setClauses.length === 0) {
+            return { success: true }; // Nothing to update
+        }
+
+        values.push(session.id);
+        const query = `UPDATE admin_settings SET ${setClauses.join(', ')}, updated_at = NOW() WHERE admin_id = $${valueIndex}`;
+        
+        await client.query(query, values);
+        
         return { success: true };
     } catch (error) {
         console.error('Failed to update admin settings:', error);
@@ -122,7 +145,6 @@ export async function updateAdminSettings(settings: Partial<AdminSettings>): Pro
         if (client) client.release();
     }
 }
-
 
 export async function getSession() {
     await ensureTablesExist();
@@ -142,6 +164,8 @@ export async function getSession() {
             return null;
         }
 
+        // The session is valid according to the database, now decode the token payload.
+        // We ignore the expiration check here because the DB query already handled it.
         const { payload } = await jwtVerify(sessionToken, JWT_SECRET, {
             algorithms: [JWT_ALG],
             ignoreExpiration: true, 
@@ -154,7 +178,8 @@ export async function getSession() {
         };
 
     } catch (error) {
-        console.error('Failed to verify session:', error);
+        // This could happen if the token is malformed or the secret is wrong.
+        console.error('Failed to verify session, possibly malformed token:', error);
         cookies().delete('session');
         return null;
     } finally {
@@ -219,6 +244,9 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     
     // Store new session in the database
     await client.query('INSERT INTO sessions (admin_id, token, expires_at) VALUES ($1, $2, $3)', [admin.id, token, expirationDate]);
+    
+    // Ensure admin settings row exists
+    await client.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING;', [admin.id]);
 
     // Set the cookie
     cookies().set('session', token, {
