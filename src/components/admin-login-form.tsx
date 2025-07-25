@@ -17,8 +17,8 @@ import { Mail, Lock, AlertCircle } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
 import { LanguageSwitcher } from '@/components/language-switcher';
-import { useFormState, useFormStatus } from 'react-dom';
-import { useEffect } from 'react';
+import { useActionState, useEffect } from 'react';
+import { useFormStatus } from 'react-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { useRouter } from 'next/navigation';
@@ -41,7 +41,7 @@ function SubmitButton() {
 
 export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProps) {
   const { t } = useLocale();
-  const [state, formAction] = useFormState(authenticateAdmin, undefined);
+  const [state, formAction] = useActionState(authenticateAdmin, undefined);
   const { toast } = useToast();
   const router = useRouter();
 
