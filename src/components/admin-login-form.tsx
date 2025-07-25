@@ -21,6 +21,7 @@ import { useFormState, useFormStatus } from 'react-dom';
 import { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { useRouter } from 'next/navigation';
 
 interface AdminLoginFormProps {
     authenticateAdmin: (prevState: { message: string } | undefined, formData: FormData) => Promise<{ success: boolean; message: string }>;
@@ -42,16 +43,25 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
   const { t } = useLocale();
   const [state, formAction] = useFormState(authenticateAdmin, undefined);
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     if (state?.success === false && state.message) {
-        toast({
-            variant: "destructive",
-            title: "Login Failed",
-            description: state.message,
-        })
+        // The alert component will show the error, so the toast is optional
+        // toast({
+        //     variant: "destructive",
+        //     title: "Login Failed",
+        //     description: state.message,
+        // })
     }
-  }, [state, toast]);
+    if (state?.success === true) {
+      toast({
+        title: "Login Successful",
+        description: "Redirecting to dashboard...",
+      })
+      router.push('/admin/dashboard');
+    }
+  }, [state, toast, router]);
 
 
   return (
@@ -98,16 +108,16 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
                   />
                 </div>
               </div>
+              {state?.success === false && state.message && (
+                  <Alert variant="destructive" className="mt-4">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Login Failed</AlertTitle>
+                      <AlertDescription>
+                          {state.message}
+                      </AlertDescription>
+                  </Alert>
+              )}
             </div>
-            {state?.success === false && state.message && (
-                <Alert variant="destructive" className="mt-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error</AlertTitle>
-                    <AlertDescription>
-                        {state.message}
-                    </AlertDescription>
-                </Alert>
-            )}
           </CardContent>
           <CardFooter className="flex flex-col gap-4 px-6 pb-6">
             <SubmitButton />
