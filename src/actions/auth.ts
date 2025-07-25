@@ -45,39 +45,35 @@ export async function runMigrations() {
         const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
         const allFiles = await fs.readdir(migrationsDir);
 
-        // Separate base schema from other migrations
-        const baseSchemaFile = 'base_schema.sql';
-        const migrationFiles = allFiles.filter(file => file.endsWith('.sql') && file !== baseSchemaFile).sort();
+        const migrationFiles = allFiles
+            .filter(file => file.endsWith('.sql'))
+            .sort(); // Sort alphabetically to ensure order (e.g., 0001, 0002)
 
-        // Transactional function to apply a single migration
         const applyMigration = async (fileName: string) => {
             const migrationId = path.basename(fileName, '.sql');
             if (!appliedMigrationIds.has(migrationId)) {
+                console.log(`Applying migration: ${migrationId}`);
                 const sql = await fs.readFile(path.join(migrationsDir, fileName), 'utf-8');
                 await client.query('BEGIN');
                 try {
                     await client.query(sql);
                     await client.query('INSERT INTO migrations (id) VALUES ($1)', [migrationId]);
                     await client.query('COMMIT');
+                    console.log(`Successfully applied migration: ${migrationId}`);
                 } catch (e) {
                     await client.query('ROLLBACK');
-                    throw e;
+                    console.error(`Failed to apply migration ${migrationId}:`, e);
+                    throw e; // Re-throw to stop further execution if a migration fails
                 }
             }
         };
 
-        // 1. Apply base_schema.sql first if it exists
-        if (allFiles.includes(baseSchemaFile)) {
-           await applyMigration(baseSchemaFile);
-        }
-
-        // 2. Apply the rest of the migrations
         for (const file of migrationFiles) {
             await applyMigration(file);
         }
 
     } catch (error) {
-        console.error("Migration failed:", error);
+        console.error("Migration process failed:", error);
     } finally {
         client.release();
     }
