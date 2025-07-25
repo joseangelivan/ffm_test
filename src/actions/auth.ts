@@ -87,7 +87,6 @@ export async function getSession() {
 
 
 export async function authenticateAdmin(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
-  await ensureSessionsTable();
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
 
@@ -98,6 +97,28 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
   let client;
   try {
     client = await pool.connect();
+
+    // Ensure the tables exist before proceeding
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS admins (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+     await client.query(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id SERIAL PRIMARY KEY,
+        admin_id UUID REFERENCES admins(id) ON DELETE CASCADE,
+        token TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+
     const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
     
     if (result.rows.length === 0) {
@@ -162,6 +183,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
 }
 
 export async function logout() {
+    await ensureSessionsTable();
     const sessionToken = cookies().get('session')?.value;
     if (sessionToken) {
         let client;
