@@ -41,8 +41,7 @@ async function authenticateAdmin(prevState: { message: string } | undefined, for
       return { success: false, message: 'Invalid credentials.' };
     }
 
-    // On successful authentication, you would typically create a session
-    // For now, we will just redirect
+    // On successful authentication, we will redirect from the client component
     redirect('/admin/dashboard');
 
   } catch (error) {

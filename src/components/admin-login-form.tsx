@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mail, Lock } from 'lucide-react';
+import { Mail, Lock, AlertCircle } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
 import { LanguageSwitcher } from '@/components/language-switcher';
@@ -21,7 +21,6 @@ import { useFormState } from 'react-dom';
 import { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { AlertCircle } from 'lucide-react';
 
 interface AdminLoginFormProps {
     authenticateAdmin: (prevState: { message: string } | undefined, formData: FormData) => Promise<{ success: boolean; message: string }>;
@@ -33,7 +32,8 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
   const { toast } = useToast();
 
   useEffect(() => {
-    if (state && !state.success && state.message) {
+    if (!state) return;
+    if (state.success === false && state.message) {
         toast({
             variant: "destructive",
             title: "Login Failed",
@@ -56,8 +56,8 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
             {t('adminLogin.description')}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form action={formAction}>
+        <form action={formAction}>
+          <CardContent>
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="email">{t('adminLogin.email')}</Label>
@@ -97,21 +97,21 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
                     </AlertDescription>
                 </Alert>
             )}
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 mt-6">
+          </CardContent>
+          <CardFooter className="flex flex-col gap-4 px-6 pb-6">
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
               {t('adminLogin.loginButton')}
             </Button>
-          </form>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-           <div className="text-center text-sm w-full">
-            <Link
-              href="/"
-              className="text-muted-foreground hover:text-primary hover:underline"
-            >
-               {t('adminLogin.returnToMainLogin')}
-            </Link>
-          </div>
-        </CardFooter>
+            <div className="text-center text-sm w-full">
+              <Link
+                href="/"
+                className="text-muted-foreground hover:text-primary hover:underline"
+              >
+                {t('adminLogin.returnToMainLogin')}
+              </Link>
+            </div>
+          </CardFooter>
+        </form>
       </Card>
     </div>
   );
