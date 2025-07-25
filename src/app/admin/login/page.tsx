@@ -1,12 +1,14 @@
 
 import { redirect } from 'next/navigation';
 import AdminLoginForm from '@/components/admin-login-form';
-import { authenticateAdmin, getSession } from '@/actions/auth';
+import { authenticateAdmin, getSession, runMigrations } from '@/actions/auth';
 import { cookies } from 'next/headers';
 
 
 export default async function AdminLoginPage() {
-  const sessionToken = cookies().get('session')?.value;
+  await runMigrations();
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session')?.value;
   const session = await getSession(sessionToken);
 
   if (session) {
