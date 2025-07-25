@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation'
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
-import { SignJWT } from 'jose';
+import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
 const pool = new Pool({
@@ -25,6 +25,21 @@ type AuthState = {
   message: string;
   debugInfo?: string;
 };
+
+export async function getSession() {
+    const sessionToken = cookies().get('session')?.value;
+    if (!sessionToken) return null;
+    try {
+        const { payload } = await jwtVerify(sessionToken, JWT_SECRET, {
+            algorithms: [JWT_ALG],
+        });
+        return payload;
+    } catch (error) {
+        console.error('Failed to verify session token:', error);
+        return null;
+    }
+}
+
 
 export async function authenticateAdmin(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
   const email = formData.get('email') as string;
