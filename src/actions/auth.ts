@@ -21,11 +21,11 @@ const pool = new Pool({
 
 const JWT_ALG = 'HS256';
 
-// Function to ensure the tables exist
+// Function to ensure the tables exist in the correct order
 async function ensureTablesExist() {
   const client = await pool.connect();
   try {
-    // Create admins table first
+    // Create admins table first because sessions depends on it
     await client.query(`
       CREATE TABLE IF NOT EXISTS admins (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -35,7 +35,7 @@ async function ensureTablesExist() {
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    // Then create sessions table
+    // Then create sessions table with a foreign key to admins
     await client.query(`
       CREATE TABLE IF NOT EXISTS sessions (
         id SERIAL PRIMARY KEY,
@@ -68,25 +68,29 @@ export async function getSession() {
             algorithms: [JWT_ALG],
         });
 
-        // 2. Verify the session exists in the database
+        // 2. Verify the session exists in the database and is not expired
         client = await pool.connect();
-        const result = await client.query('SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()', [sessionToken]);
+        const result = await client.query(
+            'SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW() AND admin_id = $2', 
+            [sessionToken, payload.id]
+        );
 
         if (result.rows.length === 0) {
-            // Token is valid but not in DB or expired, so invalidate cookie
+            // Token is valid JWT-wise, but not in our DB or expired, so invalidate cookie
             cookies().delete('session');
             return null;
         }
 
-        // We can augment the payload with more user info from the DB if needed
-        const sessionData = {
-            ...payload
+        // We can trust the payload since the token signature is verified and it exists in our DB
+        return {
+            id: payload.id as string,
+            email: payload.email as string,
+            name: payload.name as string,
         };
-
-        return sessionData;
 
     } catch (error) {
         console.error('Failed to verify session:', error);
+        // This will catch errors from jwtVerify (e.g., signature invalid, expired)
         return null;
     } finally {
         if (client) {
@@ -97,6 +101,7 @@ export async function getSession() {
 
 
 export async function authenticateAdmin(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
+  await ensureTablesExist();
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
 
@@ -107,9 +112,6 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
   let client;
   try {
     client = await pool.connect();
-
-    // Ensure the tables exist before proceeding
-    await ensureTablesExist();
 
     const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
     
@@ -181,6 +183,7 @@ export async function logout() {
         let client;
         try {
             client = await pool.connect();
+            // Delete the specific session token from the database
             await client.query('DELETE FROM sessions WHERE token = $1', [sessionToken]);
         } catch (error) {
             console.error('Error clearing session from DB:', error);
@@ -190,6 +193,7 @@ export async function logout() {
             }
         }
     }
+    // In any case, delete the cookie
     cookies().delete('session');
     redirect('/admin/login');
 }
