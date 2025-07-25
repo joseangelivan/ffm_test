@@ -19,6 +19,7 @@ import {
   Languages,
   Moon,
   Sun,
+  Loader,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -118,6 +119,7 @@ export default function AdminDashboardClient({ initialSession }: { initialSessio
   const [editCondoAddress, setEditCondoAddress] = useState('');
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     if (!initialSession) {
@@ -227,6 +229,7 @@ export default function AdminDashboardClient({ initialSession }: { initialSessio
   };
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     await logout();
   }
   
@@ -327,8 +330,11 @@ export default function AdminDashboardClient({ initialSession }: { initialSessio
                       </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                      <AlertDialogCancel>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleLogout}>{t('dashboard.logoutConfirmation.confirm')}</AlertDialogAction>
+                      <AlertDialogCancel disabled={isLoggingOut}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleLogout} disabled={isLoggingOut}>
+                        {isLoggingOut && <Loader className="mr-2 h-4 w-4 animate-spin" />}
+                        {t('dashboard.logoutConfirmation.confirm')}
+                      </AlertDialogAction>
                   </AlertDialogFooter>
               </AlertDialogContent>
           </AlertDialog>
@@ -468,3 +474,5 @@ export default function AdminDashboardClient({ initialSession }: { initialSessio
     </div>
   );
 }
+
+    
