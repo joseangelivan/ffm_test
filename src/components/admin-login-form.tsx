@@ -52,7 +52,7 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
         title: "Login Successful",
         description: "Redirecting to dashboard...",
       })
-      router.push('/admin/dashboard');
+      // The redirect will be handled by the server action
     }
   }, [state, toast, router]);
 

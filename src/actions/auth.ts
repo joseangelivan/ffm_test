@@ -1,5 +1,6 @@
 'use server';
 
+import { redirect } from 'next/navigation'
 import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
@@ -34,9 +35,9 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
   }
 
   let client;
+  let admin;
   try {
     client = await pool.connect();
-    // Corrected table name from "platform_admins" to "admins"
     const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
     
     if (result.rows.length === 0) {
@@ -47,7 +48,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       };
     }
 
-    const admin = result.rows[0];
+    admin = result.rows[0];
     const debugInfo = JSON.stringify(admin, null, 2);
 
     const passwordMatch = await bcrypt.compare(password, admin.password_hash);
@@ -82,9 +83,10 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
         path: '/',
     });
     
-    return { success: true, message: 'Login successful.', debugInfo: `Login successful! User: ${debugInfo}` };
-
   } catch (error: any) {
+    if (error.code === 'NEXT_REDIRECT') {
+      throw error;
+    }
     console.error('Error during authentication:', error);
     return { 
       success: false, 
@@ -94,4 +96,6 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
   } finally {
     client?.release();
   }
+  
+  redirect('/admin/dashboard');
 }
