@@ -17,7 +17,7 @@ import { Mail, Lock, AlertCircle } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
 import { LanguageSwitcher } from '@/components/language-switcher';
-import { useActionState, useEffect } from 'react';
+import { useActionState, useEffect, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -44,18 +44,24 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
   const { t } = useLocale();
   const [state, formAction] = useActionState(authenticateAdmin, undefined);
   const { toast } = useToast();
-  const router = useRouter();
+  
+  // Ref to track if the toast has been shown for the current success state.
+  const hasShownSuccessToast = useRef(false);
 
-  useEffect(() => {
-    if (state?.success === true) {
-      toast({
-        title: "Login Successful",
-        description: "Redirecting to dashboard...",
-      })
-      // The redirect will be handled by the server action
-    }
-  }, [state, toast, router]);
-
+  // When the action succeeds, show a toast.
+  // The redirect is handled by the server action itself.
+  if (state?.success === true && !hasShownSuccessToast.current) {
+    toast({
+      title: "Login Successful",
+      description: "Redirecting to dashboard...",
+    });
+    hasShownSuccessToast.current = true;
+  }
+  
+  // If the state later becomes unsuccessful (e.g., after another attempt), reset the ref.
+  if (state?.success === false && hasShownSuccessToast.current) {
+      hasShownSuccessToast.current = false;
+  }
 
   return (
     <div className="light relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
