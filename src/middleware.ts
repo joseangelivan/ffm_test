@@ -15,6 +15,7 @@ const getSession = async (token: string | undefined) => {
         const { payload } = await jwtVerify(token, JWT_SECRET);
         return payload;
     } catch (error) {
+        console.error('JWT Verification Error:', error);
         return null;
     }
 }
@@ -28,10 +29,12 @@ export async function middleware(request: NextRequest) {
   const isTryingToAccessProtectedRoute = pathname.startsWith('/admin') && pathname !== '/admin/login';
   const isTryingToAccessLoginPage = pathname === '/admin/login';
 
+  // If no session, and trying to access a protected route, redirect to login
   if (!session && isTryingToAccessProtectedRoute) {
     return NextResponse.redirect(new URL('/admin/login', request.url));
   }
 
+  // If session exists, and trying to access login page, redirect to dashboard
   if (session && isTryingToAccessLoginPage) {
      return NextResponse.redirect(new URL('/admin/dashboard', request.url));
   }
@@ -39,6 +42,7 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
+// This config ensures the middleware runs on all admin routes.
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: '/admin/:path*',
 };
