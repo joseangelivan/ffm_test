@@ -31,67 +31,44 @@ const JWT_ALG = 'HS256';
 export async function runMigrations() {
     const client = await pool.connect();
     try {
-        const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
-        await fs.mkdir(migrationsDir, { recursive: true });
-
-        // 1. Apply base schema first
-        const baseSchemaPath = path.join(migrationsDir, 'base_schema.sql');
-        try {
-            const baseSchemaSql = await fs.readFile(baseSchemaPath, 'utf-8');
-            if (baseSchemaSql.trim()) {
-                await client.query(baseSchemaSql);
-            }
-        } catch (error: any) {
-            if (error.code !== 'ENOENT') { // Ignore if file doesn't exist
-                console.error("Error applying base schema:", error);
-                throw error;
-            }
-        }
-        
-        // 2. Apply incremental migrations
+        // Base tables that should always exist.
+        // In a real-world scenario, you might have a more robust migration system,
+        // but for this starter, this ensures the app can run out of the box.
+        await client.query('BEGIN');
         await client.query(`
-            CREATE TABLE IF NOT EXISTS migrations (
-                id VARCHAR(255) PRIMARY KEY,
-                applied_at TIMESTAMPTZ DEFAULT NOW()
+            CREATE TABLE IF NOT EXISTS admins (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
             );
         `);
-
-        const allFiles = await fs.readdir(migrationsDir);
-        
-        const appliedMigrationsResult = await client.query('SELECT id FROM migrations');
-        const appliedMigrationIds = new Set(appliedMigrationsResult.rows.map(r => r.id));
-
-        const migrationFiles = allFiles
-            .filter(file => file.endsWith('.sql') && file !== 'base_schema.sql')
-            .sort();
-
-        for (const fileName of migrationFiles) {
-            const migrationId = path.basename(fileName, '.sql');
-            if (!appliedMigrationIds.has(migrationId)) {
-                console.log(`Applying migration: ${migrationId}`);
-                const sql = await fs.readFile(path.join(migrationsDir, fileName), 'utf-8');
-                
-                if (!sql.trim()) {
-                    console.log(`Skipping empty migration file: ${fileName}`);
-                    continue;
-                }
-
-                await client.query('BEGIN');
-                try {
-                    await client.query(sql);
-                    await client.query('INSERT INTO migrations (id) VALUES ($1)', [migrationId]);
-                    await client.query('COMMIT');
-                    console.log(`Successfully applied migration: ${migrationId}`);
-                } catch (e) {
-                    await client.query('ROLLBACK');
-                    console.error(`Failed to apply migration ${migrationId}:`, e);
-                    throw e;
-                }
-            }
-        }
-
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS sessions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                admin_id UUID REFERENCES admins(id) ON DELETE CASCADE,
+                token TEXT NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+        await client.query(`
+             CREATE TABLE IF NOT EXISTS admin_settings (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                admin_id UUID UNIQUE REFERENCES admins(id) ON DELETE CASCADE,
+                theme VARCHAR(50) DEFAULT 'light' NOT NULL,
+                language VARCHAR(10) DEFAULT 'es' NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+        await client.query('COMMIT');
     } catch (error) {
-        console.error("Migration process failed:", error);
+        await client.query('ROLLBACK');
+        console.error('Migration failed:', error);
+        // Do not re-throw, as it could prevent the app from starting.
     } finally {
         client.release();
     }
@@ -311,3 +288,4 @@ export async function getCurrentSession() {
   const sessionToken = cookieStore.get('session');
   return await getSession(sessionToken?.value);
 }
+
