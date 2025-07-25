@@ -33,11 +33,6 @@ const JWT_ALG = 'HS256';
 export async function runMigrations() {
     const client = await pool.connect();
     try {
-        // Drop the migrations table to force re-running all migrations.
-        // This is a temporary measure to fix a stuck migration state in development.
-        await client.query('DROP TABLE IF EXISTS migrations;');
-
-        // 1. Ensure migrations table exists
         await client.query(`
             CREATE TABLE IF NOT EXISTS migrations (
                 id VARCHAR(255) PRIMARY KEY,
@@ -45,32 +40,42 @@ export async function runMigrations() {
             );
         `);
 
-        // 2. Get applied migrations from DB
         const appliedMigrationsResult = await client.query('SELECT id FROM migrations');
         const appliedMigrationIds = new Set(appliedMigrationsResult.rows.map(r => r.id));
-        
-        // 3. Read migration files from directory
         const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
-        const migrationFiles = (await fs.readdir(migrationsDir)).filter(file => file.endsWith('.sql')).sort();
-        
-        // 4. Apply pending migrations
-        for (const file of migrationFiles) {
-            const migrationId = path.basename(file, '.sql');
+        const allFiles = await fs.readdir(migrationsDir);
+
+        // Separate base schema from other migrations
+        const baseSchemaFile = 'base_schema.sql';
+        const migrationFiles = allFiles.filter(file => file.endsWith('.sql') && file !== baseSchemaFile).sort();
+
+        // Transactional function to apply a single migration
+        const applyMigration = async (fileName: string) => {
+            const migrationId = path.basename(fileName, '.sql');
             if (!appliedMigrationIds.has(migrationId)) {
-                const sql = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
-                
-                await client.query('BEGIN'); // Start transaction
+                const sql = await fs.readFile(path.join(migrationsDir, fileName), 'utf-8');
+                await client.query('BEGIN');
                 try {
                     await client.query(sql);
                     await client.query('INSERT INTO migrations (id) VALUES ($1)', [migrationId]);
-                    await client.query('COMMIT'); // Commit transaction
+                    await client.query('COMMIT');
                 } catch (e) {
-                    await client.query('ROLLBACK'); // Rollback on error
-                    throw e; // Stop the process if a migration fails
+                    await client.query('ROLLBACK');
+                    throw e;
                 }
             }
+        };
+
+        // 1. Apply base_schema.sql first if it exists
+        if (allFiles.includes(baseSchemaFile)) {
+           await applyMigration(baseSchemaFile);
         }
-        
+
+        // 2. Apply the rest of the migrations
+        for (const file of migrationFiles) {
+            await applyMigration(file);
+        }
+
     } catch (error) {
         console.error("Migration failed:", error);
     } finally {
