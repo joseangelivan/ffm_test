@@ -50,6 +50,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
   }
 
   let client;
+  let admin;
   try {
     client = await pool.connect();
     const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
@@ -62,7 +63,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       };
     }
 
-    const admin = result.rows[0];
+    admin = result.rows[0];
     const passwordMatch = await bcrypt.compare(password, admin.password_hash);
     
     if (!passwordMatch) {
@@ -103,5 +104,13 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     client?.release();
   }
   
-  redirect('/admin/dashboard');
+  if (admin) {
+    redirect('/admin/dashboard');
+  }
+
+  // This part should not be reached if login is successful
+  return { 
+    success: false, 
+    message: 'An unexpected error occurred after authentication.'
+  };
 }

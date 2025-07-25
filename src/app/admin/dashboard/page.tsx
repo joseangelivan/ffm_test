@@ -11,17 +11,11 @@ const mockCondominios = [
 export default async function AdminDashboardPage() {
   const session = await getSession();
 
-  // if (!session) {
-  //   redirect('/admin/login');
-  // }
+  if (!session) {
+    redirect('/admin/login');
+  }
 
   return (
-    <div>
-        <h1 className="text-2xl font-bold p-4">Session Debug</h1>
-        <pre className="bg-gray-100 p-4 rounded-md m-4">
-            {JSON.stringify(session, null, 2)}
-        </pre>
-        <AdminDashboardClient initialCondominios={mockCondominios} />
-    </div>
+    <AdminDashboardClient initialCondominios={mockCondominios} />
   );
 }
