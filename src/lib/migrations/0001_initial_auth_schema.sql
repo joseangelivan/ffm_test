@@ -1,38 +1,34 @@
--- Migration for initial authentication and admin schema
 
--- Drop existing tables to ensure a clean slate
-DROP TABLE IF EXISTS admin_settings;
-DROP TABLE IF EXISTS sessions;
-DROP TABLE IF EXISTS admins;
-
--- Create admins table
+-- Tabla para administradores
 CREATE TABLE admins (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create sessions table
+-- Tabla para sesiones de administradores
 CREATE TABLE sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    admin_id UUID REFERENCES admins(id) ON DELETE CASCADE,
+    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
     token TEXT NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create admin_settings table
+-- Tabla para configuraciones de administrador
 CREATE TABLE admin_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    admin_id UUID UNIQUE REFERENCES admins(id) ON DELETE CASCADE,
-    theme VARCHAR(50) DEFAULT 'light' NOT NULL,
-    language VARCHAR(10) DEFAULT 'es' NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE UNIQUE,
+    theme VARCHAR(50) DEFAULT 'light',
+    language VARCHAR(10) DEFAULT 'es',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Add indexes for performance
+-- Crear un índice en admin_id para búsquedas rápidas en la tabla de sesiones
 CREATE INDEX idx_sessions_admin_id ON sessions(admin_id);
-CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
+
+-- Crear un índice en el token para búsquedas rápidas
+CREATE INDEX idx_sessions_token ON sessions(token);
