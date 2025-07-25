@@ -34,15 +34,25 @@ export async function runMigrations() {
     try {
         await client.query('BEGIN');
         
-        // 1. Create migration table if it doesn't exist.
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS schema_migrations (
-                id SERIAL PRIMARY KEY,
-                migration_name VARCHAR(255) UNIQUE NOT NULL,
-                applied_at TIMESTAMPTZ DEFAULT NOW()
-            );
-        `);
-        console.log(`Respuesta de la BD: Tabla 'schema_migrations' creada o ya existente.`);
+        // The first migration script (0000_*) should create the schema_migrations table.
+        // We will run it first to ensure the table exists.
+        const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
+        const migrationFiles = (await fs.readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
+
+        if (migrationFiles.length > 0 && migrationFiles[0].startsWith('0000_')) {
+             const firstMigrationFile = migrationFiles.shift(); // Remove it from the list to process
+             if(firstMigrationFile) {
+                console.log(`--- Detectada migración inicial: ${firstMigrationFile}. Aplicando primero. ---`);
+                const sql = await fs.readFile(path.join(migrationsDir, firstMigrationFile), 'utf-8');
+                await client.query(sql);
+                // We don't log this one in the table, as it creates the table itself.
+                console.log(`--- Migración inicial '${firstMigrationFile}' aplicada. ---`);
+             }
+        } else {
+            console.log("No se encontró un script de migración inicial (0000_*). Asegúrate de que exista para crear la tabla de migraciones.");
+            // If the table might not exist, we should probably stop here or have a fallback.
+            // For now, we assume the user will create the 0000_* script as requested.
+        }
 
         // 2. Get already applied migrations
         const appliedMigrationsResult = await client.query('SELECT migration_name FROM schema_migrations');
@@ -83,26 +93,18 @@ export async function runMigrations() {
         `);
 
         // 4. Run remaining migrations from files if any
-        const migrationsDirExists = await fs.access(path.join(process.cwd(), 'src', 'lib', 'migrations')).then(() => true).catch(() => false);
-        if (migrationsDirExists) {
-            const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
-            const migrationFiles = (await fs.readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
-
-            for (const file of migrationFiles) {
-                if (!appliedMigrations.has(file)) {
-                    console.log(`--- Aplicando nueva migración: ${file} ---`);
-                    const sql = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
-                    
-                    const executionResponse = await client.query(sql);
-                    console.log(`Respuesta de la BD para '${file}': Ejecución completada.`, executionResponse.command);
-                    
-                    await client.query('INSERT INTO schema_migrations (migration_name) VALUES ($1)', [file]);
-                    console.log(`Respuesta de la BD para '${file}': Migración registrada en 'schema_migrations'.`);
-                    console.log(`--- Migración '${file}' aplicada y registrada con éxito. ---`);
-                }
+        for (const file of migrationFiles) {
+            if (!appliedMigrations.has(file)) {
+                console.log(`--- Aplicando nueva migración: ${file} ---`);
+                const sql = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
+                
+                const executionResponse = await client.query(sql);
+                console.log(`Respuesta de la BD para '${file}': Ejecución completada.`, executionResponse.command);
+                
+                await client.query('INSERT INTO schema_migrations (migration_name, sql_script) VALUES ($1, $2)', [file, sql]);
+                console.log(`Respuesta de la BD para '${file}': Migración registrada en 'schema_migrations'.`);
+                console.log(`--- Migración '${file}' aplicada y registrada con éxito. ---`);
             }
-        } else {
-             console.log("Directorio 'src/lib/migrations' no encontrado, saltando migraciones de archivos.");
         }
 
 
