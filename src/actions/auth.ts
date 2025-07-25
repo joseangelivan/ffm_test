@@ -31,10 +31,18 @@ const JWT_ALG = 'HS256';
 export async function runMigrations() {
     const client = await pool.connect();
     try {
-        // Base tables that should always exist.
-        // In a real-world scenario, you might have a more robust migration system,
-        // but for this starter, this ensures the app can run out of the box.
         await client.query('BEGIN');
+
+        // 1. Create the migration tracking table if it doesn't exist
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                id SERIAL PRIMARY KEY,
+                migration_name VARCHAR(255) UNIQUE NOT NULL,
+                applied_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+
+        // 2. Ensure base tables exist (idempotent)
         await client.query(`
             CREATE TABLE IF NOT EXISTS admins (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -64,6 +72,31 @@ export async function runMigrations() {
                 updated_at TIMESTAMPTZ DEFAULT NOW()
             );
         `);
+
+        // 3. Process migration files
+        const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
+        try {
+            const migrationFiles = (await fs.readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
+            const appliedMigrationsResult = await client.query('SELECT migration_name FROM schema_migrations');
+            const appliedMigrations = new Set(appliedMigrationsResult.rows.map(r => r.migration_name));
+
+            for (const file of migrationFiles) {
+                if (!appliedMigrations.has(file)) {
+                    console.log(`Applying migration: ${file}`);
+                    const sql = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
+                    await client.query(sql);
+                    await client.query('INSERT INTO schema_migrations (migration_name) VALUES ($1)', [file]);
+                    console.log(`Successfully applied migration: ${file}`);
+                }
+            }
+        } catch (error: any) {
+             if (error.code === 'ENOENT') {
+                console.log('Migrations directory (src/lib/migrations) not found. Skipping file migrations.');
+            } else {
+                throw error;
+            }
+        }
+
         await client.query('COMMIT');
     } catch (error) {
         await client.query('ROLLBACK');
@@ -87,8 +120,7 @@ type AdminSettings = {
 }
 
 export async function getAdminSettings(): Promise<AdminSettings | null> {
-    const sessionCookie = cookies().get('session');
-    const session = await getSession(sessionCookie?.value);
+    const session = await getCurrentSession();
     if (!session) return null;
 
     let client;
@@ -112,8 +144,7 @@ export async function getAdminSettings(): Promise<AdminSettings | null> {
 }
 
 export async function updateAdminSettings(settings: Partial<AdminSettings>): Promise<{success: boolean}> {
-    const sessionCookie = cookies().get('session');
-    const session = await getSession(sessionCookie?.value);
+    const session = await getCurrentSession();
     if (!session) return { success: false };
 
     let client;
@@ -266,7 +297,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
 }
 
 export async function logout() {
-    const sessionCookie = cookies().get('session');
+    const sessionCookie = await cookies().get('session');
     if (sessionCookie) {
         let client;
         try {
@@ -289,3 +320,6 @@ export async function getCurrentSession() {
   return await getSession(sessionToken?.value);
 }
 
+
+
+    
