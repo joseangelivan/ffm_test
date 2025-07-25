@@ -36,7 +36,7 @@ export async function runMigrations() {
         const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
         const allFiles = await fs.readdir(migrationsDir);
 
-        // First, execute base_schema.sql if it exists. It's not tracked as a migration.
+        // First, always execute base_schema.sql if it exists. It's not tracked as a migration.
         // It's expected to be idempotent (using CREATE TABLE IF NOT EXISTS).
         if (allFiles.includes('base_schema.sql')) {
             const baseSchemaPath = path.join(migrationsDir, 'base_schema.sql');
@@ -45,14 +45,7 @@ export async function runMigrations() {
         }
 
         // Now, process the actual migration files.
-        // The migrations table itself should be created by one of the scripts (preferably the first one).
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS migrations (
-                id VARCHAR(255) PRIMARY KEY,
-                applied_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-        
+        // The migrations table itself should be created by the base schema.
         const appliedMigrationsResult = await client.query('SELECT id FROM migrations');
         const appliedMigrationIds = new Set(appliedMigrationsResult.rows.map(r => r.id));
 
@@ -63,14 +56,12 @@ export async function runMigrations() {
         for (const fileName of migrationFiles) {
             const migrationId = path.basename(fileName, '.sql');
             if (!appliedMigrationIds.has(migrationId)) {
-                console.log(`Applying migration: ${migrationId}`);
                 const sql = await fs.readFile(path.join(migrationsDir, fileName), 'utf-8');
                 await client.query('BEGIN');
                 try {
                     await client.query(sql);
                     await client.query('INSERT INTO migrations (id) VALUES ($1)', [migrationId]);
                     await client.query('COMMIT');
-                    console.log(`Successfully applied migration: ${migrationId}`);
                 } catch (e) {
                     await client.query('ROLLBACK');
                     console.error(`Failed to apply migration ${migrationId}:`, e);
@@ -98,7 +89,7 @@ type AdminSettings = {
 }
 
 export async function getAdminSettings(): Promise<AdminSettings | null> {
-    const sessionCookie = cookies().get('session');
+    const sessionCookie = await cookies().get('session');
     const sessionToken = sessionCookie?.value;
     const session = await getSession(sessionToken);
     if (!session) return null;
@@ -125,7 +116,7 @@ export async function getAdminSettings(): Promise<AdminSettings | null> {
 }
 
 export async function updateAdminSettings(settings: Partial<AdminSettings>): Promise<{success: boolean}> {
-    const sessionCookie = cookies().get('session');
+    const sessionCookie = await cookies().get('session');
     const sessionToken = sessionCookie?.value;
     const session = await getSession(sessionToken);
     if (!session) return { success: false };
@@ -280,7 +271,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
 }
 
 export async function logout() {
-    const sessionCookie = cookies().get('session');
+    const sessionCookie = await cookies().get('session');
     if (sessionCookie) {
         let client;
         try {
