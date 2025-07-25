@@ -25,12 +25,15 @@ const JWT_ALG = 'HS256';
  * Ensures the database schema is up to date by creating initial tables 
  * and applying any necessary incremental migrations.
  * This function will be expanded in the future to run ALTER TABLE scripts
- * to preserve existing data when the schema changes.
+ * from a migrations directory to preserve existing data when the schema changes.
  */
 async function ensureTablesExist() {
   const client = await pool.connect();
   try {
-    // Create admins table first
+    // This function will evolve into a migration runner.
+    // For now, it ensures the base tables exist.
+    
+    // Create admins table
     await client.query(`
       CREATE TABLE IF NOT EXISTS admins (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -41,7 +44,7 @@ async function ensureTablesExist() {
       );
     `);
     
-    // Then create sessions table with a foreign key to admins
+    // Create sessions table
     await client.query(`
       CREATE TABLE IF NOT EXISTS sessions (
         id SERIAL PRIMARY KEY,
@@ -52,7 +55,7 @@ async function ensureTablesExist() {
       );
     `);
 
-    // Create admin_settings table with a foreign key to admins
+    // Create admin_settings table
     await client.query(`
       CREATE TABLE IF NOT EXISTS admin_settings (
         admin_id UUID PRIMARY KEY REFERENCES admins(id) ON DELETE CASCADE,
@@ -62,8 +65,16 @@ async function ensureTablesExist() {
       );
     `);
 
-    // Ensure settings row exists for new admins after they are created
-    // This part is handled within the login logic to ensure it runs for new users.
+    // Create migrations table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS migrations (
+        id VARCHAR(255) PRIMARY KEY,
+        applied_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Future logic will go here to check the migrations table
+    // and apply new scripts from a /migrations folder.
     
   } finally {
     client.release();
@@ -154,8 +165,9 @@ export async function getSession() {
     let client;
     try {
         client = await pool.connect();
+        // The database is the source of truth for session validity.
         const result = await client.query(
-            'SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()', 
+            'SELECT admin_id FROM sessions WHERE token = $1 AND expires_at > NOW()', 
             [sessionToken]
         );
 
@@ -164,8 +176,8 @@ export async function getSession() {
             return null;
         }
 
-        // The session is valid according to the database, now decode the token payload.
-        // We ignore the expiration check here because the DB query already handled it.
+        // The session is valid according to the database.
+        // We can now safely decode the token to get the payload, ignoring JWT's own expiry check.
         const { payload } = await jwtVerify(sessionToken, JWT_SECRET, {
             algorithms: [JWT_ALG],
             ignoreExpiration: true, 
@@ -178,8 +190,8 @@ export async function getSession() {
         };
 
     } catch (error) {
-        // This could happen if the token is malformed or the secret is wrong.
-        console.error('Failed to verify session, possibly malformed token:', error);
+        // This could happen if the token is malformed, signature is invalid, etc.
+        console.error('Failed to verify session, possibly malformed or invalid token:', error);
         cookies().delete('session');
         return null;
     } finally {
