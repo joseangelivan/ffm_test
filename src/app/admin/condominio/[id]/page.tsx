@@ -78,7 +78,6 @@ import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { getSession } from '@/actions/auth';
 import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
 
 
 // Mock data
