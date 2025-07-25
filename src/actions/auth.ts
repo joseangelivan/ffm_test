@@ -34,9 +34,12 @@ let migrationsApplied = false;
  * lifecycle, using a flag to prevent redundant checks.
  */
 export async function runMigrations() {
+    console.log("runMigrations called.");
     if (migrationsApplied) {
+        console.log("Migrations already applied, skipping.");
         return; 
     }
+    console.log("Running database migrations...");
 
     const client = await pool.connect();
     try {
@@ -56,10 +59,13 @@ export async function runMigrations() {
         const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
         const migrationFiles = (await fs.readdir(migrationsDir)).filter(file => file.endsWith('.sql')).sort();
         
+        console.log(`Found ${migrationFiles.length} migration files.`);
+
         // 4. Apply pending migrations
         for (const file of migrationFiles) {
             const migrationId = path.basename(file, '.sql');
             if (!appliedMigrationIds.has(migrationId)) {
+                console.log(`Applying migration: ${migrationId}`);
                 const sql = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
                 
                 await client.query('BEGIN'); // Start transaction
@@ -67,6 +73,7 @@ export async function runMigrations() {
                     await client.query(sql);
                     await client.query('INSERT INTO migrations (id) VALUES ($1)', [migrationId]);
                     await client.query('COMMIT'); // Commit transaction
+                    console.log(`Successfully applied migration: ${migrationId}`);
                 } catch (e) {
                     await client.query('ROLLBACK'); // Rollback on error
                     console.error(`Failed to apply migration ${migrationId}:`, e);
@@ -76,6 +83,7 @@ export async function runMigrations() {
         }
         
         migrationsApplied = true; // Set the flag to true after successful execution.
+        console.log("All migrations applied successfully.");
 
     } catch (error) {
         console.error("Migration failed:", error);
@@ -281,12 +289,11 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
 
 export async function logout() {
     const sessionCookie = cookies().get('session');
-    const sessionToken = sessionCookie?.value;
-    if (sessionToken) {
+    if (sessionCookie) {
         let client;
         try {
             client = await pool.connect();
-            await client.query('DELETE FROM sessions WHERE token = $1', [sessionToken]);
+            await client.query('DELETE FROM sessions WHERE token = $1', [sessionCookie.value]);
         } catch (error) {
             console.error('Error clearing session from DB:', error);
         } finally {
