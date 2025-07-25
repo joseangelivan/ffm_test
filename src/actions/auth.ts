@@ -42,29 +42,16 @@ export async function runMigrations() {
 
         const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
         const allFiles = await fs.readdir(migrationsDir);
-
-        // Step 2: Establish the base schema. This runs every time but is idempotent.
-        const baseSchemaPath = path.join(migrationsDir, 'base_schema.sql');
-        try {
-            const baseSchemaSql = await fs.readFile(baseSchemaPath, 'utf-8');
-            if (baseSchemaSql) {
-                await client.query(baseSchemaSql);
-            }
-        } catch (error) {
-            // Ignore if base_schema.sql doesn't exist, but log for debugging.
-            console.info("Could not find or apply base_schema.sql. Proceeding with migrations.");
-        }
         
-        // Step 3: Get all previously applied migration IDs.
+        // Step 2: Get all previously applied migration IDs.
         const appliedMigrationsResult = await client.query('SELECT id FROM migrations');
         const appliedMigrationIds = new Set(appliedMigrationsResult.rows.map(r => r.id));
 
-        // Step 4: Filter for incremental .sql migration files, sort them, and apply new ones.
+        // Step 3: Filter for incremental .sql migration files, sort them, and apply new ones.
+        // Exclude any files that might be empty or don't represent a migration.
         const migrationFiles = allFiles
             .filter(file => file.endsWith('.sql') && file !== 'base_schema.sql')
             .sort();
-
-        console.log(`Found ${migrationFiles.length} migration files. Found ${appliedMigrationIds.size} applied migrations.`);
 
         for (const fileName of migrationFiles) {
             const migrationId = path.basename(fileName, '.sql');
@@ -72,6 +59,12 @@ export async function runMigrations() {
                 console.log(`Applying migration: ${migrationId}`);
                 const sql = await fs.readFile(path.join(migrationsDir, fileName), 'utf-8');
                 
+                // Skip empty files
+                if (!sql.trim()) {
+                    console.log(`Skipping empty migration file: ${fileName}`);
+                    continue;
+                }
+
                 await client.query('BEGIN'); // Start transaction for this migration
                 try {
                     await client.query(sql);
