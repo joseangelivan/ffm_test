@@ -34,12 +34,15 @@ let migrationsApplied = false;
  * lifecycle, using a flag to prevent redundant checks.
  */
 async function runMigrations() {
+    console.log("runMigrations called.");
     if (migrationsApplied) {
-        return; // Skip if migrations have already been applied in this lifecycle.
+        console.log("Skipping migrations: already applied in this lifecycle.");
+        return; 
     }
 
     const client = await pool.connect();
     try {
+        console.log("Starting migration process...");
         // 1. Ensure migrations table exists
         await client.query(`
             CREATE TABLE IF NOT EXISTS migrations (
@@ -51,10 +54,14 @@ async function runMigrations() {
         // 2. Get applied migrations from DB
         const appliedMigrationsResult = await client.query('SELECT id FROM migrations');
         const appliedMigrationIds = new Set(appliedMigrationsResult.rows.map(r => r.id));
+        console.log("Applied migrations found in DB:", Array.from(appliedMigrationIds));
+
 
         // 3. Read migration files from directory
         const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
         const migrationFiles = (await fs.readdir(migrationsDir)).filter(file => file.endsWith('.sql')).sort();
+        console.log("Migration files found in directory:", migrationFiles);
+
 
         // 4. Apply pending migrations
         for (const file of migrationFiles) {
@@ -77,6 +84,7 @@ async function runMigrations() {
             }
         }
         
+        console.log("Migration process completed successfully.");
         migrationsApplied = true; // Set the flag to true after successful execution.
 
     } catch (error) {
@@ -172,18 +180,15 @@ export async function getSession() {
     let client;
     try {
         client = await pool.connect();
-        // The database is the source of truth for session validity.
         const result = await client.query(
             'SELECT admin_id FROM sessions WHERE token = $1 AND expires_at > NOW()', 
             [sessionToken]
         );
 
         if (result.rows.length === 0) {
-            return null; // Session token is in cookie, but not in DB or expired. Invalid session.
+            return null; 
         }
 
-        // The session is valid according to the database.
-        // We can now safely decode the token to get the payload, ignoring JWT's own expiry check.
         const { payload } = await jwtVerify(sessionToken, JWT_SECRET, {
             algorithms: [JWT_ALG],
             ignoreExpiration: true, 
@@ -191,7 +196,7 @@ export async function getSession() {
 
         const adminResult = await client.query('SELECT name, email FROM admins WHERE id = $1', [payload.id]);
         if(adminResult.rows.length === 0) {
-            return null; // The admin ID from the token does not exist in the admins table.
+            return null;
         }
 
         return {
@@ -201,7 +206,6 @@ export async function getSession() {
         };
 
     } catch (error) {
-        // This could happen if the token is malformed, signature is invalid, etc.
         console.error('Failed to verify session, possibly malformed or invalid token:', error);
         return null;
     } finally {
