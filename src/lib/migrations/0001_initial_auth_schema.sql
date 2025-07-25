@@ -1,20 +1,22 @@
--- Migration script to transition from the old schema to the new, simplified auth schema.
-
--- Step 1: Drop tables that are no longer needed.
+-- 1. Eliminar tablas que ya no existen en el nuevo esquema.
 DROP TABLE IF EXISTS localizador_dispositivos;
 DROP TABLE IF EXISTS dispositivos;
 DROP TABLE IF EXISTS usuarios;
 DROP TABLE IF EXISTS geocercas;
 DROP TABLE IF EXISTS condominios;
 
--- Step 2: Alter existing tables to match the new schema, preserving existing data.
+-- 2. Modificar la tabla 'admins' para que coincida con el esquema final.
+-- Se eliminan columnas que ya no son necesarias.
+ALTER TABLE admins
+  DROP COLUMN IF EXISTS last_login,
+  DROP COLUMN IF EXISTS role;
 
--- The 'admins' table is assumed to be correct and does not require alteration.
--- If it had extra columns, we would use:
--- ALTER TABLE admins DROP COLUMN IF EXISTS some_old_column;
+-- 3. Modificar la tabla 'sessions'.
+-- No hay columnas que eliminar o agregar en 'sessions' según el esquema final,
+-- por lo que no se necesitan acciones para esta tabla.
 
--- The 'sessions' table is also assumed to be correct.
--- No alterations needed.
-
--- The 'admin_settings' table is also assumed to be correct.
--- No alterations needed.
+-- 4. Modificar la tabla 'admin_settings'.
+-- Se agregan las nuevas columnas de configuración con valores por defecto.
+ALTER TABLE admin_settings
+  ADD COLUMN IF NOT EXISTS theme VARCHAR(50) NOT NULL DEFAULT 'light',
+  ADD COLUMN IF NOT EXISTS language VARCHAR(10) NOT NULL DEFAULT 'es';
