@@ -33,23 +33,34 @@ const JWT_ALG = 'HS256';
 export async function runMigrations() {
     const client = await pool.connect();
     try {
+        const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
+        const allFiles = await fs.readdir(migrationsDir);
+
+        // First, execute base_schema.sql if it exists. It's not tracked as a migration.
+        // It's expected to be idempotent (using CREATE TABLE IF NOT EXISTS).
+        if (allFiles.includes('base_schema.sql')) {
+            const baseSchemaPath = path.join(migrationsDir, 'base_schema.sql');
+            const baseSql = await fs.readFile(baseSchemaPath, 'utf-8');
+            await client.query(baseSql);
+        }
+
+        // Now, process the actual migration files.
+        // The migrations table itself should be created by one of the scripts (preferably the first one).
         await client.query(`
             CREATE TABLE IF NOT EXISTS migrations (
                 id VARCHAR(255) PRIMARY KEY,
                 applied_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
             );
         `);
-
+        
         const appliedMigrationsResult = await client.query('SELECT id FROM migrations');
         const appliedMigrationIds = new Set(appliedMigrationsResult.rows.map(r => r.id));
-        const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
-        const allFiles = await fs.readdir(migrationsDir);
 
         const migrationFiles = allFiles
-            .filter(file => file.endsWith('.sql'))
+            .filter(file => file.endsWith('.sql') && file !== 'base_schema.sql')
             .sort(); // Sort alphabetically to ensure order (e.g., 0001, 0002)
 
-        const applyMigration = async (fileName: string) => {
+        for (const fileName of migrationFiles) {
             const migrationId = path.basename(fileName, '.sql');
             if (!appliedMigrationIds.has(migrationId)) {
                 console.log(`Applying migration: ${migrationId}`);
@@ -66,12 +77,7 @@ export async function runMigrations() {
                     throw e; // Re-throw to stop further execution if a migration fails
                 }
             }
-        };
-
-        for (const file of migrationFiles) {
-            await applyMigration(file);
         }
-
     } catch (error) {
         console.error("Migration process failed:", error);
     } finally {
