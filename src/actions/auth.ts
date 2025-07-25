@@ -21,14 +21,25 @@ const pool = new Pool({
 
 const JWT_ALG = 'HS256';
 
-// Function to ensure the sessions table exists
-async function ensureSessionsTable() {
+// Function to ensure the tables exist
+async function ensureTablesExist() {
   const client = await pool.connect();
   try {
+    // Create admins table first
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS admins (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    // Then create sessions table
     await client.query(`
       CREATE TABLE IF NOT EXISTS sessions (
         id SERIAL PRIMARY KEY,
-        admin_id INTEGER REFERENCES admins(id) ON DELETE CASCADE,
+        admin_id UUID REFERENCES admins(id) ON DELETE CASCADE,
         token TEXT NOT NULL,
         expires_at TIMESTAMPTZ NOT NULL,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
@@ -46,7 +57,7 @@ type AuthState = {
 };
 
 export async function getSession() {
-    await ensureSessionsTable();
+    await ensureTablesExist();
     const sessionToken = cookies().get('session')?.value;
     if (!sessionToken) return null;
 
@@ -69,8 +80,7 @@ export async function getSession() {
 
         // We can augment the payload with more user info from the DB if needed
         const sessionData = {
-            ...payload,
-            name: result.rows[0].name, // Assuming you have a name column in admins table
+            ...payload
         };
 
         return sessionData;
@@ -99,25 +109,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     client = await pool.connect();
 
     // Ensure the tables exist before proceeding
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS admins (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-     await client.query(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        id SERIAL PRIMARY KEY,
-        admin_id UUID REFERENCES admins(id) ON DELETE CASCADE,
-        token TEXT NOT NULL,
-        expires_at TIMESTAMPTZ NOT NULL,
-        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
+    await ensureTablesExist();
 
     const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
     
@@ -183,7 +175,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
 }
 
 export async function logout() {
-    await ensureSessionsTable();
+    await ensureTablesExist();
     const sessionToken = cookies().get('session')?.value;
     if (sessionToken) {
         let client;
