@@ -17,7 +17,7 @@ import { Mail, Lock, AlertCircle } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
 import { LanguageSwitcher } from '@/components/language-switcher';
-import { useFormState } from 'react-dom';
+import { useFormState, useFormStatus } from 'react-dom';
 import { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -26,14 +26,25 @@ interface AdminLoginFormProps {
     authenticateAdmin: (prevState: { message: string } | undefined, formData: FormData) => Promise<{ success: boolean; message: string }>;
 }
 
+function SubmitButton() {
+    const { pending } = useFormStatus();
+    const { t } = useLocale();
+
+    return (
+        <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={pending}>
+            {pending ? t('login.loggingIn') : t('adminLogin.loginButton')}
+        </Button>
+    )
+}
+
+
 export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProps) {
   const { t } = useLocale();
   const [state, formAction] = useFormState(authenticateAdmin, undefined);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!state) return;
-    if (state.success === false && state.message) {
+    if (state?.success === false && state.message) {
         toast({
             variant: "destructive",
             title: "Login Failed",
@@ -88,7 +99,7 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
                 </div>
               </div>
             </div>
-            {state && !state.success && (
+            {state?.success === false && state.message && (
                 <Alert variant="destructive" className="mt-4">
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Error</AlertTitle>
@@ -99,9 +110,7 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
             )}
           </CardContent>
           <CardFooter className="flex flex-col gap-4 px-6 pb-6">
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
-              {t('adminLogin.loginButton')}
-            </Button>
+            <SubmitButton />
             <div className="text-center text-sm w-full">
               <Link
                 href="/"

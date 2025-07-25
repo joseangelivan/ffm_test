@@ -6,6 +6,7 @@
       "password": "Senha",
       "forgotPassword": "Esqueceu a senha?",
       "loginButton": "Entrar",
+      "loggingIn": "Entrando...",
       "userType": "Tipo de Usuário",
       "selectUserType": "Selecione o tipo de usuário",
       "resident": "Residente",
