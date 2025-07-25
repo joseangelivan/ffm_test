@@ -2,6 +2,8 @@
 
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
+import { SignJWT } from 'jose';
+import { cookies } from 'next/headers';
 
 const pool = new Pool({
   host: 'mainline.proxy.rlwy.net',
@@ -13,6 +15,9 @@ const pool = new Pool({
     rejectUnauthorized: false,
   },
 });
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-super-secret-key-that-is-at-least-32-bytes-long');
+const JWT_ALG = 'HS256';
 
 export async function authenticateAdmin(prevState: { message: string } | undefined, formData: FormData): Promise<{ success: boolean; message: string }> {
   const email = formData.get('email') as string;
@@ -37,8 +42,29 @@ export async function authenticateAdmin(prevState: { message: string } | undefin
     if (!passwordMatch) {
       return { success: false, message: 'Invalid credentials.' };
     }
+    
+    // Create session
+    const session = { 
+        id: admin.id, 
+        email: admin.email,
+        name: admin.name 
+    };
 
-    // On success, return a success state. The client component will handle the redirect.
+    // Create JWT
+    const token = await new SignJWT(session)
+      .setProtectedHeader({ alg: JWT_ALG })
+      .setIssuedAt()
+      .setExpirationTime('1h') // Token expires in 1 hour
+      .sign(JWT_SECRET);
+    
+    // Set cookie
+    cookies().set('session', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60, // 1 hour
+        path: '/',
+    });
+
     return { success: true, message: 'Login successful.' };
 
   } catch (error) {
