@@ -1,7 +1,12 @@
 -- src/lib/migrations/0001_initial_auth_schema.sql
 
--- Tabla para administradores del sistema
-CREATE TABLE IF NOT EXISTS admins (
+-- Drop tables if they exist to ensure a clean slate
+DROP TABLE IF EXISTS admin_settings;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS admins;
+
+-- Create admins table
+CREATE TABLE admins (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -9,8 +14,8 @@ CREATE TABLE IF NOT EXISTS admins (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Tabla para gestionar las sesiones de los administradores
-CREATE TABLE IF NOT EXISTS sessions (
+-- Create sessions table
+CREATE TABLE sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     admin_id UUID REFERENCES admins(id) ON DELETE CASCADE,
     token TEXT NOT NULL,
@@ -18,8 +23,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Tabla para guardar las preferencias de los administradores (ej. tema, idioma)
-CREATE TABLE IF NOT EXISTS admin_settings (
+-- Create admin_settings table
+CREATE TABLE admin_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     admin_id UUID UNIQUE REFERENCES admins(id) ON DELETE CASCADE,
     theme VARCHAR(50) DEFAULT 'light' NOT NULL,
