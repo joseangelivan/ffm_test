@@ -22,9 +22,10 @@ import { useFormStatus } from 'react-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { useRouter } from 'next/navigation';
+import { Textarea } from './ui/textarea';
 
 interface AdminLoginFormProps {
-    authenticateAdmin: (prevState: { message: string } | undefined, formData: FormData) => Promise<{ success: boolean; message: string }>;
+    authenticateAdmin: (prevState: any, formData: FormData) => Promise<any>;
 }
 
 function SubmitButton() {
@@ -46,14 +47,6 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
   const router = useRouter();
 
   useEffect(() => {
-    if (state?.success === false && state.message) {
-        // The alert component will show the error, so the toast is optional
-        // toast({
-        //     variant: "destructive",
-        //     title: "Login Failed",
-        //     description: state.message,
-        // })
-    }
     if (state?.success === true) {
       toast({
         title: "Login Successful",
@@ -116,6 +109,17 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
                           {state.message}
                       </AlertDescription>
                   </Alert>
+              )}
+               {state?.debugInfo && (
+                <div className="space-y-2 pt-4">
+                    <Label htmlFor="debug-info">Debug Information</Label>
+                    <Textarea 
+                        id="debug-info"
+                        readOnly
+                        className="h-32 text-xs bg-muted/50 font-mono"
+                        value={state.debugInfo}
+                    />
+                </div>
               )}
             </div>
           </CardContent>
