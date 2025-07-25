@@ -1,33 +1,38 @@
--- Migration to add authentication and admin settings tables
+-- Migration from base schema to the new authentication and settings schema.
 
--- Table for administrators
+-- Drop old tables from the initial base schema if they exist.
+-- Using CASCADE to automatically drop dependent objects.
+DROP TABLE IF EXISTS ElementosMapa CASCADE;
+DROP TABLE IF EXISTS Geocercas CASCADE;
+DROP TABLE IF EXISTS Dispositivos CASCADE;
+DROP TABLE IF EXISTS Usuarios CASCADE;
+DROP TABLE IF EXISTS Condominios CASCADE;
+
+-- Create the new 'admins' table for administrator authentication.
 CREATE TABLE admins (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table for admin sessions
+-- Create the 'sessions' table to manage administrator sessions.
 CREATE TABLE sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    admin_id UUID REFERENCES admins(id) ON DELETE CASCADE,
+    admin_id UUID NOT NULL REFERENCES admins(id),
     token TEXT NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table for admin-specific settings
+-- Create the 'admin_settings' table to store user-specific preferences.
 CREATE TABLE admin_settings (
-    admin_id UUID PRIMARY KEY REFERENCES admins(id) ON DELETE CASCADE,
-    theme VARCHAR(10) DEFAULT 'light' NOT NULL,
-    language VARCHAR(5) DEFAULT 'es' NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID NOT NULL REFERENCES admins(id) UNIQUE,
+    theme VARCHAR(50) DEFAULT 'light' NOT NULL,
+    language VARCHAR(10) DEFAULT 'es' NOT NULL,
+    created_at TIMESTAMTz DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
-
--- Pre-populate with a default admin for testing if it doesn't exist
-INSERT INTO admins (id, name, email, password_hash)
-VALUES ('123e4567-e89b-12d3-a456-426614174000', 'Admin', 'admin@example.com', '$2b$10$f66v.R1uLwpSfrxS342/o.d5KjT./xJzY7i3G0QwK1fHq.1aX.m1K')
-ON CONFLICT (email) DO NOTHING;
