@@ -7,6 +7,8 @@ import bcrypt from 'bcrypt';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { JWT_SECRET } from '@/lib/config';
+import fs from 'fs/promises';
+import path from 'path';
 
 const pool = new Pool({
   host: 'mainline.proxy.rlwy.net',
@@ -22,64 +24,54 @@ const pool = new Pool({
 const JWT_ALG = 'HS256';
 
 /**
- * Ensures the database schema is up to date by creating initial tables 
- * and applying any necessary incremental migrations.
- * This function will be expanded in the future to run ALTER TABLE scripts
- * from a migrations directory to preserve existing data when the schema changes.
+ * Migration Runner.
+ * Ensures the database schema is up to date by applying migration scripts
+ * from the src/lib/migrations directory.
  */
-async function ensureTablesExist() {
-  const client = await pool.connect();
-  try {
-    // This function will evolve into a migration runner.
-    // For now, it ensures the base tables exist.
-    
-    // Create admins table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS admins (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    
-    // Create sessions table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        id SERIAL PRIMARY KEY,
-        admin_id UUID REFERENCES admins(id) ON DELETE CASCADE,
-        token TEXT NOT NULL,
-        expires_at TIMESTAMPTZ NOT NULL,
-        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+async function runMigrations() {
+    const client = await pool.connect();
+    try {
+        // 1. Ensure migrations table exists
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS migrations (
+                id VARCHAR(255) PRIMARY KEY,
+                applied_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
 
-    // Create admin_settings table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS admin_settings (
-        admin_id UUID PRIMARY KEY REFERENCES admins(id) ON DELETE CASCADE,
-        theme VARCHAR(255) DEFAULT 'light',
-        language VARCHAR(10) DEFAULT 'es',
-        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+        // 2. Get applied migrations from DB
+        const appliedMigrationsResult = await client.query('SELECT id FROM migrations');
+        const appliedMigrationIds = new Set(appliedMigrationsResult.rows.map(r => r.id));
 
-    // Create migrations table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS migrations (
-        id VARCHAR(255) PRIMARY KEY,
-        applied_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+        // 3. Read migration files from directory
+        const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
+        const migrationFiles = (await fs.readdir(migrationsDir)).filter(file => file.endsWith('.sql')).sort();
 
-    // Future logic will go here to check the migrations table
-    // and apply new scripts from a /migrations folder.
-    
-  } finally {
-    client.release();
-  }
+        // 4. Apply pending migrations
+        for (const file of migrationFiles) {
+            const migrationId = path.basename(file, '.sql');
+            if (!appliedMigrationIds.has(migrationId)) {
+                console.log(`Applying migration: ${migrationId}`);
+                const sql = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
+                
+                await client.query('BEGIN'); // Start transaction
+                try {
+                    await client.query(sql);
+                    await client.query('INSERT INTO migrations (id) VALUES ($1)', [migrationId]);
+                    await client.query('COMMIT'); // Commit transaction
+                    console.log(`Successfully applied migration: ${migrationId}`);
+                } catch (e) {
+                    await client.query('ROLLBACK'); // Rollback on error
+                    console.error(`Failed to apply migration ${migrationId}:`, e);
+                    throw e;
+                }
+            }
+        }
+    } finally {
+        client.release();
+    }
 }
+
 
 type AuthState = {
   success: boolean;
@@ -93,7 +85,7 @@ type AdminSettings = {
 }
 
 export async function getAdminSettings(): Promise<AdminSettings | null> {
-    await ensureTablesExist();
+    await runMigrations();
     const session = await getSession();
     if (!session) return null;
 
@@ -119,7 +111,7 @@ export async function getAdminSettings(): Promise<AdminSettings | null> {
 }
 
 export async function updateAdminSettings(settings: Partial<AdminSettings>): Promise<{success: boolean}> {
-    await ensureTablesExist();
+    await runMigrations();
     const session = await getSession();
     if (!session) return { success: false };
 
@@ -158,7 +150,7 @@ export async function updateAdminSettings(settings: Partial<AdminSettings>): Pro
 }
 
 export async function getSession() {
-    await ensureTablesExist();
+    await runMigrations();
     const sessionToken = cookies().get('session')?.value;
     if (!sessionToken) return null;
 
@@ -183,10 +175,16 @@ export async function getSession() {
             ignoreExpiration: true, 
         });
 
+        const adminResult = await client.query('SELECT name, email FROM admins WHERE id = $1', [payload.id]);
+        if(adminResult.rows.length === 0) {
+            cookies().delete('session');
+            return null;
+        }
+
         return {
             id: payload.id as string,
-            email: payload.email as string,
-            name: payload.name as string,
+            email: adminResult.rows[0].email as string,
+            name: adminResult.rows[0].name as string,
         };
 
     } catch (error) {
@@ -203,7 +201,7 @@ export async function getSession() {
 
 
 export async function authenticateAdmin(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
-  await ensureTablesExist();
+  await runMigrations();
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
 
@@ -240,9 +238,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     const expirationDate = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
 
     const sessionPayload = { 
-        id: admin.id, 
-        email: admin.email,
-        name: admin.name 
+        id: admin.id
     };
 
     const token = await new SignJWT(sessionPayload)
@@ -285,7 +281,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
 }
 
 export async function logout() {
-    await ensureTablesExist();
+    await runMigrations();
     const sessionToken = cookies().get('session')?.value;
     if (sessionToken) {
         let client;

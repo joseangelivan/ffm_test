@@ -1,0 +1,3 @@
+-- This file represents the initial state of the database schema.
+-- It should not be modified directly.
+-- New changes should be added as incremental migration files in the /migrations folder.
