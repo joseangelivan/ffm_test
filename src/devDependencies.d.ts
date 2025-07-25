@@ -15,4 +15,3 @@
 //     myProperty: string;
 //   }
 // }
-declare module 'bcryptjs';

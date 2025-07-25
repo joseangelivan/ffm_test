@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { Pool } from 'pg';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import { SignJWT } from 'jose';
 import { cookies } from 'next/headers';
 
@@ -35,7 +35,6 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
   }
 
   let client;
-  let admin;
   try {
     client = await pool.connect();
     const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
@@ -48,34 +47,29 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       };
     }
 
-    admin = result.rows[0];
-    const debugInfo = JSON.stringify(admin, null, 2);
-
+    const admin = result.rows[0];
     const passwordMatch = await bcrypt.compare(password, admin.password_hash);
     
     if (!passwordMatch) {
       return { 
           success: false, 
           message: 'Invalid credentials.',
-          debugInfo: `Password mismatch. Input: ${password}. DB Hash: ${admin.password_hash}. bcrypt.compare result: ${passwordMatch}. User data: ${debugInfo}`
+          debugInfo: `Password mismatch. Input: ${password}. DB Hash: ${admin.password_hash}. bcrypt.compare result: ${passwordMatch}. User data: ${JSON.stringify(admin, null, 2)}`
       };
     }
     
-    // Create session
     const session = { 
         id: admin.id, 
         email: admin.email,
         name: admin.name 
     };
 
-    // Create JWT
     const token = await new SignJWT(session)
       .setProtectedHeader({ alg: JWT_ALG })
       .setIssuedAt()
-      .setExpirationTime('1h') // Token expires in 1 hour
+      .setExpirationTime('1h')
       .sign(JWT_SECRET);
     
-    // Set cookie
     cookies().set('session', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',

@@ -1,16 +1,43 @@
 diff --git a/node_modules/bcrypt/bcrypt.js b/node_modules/bcrypt/bcrypt.js
-index b89c6af..34ab63e 100644
+index b9e70ad..0153874 100644
 --- a/node_modules/bcrypt/bcrypt.js
 +++ b/node_modules/bcrypt/bcrypt.js
-@@ -7,7 +7,10 @@
-  * @license MIT
-  */
- 
--var fs = require('fs'),
-+var fs = require('fs');
-+if (typeof fs.readFileSync === 'undefined') {
-+    fs.readFileSync = () => { throw new Error("bcrypt.js: 'fs.readFileSync' is not available on this platform."); };
-+}
+@@ -1,6 +1,6 @@
+ 'use strict';
+ const path = require('path');
+-const {exists, stat} = require('fs').promises;
++// const {exists, stat} = require('fs').promises;
+ const {platform, arch} = process;
  
  /**
-  * @param {string} file
+@@ -48,22 +48,22 @@ function getPrebuildPath(root) {
+  * @returns {Promise<string>}
+  */
+ async function findPrebuild(root) {
+-  const prebuild = getPrebuildPath(root);
++  // const prebuild = getPrebuildPath(root);
+ 
+-  if (await exists(prebuild)) {
+-    const prebuildStat = await stat(prebuild);
++  // if (await exists(prebuild)) {
++  //   const prebuildStat = await stat(prebuild);
+ 
+-    if (prebuildStat.isFile())
+-      return prebuild;
+-  }
++  //   if (prebuildStat.isFile())
++  //     return prebuild;
++  // }
+ 
+   return findFallback(root);
+ }
+ 
+ module.exports = (async () => {
+   try {
+-    const prebuild = await findPrebuild(__dirname);
+-    return require(prebuild);
++    // const prebuild = await findPrebuild(__dirname);
++    return require('./build/Release/bcrypt_lib.node');
+   } catch (err) {
+     // Don't swallow build errors
+     if (err.code !== 'MODULE_NOT_FOUND')
