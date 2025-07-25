@@ -29,6 +29,7 @@ const JWT_ALG = 'HS256';
  * from the src/lib/migrations directory in a sequential and transactional manner.
  */
 export async function runMigrations() {
+    console.log('--- Iniciando el proceso de migraciones de base de datos ---');
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -40,13 +41,26 @@ export async function runMigrations() {
         // Ensure the very first migration (creating the schema_migrations table) is run.
         if (migrationFiles.length > 0 && migrationFiles[0].startsWith('0000_')) {
              const migrationTableScript = migrationFiles[0];
+             console.log(`Intentando aplicar migración inicial: ${migrationTableScript}`);
              const sql = await fs.readFile(path.join(migrationsDir, migrationTableScript), 'utf-8');
-             await client.query(sql);
+             // This will create the table but also fail if it already exists, which is fine.
+             // We wrap it in its own try/catch to handle the "already exists" case gracefully.
+             try {
+                await client.query(sql);
+                console.log(`Respuesta de la BD: Migración inicial '${migrationTableScript}' aplicada o ya existente.`);
+             } catch (e: any) {
+                if (e.code === '42P07') { // 42P07 is "duplicate_table" error in postgres
+                    console.log(`Tabla de migraciones ya existe, continuando.`);
+                } else {
+                    throw e; // Re-throw other errors
+                }
+             }
         }
 
         // 2. Get already applied migrations
         const appliedMigrationsResult = await client.query('SELECT migration_name FROM schema_migrations');
         const appliedMigrations = new Set(appliedMigrationsResult.rows.map(r => r.migration_name));
+        console.log('Migraciones ya aplicadas:', Array.from(appliedMigrations));
 
         // 3. Create base tables if they don't exist
         // These tables are essential for the app to start and will be migrated to scripts later.
@@ -84,18 +98,23 @@ export async function runMigrations() {
         // 4. Run remaining migrations
         for (const file of migrationFiles) {
             if (!appliedMigrations.has(file)) {
-                console.log(`Applying migration: ${file}`);
+                console.log(`--- Aplicando nueva migración: ${file} ---`);
                 const sql = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
-                await client.query(sql);
+                
+                const executionResponse = await client.query(sql);
+                console.log(`Respuesta de la BD para '${file}': Ejecución completada.`, executionResponse.command);
+                
                 await client.query('INSERT INTO schema_migrations (migration_name) VALUES ($1)', [file]);
-                console.log(`Successfully applied migration: ${file}`);
+                console.log(`Respuesta de la BD para '${file}': Migración registrada en 'schema_migrations'.`);
+                console.log(`--- Migración '${file}' aplicada y registrada con éxito. ---`);
             }
         }
 
         await client.query('COMMIT');
+        console.log('--- Proceso de migraciones completado. COMMIT realizado. ---');
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Migration failed:', error);
+        console.error('Error durante el proceso de migración. Se ha hecho ROLLBACK.', error);
         // Do not re-throw, as it could prevent the app from starting.
     } finally {
         client.release();
@@ -314,11 +333,3 @@ export async function getCurrentSession() {
   const sessionToken = cookieStore.get('session');
   return await getSession(sessionToken?.value);
 }
-
-
-
-    
-
-    
-
-    
