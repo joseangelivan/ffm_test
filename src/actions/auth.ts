@@ -76,7 +76,9 @@ export async function getSession() {
         console.error('Failed to verify session:', error);
         return null;
     } finally {
-        client?.release();
+        if (client) {
+            client.release();
+        }
     }
 }
 
@@ -147,7 +149,9 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       debugInfo: `Error caught: ${error.message}. Stack: ${error.stack}`
     };
   } finally {
-    client?.release();
+    if (client) {
+        client.release();
+    }
   }
   
   redirect('/admin/dashboard');
@@ -163,7 +167,9 @@ export async function logout() {
         } catch (error) {
             console.error('Error clearing session from DB:', error);
         } finally {
-            client?.release();
+             if (client) {
+                client.release();
+            }
         }
     }
     cookies().delete('session');
