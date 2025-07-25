@@ -98,7 +98,8 @@ type AdminSettings = {
 }
 
 export async function getAdminSettings(): Promise<AdminSettings | null> {
-    const session = await getSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session) return null;
 
     let client;
@@ -123,7 +124,8 @@ export async function getAdminSettings(): Promise<AdminSettings | null> {
 }
 
 export async function updateAdminSettings(settings: Partial<AdminSettings>): Promise<{success: boolean}> {
-    const session = await getSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session) return { success: false };
 
     let client;
@@ -160,8 +162,7 @@ export async function updateAdminSettings(settings: Partial<AdminSettings>): Pro
     }
 }
 
-export async function getSession() {
-    const sessionToken = cookies().get('session')?.value;
+export async function getSession(sessionToken: string | undefined) {
     if (!sessionToken) return null;
 
     let client;
@@ -204,15 +205,15 @@ export async function getSession() {
 
 
 export async function authenticateAdmin(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
-
-  if (!email || !password) {
-    return { success: false, message: 'Email and password are required.' };
-  }
-
   let client;
   try {
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    if (!email || !password) {
+      return { success: false, message: 'Email and password are required.' };
+    }
+
     client = await pool.connect();
 
     const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
@@ -249,16 +250,10 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       .setExpirationTime(expirationTime)
       .sign(JWT_SECRET);
     
-    // Clear any existing sessions for this user to enforce one session at a time
     await client.query('DELETE FROM sessions WHERE admin_id = $1', [admin.id]);
-    
-    // Store new session in the database
     await client.query('INSERT INTO sessions (admin_id, token, expires_at) VALUES ($1, $2, $3)', [admin.id, token, expirationDate]);
-    
-    // Ensure admin settings row exists
     await client.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING;', [admin.id]);
 
-    // Set the cookie
     cookies().set('session', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',

@@ -78,6 +78,7 @@ import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { getSession } from '@/actions/auth';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 
 
 // Mock data
@@ -1219,7 +1220,8 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
   // This is a client component, but we need to check session on the client-side.
   useEffect(() => {
     async function checkSession() {
-      const session = await getSession();
+      const sessionToken = document.cookie.split('; ').find(row => row.startsWith('session='))?.split('=')[1];
+      const session = await getSession(sessionToken);
       if (!session) {
         redirect('/admin/login');
       }
@@ -1281,4 +1283,3 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
     </div>
   );
 }
-
