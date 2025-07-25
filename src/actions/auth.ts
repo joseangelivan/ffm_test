@@ -43,7 +43,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       return { 
         success: false, 
         message: 'Invalid credentials.',
-        debugInfo: `No user found with email: ${email}. Input password: ${password}`
+        debugInfo: `No user found with email: ${email}.`
       };
     }
 
@@ -54,7 +54,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       return { 
           success: false, 
           message: 'Invalid credentials.',
-          debugInfo: `Password mismatch. Input: ${password}. DB Hash: ${admin.password_hash}. bcrypt.compare result: ${passwordMatch}. User data: ${JSON.stringify(admin, null, 2)}`
+          debugInfo: `Password mismatch for user ${email}.`
       };
     }
     
@@ -78,9 +78,6 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     });
     
   } catch (error: any) {
-    if (error.code === 'NEXT_REDIRECT') {
-      throw error;
-    }
     console.error('Error during authentication:', error);
     return { 
       success: false, 

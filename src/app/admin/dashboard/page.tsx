@@ -20,6 +20,7 @@ async function getSession(token?: string) {
         const { payload } = await jwtVerify(token, JWT_SECRET);
         return payload;
     } catch (error) {
+        console.error('Failed to verify session token:', error);
         return null;
     }
 }
