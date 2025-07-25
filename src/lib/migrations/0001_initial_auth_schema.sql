@@ -1,6 +1,7 @@
--- Create the main tables for authentication and core app structure
+-- Punto de Partida del Esquema de Autenticación
+-- Este script configura las tablas iniciales necesarias para la autenticación y gestión de administradores.
 
--- Admins table for administrators who manage the system
+-- Tabla de Administradores
 CREATE TABLE IF NOT EXISTS admins (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
@@ -9,7 +10,7 @@ CREATE TABLE IF NOT EXISTS admins (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Sessions table for admin authentication
+-- Tabla de Sesiones para Administradores
 CREATE TABLE IF NOT EXISTS sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     admin_id UUID REFERENCES admins(id) ON DELETE CASCADE,
@@ -18,7 +19,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Admin settings table
+-- Tabla de Configuraciones de Administrador
 CREATE TABLE IF NOT EXISTS admin_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     admin_id UUID UNIQUE REFERENCES admins(id) ON DELETE CASCADE,
@@ -28,29 +29,39 @@ CREATE TABLE IF NOT EXISTS admin_settings (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Table for storing IoT and mobile devices
+-- Secuencias para IDs autoincrementales
+CREATE SEQUENCE IF NOT EXISTS dispositivos_id_seq;
+CREATE SEQUENCE IF NOT EXISTS usuarios_id_seq;
+CREATE SEQUENCE IF NOT EXISTS localizador_dispositivos_id_seq;
+
+-- Tabla de Dispositivos
 CREATE TABLE IF NOT EXISTS dispositivos (
-    id_dispositivo SERIAL PRIMARY KEY,
-    nombre_dispositivo VARCHAR(100) NOT NULL,
-    tipo_dispositivo VARCHAR(50),
-    id_usuario INT, -- Foreign key to the users table
-    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id INT PRIMARY KEY DEFAULT nextval('dispositivos_id_seq'),
+    nombre VARCHAR(255),
+    descripcion TEXT,
+    device_id VARCHAR(255) UNIQUE,
+    user_id INT,
+    condominio_id INT,
+    token_autenticacion VARCHAR(255),
+    fecha_creacion TIMESTAMP DEFAULT NOW()
 );
 
--- Table for users, could be residents, security personnel, etc.
+-- Tabla de Usuarios
 CREATE TABLE IF NOT EXISTS usuarios (
-    id_usuario SERIAL PRIMARY KEY,
-    nombre_usuario VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE,
-    rol VARCHAR(50),
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id INT PRIMARY KEY DEFAULT nextval('usuarios_id_seq'),
+    nombre VARCHAR(255),
+    email VARCHAR(255) UNIQUE,
+    contrasena VARCHAR(255),
+    fecha_creacion TIMESTAMP DEFAULT NOW()
 );
 
--- Table to track the location of devices
+-- Tabla de Localizador de Dispositivos
 CREATE TABLE IF NOT EXISTS localizador_dispositivos (
-    id_localizador SERIAL PRIMARY KEY,
-    id_dispositivo INT REFERENCES dispositivos(id_dispositivo),
-    latitud DECIMAL(9,6),
-    longitud DECIMAL(9,6),
-    fecha_hora_lectura TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id INT PRIMARY KEY DEFAULT nextval('localizador_dispositivos_id_seq'),
+    dispositivo_id INT REFERENCES dispositivos(id),
+    latitud DOUBLE PRECISION,
+    longitud DOUBLE PRECISION,
+    fecha_hora TIMESTAMP DEFAULT NOW()
 );
+
+-- Punto de Finalización del Esquema de Autenticación
