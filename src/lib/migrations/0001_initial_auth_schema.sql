@@ -1,17 +1,16 @@
--- Eliminar tablas que ya no se utilizan
+-- Eliminar tablas que ya no se utilizan en el nuevo esquema
 DROP TABLE IF EXISTS localizador_dispositivos;
 DROP TABLE IF EXISTS dispositivos;
 DROP TABLE IF EXISTS usuarios;
-DROP TABLE IF EXISTS geocercas;
-DROP TABLE IF EXISTS condominios;
 
--- Ajustar la tabla de administradores
-ALTER TABLE admins DROP COLUMN IF EXISTS last_login;
-ALTER TABLE admins DROP COLUMN IF EXISTS created_at;
-ALTER TABLE admins DROP COLUMN IF EXISTS updated_at;
+-- Ajustar la tabla admins para que coincida con el nuevo esquema
+-- Eliminar columnas que ya no existen
+ALTER TABLE admins DROP COLUMN IF EXISTS condominio_id;
+ALTER TABLE admins DROP COLUMN IF EXISTS salt;
+ALTER TABLE admins DROP COLUMN IF EXISTS reset_token;
+ALTER TABLE admins DROP COLUMN IF EXISTS reset_token_expires_at;
 
--- Ajustar la tabla de configuraciones de admin
+-- Ajustar la tabla admin_settings
+-- Añadir nuevas columnas con valores por defecto para no afectar a las filas existentes
 ALTER TABLE admin_settings ADD COLUMN IF NOT EXISTS theme VARCHAR(255) DEFAULT 'light';
-ALTER TABLE admin_settings ADD COLUMN IF NOT EXISTS language VARCHAR(255) DEFAULT 'es';
-ALTER TABLE admin_settings ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
-ALTER TABLE admin_settings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
+ALTER TABLE admin_settings ADD COLUMN IF NOT EXISTS language VARCHAR(10) DEFAULT 'es';
