@@ -76,6 +76,7 @@ import { useLocale } from '@/lib/i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { logout } from '@/actions/auth';
 
 type Condominio = {
   id: string;
@@ -86,13 +87,13 @@ type Condominio = {
   doormen: number;
 };
 
-const mockAdmin = {
-    name: "Admin Geral",
-    email: "admin@followforme.com",
-    avatarUrl: "https://placehold.co/100x100.png"
+type Session = {
+    id: string;
+    email: string;
+    name: string;
 }
 
-export default function AdminDashboardClient({ initialCondominios }: { initialCondominios: Condominio[] }) {
+export default function AdminDashboardClient({ initialCondominios, session }: { initialCondominios: Condominio[], session: Session }) {
   const { t, setLocale, locale } = useLocale();
   const { toast } = useToast();
   const router = useRouter();
@@ -200,8 +201,8 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
     router.push(`/admin/condominio/${condoId}`);
   };
 
-  const handleLogout = () => {
-    router.push('/');
+  const handleLogout = async () => {
+    await logout();
   }
 
   return (
@@ -217,16 +218,16 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
               <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10">
-                      <AvatarImage src={mockAdmin.avatarUrl} alt={mockAdmin.name} data-ai-hint="avatar" />
-                      <AvatarFallback>{mockAdmin.name.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={`https://placehold.co/100x100.png?text=${session.name.charAt(0)}`} alt={session.name} data-ai-hint="avatar" />
+                      <AvatarFallback>{session.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{mockAdmin.name}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{mockAdmin.email}</p>
+                      <p className="text-sm font-medium leading-none">{session.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{session.email}</p>
                   </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -431,5 +432,3 @@ export default function AdminDashboardClient({ initialCondominios }: { initialCo
     </div>
   );
 }
-
-    

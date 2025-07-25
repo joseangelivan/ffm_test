@@ -1,3 +1,4 @@
+
 'use server';
 
 import { redirect } from 'next/navigation'
@@ -20,6 +21,28 @@ const pool = new Pool({
 
 const JWT_ALG = 'HS256';
 
+// Function to ensure the sessions table exists
+async function ensureSessionsTable() {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id SERIAL PRIMARY KEY,
+        admin_id INTEGER REFERENCES admins(id) ON DELETE CASCADE,
+        token TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+  } finally {
+    client.release();
+  }
+}
+
+// Ensure table exists on startup
+ensureSessionsTable().catch(console.error);
+
+
 type AuthState = {
   success: boolean;
   message: string;
@@ -29,14 +52,31 @@ type AuthState = {
 export async function getSession() {
     const sessionToken = cookies().get('session')?.value;
     if (!sessionToken) return null;
+
+    let client;
     try {
+        // 1. Verify the JWT signature and structure
         const { payload } = await jwtVerify(sessionToken, JWT_SECRET, {
             algorithms: [JWT_ALG],
         });
-        return payload;
+
+        // 2. Verify the session exists in the database
+        client = await pool.connect();
+        const result = await client.query('SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()', [sessionToken]);
+
+        if (result.rows.length === 0) {
+            // Token is valid but not in DB or expired, so invalidate cookie
+            cookies().delete('session');
+            return null;
+        }
+
+        return payload; // Session is valid
+
     } catch (error) {
-        console.error('Failed to verify session token:', error);
+        console.error('Failed to verify session:', error);
         return null;
+    } finally {
+        client?.release();
     }
 }
 
@@ -50,7 +90,6 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
   }
 
   let client;
-  let admin;
   try {
     client = await pool.connect();
     const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
@@ -63,7 +102,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       };
     }
 
-    admin = result.rows[0];
+    const admin = result.rows[0];
     const passwordMatch = await bcrypt.compare(password, admin.password_hash);
     
     if (!passwordMatch) {
@@ -74,18 +113,25 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       };
     }
     
-    const session = { 
+    const expirationTime = '1h';
+    const expirationDate = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+    const sessionPayload = { 
         id: admin.id, 
         email: admin.email,
         name: admin.name 
     };
 
-    const token = await new SignJWT(session)
+    const token = await new SignJWT(sessionPayload)
       .setProtectedHeader({ alg: JWT_ALG })
       .setIssuedAt()
-      .setExpirationTime('1h')
+      .setExpirationTime(expirationTime)
       .sign(JWT_SECRET);
     
+    // Store session in the database
+    await client.query('INSERT INTO sessions (admin_id, token, expires_at) VALUES ($1, $2, $3)', [admin.id, token, expirationDate]);
+
+    // Set the cookie
     cookies().set('session', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -105,4 +151,21 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
   }
   
   redirect('/admin/dashboard');
+}
+
+export async function logout() {
+    const sessionToken = cookies().get('session')?.value;
+    if (sessionToken) {
+        let client;
+        try {
+            client = await pool.connect();
+            await client.query('DELETE FROM sessions WHERE token = $1', [sessionToken]);
+        } catch (error) {
+            console.error('Error clearing session from DB:', error);
+        } finally {
+            client?.release();
+        }
+    }
+    cookies().delete('session');
+    redirect('/admin/login');
 }

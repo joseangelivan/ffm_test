@@ -1,3 +1,4 @@
+
 import AdminDashboardClient from '@/components/admin-dashboard-client';
 import { getSession } from '@/actions/auth';
 import { redirect } from 'next/navigation';
@@ -16,6 +17,6 @@ export default async function AdminDashboardPage() {
   }
 
   return (
-    <AdminDashboardClient initialCondominios={mockCondominios} />
+    <AdminDashboardClient initialCondominios={mockCondominios} session={session} />
   );
 }
