@@ -93,7 +93,8 @@ type AdminSettings = {
 }
 
 export async function getAdminSettings(): Promise<AdminSettings | null> {
-    const session = await getSession();
+    const sessionCookie = cookies().get('session');
+    const session = await getSession(sessionCookie?.value);
     if (!session) return null;
 
     let client;
@@ -117,7 +118,8 @@ export async function getAdminSettings(): Promise<AdminSettings | null> {
 }
 
 export async function updateAdminSettings(settings: Partial<AdminSettings>): Promise<{success: boolean}> {
-    const session = await getSession();
+    const sessionCookie = cookies().get('session');
+    const session = await getSession(sessionCookie?.value);
     if (!session) return { success: false };
 
     let client;
@@ -154,8 +156,7 @@ export async function updateAdminSettings(settings: Partial<AdminSettings>): Pro
     }
 }
 
-export async function getSession() {
-    const sessionToken = cookies().get('session')?.value;
+export async function getSession(sessionToken?: string) {
     if (!sessionToken) return null;
 
     let client;

@@ -78,6 +78,7 @@ import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { getSession } from '@/actions/auth';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 
 
 // Mock data
@@ -1219,8 +1220,9 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
   // This is a client component, but we need to check session on the client-side.
   useEffect(() => {
     async function checkSession() {
-      const sessionToken = document.cookie.split('; ').find(row => row.startsWith('session='))?.split('=')[1];
-      const session = await getSession(sessionToken);
+      const cookieStore = (await import('next/headers')).cookies();
+      const sessionToken = cookieStore.get('session');
+      const session = await getSession(sessionToken?.value);
       if (!session) {
         redirect('/admin/login');
       }
