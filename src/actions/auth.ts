@@ -179,8 +179,7 @@ export async function getSession() {
         );
 
         if (result.rows.length === 0) {
-            cookies().delete('session');
-            return null;
+            return null; // Session token is in cookie, but not in DB or expired. Invalid session.
         }
 
         // The session is valid according to the database.
@@ -192,8 +191,7 @@ export async function getSession() {
 
         const adminResult = await client.query('SELECT name, email FROM admins WHERE id = $1', [payload.id]);
         if(adminResult.rows.length === 0) {
-            cookies().delete('session');
-            return null;
+            return null; // The admin ID from the token does not exist in the admins table.
         }
 
         return {
@@ -205,7 +203,6 @@ export async function getSession() {
     } catch (error) {
         // This could happen if the token is malformed, signature is invalid, etc.
         console.error('Failed to verify session, possibly malformed or invalid token:', error);
-        cookies().delete('session');
         return null;
     } finally {
         if (client) {
