@@ -111,4 +111,4 @@ CREATE INDEX idx_geofences_condominio_id ON geofences(condominio_id);
 CREATE INDEX idx_map_elements_condominio_id ON map_elements(condominio_id);
 
 INSERT INTO admins (name, email, password_hash) VALUES
-('Angel Ivan', 'angelivan34@gmail.com', 'adminivan123'); -- IMPORTANTE: ¡Esto es texto plano! Hashear en la aplicación real.
+('Angel Ivan', 'angelivan34@gmail.com', '$2a$10$4xCmwPre.3ut0ElSWcx/kOFe97UnoeDi7khULcKwQbsEy3TZ/3GAC'); -- IMPORTANTE: ¡Esto es texto plano! Hashear en la aplicación real.
