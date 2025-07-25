@@ -31,6 +31,24 @@ const JWT_ALG = 'HS256';
 export async function runMigrations() {
     const client = await pool.connect();
     try {
+        const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
+        await fs.mkdir(migrationsDir, { recursive: true });
+
+        // 1. Apply base schema first
+        const baseSchemaPath = path.join(migrationsDir, 'base_schema.sql');
+        try {
+            const baseSchemaSql = await fs.readFile(baseSchemaPath, 'utf-8');
+            if (baseSchemaSql.trim()) {
+                await client.query(baseSchemaSql);
+            }
+        } catch (error: any) {
+            if (error.code !== 'ENOENT') { // Ignore if file doesn't exist
+                console.error("Error applying base schema:", error);
+                throw error;
+            }
+        }
+        
+        // 2. Apply incremental migrations
         await client.query(`
             CREATE TABLE IF NOT EXISTS migrations (
                 id VARCHAR(255) PRIMARY KEY,
@@ -38,7 +56,6 @@ export async function runMigrations() {
             );
         `);
 
-        const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
         const allFiles = await fs.readdir(migrationsDir);
         
         const appliedMigrationsResult = await client.query('SELECT id FROM migrations');
@@ -294,4 +311,3 @@ export async function getCurrentSession() {
   const sessionToken = cookieStore.get('session');
   return await getSession(sessionToken?.value);
 }
-
