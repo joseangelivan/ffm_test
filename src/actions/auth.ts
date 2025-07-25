@@ -23,12 +23,21 @@ const pool = new Pool({
 
 const JWT_ALG = 'HS256';
 
+// --- Migration Runner ---
+let migrationsApplied = false;
+
 /**
- * Migration Runner.
+ * Migration Runner (Optimized).
  * Ensures the database schema is up to date by applying migration scripts
  * from the src/lib/migrations directory.
+ * This function is optimized to only run the migration logic once per application
+ * lifecycle, using a flag to prevent redundant checks.
  */
 async function runMigrations() {
+    if (migrationsApplied) {
+        return; // Skip if migrations have already been applied in this lifecycle.
+    }
+
     const client = await pool.connect();
     try {
         // 1. Ensure migrations table exists
@@ -67,6 +76,12 @@ async function runMigrations() {
                 }
             }
         }
+        
+        migrationsApplied = true; // Set the flag to true after successful execution.
+
+    } catch (error) {
+        console.error("Migration failed:", error);
+        // We don't set the flag to true if migrations fail, so it can be retried on a subsequent request.
     } finally {
         client.release();
     }
