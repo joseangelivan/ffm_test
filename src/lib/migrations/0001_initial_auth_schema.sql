@@ -1,44 +1,20 @@
--- Eliminar tablas que ya no se necesitan
+-- Migration script to transition from the old schema to the new, simplified auth schema.
+
+-- Step 1: Drop tables that are no longer needed.
 DROP TABLE IF EXISTS localizador_dispositivos;
 DROP TABLE IF EXISTS dispositivos;
 DROP TABLE IF EXISTS usuarios;
+DROP TABLE IF EXISTS geocercas;
+DROP TABLE IF EXISTS condominios;
 
--- Re-crear las tablas de autenticación para asegurar la estructura correcta
-DROP TABLE IF EXISTS sessions;
-DROP TABLE IF EXISTS admin_settings;
-DROP TABLE IF EXISTS admins;
+-- Step 2: Alter existing tables to match the new schema, preserving existing data.
 
--- Creación de la tabla de administradores
-CREATE TABLE admins (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- The 'admins' table is assumed to be correct and does not require alteration.
+-- If it had extra columns, we would use:
+-- ALTER TABLE admins DROP COLUMN IF EXISTS some_old_column;
 
--- Creación de la tabla de configuraciones de administrador
-CREATE TABLE admin_settings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
-    theme VARCHAR(50) DEFAULT 'light',
-    language VARCHAR(10) DEFAULT 'es',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(admin_id)
-);
+-- The 'sessions' table is also assumed to be correct.
+-- No alterations needed.
 
--- Creación de la tabla de sesiones
-CREATE TABLE sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
-    token TEXT NOT NULL,
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Crear índices para mejorar el rendimiento de las consultas
-CREATE INDEX idx_sessions_admin_id ON sessions(admin_id);
-CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
-CREATE INDEX idx_admin_settings_admin_id ON admin_settings(admin_id);
+-- The 'admin_settings' table is also assumed to be correct.
+-- No alterations needed.
