@@ -2,17 +2,19 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { LocaleProvider } from '@/lib/i18n.tsx';
+import { runMigrations } from '@/actions/auth';
 
 export const metadata: Metadata = {
   title: 'Follow For Me',
   description: 'Aplicación de seguimiento de dispositivos en tiempo real.',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await runMigrations();
   return (
     <html lang="en" className="h-full">
       <head>

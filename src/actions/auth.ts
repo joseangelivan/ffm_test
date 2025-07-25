@@ -33,16 +33,13 @@ let migrationsApplied = false;
  * This function is optimized to only run the migration logic once per application
  * lifecycle, using a flag to prevent redundant checks.
  */
-async function runMigrations() {
-    console.log("runMigrations called.");
+export async function runMigrations() {
     if (migrationsApplied) {
-        console.log("Skipping migrations: already applied in this lifecycle.");
         return; 
     }
 
     const client = await pool.connect();
     try {
-        console.log("Starting migration process...");
         // 1. Ensure migrations table exists
         await client.query(`
             CREATE TABLE IF NOT EXISTS migrations (
@@ -54,20 +51,15 @@ async function runMigrations() {
         // 2. Get applied migrations from DB
         const appliedMigrationsResult = await client.query('SELECT id FROM migrations');
         const appliedMigrationIds = new Set(appliedMigrationsResult.rows.map(r => r.id));
-        console.log("Applied migrations found in DB:", Array.from(appliedMigrationIds));
-
-
+        
         // 3. Read migration files from directory
         const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
         const migrationFiles = (await fs.readdir(migrationsDir)).filter(file => file.endsWith('.sql')).sort();
-        console.log("Migration files found in directory:", migrationFiles);
-
-
+        
         // 4. Apply pending migrations
         for (const file of migrationFiles) {
             const migrationId = path.basename(file, '.sql');
             if (!appliedMigrationIds.has(migrationId)) {
-                console.log(`Applying migration: ${migrationId}`);
                 const sql = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
                 
                 await client.query('BEGIN'); // Start transaction
@@ -75,7 +67,6 @@ async function runMigrations() {
                     await client.query(sql);
                     await client.query('INSERT INTO migrations (id) VALUES ($1)', [migrationId]);
                     await client.query('COMMIT'); // Commit transaction
-                    console.log(`Successfully applied migration: ${migrationId}`);
                 } catch (e) {
                     await client.query('ROLLBACK'); // Rollback on error
                     console.error(`Failed to apply migration ${migrationId}:`, e);
@@ -84,7 +75,6 @@ async function runMigrations() {
             }
         }
         
-        console.log("Migration process completed successfully.");
         migrationsApplied = true; // Set the flag to true after successful execution.
 
     } catch (error) {
@@ -108,7 +98,6 @@ type AdminSettings = {
 }
 
 export async function getAdminSettings(): Promise<AdminSettings | null> {
-    await runMigrations();
     const session = await getSession();
     if (!session) return null;
 
@@ -134,7 +123,6 @@ export async function getAdminSettings(): Promise<AdminSettings | null> {
 }
 
 export async function updateAdminSettings(settings: Partial<AdminSettings>): Promise<{success: boolean}> {
-    await runMigrations();
     const session = await getSession();
     if (!session) return { success: false };
 
@@ -173,7 +161,6 @@ export async function updateAdminSettings(settings: Partial<AdminSettings>): Pro
 }
 
 export async function getSession() {
-    await runMigrations();
     const sessionToken = cookies().get('session')?.value;
     if (!sessionToken) return null;
 
@@ -217,7 +204,6 @@ export async function getSession() {
 
 
 export async function authenticateAdmin(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
-  await runMigrations();
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
 
@@ -297,7 +283,6 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
 }
 
 export async function logout() {
-    await runMigrations();
     const sessionToken = cookies().get('session')?.value;
     if (sessionToken) {
         let client;
