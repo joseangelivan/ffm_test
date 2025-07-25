@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: 'Aplicación de seguimiento de dispositivos en tiempo real.',
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
