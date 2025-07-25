@@ -63,12 +63,8 @@ export async function getSession() {
 
     let client;
     try {
-        // 1. Verify the JWT signature and structure
-        const { payload } = await jwtVerify(sessionToken, JWT_SECRET, {
-            algorithms: [JWT_ALG],
-        });
-
-        // 2. Verify the session exists in the database and is not expired
+        // The database is the source of truth.
+        // Check if the session token exists in the database and is not expired.
         client = await pool.connect();
         const result = await client.query(
             'SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()', 
@@ -76,12 +72,18 @@ export async function getSession() {
         );
 
         if (result.rows.length === 0) {
-            // Token is valid JWT-wise, but not in our DB or expired, so invalidate cookie
+            // If the session is not in our DB or is expired, invalidate cookie and return null.
             cookies().delete('session');
             return null;
         }
 
-        // We can trust the payload since the token signature is verified and it exists in our DB
+        // If the session exists in the DB, we can trust the JWT.
+        // We verify it to get the payload. We can ignore expiration here because the DB already checked it.
+        const { payload } = await jwtVerify(sessionToken, JWT_SECRET, {
+            algorithms: [JWT_ALG],
+            ignoreExpiration: true, 
+        });
+
         return {
             id: payload.id as string,
             email: payload.email as string,
@@ -89,8 +91,8 @@ export async function getSession() {
         };
 
     } catch (error) {
+        // This will catch errors from jwtVerify (e.g., signature invalid) or DB errors.
         console.error('Failed to verify session:', error);
-        // This will catch errors from jwtVerify (e.g., signature invalid, expired)
         return null;
     } finally {
         if (client) {
