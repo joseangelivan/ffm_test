@@ -71,8 +71,8 @@ export async function getSession() {
         // 2. Verify the session exists in the database and is not expired
         client = await pool.connect();
         const result = await client.query(
-            'SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW() AND admin_id = $2', 
-            [sessionToken, payload.id]
+            'SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()', 
+            [sessionToken]
         );
 
         if (result.rows.length === 0) {
