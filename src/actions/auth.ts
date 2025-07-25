@@ -31,8 +31,6 @@ const JWT_ALG = 'HS256';
 export async function runMigrations() {
     const client = await pool.connect();
     try {
-        // Step 1: Create migrations tracking table if it doesn't exist.
-        // This table itself is foundational and not part of the migration scripts.
         await client.query(`
             CREATE TABLE IF NOT EXISTS migrations (
                 id VARCHAR(255) PRIMARY KEY,
@@ -43,12 +41,9 @@ export async function runMigrations() {
         const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
         const allFiles = await fs.readdir(migrationsDir);
         
-        // Step 2: Get all previously applied migration IDs.
         const appliedMigrationsResult = await client.query('SELECT id FROM migrations');
         const appliedMigrationIds = new Set(appliedMigrationsResult.rows.map(r => r.id));
 
-        // Step 3: Filter for incremental .sql migration files, sort them, and apply new ones.
-        // Exclude any files that might be empty or don't represent a migration.
         const migrationFiles = allFiles
             .filter(file => file.endsWith('.sql') && file !== 'base_schema.sql')
             .sort();
@@ -59,22 +54,21 @@ export async function runMigrations() {
                 console.log(`Applying migration: ${migrationId}`);
                 const sql = await fs.readFile(path.join(migrationsDir, fileName), 'utf-8');
                 
-                // Skip empty files
                 if (!sql.trim()) {
                     console.log(`Skipping empty migration file: ${fileName}`);
                     continue;
                 }
 
-                await client.query('BEGIN'); // Start transaction for this migration
+                await client.query('BEGIN');
                 try {
                     await client.query(sql);
                     await client.query('INSERT INTO migrations (id) VALUES ($1)', [migrationId]);
-                    await client.query('COMMIT'); // Commit transaction
+                    await client.query('COMMIT');
                     console.log(`Successfully applied migration: ${migrationId}`);
                 } catch (e) {
-                    await client.query('ROLLBACK'); // Rollback on error
+                    await client.query('ROLLBACK');
                     console.error(`Failed to apply migration ${migrationId}:`, e);
-                    throw e; // Stop further execution if a migration fails
+                    throw e;
                 }
             }
         }
@@ -99,9 +93,7 @@ type AdminSettings = {
 }
 
 export async function getAdminSettings(): Promise<AdminSettings | null> {
-    const sessionCookie = await cookies().get('session');
-    const sessionToken = sessionCookie?.value;
-    const session = await getSession(sessionToken);
+    const session = await getSession();
     if (!session) return null;
 
     let client;
@@ -113,7 +105,6 @@ export async function getAdminSettings(): Promise<AdminSettings | null> {
             return result.rows[0] as AdminSettings;
         }
 
-        // If no settings found, create default ones
         await client.query('INSERT INTO admin_settings (admin_id, theme, language) VALUES ($1, $2, $3) ON CONFLICT (admin_id) DO NOTHING', [session.id, 'light', 'es']);
         return { theme: 'light', language: 'es' };
 
@@ -126,9 +117,7 @@ export async function getAdminSettings(): Promise<AdminSettings | null> {
 }
 
 export async function updateAdminSettings(settings: Partial<AdminSettings>): Promise<{success: boolean}> {
-    const sessionCookie = await cookies().get('session');
-    const sessionToken = sessionCookie?.value;
-    const session = await getSession(sessionToken);
+    const session = await getSession();
     if (!session) return { success: false };
 
     let client;
@@ -148,7 +137,7 @@ export async function updateAdminSettings(settings: Partial<AdminSettings>): Pro
         }
 
         if (setClauses.length === 0) {
-            return { success: true }; // Nothing to update
+            return { success: true };
         }
 
         values.push(session.id);
@@ -165,7 +154,10 @@ export async function updateAdminSettings(settings: Partial<AdminSettings>): Pro
     }
 }
 
-export async function getSession(sessionToken: string | undefined) {
+export async function getSession() {
+    const sessionCookie = cookies().get('session');
+    const sessionToken = sessionCookie?.value;
+
     if (!sessionToken) return null;
 
     let client;
