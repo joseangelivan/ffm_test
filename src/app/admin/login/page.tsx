@@ -6,9 +6,7 @@ import { cookies } from 'next/headers';
 
 
 export default async function AdminLoginPage() {
-  const cookieStore = cookies();
-  const sessionCookie = cookieStore.get('session');
-  const sessionToken = sessionCookie?.value;
+  const sessionToken = cookies().get('session')?.value;
   const session = await getSession(sessionToken);
 
   if (session) {

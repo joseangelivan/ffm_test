@@ -90,6 +90,7 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
                     placeholder="admin@ejemplo.com"
                     className="pl-10"
                     required
+                    autoComplete="email"
                   />
                 </div>
               </div>
@@ -104,6 +105,7 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
                     placeholder="••••••••"
                     className="pl-10"
                     required
+                    autoComplete="current-password"
                   />
                 </div>
               </div>
