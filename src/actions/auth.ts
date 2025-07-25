@@ -39,10 +39,6 @@ async function ensureSessionsTable() {
   }
 }
 
-// Ensure table exists on startup
-ensureSessionsTable().catch(console.error);
-
-
 type AuthState = {
   success: boolean;
   message: string;
@@ -50,6 +46,7 @@ type AuthState = {
 };
 
 export async function getSession() {
+    await ensureSessionsTable();
     const sessionToken = cookies().get('session')?.value;
     if (!sessionToken) return null;
 
@@ -70,7 +67,13 @@ export async function getSession() {
             return null;
         }
 
-        return payload; // Session is valid
+        // We can augment the payload with more user info from the DB if needed
+        const sessionData = {
+            ...payload,
+            name: result.rows[0].name, // Assuming you have a name column in admins table
+        };
+
+        return sessionData;
 
     } catch (error) {
         console.error('Failed to verify session:', error);
@@ -84,6 +87,7 @@ export async function getSession() {
 
 
 export async function authenticateAdmin(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
+  await ensureSessionsTable();
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
 
