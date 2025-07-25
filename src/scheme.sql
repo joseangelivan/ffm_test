@@ -101,8 +101,6 @@ CREATE TABLE map_elements (
 -- Aquí usamos un placeholder para el hash. En un entorno real,
 -- se generaría con una librería como bcrypt. Por ejemplo, un hash para 'adminivan123'
 -- podría ser algo como: '$2b$10$f/p.g./J9.E/1z2E3h4I5O.U6r7t8y9u0v1w2x3y4z5a6b7c8d9e'
-INSERT INTO admins (name, email, password_hash) VALUES
-('Angel Ivan', 'angelivan34@gmail.com', 'adminivan123'); -- IMPORTANTE: ¡Esto es texto plano! Hashear en la aplicación real.
 
 -- Índices para mejorar el rendimiento de las búsquedas
 CREATE INDEX idx_users_condominio_id ON users(condominio_id);
@@ -111,3 +109,6 @@ CREATE INDEX idx_devices_user_id ON devices(user_id);
 CREATE INDEX idx_device_status_device_id ON device_status(device_id);
 CREATE INDEX idx_geofences_condominio_id ON geofences(condominio_id);
 CREATE INDEX idx_map_elements_condominio_id ON map_elements(condominio_id);
+
+INSERT INTO admins (name, email, password_hash) VALUES
+('Angel Ivan', 'angelivan34@gmail.com', 'adminivan123'); -- IMPORTANTE: ¡Esto es texto plano! Hashear en la aplicación real.

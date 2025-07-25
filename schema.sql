@@ -106,3 +106,9 @@ EXECUTE PROCEDURE trigger_set_timestamp();
 -- You can now populate these tables with some initial data.
 -- Example:
 -- INSERT INTO admins (name, email, password_hash) VALUES ('Admin Geral', 'admin@followforme.com', 'some_strong_hash');
+-- Inserción del administrador inicial
+-- La contraseña debe ser hasheada de forma segura en una aplicación real.
+-- Aquí usamos la contraseña en texto plano como placeholder temporal.
+-- En un entorno real, se generaría el hash con una librería como bcrypt.
+INSERT INTO admins (name, email, password_hash) VALUES
+('José Angel Iván Rubianes Silva', 'angelivan34@gmail.com', 'adminivan123');
