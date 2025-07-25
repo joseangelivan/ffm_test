@@ -5,6 +5,7 @@ import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
+import { JWT_SECRET } from '@/lib/config';
 
 const pool = new Pool({
   host: 'mainline.proxy.rlwy.net',
@@ -17,7 +18,6 @@ const pool = new Pool({
   },
 });
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-super-secret-key-that-is-at-least-32-bytes-long');
 const JWT_ALG = 'HS256';
 
 type AuthState = {
@@ -104,13 +104,5 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     client?.release();
   }
   
-  if (admin) {
-    redirect('/admin/dashboard');
-  }
-
-  // This part should not be reached if login is successful
-  return { 
-    success: false, 
-    message: 'An unexpected error occurred after authentication.'
-  };
+  redirect('/admin/dashboard');
 }
