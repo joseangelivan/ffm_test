@@ -17,7 +17,7 @@ const pool = new Pool({
   },
 });
 
-async function authenticateAdmin(formData: FormData): Promise<{ success: boolean; message: string }> {
+async function authenticateAdmin(prevState: { message: string } | undefined, formData: FormData): Promise<{ success: boolean; message: string }> {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
 

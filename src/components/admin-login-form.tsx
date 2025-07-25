@@ -24,7 +24,7 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { AlertCircle } from 'lucide-react';
 
 interface AdminLoginFormProps {
-    authenticateAdmin: (formData: FormData) => Promise<{ success: boolean; message: string }>;
+    authenticateAdmin: (prevState: { message: string } | undefined, formData: FormData) => Promise<{ success: boolean; message: string }>;
 }
 
 export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProps) {
