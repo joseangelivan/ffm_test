@@ -23,23 +23,15 @@ const pool = new Pool({
 
 const JWT_ALG = 'HS256';
 
-// --- Migration Runner ---
-let migrationsApplied = false;
-
 /**
  * Migration Runner (Optimized).
  * Ensures the database schema is up to date by applying migration scripts
  * from the src/lib/migrations directory.
- * This function is optimized to only run the migration logic once per application
- * lifecycle, using a flag to prevent redundant checks.
+ * This function checks the 'migrations' table in the DB to see which migrations
+ * have already been applied.
  */
 export async function runMigrations() {
-    console.log("runMigrations called.");
-    if (migrationsApplied) {
-        console.log("Migrations already applied, skipping.");
-        return; 
-    }
-    console.log("Running database migrations...");
+    console.log("runMigrations called. Checking database for pending migrations...");
 
     const client = await pool.connect();
     try {
@@ -59,9 +51,10 @@ export async function runMigrations() {
         const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
         const migrationFiles = (await fs.readdir(migrationsDir)).filter(file => file.endsWith('.sql')).sort();
         
-        console.log(`Found ${migrationFiles.length} migration files.`);
+        console.log(`Found ${migrationFiles.length} migration files. Found ${appliedMigrationIds.size} applied migrations.`);
 
         // 4. Apply pending migrations
+        let migrationsAppliedInThisRun = 0;
         for (const file of migrationFiles) {
             const migrationId = path.basename(file, '.sql');
             if (!appliedMigrationIds.has(migrationId)) {
@@ -74,20 +67,23 @@ export async function runMigrations() {
                     await client.query('INSERT INTO migrations (id) VALUES ($1)', [migrationId]);
                     await client.query('COMMIT'); // Commit transaction
                     console.log(`Successfully applied migration: ${migrationId}`);
+                    migrationsAppliedInThisRun++;
                 } catch (e) {
                     await client.query('ROLLBACK'); // Rollback on error
                     console.error(`Failed to apply migration ${migrationId}:`, e);
-                    throw e;
+                    throw e; // Stop the process if a migration fails
                 }
             }
         }
         
-        migrationsApplied = true; // Set the flag to true after successful execution.
-        console.log("All migrations applied successfully.");
+        if (migrationsAppliedInThisRun > 0) {
+            console.log(`Finished applying ${migrationsAppliedInThisRun} new migration(s).`);
+        } else {
+            console.log("No new migrations to apply. Database is up to date.");
+        }
 
     } catch (error) {
         console.error("Migration failed:", error);
-        // We don't set the flag to true if migrations fail, so it can be retried on a subsequent request.
     } finally {
         client.release();
     }
