@@ -24,9 +24,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const { t } = useLocale();
+  const router = useRouter();
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    // In a real app, you'd handle authentication here.
+    // For now, just navigate to the dashboard.
+    router.push('/dashboard');
+  };
+
   return (
     <div className="light relative flex min-h-screen items-center justify-center bg-background px-4">
        <LanguageSwitcher />
@@ -40,7 +50,7 @@ export default function LoginPage() {
             {t('login.description')}
           </CardDescription>
         </CardHeader>
-        <form onSubmit={(e) => e.preventDefault()}>
+        <form onSubmit={handleLogin}>
           <CardContent>
             <div className="space-y-6">
               <div className="space-y-2">
@@ -95,19 +105,19 @@ export default function LoginPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button asChild className="w-full bg-accent hover:bg-accent/90">
-              <Link href="/dashboard">{t('login.loginButton')}</Link>
+            <Button type="submit" className="w-full bg-accent hover:bg-accent/90">
+              {t('login.loginButton')}
             </Button>
-             <div className="mt-2 text-center text-sm">
-              <Link
-                href="/admin/login"
-                className="text-muted-foreground hover:text-primary hover:underline"
-              >
-                {t('login.adminLogin')}
-              </Link>
-            </div>
           </CardFooter>
         </form>
+         <div className="px-6 pb-6 text-center text-sm">
+          <Link
+            href="/admin/login"
+            className="text-muted-foreground hover:text-primary hover:underline"
+          >
+            {t('login.adminLogin')}
+          </Link>
+        </div>
       </Card>
     </div>
   );
