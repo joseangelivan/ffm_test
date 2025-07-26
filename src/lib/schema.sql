@@ -1,38 +1,49 @@
--- Combined schema for the entire database after all migrations.
--- This file can be used to set up a new database instance from scratch.
+-- Base Schema for a new database.
+-- This file should be updated with the complete, final schema after all migrations are applied.
 
--- From 0000_install_extensions.sql
+-- Install necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- From 0001_initial_auth_schema.sql
-CREATE TABLE admins (
+-- Admins Table to store administrator credentials and permissions
+CREATE TABLE IF NOT EXISTS admins (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    can_create_admins BOOLEAN NOT NULL DEFAULT FALSE, -- Added in 0002
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    can_create_admins BOOLEAN DEFAULT false,
+    created_at TIMESTAMMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE sessions (
+-- Sessions Table to manage admin sessions
+CREATE TABLE IF NOT EXISTS sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+    admin_id UUID REFERENCES admins(id) ON DELETE CASCADE,
     token TEXT NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    expires_at TIMESTAMMPTZ NOT NULL,
+    created_at TIMESTAMMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE admin_settings (
+-- Admin Settings Table for user-specific preferences
+CREATE TABLE IF NOT EXISTS admin_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    admin_id UUID UNIQUE NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+    admin_id UUID UNIQUE REFERENCES admins(id) ON DELETE CASCADE,
     theme VARCHAR(50) DEFAULT 'light',
     language VARCHAR(10) DEFAULT 'es',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMMPTZ DEFAULT NOW()
 );
 
--- Indexes for performance
-CREATE INDEX idx_sessions_admin_id ON sessions(admin_id);
-CREATE INDEX idx_sessions_token ON sessions(token);
-CREATE INDEX idx_admins_email ON admins(email);
+-- Schema Migrations Table to track applied migrations
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    id SERIAL PRIMARY KEY,
+    migration_name VARCHAR(255) NOT NULL UNIQUE,
+    sql_script TEXT,
+    applied_at TIMESTAMMPTZ DEFAULT NOW()
+);
+
+-- Initial admin user with creation permissions
+-- The password_hash here is a placeholder and should be a real bcrypt hash.
+INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES
+('José Angel Iván Rubianes Silva', 'angelivan34@gmail.com', '$2b$10$T.d/e/2B.a/6e1M5aE8x..rE.Z0iYwz.J0.vB/1yI/3jO2B.a/5m', true)
+ON CONFLICT (email) DO NOTHING;
