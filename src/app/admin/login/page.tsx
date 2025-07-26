@@ -1,11 +1,9 @@
 
 import AdminLoginForm from '@/components/admin-login-form';
-import { authenticateAdmin, runMigrations, getCurrentSession } from '@/actions/auth';
+import { authenticateAdmin, getCurrentSession } from '@/actions/auth';
 import { redirect } from 'next/navigation';
 
 export default async function AdminLoginPage() {
-  await runMigrations();
-  
   const session = await getCurrentSession();
   if (session) {
     redirect('/admin/dashboard');
@@ -13,5 +11,3 @@ export default async function AdminLoginPage() {
 
   return <AdminLoginForm authenticateAdmin={authenticateAdmin} />;
 }
-
-

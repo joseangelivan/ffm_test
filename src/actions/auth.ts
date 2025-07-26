@@ -205,6 +205,9 @@ export async function getSession(sessionToken?: string) {
 
 
 export async function authenticateAdmin(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
+  // Run migrations on authentication attempt
+  await runMigrations();
+  
   let client;
   try {
     const email = formData.get('email') as string;
