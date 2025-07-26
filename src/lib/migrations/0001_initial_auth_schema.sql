@@ -1,46 +1,42 @@
--- Migration script from base_schema to the new schema
+-- Migration from base schema to the new consolidated auth schema.
 
--- Step 1: Drop tables that are no longer in use
-DROP TABLE IF EXISTS geofences;
-DROP TABLE IF EXISTS localizador_dispositivos;
-DROP TABLE IF EXISTS dispositivos;
-DROP TABLE IF EXISTS usuarios;
-DROP TABLE IF EXISTS condominios;
+-- 1. Drop obsolete tables that are no longer in use.
+-- These tables were part of the initial design but have been deprecated.
+DROP TABLE IF EXISTS condominios CASCADE;
+DROP TABLE IF EXISTS usuarios CASCADE;
+DROP TABLE IF EXISTS dispositivos CASCADE;
+DROP TABLE IF EXISTS localizador_dispositivos CASCADE;
+DROP TABLE IF EXISTS geofences CASCADE;
 
--- Step 2: Modify existing tables to match the new schema
--- Remove unused avatar_url column from admins
+-- 2. Modify existing tables to match the new schema.
+-- The 'admins' table is simplified, removing unused columns.
 ALTER TABLE admins DROP COLUMN IF EXISTS avatar_url;
 
-
--- Step 3: Create new tables required by the new schema
--- Create sessions table for handling user sessions
+-- 3. Create new tables required by the new authentication and settings system.
+-- These tables did not exist in the base schema.
 CREATE TABLE IF NOT EXISTS sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
     token TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create admin_settings table for user preferences
 CREATE TABLE IF NOT EXISTS admin_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+    admin_id UUID UNIQUE NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
     theme VARCHAR(50) NOT NULL DEFAULT 'light',
     language VARCHAR(10) NOT NULL DEFAULT 'es',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(admin_id)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- 4. Insert the default administrator if it does not exist.
+-- This ensures the system has a root user from the beginning.
+-- Instala la extensión pgcrypto si no está presente, necesaria para el hash de contraseñas.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Step 4: Insert initial data required for the application to run
--- Insert a default admin user if it doesn't exist
-INSERT INTO admins (id, name, email, password_hash, created_at)
-VALUES (
-    uuid_generate_v4(),
-    'Admin',
-    'admin@followforme.com',
-    '$2b$10$gL.8oVn8.J2A9G5j2hK/..wX.Z.C/1e.R.a9H/4b.T.d6.S.b5.S', -- Hash for password 'admin'
-    NOW()
-) ON CONFLICT (email) DO NOTHING;
+-- hasheando la contraseña con bcrypt para mayor seguridad.
+INSERT INTO admins (name, email, password_hash)
+VALUES ('José Angel Iván Rubianes Silva', 'angelivan34@gmail.com', crypt('adminivan123', gen_salt('bf')))
+ON CONFLICT (email) DO NOTHING;
