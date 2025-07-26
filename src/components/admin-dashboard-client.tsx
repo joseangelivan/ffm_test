@@ -108,7 +108,7 @@ function LogoutButton() {
     const { t } = useLocale();
 
     return (
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending} className="w-40">
              {pending && <Loader className="mr-2 h-8 w-8 animate-spin" />}
              {pending ? t('login.loggingIn') : t('dashboard.logoutConfirmation.confirm')}
         </Button>
@@ -335,7 +335,7 @@ export default function AdminDashboardClient() {
                           {t('dashboard.logoutConfirmation.description')}
                       </AlertDialogDescription>
                   </AlertDialogHeader>
-                  <AlertDialogFooter>
+                  <AlertDialogFooter className="sm:justify-center">
                       <AlertDialogCancel>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
                         <form action={handleLogoutAction}>
                             <LogoutButton />
@@ -479,3 +479,5 @@ export default function AdminDashboardClient() {
     </div>
   );
 }
+
+    
