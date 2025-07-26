@@ -10,36 +10,46 @@ import { JWT_SECRET } from '@/lib/config';
 import fs from 'fs/promises';
 import path from 'path';
 
-const pool = new Pool({
-  host: 'mainline.proxy.rlwy.net',
-  port: 38539,
-  user: 'postgres',
-  password: 'vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT',
-  database: 'railway',
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
+// --- Database Pool and Migration Logic ---
 
-const JWT_ALG = 'HS256';
-
+let pool: Pool | undefined;
 let migrationsHaveRun = false;
 
-/**
- * Migration Runner.
- * Ensures the database schema is up to date.
- * If the migrations table doesn't exist, it assumes a fresh database
- * and initializes it using the consolidated schema.sql.
- * Otherwise, it applies pending migrations from the src/lib/migrations directory.
- */
-export async function runMigrations() {
+async function getDbPool(): Promise<Pool> {
+    if (pool) {
+        return pool;
+    }
+
+    const newPool = new Pool({
+        host: 'mainline.proxy.rlwy.net',
+        port: 38539,
+        user: 'postgres',
+        password: 'vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT',
+        database: 'railway',
+        ssl: {
+            rejectUnauthorized: false,
+        },
+    });
+
+    try {
+        await runMigrations(newPool);
+        pool = newPool;
+        return pool;
+    } catch (error) {
+        console.error("CRITICAL: Failed to initialize database connection and run migrations. The application may not function.", error);
+        // We re-throw here to ensure that parts of the app that depend on the DB
+        // don't proceed in a broken state.
+        throw new Error("Database initialization failed.");
+    }
+}
+
+async function runMigrations(p: Pool) {
     if (migrationsHaveRun) {
-        console.log("Las migraciones ya se ejecutaron en este ciclo de vida del servidor. Omitiendo.");
         return;
     }
     
     console.log('--- Iniciando el proceso de migraciones de base de datos ---');
-    const client = await pool.connect();
+    const client = await p.connect();
     try {
         let migrationsTableExists = false;
         try {
@@ -53,69 +63,49 @@ export async function runMigrations() {
             console.log("La tabla 'schema_migrations' no existe. Se asume una base de datos nueva.");
             console.log("Inicializando la base de datos con 'src/lib/schema.sql'...");
             
+            const schemaSqlPath = path.join(process.cwd(), 'src', 'lib', 'schema.sql');
+            const schemaSql = await fs.readFile(schemaSqlPath, 'utf-8');
+            await client.query(schemaSql);
+            
+            console.log('--- Base de datos inicializada con éxito usando schema.sql. ---');
+            
+        } else {
+            console.log("La tabla 'schema_migrations' existe. Buscando migraciones incrementales...");
+            const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
+            const migrationFiles = (await fs.readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
+
+            const appliedMigrationsResult = await client.query('SELECT migration_name FROM schema_migrations');
+            const appliedMigrations = new Set(appliedMigrationsResult.rows.map(r => r.migration_name));
+            console.log('Migraciones ya aplicadas:', Array.from(appliedMigrations));
+
+            await client.query('BEGIN');
             try {
-                const schemaSqlPath = path.join(process.cwd(), 'src', 'lib', 'schema.sql');
-                const schemaSql = await fs.readFile(schemaSqlPath, 'utf-8');
-                
-                await client.query(schemaSql);
-                
-                console.log('--- Base de datos inicializada con éxito usando schema.sql. ---');
-            } catch (schemaError) {
-                console.error('Error crítico al inicializar la base de datos con schema.sql:', schemaError);
-                // We should re-throw here or handle it appropriately to prevent app from starting with a broken DB state
-                throw schemaError;
-            }
-            // Skip incremental migrations as the schema is now considered up-to-date
-            migrationsHaveRun = true;
-            return; 
-        }
-
-        // --- Proceed with incremental migrations if migrations table exists ---
-        console.log("La tabla 'schema_migrations' existe. Buscando migraciones incrementales...");
-        const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
-        const migrationFiles = (await fs.readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
-
-        const appliedMigrationsResult = await client.query('SELECT migration_name FROM schema_migrations');
-        const appliedMigrations = new Set(appliedMigrationsResult.rows.map(r => r.migration_name));
-        console.log('Migraciones ya aplicadas:', Array.from(appliedMigrations));
-
-        await client.query('BEGIN');
-        try {
-            for (const file of migrationFiles) {
-                if (!appliedMigrations.has(file)) {
-                    console.log(`--- Aplicando nueva migración: ${file} ---`);
-                    const sql = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
-                    
-                    await client.query(sql);
-                    console.log(`Respuesta de la BD para '${file}': Ejecución completada.`);
-                    
-                    await client.query('INSERT INTO schema_migrations (migration_name, sql_script) VALUES ($1, $2)', [file, sql]);
-                    console.log(`Respuesta de la BD para '${file}': Migración registrada en 'schema_migrations'.`);
-                    console.log(`--- Migración '${file}' aplicada y registrada con éxito. ---`);
+                for (const file of migrationFiles) {
+                    if (!appliedMigrations.has(file)) {
+                        console.log(`--- Aplicando nueva migración: ${file} ---`);
+                        const sql = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
+                        await client.query(sql);
+                        await client.query('INSERT INTO schema_migrations (migration_name, sql_script) VALUES ($1, $2)', [file, sql]);
+                        console.log(`--- Migración '${file}' aplicada y registrada con éxito. ---`);
+                    }
                 }
+                await client.query('COMMIT');
+                console.log('--- Proceso de migraciones incrementales completado. COMMIT realizado. ---');
+            } catch(error) {
+                 await client.query('ROLLBACK');
+                 console.error('Error durante la transacción de migración. Se ha hecho ROLLBACK.', error);
+                 throw error; // Re-throw to be caught by the outer try-catch
             }
-            await client.query('COMMIT');
-            console.log('--- Proceso de migraciones incrementales completado. COMMIT realizado. ---');
-        } catch(error) {
-             await client.query('ROLLBACK');
-             console.error('Error durante la transacción de migración. Se ha hecho ROLLBACK.', error);
-             // Do not re-throw, as it could prevent the app from starting.
         }
-
-    } catch (error) {
-        console.error('Error durante el proceso de migración.', error);
-        // Do not re-throw, as it could prevent the app from starting.
     } finally {
         client.release();
         migrationsHaveRun = true;
+        console.log("--- Proceso de migraciones de base de datos finalizado. ---")
     }
 }
 
-// Run migrations on server startup.
-runMigrations().catch(e => {
-    console.error("Error crítico durante la ejecución inicial de migraciones. La aplicación puede no funcionar correctamente.", e);
-});
 
+const JWT_ALG = 'HS256';
 
 type AuthState = {
   success: boolean;
@@ -136,9 +126,9 @@ type AdminSettings = {
 export async function getAdminSettings(): Promise<AdminSettings | null> {
     const session = await getCurrentSession();
     if (!session) return null;
-
     let client;
     try {
+        const pool = await getDbPool();
         client = await pool.connect();
         const result = await client.query('SELECT theme, language FROM admin_settings WHERE admin_id = $1', [session.id]);
         
@@ -163,6 +153,7 @@ export async function updateAdminSettings(settings: Partial<AdminSettings>): Pro
 
     let client;
     try {
+        const pool = await getDbPool();
         client = await pool.connect();
         const setClauses = [];
         const values = [];
@@ -200,6 +191,7 @@ export async function getSession(sessionToken?: string) {
 
     let client;
     try {
+        const pool = await getDbPool();
         client = await pool.connect();
         const result = await client.query(
             'SELECT admin_id FROM sessions WHERE token = $1 AND expires_at > NOW()', 
@@ -230,7 +222,10 @@ export async function getSession(sessionToken?: string) {
         };
 
     } catch (error: any) {
-        console.error('Failed to verify session, possibly malformed or invalid token:', error.message);
+        // If the error is due to the DB not being ready, we don't want to log a scary "malformed token" message.
+        if (!error.message.includes('Database initialization failed')) {
+            console.error('Failed to verify session, possibly malformed or invalid token:', error.message);
+        }
         return null;
     } finally {
         if (client) {
@@ -249,7 +244,8 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     if (!email || !password) {
       return { success: false, message: 'Email and password are required.' };
     }
-
+    
+    const pool = await getDbPool();
     client = await pool.connect();
 
     const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
@@ -318,6 +314,7 @@ export async function handleLogoutAction() {
     if (sessionCookie) {
         let client;
         try {
+            const pool = await getDbPool();
             client = await pool.connect();
             await client.query('DELETE FROM sessions WHERE token = $1', [sessionCookie.value]);
         } catch (error) {
@@ -354,6 +351,7 @@ export async function createAdmin(prevState: CreateAdminState | undefined, formD
             return { success: false, message: 'Nombre, email y contraseña son obligatorios.' };
         }
         
+        const pool = await getDbPool();
         client = await pool.connect();
 
         const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1', [email]);
@@ -377,3 +375,5 @@ export async function createAdmin(prevState: CreateAdminState | undefined, formD
         if (client) client.release();
     }
 }
+
+    
