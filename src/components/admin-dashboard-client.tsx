@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useFormStatus } from 'react-dom';
 import {
   Building,
   PlusCircle,
@@ -77,7 +78,7 @@ import { useLocale } from '@/lib/i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { logout, getAdminSettings, updateAdminSettings, getCurrentSession } from '@/actions/auth';
+import { handleLogoutAction, getAdminSettings, updateAdminSettings, getCurrentSession } from '@/actions/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 
 
@@ -102,12 +103,24 @@ const mockCondominios = [
     { id: 'condo-003', name: 'Parque das Águas', address: 'Alameda dos Pássaros, 789', devices: 8, residents: 22, doormen: 2 },
 ];
 
-export default function AdminDashboardClient({ session: initialSession }: { session: Session | null }) {
+function LogoutButton() {
+    const { pending } = useFormStatus();
+    const { t } = useLocale();
+
+    return (
+        <Button type="submit" disabled={pending}>
+             {pending && <Loader className="mr-2 h-8 w-8 animate-spin" />}
+             {pending ? t('login.loggingIn') : t('dashboard.logoutConfirmation.confirm')}
+        </Button>
+    )
+}
+
+export default function AdminDashboardClient() {
   const { t, setLocale, locale } = useLocale();
   const { toast } = useToast();
   const router = useRouter();
 
-  const [session, setSession] = useState<Session | null>(initialSession);
+  const [session, setSession] = useState<Session | null>(null);
   const [condominios, setCondominios] = useState<Condominio[]>(mockCondominios);
   
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
@@ -120,7 +133,6 @@ export default function AdminDashboardClient({ session: initialSession }: { sess
   const [editCondoAddress, setEditCondoAddress] = useState('');
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     async function checkSession() {
@@ -227,15 +239,6 @@ export default function AdminDashboardClient({ session: initialSession }: { sess
     router.push(`/admin/condominio/${condoId}`);
   };
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    // Use a short timeout to allow the UI to update and show the loader
-    setTimeout(async () => {
-        await logout();
-        router.push('/admin/login');
-    }, 50);
-  }
-
   if (!session) {
     return (
         <div className="flex min-h-screen items-center justify-center bg-background">
@@ -333,11 +336,10 @@ export default function AdminDashboardClient({ session: initialSession }: { sess
                       </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                      <AlertDialogCancel disabled={isLoggingOut}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleLogout} disabled={isLoggingOut}>
-                        {isLoggingOut && <Loader className="mr-2 h-8 w-8 animate-spin" />}
-                        {isLoggingOut ? t('login.loggingIn') : t('dashboard.logoutConfirmation.confirm')}
-                      </AlertDialogAction>
+                      <AlertDialogCancel>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
+                        <form action={handleLogoutAction}>
+                            <LogoutButton />
+                        </form>
                   </AlertDialogFooter>
               </AlertDialogContent>
           </AlertDialog>

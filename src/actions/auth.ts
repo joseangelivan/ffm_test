@@ -205,7 +205,7 @@ export async function getSession(sessionToken?: string) {
 
 
 export async function authenticateAdmin(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
-  // Run migrations on authentication attempt
+  // Run migrations only on authentication attempt
   await runMigrations();
   
   let client;
@@ -280,7 +280,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
   redirect('/admin/dashboard');
 }
 
-export async function logout() {
+export async function handleLogoutAction() {
     const sessionCookie = await cookies().get('session');
     if (sessionCookie) {
         let client;
@@ -296,6 +296,7 @@ export async function logout() {
         }
     }
     cookies().delete('session');
+    redirect('/admin/login');
 }
 export async function getCurrentSession() {
   const cookieStore = await cookies();
