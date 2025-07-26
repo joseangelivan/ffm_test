@@ -80,6 +80,7 @@ import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { handleLogoutAction, getAdminSettings, updateAdminSettings, getCurrentSession } from '@/actions/auth';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 
 type Condominio = {
@@ -109,9 +110,39 @@ function LogoutButton() {
 
     return (
         <Button type="submit" disabled={pending} className="w-40">
-             {pending && <Loader className="mr-2 h-8 w-8 animate-spin" />}
+             {pending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
              {pending ? t('login.loggingIn') : t('dashboard.logoutConfirmation.confirm')}
         </Button>
+    )
+}
+
+function LogoutDialogContent() {
+    const { pending } = useFormStatus();
+    const { t } = useLocale();
+
+    return (
+        <div className={cn("relative", pending && "opacity-50")}>
+            {pending && (
+                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
+                    <div className="flex items-center gap-4 text-2xl text-muted-foreground">
+                        <Loader className="h-12 w-12 animate-spin" />
+                        <span>{t('login.loggingIn')}</span>
+                    </div>
+                </div>
+            )}
+            <AlertDialogHeader>
+                <AlertDialogTitle>{t('dashboard.logoutConfirmation.title')}</AlertDialogTitle>
+                <AlertDialogDescription>
+                    {t('dashboard.logoutConfirmation.description')}
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="sm:justify-center pt-4">
+                <AlertDialogCancel disabled={pending}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
+                <Button type="submit" disabled={pending} className="w-40 bg-destructive hover:bg-destructive/90">
+                    {t('dashboard.logoutConfirmation.confirm')}
+                </Button>
+            </AlertDialogFooter>
+        </div>
     )
 }
 
@@ -329,18 +360,9 @@ export default function AdminDashboardClient() {
               </DropdownMenuContent>
               </DropdownMenu>
               <AlertDialogContent>
-                  <AlertDialogHeader>
-                      <AlertDialogTitle>{t('dashboard.logoutConfirmation.title')}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                          {t('dashboard.logoutConfirmation.description')}
-                      </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter className="sm:justify-center">
-                      <AlertDialogCancel>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
-                        <form action={handleLogoutAction}>
-                            <LogoutButton />
-                        </form>
-                  </AlertDialogFooter>
+                <form action={handleLogoutAction}>
+                    <LogoutDialogContent />
+                </form>
               </AlertDialogContent>
           </AlertDialog>
         </div>

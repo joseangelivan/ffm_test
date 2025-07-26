@@ -29,11 +29,12 @@ interface AdminLoginFormProps {
 }
 
 function LoadingOverlay() {
+    const { t } = useLocale();
     return (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
             <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                 <Loader className="h-12 w-12 animate-spin" />
-                <span>Cargando...</span>
+                <span>{t('login.loggingIn')}</span>
             </div>
         </div>
     );
@@ -45,7 +46,7 @@ function SubmitButton() {
 
     return (
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={pending}>
-            {pending ? t('login.loggingIn') : t('adminLogin.loginButton')}
+            {t('adminLogin.loginButton')}
         </Button>
     );
 }
