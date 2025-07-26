@@ -229,6 +229,8 @@ export default function AdminDashboardClient({ session: initialSession }: { sess
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
+    // Give react time to re-render with the loader
+    await new Promise(resolve => setTimeout(resolve, 50)); 
     await logout();
     router.push('/admin/login');
   }
@@ -332,7 +334,7 @@ export default function AdminDashboardClient({ session: initialSession }: { sess
                   <AlertDialogFooter>
                       <AlertDialogCancel disabled={isLoggingOut}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
                       <AlertDialogAction onClick={handleLogout} disabled={isLoggingOut}>
-                        {isLoggingOut && <Loader className="mr-2 h-6 w-6 animate-spin" />}
+                        {isLoggingOut && <Loader className="mr-2 h-8 w-8 animate-spin" />}
                         {isLoggingOut ? t('login.loggingIn') : t('dashboard.logoutConfirmation.confirm')}
                       </AlertDialogAction>
                   </AlertDialogFooter>

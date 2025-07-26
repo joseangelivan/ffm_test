@@ -32,7 +32,7 @@ function LoadingOverlay() {
     return (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
             <div className="flex items-center gap-2 text-lg text-muted-foreground">
-                <Loader className="h-6 w-6 animate-spin" />
+                <Loader className="h-8 w-8 animate-spin" />
                 <span>Cargando...</span>
             </div>
         </div>
