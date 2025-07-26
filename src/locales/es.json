@@ -123,6 +123,15 @@
         "fillAllFields": "Por favor, completa todos los campos para crear el condominio.",
         "condoCreated": "Condominio \"{name}\" creado con éxito.",
         "condoDeleted": "Condominio eliminado."
+      },
+      "manageAdmins": {
+        "title": "Gestionar Administradores",
+        "description": "Crear nuevas cuentas de administrador.",
+        "nameLabel": "Nombre Completo",
+        "emailLabel": "Correo Electrónico",
+        "passwordLabel": "Contraseña",
+        "canCreateAdminsLabel": "Permitir a este usuario crear otros administradores",
+        "createButton": "Crear Administrador"
       }
     },
     "condoDashboard": {
@@ -191,5 +200,3 @@
         "close": "Cerrar"
     }
   }
-
-    

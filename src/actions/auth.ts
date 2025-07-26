@@ -95,6 +95,11 @@ type AuthState = {
   debugInfo?: string;
 };
 
+type CreateAdminState = {
+  success: boolean;
+  message: string;
+}
+
 type AdminSettings = {
     theme: 'light' | 'dark';
     language: 'es' | 'pt';
@@ -182,15 +187,18 @@ export async function getSession(sessionToken?: string) {
             ignoreExpiration: true, 
         });
 
-        const adminResult = await client.query('SELECT name, email FROM admins WHERE id = $1', [payload.id]);
+        const adminResult = await client.query('SELECT name, email, can_create_admins FROM admins WHERE id = $1', [payload.id]);
         if(adminResult.rows.length === 0) {
             return null;
         }
+        
+        const admin = adminResult.rows[0];
 
         return {
             id: payload.id as string,
-            email: adminResult.rows[0].email as string,
-            name: adminResult.rows[0].name as string,
+            email: admin.email as string,
+            name: admin.name as string,
+            canCreateAdmins: admin.can_create_admins as boolean,
         };
 
     } catch (error) {
@@ -302,4 +310,45 @@ export async function getCurrentSession() {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get('session');
   return await getSession(sessionToken?.value);
+}
+
+export async function createAdmin(prevState: CreateAdminState | undefined, formData: FormData): Promise<CreateAdminState> {
+    const session = await getCurrentSession();
+    if (!session || !session.canCreateAdmins) {
+        return { success: false, message: "No tienes permiso para realizar esta acción." };
+    }
+
+    let client;
+    try {
+        const name = formData.get('name') as string;
+        const email = formData.get('email') as string;
+        const password = formData.get('password') as string;
+        const canCreateAdmins = formData.get('can_create_admins') === 'on';
+
+        if (!name || !email || !password) {
+            return { success: false, message: 'Nombre, email y contraseña son obligatorios.' };
+        }
+        
+        client = await pool.connect();
+
+        const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1', [email]);
+        if (existingAdmin.rows.length > 0) {
+            return { success: false, message: 'Ya existe un administrador con este correo electrónico.' };
+        }
+
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        await client.query(
+            'INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, $4)',
+            [name, email, passwordHash, canCreateAdmins]
+        );
+
+        return { success: true, message: `Administrador "${name}" creado con éxito.` };
+
+    } catch (error) {
+        console.error('Error creating new admin:', error);
+        return { success: false, message: 'Ocurrió un error en el servidor.' };
+    } finally {
+        if (client) client.release();
+    }
 }

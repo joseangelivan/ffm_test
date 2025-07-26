@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useFormStatus } from 'react-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useFormStatus, useFormState } from 'react-dom';
 import {
   Building,
   PlusCircle,
@@ -21,6 +21,8 @@ import {
   Moon,
   Sun,
   Loader,
+  KeyRound,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -59,6 +61,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from '@/components/ui/dialog';
 import {
     AlertDialog,
@@ -78,9 +81,11 @@ import { useLocale } from '@/lib/i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { handleLogoutAction, getAdminSettings, updateAdminSettings, getCurrentSession } from '@/actions/auth';
+import { handleLogoutAction, getAdminSettings, updateAdminSettings, getCurrentSession, createAdmin } from '@/actions/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { Checkbox } from './ui/checkbox';
 
 
 type Condominio = {
@@ -96,6 +101,7 @@ type Session = {
     id: string;
     email: string;
     name: string;
+    canCreateAdmins: boolean;
 }
 
 const mockCondominios = [
@@ -109,7 +115,7 @@ function LogoutDialogContent() {
     const { t } = useLocale();
 
     return (
-        <div className={cn("relative", pending && "opacity-50")}>
+         <div className={cn("relative", pending && "opacity-50")}>
             {pending && (
                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
                     <div className="flex items-center gap-4 text-2xl text-muted-foreground">
@@ -131,6 +137,96 @@ function LogoutDialogContent() {
                 </Button>
             </AlertDialogFooter>
         </div>
+    )
+}
+
+function CreateAdminSubmitButton() {
+    const { pending } = useFormStatus();
+    const { t } = useLocale();
+
+    return (
+        <Button type="submit" disabled={pending}>
+            {pending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
+            {t('adminDashboard.manageAdmins.createButton')}
+        </Button>
+    )
+}
+
+function ManageAdminsDialog() {
+    const { t } = useLocale();
+    const { toast } = useToast();
+    const [state, formAction] = useFormState(createAdmin, undefined);
+    const formRef = useRef<HTMLFormElement>(null);
+    const [isOpen, setIsOpen] = useState(false);
+    
+    useEffect(() => {
+        if (state?.success === false) {
+            toast({
+                title: t('toast.errorTitle'),
+                description: state.message,
+                variant: 'destructive'
+            });
+        }
+        if (state?.success === true) {
+            toast({
+                title: t('toast.successTitle'),
+                description: state.message
+            });
+            formRef.current?.reset();
+            setIsOpen(false);
+        }
+    }, [state, t, toast]);
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <KeyRound className="mr-2 h-4 w-4" />
+                    <span>{t('adminDashboard.manageAdmins.title')}</span>
+                </DropdownMenuItem>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{t('adminDashboard.manageAdmins.title')}</DialogTitle>
+                    <DialogDescription>{t('adminDashboard.manageAdmins.description')}</DialogDescription>
+                </DialogHeader>
+                <form action={formAction} ref={formRef}>
+                     <div className="grid gap-4 py-4">
+                        {state?.success === false && (
+                            <Alert variant="destructive">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
+                                <AlertDescription>{state.message}</AlertDescription>
+                            </Alert>
+                        )}
+                        <div className="grid gap-2">
+                            <Label htmlFor="name">{t('adminDashboard.manageAdmins.nameLabel')}</Label>
+                            <Input id="name" name="name" placeholder="John Doe" required/>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="email">{t('adminDashboard.manageAdmins.emailLabel')}</Label>
+                            <Input id="email" name="email" type="email" placeholder="admin@example.com" required/>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="password">{t('adminDashboard.manageAdmins.passwordLabel')}</Label>
+                            <Input id="password" name="password" type="password" required/>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                           <Checkbox id="can_create_admins" name="can_create_admins" />
+                           <Label htmlFor="can_create_admins" className="text-sm font-normal">
+                                {t('adminDashboard.manageAdmins.canCreateAdminsLabel')}
+                            </Label>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button variant="outline">{t('adminDashboard.newCondoDialog.cancel')}</Button>
+                        </DialogClose>
+                        <CreateAdminSubmitButton />
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
     )
 }
 
@@ -335,6 +431,7 @@ export default function AdminDashboardClient() {
                                     </DropdownMenuSubContent>
                                 </DropdownMenuPortal>
                             </DropdownMenuSub>
+                            {session.canCreateAdmins && <ManageAdminsDialog />}
                         </DropdownMenuSubContent>
                     </DropdownMenuPortal>
                   </DropdownMenuSub>
@@ -489,6 +586,3 @@ export default function AdminDashboardClient() {
     </div>
   );
 }
-
-    
-    
