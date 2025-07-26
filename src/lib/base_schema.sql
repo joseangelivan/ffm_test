@@ -1,18 +1,6 @@
 -- PostgreSQL schema for Follow For Me App
 
 -- Extension for generating UUIDs
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Admins Table
--- Stores credentials for the administrators who manage condominiums.
-CREATE TABLE admins (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    avatar_url VARCHAR(255),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 -- Condominios Table
 -- Represents each condominium or residential complex managed in the app.
