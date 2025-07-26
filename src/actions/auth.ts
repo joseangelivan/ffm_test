@@ -296,7 +296,6 @@ export async function logout() {
         }
     }
     cookies().delete('session');
-    redirect('/admin/login');
 }
 export async function getCurrentSession() {
   const cookieStore = await cookies();

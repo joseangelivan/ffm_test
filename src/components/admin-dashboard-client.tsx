@@ -102,11 +102,12 @@ const mockCondominios = [
     { id: 'condo-003', name: 'Parque das Águas', address: 'Alameda dos Pássaros, 789', devices: 8, residents: 22, doormen: 2 },
 ];
 
-export default function AdminDashboardClient({ session }: { session: Session }) {
+export default function AdminDashboardClient({ session: initialSession }: { session: Session | null }) {
   const { t, setLocale, locale } = useLocale();
   const { toast } = useToast();
   const router = useRouter();
 
+  const [session, setSession] = useState<Session | null>(initialSession);
   const [condominios, setCondominios] = useState<Condominio[]>(mockCondominios);
   
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
@@ -122,16 +123,22 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
-    async function fetchSettings() {
+    async function checkSession() {
+      const currentSession = await getCurrentSession();
+      if (!currentSession) {
+        router.push('/admin/login');
+      } else {
+        setSession(currentSession);
         const settings = await getAdminSettings();
         if (settings) {
             setTheme(settings.theme);
             setLocale(settings.language);
             document.documentElement.classList.toggle('dark', settings.theme === 'dark');
         }
+      }
     }
-    fetchSettings();
-  }, [setLocale]);
+    checkSession();
+  }, [router, setLocale]);
 
   const handleSetTheme = async (newTheme: 'light' | 'dark') => {
     setTheme(newTheme);
@@ -223,6 +230,18 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const handleLogout = async () => {
     setIsLoggingOut(true);
     await logout();
+    router.push('/admin/login');
+  }
+
+  if (!session) {
+    return (
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <div className="flex items-center gap-4 text-lg text-muted-foreground">
+            <Loader className="h-8 w-8 animate-spin" />
+            <span>Cargando...</span>
+          </div>
+        </div>
+    );
   }
   
   return (
@@ -313,8 +332,8 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                   <AlertDialogFooter>
                       <AlertDialogCancel disabled={isLoggingOut}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
                       <AlertDialogAction onClick={handleLogout} disabled={isLoggingOut}>
-                        {isLoggingOut && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-                        {t('dashboard.logoutConfirmation.confirm')}
+                        {isLoggingOut && <Loader className="mr-2 h-6 w-6 animate-spin" />}
+                        {isLoggingOut ? t('login.loggingIn') : t('dashboard.logoutConfirmation.confirm')}
                       </AlertDialogAction>
                   </AlertDialogFooter>
               </AlertDialogContent>
@@ -455,7 +474,3 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
-
-    
-
-    
