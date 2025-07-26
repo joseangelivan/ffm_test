@@ -7,6 +7,7 @@
       "forgotPassword": "¿Olvidaste tu contraseña?",
       "loginButton": "Iniciar Sesión",
       "loggingIn": "Iniciando sesión...",
+      "loggingOut": "Cerrando Sesión...",
       "userType": "Tipo de Usuario",
       "selectUserType": "Seleccionar tipo de usuario",
       "resident": "Residente",
@@ -190,10 +191,5 @@
         "close": "Cerrar"
     }
   }
-
-    
-
-    
-
 
     

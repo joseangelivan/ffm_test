@@ -104,18 +104,6 @@ const mockCondominios = [
     { id: 'condo-003', name: 'Parque das Águas', address: 'Alameda dos Pássaros, 789', devices: 8, residents: 22, doormen: 2 },
 ];
 
-function LogoutButton() {
-    const { pending } = useFormStatus();
-    const { t } = useLocale();
-
-    return (
-        <Button type="submit" disabled={pending} className="w-40">
-             {pending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-             {pending ? t('login.loggingIn') : t('dashboard.logoutConfirmation.confirm')}
-        </Button>
-    )
-}
-
 function LogoutDialogContent() {
     const { pending } = useFormStatus();
     const { t } = useLocale();
@@ -126,7 +114,7 @@ function LogoutDialogContent() {
                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
                     <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                         <Loader className="h-12 w-12 animate-spin" />
-                        <span>{t('login.loggingIn')}</span>
+                        <span>{t('login.loggingOut')}</span>
                     </div>
                 </div>
             )}
@@ -273,8 +261,8 @@ export default function AdminDashboardClient() {
   if (!session) {
     return (
         <div className="flex min-h-screen items-center justify-center bg-background">
-          <div className="flex items-center gap-4 text-lg text-muted-foreground">
-            <Loader className="h-8 w-8 animate-spin" />
+          <div className="flex items-center gap-4 text-2xl text-muted-foreground">
+            <Loader className="h-12 w-12 animate-spin" />
             <span>Cargando...</span>
           </div>
         </div>
@@ -502,4 +490,5 @@ export default function AdminDashboardClient() {
   );
 }
 
+    
     

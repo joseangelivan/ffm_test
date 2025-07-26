@@ -7,6 +7,7 @@
       "forgotPassword": "Esqueceu a senha?",
       "loginButton": "Entrar",
       "loggingIn": "Entrando...",
+      "loggingOut": "Saindo...",
       "userType": "Tipo de Usuário",
       "selectUserType": "Selecione o tipo de usuário",
       "resident": "Residente",
@@ -190,10 +191,5 @@
         "close": "Fechar"
     }
   }
-
-    
-
-    
-
 
     
