@@ -77,7 +77,7 @@ import { useLocale } from '@/lib/i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { logout, getAdminSettings, updateAdminSettings } from '@/actions/auth';
+import { logout, getAdminSettings, updateAdminSettings, getCurrentSession } from '@/actions/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 
 
@@ -102,7 +102,7 @@ const mockCondominios = [
     { id: 'condo-003', name: 'Parque das Águas', address: 'Alameda dos Pássaros, 789', devices: 8, residents: 22, doormen: 2 },
 ];
 
-export default function AdminDashboardClient({ initialSession }: { initialSession: Session | null }) {
+export default function AdminDashboardClient({ session }: { session: Session }) {
   const { t, setLocale, locale } = useLocale();
   const { toast } = useToast();
   const router = useRouter();
@@ -122,15 +122,7 @@ export default function AdminDashboardClient({ initialSession }: { initialSessio
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
-    if (!initialSession) {
-      router.push('/admin/login');
-    }
-  }, [initialSession, router]);
-
-
-  useEffect(() => {
     async function fetchSettings() {
-        if (!initialSession) return;
         const settings = await getAdminSettings();
         if (settings) {
             setTheme(settings.theme);
@@ -139,7 +131,7 @@ export default function AdminDashboardClient({ initialSession }: { initialSessio
         }
     }
     fetchSettings();
-  }, [setLocale, initialSession]);
+  }, [setLocale]);
 
   const handleSetTheme = async (newTheme: 'light' | 'dark') => {
     setTheme(newTheme);
@@ -233,17 +225,6 @@ export default function AdminDashboardClient({ initialSession }: { initialSessio
     await logout();
   }
   
-  if (!initialSession) {
-    return (
-        <div className="flex h-screen w-full items-center justify-center bg-muted/40">
-            <div className="flex flex-col items-center gap-4">
-                <p>Redirecting to login...</p>
-                <Skeleton className="h-10 w-40" />
-            </div>
-        </div>
-    );
-  }
-
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
        <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-50">
@@ -257,16 +238,16 @@ export default function AdminDashboardClient({ initialSession }: { initialSessio
               <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10">
-                      <AvatarImage src={`https://placehold.co/100x100.png?text=${initialSession.name.charAt(0)}`} alt={initialSession.name} data-ai-hint="avatar" />
-                      <AvatarFallback>{initialSession.name.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={`https://placehold.co/100x100.png?text=${session.name.charAt(0)}`} alt={session.name} data-ai-hint="avatar" />
+                      <AvatarFallback>{session.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{initialSession.name}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{initialSession.email}</p>
+                      <p className="text-sm font-medium leading-none">{session.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{session.email}</p>
                   </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
