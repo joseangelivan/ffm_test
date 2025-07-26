@@ -477,5 +477,3 @@ export default function AdminDashboardClient({ session: initialSession }: { sess
     </div>
   );
 }
-
-    

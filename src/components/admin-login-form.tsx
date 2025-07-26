@@ -31,7 +31,7 @@ interface AdminLoginFormProps {
 function LoadingOverlay() {
     return (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
-            <div className="flex items-center gap-4 text-lg text-muted-foreground">
+            <div className="flex items-center gap-4 text-xl text-muted-foreground">
                 <Loader className="h-10 w-10 animate-spin" />
                 <span>Cargando...</span>
             </div>
@@ -168,5 +168,3 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
     </div>
   );
 }
-
-    
