@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -76,10 +77,8 @@ import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
-import { getSession } from '@/actions/auth';
+import { getCurrentSession } from '@/actions/auth';
 import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-
 
 // Mock data
 const mockCondoDetails = {
@@ -1211,24 +1210,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 }
 
 
-export default function CondominioDashboardPage({ params }: { params: { id: string } }) {
+function CondominioDashboardPageContent({ params }: { params: { id: string } }) {
   const { t } = useLocale();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  // In a real app, you'd fetch condo details based on params.id
   const condo = mockCondoDetails;
-
-  // This is a client component, but we need to check session on the client-side.
-  useEffect(() => {
-    async function checkSession() {
-      const cookieStore = (await import('next/headers')).cookies();
-      const sessionToken = cookieStore.get('session');
-      const session = await getSession(sessionToken?.value);
-      if (!session) {
-        redirect('/admin/login');
-      }
-    }
-    checkSession();
-  }, []);
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -1283,4 +1268,14 @@ export default function CondominioDashboardPage({ params }: { params: { id: stri
       </main>
     </div>
   );
+}
+
+
+export default async function CondominioDashboardPage({ params }: { params: { id: string } }) {
+  const session = await getCurrentSession();
+  if (!session) {
+    redirect('/admin/login');
+  }
+
+  return <CondominioDashboardPageContent params={params} />;
 }
