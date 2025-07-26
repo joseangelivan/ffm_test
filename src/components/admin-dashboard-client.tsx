@@ -229,10 +229,11 @@ export default function AdminDashboardClient({ session: initialSession }: { sess
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    // Give react time to re-render with the loader
-    await new Promise(resolve => setTimeout(resolve, 50)); 
-    await logout();
-    router.push('/admin/login');
+    // Use a short timeout to allow the UI to update and show the loader
+    setTimeout(async () => {
+        await logout();
+        router.push('/admin/login');
+    }, 50);
   }
 
   if (!session) {
@@ -476,3 +477,5 @@ export default function AdminDashboardClient({ session: initialSession }: { sess
     </div>
   );
 }
+
+    
