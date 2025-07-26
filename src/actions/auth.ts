@@ -32,52 +32,56 @@ export async function runMigrations() {
     console.log('--- Iniciando el proceso de migraciones de base de datos ---');
     const client = await pool.connect();
     try {
-        await client.query('BEGIN');
-        
         const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
         const migrationFiles = (await fs.readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
-
-        // 1. Ensure migrations table exists (it should be created by 0000_*)
-        // This is a check, but we rely on the first migration script.
-         try {
-            await client.query('SELECT 1 FROM schema_migrations LIMIT 1');
-        } catch (tableError) {
-             console.log("La tabla 'schema_migrations' no existe. Se creará con la primera migración (0000_).");
-             // The table is expected to be created by the first migration script.
-             // If 0000_* script is not present, subsequent operations will fail, which is correct.
+        
+        // Step 1: Ensure the migrations table exists by running the first migration script separately.
+        const createMigrationsTableScript = migrationFiles.find(f => f.startsWith('0000_'));
+        if (createMigrationsTableScript) {
+             try {
+                await client.query('SELECT 1 FROM schema_migrations LIMIT 1');
+             } catch (e) {
+                console.log("La tabla 'schema_migrations' no existe. Ejecutando script de creación...");
+                const sql = await fs.readFile(path.join(migrationsDir, createMigrationsTableScript), 'utf-8');
+                await client.query(sql); // Execute outside of a transaction
+                console.log(`Script '${createMigrationsTableScript}' ejecutado.`);
+             }
+        } else {
+            console.error("Error crítico: No se encontró el script de migración inicial (0000_).");
+            return;
         }
 
-        // 2. Get already applied migrations
-        let appliedMigrations = new Set<string>();
-        try {
-            const appliedMigrationsResult = await client.query('SELECT migration_name FROM schema_migrations');
-            appliedMigrations = new Set(appliedMigrationsResult.rows.map(r => r.migration_name));
-            console.log('Migraciones ya aplicadas:', Array.from(appliedMigrations));
-        } catch (e) {
-            console.log("No se pudieron obtener las migraciones aplicadas. La tabla podría no existir todavía, lo cual es esperado si la migración 0000 aún no se ha ejecutado.");
-        }
+        // Step 2: Get already applied migrations
+        const appliedMigrationsResult = await client.query('SELECT migration_name FROM schema_migrations');
+        const appliedMigrations = new Set(appliedMigrationsResult.rows.map(r => r.migration_name));
+        console.log('Migraciones ya aplicadas:', Array.from(appliedMigrations));
        
-        // 3. Run migrations from files if any
-        for (const file of migrationFiles) {
-            if (!appliedMigrations.has(file)) {
-                console.log(`--- Aplicando nueva migración: ${file} ---`);
-                const sql = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
-                
-                const executionResponse = await client.query(sql);
-                console.log(`Respuesta de la BD para '${file}': Ejecución completada.`, executionResponse.command);
-                
-                await client.query('INSERT INTO schema_migrations (migration_name, sql_script) VALUES ($1, $2)', [file, sql]);
-                console.log(`Respuesta de la BD para '${file}': Migración registrada en 'schema_migrations'.`);
-                console.log(`--- Migración '${file}' aplicada y registrada con éxito. ---`);
+        // Step 3: Run subsequent migrations within a single transaction
+        await client.query('BEGIN');
+        try {
+            for (const file of migrationFiles) {
+                if (!appliedMigrations.has(file)) {
+                    console.log(`--- Aplicando nueva migración: ${file} ---`);
+                    const sql = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
+                    
+                    const executionResponse = await client.query(sql);
+                    console.log(`Respuesta de la BD para '${file}': Ejecución completada.`, executionResponse.command);
+                    
+                    await client.query('INSERT INTO schema_migrations (migration_name, sql_script) VALUES ($1, $2)', [file, sql]);
+                    console.log(`Respuesta de la BD para '${file}': Migración registrada en 'schema_migrations'.`);
+                    console.log(`--- Migración '${file}' aplicada y registrada con éxito. ---`);
+                }
             }
+            await client.query('COMMIT');
+            console.log('--- Proceso de migraciones completado. COMMIT realizado. ---');
+        } catch(error) {
+             await client.query('ROLLBACK');
+             console.error('Error durante la transacción de migración. Se ha hecho ROLLBACK.', error);
+             // Do not re-throw, as it could prevent the app from starting.
         }
 
-
-        await client.query('COMMIT');
-        console.log('--- Proceso de migraciones completado. COMMIT realizado. ---');
     } catch (error) {
-        await client.query('ROLLBACK');
-        console.error('Error durante el proceso de migración. Se ha hecho ROLLBACK.', error);
+        console.error('Error durante el proceso de migración.', error);
         // Do not re-throw, as it could prevent the app from starting.
     } finally {
         client.release();
