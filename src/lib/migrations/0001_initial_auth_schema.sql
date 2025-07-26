@@ -3,6 +3,7 @@
 -- Eliminar tablas antiguas que ya no se utilizan.
 -- Se utiliza CASCADE para eliminar automáticamente las dependencias (foreign keys).
 DROP TABLE IF EXISTS localizador_dispositivos CASCADE;
+DROP TABLE IF EXISTS localizacion_dispositivos CASCADE;
 DROP TABLE IF EXISTS geocercas CASCADE;
 DROP TABLE IF EXISTS dispositivos CASCADE;
 DROP TABLE IF EXISTS usuarios CASCADE;

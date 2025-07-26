@@ -14,3 +14,4 @@ export default async function AdminLoginPage() {
   return <AdminLoginForm authenticateAdmin={authenticateAdmin} />;
 }
 
+
