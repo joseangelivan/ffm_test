@@ -23,6 +23,8 @@ const pool = new Pool({
 
 const JWT_ALG = 'HS256';
 
+let migrationsHaveRun = false;
+
 /**
  * Migration Runner.
  * Ensures the database schema is up to date.
@@ -31,6 +33,11 @@ const JWT_ALG = 'HS256';
  * Otherwise, it applies pending migrations from the src/lib/migrations directory.
  */
 export async function runMigrations() {
+    if (migrationsHaveRun) {
+        console.log("Las migraciones ya se ejecutaron en este ciclo de vida del servidor. Omitiendo.");
+        return;
+    }
+    
     console.log('--- Iniciando el proceso de migraciones de base de datos ---');
     const client = await pool.connect();
     try {
@@ -59,6 +66,7 @@ export async function runMigrations() {
                 throw schemaError;
             }
             // Skip incremental migrations as the schema is now considered up-to-date
+            migrationsHaveRun = true;
             return; 
         }
 
@@ -99,8 +107,14 @@ export async function runMigrations() {
         // Do not re-throw, as it could prevent the app from starting.
     } finally {
         client.release();
+        migrationsHaveRun = true;
     }
 }
+
+// Run migrations on server startup.
+runMigrations().catch(e => {
+    console.error("Error crítico durante la ejecución inicial de migraciones. La aplicación puede no funcionar correctamente.", e);
+});
 
 
 type AuthState = {
@@ -215,8 +229,8 @@ export async function getSession(sessionToken?: string) {
             canCreateAdmins: admin.can_create_admins as boolean,
         };
 
-    } catch (error) {
-        console.error('Failed to verify session, possibly malformed or invalid token:', error);
+    } catch (error: any) {
+        console.error('Failed to verify session, possibly malformed or invalid token:', error.message);
         return null;
     } finally {
         if (client) {
@@ -227,9 +241,6 @@ export async function getSession(sessionToken?: string) {
 
 
 export async function authenticateAdmin(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
-  // Run migrations only on authentication attempt
-  await runMigrations();
-  
   let client;
   try {
     const email = formData.get('email') as string;
@@ -366,5 +377,3 @@ export async function createAdmin(prevState: CreateAdminState | undefined, formD
         if (client) client.release();
     }
 }
-
-    
