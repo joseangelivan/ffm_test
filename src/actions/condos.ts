@@ -3,27 +3,8 @@
 
 import { Pool } from 'pg';
 import { z } from 'zod';
-import { getCurrentSession } from './auth';
+import { getCurrentSession, getDbPool } from './auth';
 
-let pool: Pool | undefined;
-
-async function getDbPool(): Promise<Pool> {
-    if (pool) {
-        return pool;
-    }
-    // TODO: Centralize pool creation
-    pool = new Pool({
-        host: 'mainline.proxy.rlwy.net',
-        port: 38539,
-        user: 'postgres',
-        password: 'vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT',
-        database: 'railway',
-        ssl: {
-            rejectUnauthorized: false,
-        },
-    });
-    return pool;
-}
 
 export type Condominio = {
   id: string;
@@ -121,7 +102,7 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
         const pool = await getDbPool();
         client = await pool.connect();
         await client.query('INSERT INTO condominios (name, address) VALUES ($1, $2)', [name, address]);
-        return { success: true, message: `Condominio "${name}" creado con éxito.` };
+        return { success: true, message: `Condomínio "${name}" criado com sucesso.` };
     } catch (error) {
         console.error('Error creating condominio:', error);
         return { success: false, message: 'Error del servidor al crear el condominio.' };
@@ -159,13 +140,13 @@ export async function updateCondominio(prevState: any, formData: FormData): Prom
         const pool = await getDbPool();
         client = await pool.connect();
         const result = await client.query(
-            'UPDATE condominios SET name = $1, address = $2 WHERE id = $3 RETURNING *',
+            'UPDATE condominios SET name = $1, address = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
             [name, address, id]
         );
         if (result.rowCount === 0) {
             return { success: false, message: 'No se encontró el condominio para actualizar.' };
         }
-        return { success: true, message: 'Condominio actualizado con éxito.' };
+        return { success: true, message: 'Condomínio atualizado com sucesso.' };
     } catch (error) {
         console.error('Error updating condominio:', error);
         return { success: false, message: 'Error del servidor.' };
@@ -193,7 +174,7 @@ export async function deleteCondominio(id: string): Promise<ActionState<null>> {
         if (result.rowCount === 0) {
             return { success: false, message: 'No se encontró el condominio para eliminar.' };
         }
-        return { success: true, message: 'Condominio eliminado con éxito.' };
+        return { success: true, message: 'Condomínio excluído com sucesso.' };
     } catch (error) {
         console.error('Error deleting condominio:', error);
         return { success: false, message: 'Error del servidor.' };

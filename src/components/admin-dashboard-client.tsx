@@ -25,7 +25,7 @@ import {
   KeyRound,
   AlertCircle
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -128,25 +128,24 @@ function LogoutDialogContent() {
     )
 }
 
-function CreateAdminSubmitButton() {
+function CreateCondoSubmitButton() {
     const { pending } = useFormStatus();
     const { t } = useLocale();
 
     return (
         <Button type="submit" disabled={pending}>
             {pending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-            {t('adminDashboard.manageAdmins.createButton')}
+            {t('adminDashboard.newCondoDialog.create')}
         </Button>
     )
 }
 
-function LoadingOverlay() {
-    const { t } = useLocale();
+function LoadingOverlay({ text }: { text: string }) {
     return (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
             <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                 <Loader className="h-12 w-12 animate-spin" />
-                <span>{t('adminDashboard.loadingOverlay.creating')}</span>
+                <span>{text}</span>
             </div>
         </div>
     );
@@ -156,7 +155,6 @@ function ManageAdminsForm({closeDialog}: {closeDialog: () => void}) {
     const { t } = useLocale();
     const { toast } = useToast();
     const [state, formAction] = useActionState(createAdmin, undefined);
-    const { pending } = useFormStatus();
     
     useEffect(() => {
         if (state?.success === false) {
@@ -177,49 +175,53 @@ function ManageAdminsForm({closeDialog}: {closeDialog: () => void}) {
 
     return (
         <form action={formAction}>
-            <div className={cn("relative transition-opacity", pending && "opacity-50")}>
-                {pending && <LoadingOverlay />}
-                <DialogHeader>
-                    <DialogTitle>{t('adminDashboard.manageAdmins.title')}</DialogTitle>
-                    <DialogDescription>{t('adminDashboard.manageAdmins.description')}</DialogDescription>
-                </DialogHeader>
-                 <div className="grid gap-4 py-4">
-                    {state?.success === false && (
-                        <Alert variant="destructive">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-                            <AlertDescription>{state.message}</AlertDescription>
-                        </Alert>
-                    )}
-                    <div className="grid gap-2">
-                        <Label htmlFor="name">{t('adminDashboard.manageAdmins.nameLabel')}</Label>
-                        <Input id="name" name="name" placeholder="John Doe" required disabled={pending}/>
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="email">{t('adminDashboard.manageAdmins.emailLabel')}</Label>
-                        <Input id="email" name="email" type="email" placeholder="admin@example.com" required autoComplete="email" disabled={pending}/>
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="password">{t('adminDashboard.manageAdmins.passwordLabel')}</Label>
-                        <Input id="password" name="password" type="password" required autoComplete="new-password" disabled={pending}/>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                       <Checkbox id="can_create_admins" name="can_create_admins" disabled={pending}/>
-                       <Label htmlFor="can_create_admins" className="text-sm font-normal">
-                            {t('adminDashboard.manageAdmins.canCreateAdminsLabel')}
-                        </Label>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <DialogClose asChild>
-                        <Button variant="outline" disabled={pending}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
-                    </DialogClose>
-                    <Button type="submit" disabled={pending}>
-                        {t('adminDashboard.manageAdmins.createButton')}
-                    </Button>
-                </DialogFooter>
-            </div>
+            <FormFields />
         </form>
+    )
+}
+
+function FormFields() {
+    const { t } = useLocale();
+    const { pending, data } = useFormStatus();
+    const state = data?.get('state'); // A bit of a hack to get the state back
+
+    return (
+         <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+            {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.creating')} />}
+            <DialogHeader>
+                <DialogTitle>{t('adminDashboard.manageAdmins.title')}</DialogTitle>
+                <DialogDescription>{t('adminDashboard.manageAdmins.description')}</DialogDescription>
+            </DialogHeader>
+             <div className="grid gap-4 py-4">
+                {/* We don't have access to `state` here directly, so we can't show a generic error alert */}
+                <div className="grid gap-2">
+                    <Label htmlFor="name">{t('adminDashboard.manageAdmins.nameLabel')}</Label>
+                    <Input id="name" name="name" placeholder="John Doe" required disabled={pending}/>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="email">{t('adminDashboard.manageAdmins.emailLabel')}</Label>
+                    <Input id="email" name="email" type="email" placeholder="admin@example.com" required autoComplete="email" disabled={pending}/>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="password">{t('adminDashboard.manageAdmins.passwordLabel')}</Label>
+                    <Input id="password" name="password" type="password" required autoComplete="new-password" disabled={pending}/>
+                </div>
+                <div className="flex items-center space-x-2">
+                   <Checkbox id="can_create_admins" name="can_create_admins" disabled={pending}/>
+                   <Label htmlFor="can_create_admins" className="text-sm font-normal">
+                        {t('adminDashboard.manageAdmins.canCreateAdminsLabel')}
+                    </Label>
+                </div>
+            </div>
+            <DialogFooter>
+                <DialogClose asChild>
+                    <Button variant="outline" disabled={pending}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
+                </DialogClose>
+                <Button type="submit" disabled={pending}>
+                    {t('adminDashboard.manageAdmins.createButton')}
+                </Button>
+            </DialogFooter>
+        </div>
     )
 }
 
@@ -242,6 +244,59 @@ function ManageAdminsDialog() {
     )
 }
 
+function CreateCondoForm({ closeDialog }: { closeDialog: () => void }) {
+    const { t } = useLocale();
+    const { toast } = useToast();
+    const [state, formAction] = useActionState(createCondominio, undefined);
+
+    useEffect(() => {
+        if (state?.success === false) {
+            toast({ title: t('toast.errorTitle'), description: state.message, variant: 'destructive' });
+        }
+        if (state?.success === true) {
+            toast({ title: t('toast.successTitle'), description: state.message });
+            closeDialog();
+        }
+    }, [state, t, toast, closeDialog]);
+
+    return (
+        <form action={formAction}>
+            <CreateCondoFields />
+        </form>
+    );
+}
+
+function CreateCondoFields() {
+    const { t } = useLocale();
+    const { pending } = useFormStatus();
+
+    return (
+        <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+            {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.creating')} />}
+            <DialogHeader>
+                <DialogTitle>{t('adminDashboard.newCondoDialog.title')}</DialogTitle>
+                <DialogDescription>{t('adminDashboard.newCondoDialog.description')}</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
+                    <Input id="name" name="name" placeholder="Ex: Residencial Jardins" required disabled={pending} />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="address">{t('adminDashboard.newCondoDialog.addressLabel')}</Label>
+                    <Input id="address" name="address" placeholder="Ex: Rua das Flores, 123" required disabled={pending} />
+                </div>
+            </div>
+            <DialogFooter>
+                <DialogClose asChild>
+                    <Button variant="outline" disabled={pending}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
+                </DialogClose>
+                <CreateCondoSubmitButton />
+            </DialogFooter>
+        </div>
+    );
+}
+
 export default function AdminDashboardClient({ session }: { session: Session }) {
   const { t, setLocale, locale } = useLocale();
   const { toast } = useToast();
@@ -251,9 +306,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const [loading, setLoading] = useState(true);
   
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
-  const [newCondoName, setNewCondoName] = useState('');
-  const [newCondoAddress, setNewCondoAddress] = useState('');
-
   const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
   const [editingCondo, setEditingCondo] = useState<Condominio | null>(null);
   
@@ -297,32 +349,11 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       await updateSettings({ language: newLocale });
   }
 
-  const handleCreateCondominio = async (formData: FormData) => {
-    const result = await createCondominio(formData);
-    if (result.success) {
-      toast({
-        title: t('toast.successTitle'),
-        description: result.message,
-      });
-      setIsNewCondoDialogOpen(false);
-      setNewCondoName('');
-      setNewCondoAddress('');
-      fetchCondos(); // Refetch list
-    } else {
-      toast({
-        title: t('toast.errorTitle'),
-        description: result.message,
-        variant: 'destructive',
-      });
-    }
-    return result;
-  };
-
-  const handleEditCondo = async (formData: FormData) => {
-    if (!editingCondo) return;
+  const handleEditCondo = async (prevState: any, formData: FormData) => {
+    if (!editingCondo) return { success: false, message: "No condo selected for editing."};
     formData.append('id', editingCondo.id);
     
-    const result = await updateCondominio(formData);
+    const result = await updateCondominio(prevState, formData);
     if (result.success) {
         toast({
             title: t('toast.successTitle'),
@@ -338,6 +369,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
             variant: 'destructive',
         });
     }
+    return result;
   };
   
   const handleDeleteCondo = async (condoId: string) => {
@@ -365,6 +397,11 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const navigateToCondo = (condoId: string) => {
     router.push(`/admin/condominio/${condoId}`);
   };
+
+  const handleNewCondoCreated = () => {
+      setIsNewCondoDialogOpen(false);
+      fetchCondos();
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -469,38 +506,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
-                  <form action={handleCreateCondominio}>
-                    <DialogHeader>
-                      <DialogTitle>{t('adminDashboard.newCondoDialog.title')}</DialogTitle>
-                      <DialogDescription>{t('adminDashboard.newCondoDialog.description')}</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
-                        <Input
-                          id="name"
-                          name="name"
-                          placeholder="Ex: Residencial Jardins"
-                          required
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="address">{t('adminDashboard.newCondoDialog.addressLabel')}</Label>
-                        <Input
-                          id="address"
-                          name="address"
-                          placeholder="Ex: Rua das Flores, 123"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <DialogClose asChild>
-                        <Button variant="outline">{t('adminDashboard.newCondoDialog.cancel')}</Button>
-                      </DialogClose>
-                      <Button type="submit">{t('adminDashboard.newCondoDialog.create')}</Button>
-                    </DialogFooter>
-                  </form>
+                  <CreateCondoForm closeDialog={handleNewCondoCreated} />
                 </DialogContent>
               </Dialog>
             </CardHeader>
@@ -526,6 +532,12 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                             </TableCell>
                         </TableRow>
                     ))
+                  ) : condominios.length === 0 ? (
+                    <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center">
+                            {t('adminDashboard.noCondos')}
+                        </TableCell>
+                    </TableRow>
                   ) : condominios.map((condo) => (
                     <TableRow key={condo.id} >
                       <TableCell>

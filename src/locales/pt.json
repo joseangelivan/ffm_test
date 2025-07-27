@@ -94,6 +94,7 @@
       "condoListTitle": "Condomínios Registrados",
       "condoListDescription": "Gerencie todos os condomínios a partir daqui.",
       "createCondoButton": "Criar Condomínio",
+      "noCondos": "Nenhum condomínio registrado ainda.",
       "newCondoDialog": {
         "title": "Criar Novo Condomínio",
         "description": "Insira os detalhes do novo condominio.",
@@ -105,10 +106,7 @@
       "editCondoDialog": {
         "title": "Editar Condomínio",
         "description": "Atualize os detalhes do condomínio.",
-        "save": "Salvar Alterações",
-        "toast": {
-          "condoUpdated": "Condomínio atualizado com sucesso."
-        }
+        "save": "Salvar Alterações"
       },
       "deleteCondoDialog": {
         "title": "Você tem certeza?",
@@ -124,11 +122,6 @@
         "manage": "Gerenciar",
         "edit": "Editar",
         "delete": "Excluir"
-      },
-      "toast": {
-        "fillAllFields": "Por favor, preencha todos os campos para criar o condomínio.",
-        "condoCreated": "Condomínio \"{name}\" criado com sucesso.",
-        "condoDeleted": "Condomínio excluído."
       },
       "manageAdmins": {
         "title": "Gerenciar Administradores",
