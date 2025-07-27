@@ -110,13 +110,11 @@ type LocationData = {
 const LocationSelector = ({
     defaultValues,
     onLocationChange,
-    isFormDisabled,
-    onLoadingChange
+    isFormDisabled
 }: {
     defaultValues: Partial<LocationData>,
     onLocationChange: (name: string, value: string) => void,
-    isFormDisabled?: boolean,
-    onLoadingChange?: (isLoading: boolean) => void
+    isFormDisabled?: boolean
 }) => {
     const { t } = useLocale();
     const [isPending, startTransition] = useTransition();
@@ -130,35 +128,31 @@ const LocationSelector = ({
     const [selectedCountry, setSelectedCountry] = useState(defaultValues.country || "");
     const [selectedState, setSelectedState] = useState(defaultValues.state || "");
     const [selectedCity, setSelectedCity] = useState(defaultValues.city || "");
-
+    
     const [loadingContinents, setLoadingContinents] = useState(true);
     const [loadingCountries, setLoadingCountries] = useState(false);
     const [loadingStates, setLoadingStates] = useState(false);
     const [loadingCities, setLoadingCities] = useState(false);
 
     const overallLoading = loadingContinents || loadingCountries || loadingStates || loadingCities;
-
-    useEffect(() => {
-        onLoadingChange?.(overallLoading);
-    }, [overallLoading, onLoadingChange]);
     
-     useEffect(() => {
+    useEffect(() => {
         const fetchInitialData = async () => {
             setLoadingContinents(true);
             try {
-                const response = await fetch('https://restcountries.com/v3.1/all?fields=region');
+                const response = await fetch('https://restcountries.com/v3.1/all?fields=region,name');
                 const data = await response.json();
                 if (response.ok) {
                     const uniqueContinents = [...new Set(data.map((c:any) => c.region))].filter(Boolean).sort();
                     setAllContinents(uniqueContinents);
+
                     if(defaultValues.country) {
-                         const currentCountryResponse = await fetch(`https://restcountries.com/v3.1/name/${defaultValues.country}?fullText=true&fields=region`);
-                         const currentCountryData = await currentCountryResponse.json();
-                         if(currentCountryData.length > 0) {
-                             const continent = currentCountryData[0].region;
-                             setSelectedContinent(continent);
-                             // Start the cascade
-                             await handleContinentChange(continent, true);
+                         const currentCountryInfo = data.find((c: any) => c.name.common === defaultValues.country);
+                         if (currentCountryInfo) {
+                            const continent = currentCountryInfo.region;
+                            setSelectedContinent(continent);
+                            // Start the cascade
+                            await handleContinentChange(continent, defaultValues.country, defaultValues.state, defaultValues.city);
                          }
                     }
                 }
@@ -173,10 +167,10 @@ const LocationSelector = ({
             fetchInitialData();
         });
 
-    }, [defaultValues.country]);
+    }, [defaultValues.country, defaultValues.state, defaultValues.city]);
 
 
-    const handleContinentChange = async (continent: string, isInitialLoad = false) => {
+    const handleContinentChange = async (continent: string, countryToSet?: string, stateToSet?: string, cityToSet?: string) => {
         setSelectedContinent(continent);
         setCountries([]);
         setStates([]);
@@ -196,9 +190,10 @@ const LocationSelector = ({
                 if (response.ok) {
                     const countryNames = data.map((c: any) => c.name.common).sort();
                     setCountries(countryNames);
-                    if(isInitialLoad && defaultValues.country) {
-                         setSelectedCountry(defaultValues.country);
-                         await handleCountryChange(defaultValues.country, true);
+                    if(countryToSet) {
+                         setSelectedCountry(countryToSet);
+                         onLocationChange('country', countryToSet);
+                         await handleCountryChange(countryToSet, stateToSet, cityToSet);
                     }
                 }
             } catch (error) {
@@ -209,7 +204,7 @@ const LocationSelector = ({
         }
     }
 
-    const handleCountryChange = async (countryName: string, isInitialLoad = false) => {
+    const handleCountryChange = async (countryName: string, stateToSet?: string, cityToSet?: string) => {
         setSelectedCountry(countryName);
         onLocationChange('country', countryName);
         setStates([]);
@@ -231,9 +226,10 @@ const LocationSelector = ({
                 if (!data.error && data.data?.states) {
                     const stateNames = data.data.states.map((s: any) => s.name).sort();
                     setStates(stateNames);
-                    if(isInitialLoad && defaultValues.state) {
-                         setSelectedState(defaultValues.state);
-                         await handleStateChange(defaultValues.state, true);
+                    if(stateToSet) {
+                         setSelectedState(stateToSet);
+                         onLocationChange('state', stateToSet);
+                         await handleStateChange(countryName, stateToSet, cityToSet);
                     }
                 } else {
                      setStates([]);
@@ -247,28 +243,28 @@ const LocationSelector = ({
         }
     }
     
-    const handleStateChange = async (stateName: string, isInitialLoad = false) => {
+    const handleStateChange = async (countryName: string, stateName: string, cityToSet?: string) => {
         setSelectedState(stateName);
         onLocationChange('state', stateName);
         setCities([]);
         setSelectedCity('');
         onLocationChange('city', '');
 
-        if (stateName && selectedCountry) {
+        if (stateName && countryName) {
             setLoadingCities(true);
             try {
                 const response = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ country: selectedCountry, state: stateName })
+                    body: JSON.stringify({ country: countryName, state: stateName })
                 });
                 const data = await response.json();
                 if (!data.error && Array.isArray(data.data)) {
                     const sortedCities = data.data.sort();
                     setCities(sortedCities);
-                    if (isInitialLoad && defaultValues.city && sortedCities.includes(defaultValues.city)) {
-                        setSelectedCity(defaultValues.city);
-                        onLocationChange('city', defaultValues.city);
+                    if (cityToSet && sortedCities.includes(cityToSet)) {
+                        setSelectedCity(cityToSet);
+                        onLocationChange('city', cityToSet);
                     }
                 } else {
                     setCities([]);
@@ -287,12 +283,9 @@ const LocationSelector = ({
         onLocationChange('city', cityName);
     }
     
-    const createSelectHandler = (setter: Function, action?: (value: string) => Promise<void>) => (value: string) => {
+    const createSelectHandler = (action: (value: string) => void) => (value: string) => {
         startTransition(() => {
-            setter(value);
-            if (action) {
-                action(value);
-            }
+           action(value);
         });
     };
 
@@ -300,7 +293,11 @@ const LocationSelector = ({
         <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2 col-span-2">
                 <Label htmlFor="continent-display">Continente</Label>
-                <Select onValueChange={createSelectHandler(setSelectedContinent, handleContinentChange)} value={selectedContinent} disabled={isFormDisabled || loadingContinents}>
+                <Select 
+                    onValueChange={createSelectHandler((continent) => handleContinentChange(continent))} 
+                    value={selectedContinent} 
+                    disabled={isFormDisabled || loadingContinents}
+                >
                     <SelectTrigger id="continent-display">
                         <SelectValue placeholder={loadingContinents ? "Cargando continentes..." : "Seleccionar continente"} />
                     </SelectTrigger>
@@ -311,7 +308,11 @@ const LocationSelector = ({
             </div>
             <div className="grid gap-2">
                 <Label htmlFor="country-display">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
-                <Select onValueChange={createSelectHandler(setSelectedCountry, handleCountryChange)} value={selectedCountry} disabled={!selectedContinent || loadingCountries || isFormDisabled}>
+                <Select 
+                    onValueChange={createSelectHandler((country) => handleCountryChange(country))} 
+                    value={selectedCountry} 
+                    disabled={!selectedContinent || loadingCountries || isFormDisabled}
+                >
                     <SelectTrigger id="country-display">
                         <SelectValue placeholder={loadingCountries ? "Cargando países..." : "Seleccionar país"} />
                     </SelectTrigger>
@@ -322,7 +323,11 @@ const LocationSelector = ({
             </div>
             <div className="grid gap-2">
                 <Label htmlFor="state-display">{t('adminDashboard.newCondoDialog.stateLabel')}</Label>
-                <Select onValueChange={createSelectHandler(setSelectedState, handleStateChange)} value={selectedState} disabled={!selectedCountry || loadingStates || isFormDisabled}>
+                <Select 
+                    onValueChange={createSelectHandler((state) => handleStateChange(selectedCountry, state))} 
+                    value={selectedState} 
+                    disabled={!selectedCountry || loadingStates || isFormDisabled}
+                >
                     <SelectTrigger id="state-display">
                          <SelectValue placeholder={loadingStates ? "Cargando estados..." : "Seleccionar estado"} />
                     </SelectTrigger>
@@ -333,7 +338,11 @@ const LocationSelector = ({
             </div>
              <div className="grid gap-2 col-span-2">
                 <Label htmlFor="city-display">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
-                 <Select onValueChange={createSelectHandler(setSelectedCity, (city) => { onLocationChange('city', city); return Promise.resolve()})} value={selectedCity} disabled={!selectedState || loadingCities || isFormDisabled}>
+                 <Select 
+                    onValueChange={createSelectHandler((city) => handleCityChange(city))} 
+                    value={selectedCity} 
+                    disabled={!selectedState || loadingCities || isFormDisabled}
+                 >
                     <SelectTrigger id="city-display">
                         <SelectValue placeholder={loadingCities ? "Cargando ciudades..." : "Seleccionar ciudad"} />
                     </SelectTrigger>
@@ -342,10 +351,10 @@ const LocationSelector = ({
                     </SelectContent>
                 </Select>
             </div>
-            {(isPending || overallLoading) && (
+            {isPending && (
                  <div className="col-span-2 flex items-center justify-center gap-2 text-muted-foreground text-sm">
                     <Loader className="h-4 w-4 animate-spin" />
-                    Cargando datos de ubicación...
+                    Actualizando...
                 </div>
             )}
         </div>
@@ -396,7 +405,7 @@ function SubmitButton({ label, pendingLabel }: { label: string; pendingLabel: st
 
 function LoadingOverlay({ text }: { text: string }) {
     return (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
             <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                 <Loader className="h-12 w-12 animate-spin" />
                 <span>{text}</span>
@@ -508,12 +517,23 @@ function CondoFormFields({
     const { t } = useLocale();
     const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData || {});
     const [isLocationLoading, setIsLocationLoading] = useState(isEditMode);
+    
+    // Using a ref to track if it's the initial load for the location selector
+    const isInitialLoadRef = useRef(isEditMode);
 
     const handleLocationChange = useCallback((name: string, value: string) => {
         setLocationData((prev) => ({ ...prev, [name]: value }));
     }, []);
+    
+    useEffect(() => {
+        // This effect runs only once after the component mounts to set initial state
+        if (isInitialLoadRef.current && isEditMode) {
+            // The loading state will be managed inside the LocationSelector now.
+            // This just serves to trigger the initial load logic.
+        }
+    }, [isEditMode]);
 
-    const showOverlay = pending || isLocationLoading;
+    const showOverlay = pending || (isEditMode && isLocationLoading);
     
     return (
         <div className={cn('relative transition-opacity', showOverlay && 'opacity-50')}>
@@ -560,7 +580,6 @@ function CondoFormFields({
               onLocationChange={handleLocationChange}
               defaultValues={locationData}
               isFormDisabled={showOverlay}
-              onLoadingChange={setIsLocationLoading}
             />
 
             <div className="grid grid-cols-3 gap-4">
