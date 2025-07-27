@@ -37,6 +37,7 @@ import {
   Link2,
   Sparkles,
   Search,
+  Loader,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -78,16 +79,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { getCurrentSession } from '@/actions/auth';
+import { getCondominioById, type Condominio } from '@/actions/condos';
 import { redirect } from 'next/navigation';
 
 // Mock data
-const mockCondoDetails = {
-  id: 'condo-001',
-  name: 'Residencial Jardins',
-  address: 'Rua das Flores, 123',
-  location: { lat: -23.5505, lng: -46.6333 }
-};
-
 const mockDevices = [
   { id: 'dev-01', name: 'Tracker Portão 1', type: 'esp32', status: 'Online', token: 'a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8' },
   { id: 'dev-02', name: 'Câmera Corredor A', type: 'other', status: 'Online', token: 'b2c3d4e5-f6g7-8901-h2i3-j4k5l6m7n8o9' },
@@ -1213,7 +1208,50 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 function CondominioDashboardPageContent({ condoId }: { condoId: string }) {
   const { t } = useLocale();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const condo = mockCondoDetails; // In a real app, you'd fetch this based on condoId
+  const [condo, setCondo] = useState<Condominio | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchCondo() {
+      const result = await getCondominioById(condoId);
+      if (result.success && result.data) {
+        setCondo(result.data);
+      } else {
+        // Handle error, maybe show a toast or redirect
+        console.error(result.message);
+      }
+      setLoading(false);
+    }
+    fetchCondo();
+  }, [condoId]);
+
+  if (loading) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-muted/40">
+            <Loader className="h-12 w-12 animate-spin text-primary" />
+        </div>
+      )
+  }
+
+  if (!condo) {
+    return (
+        <div className="flex min-h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
+          <Card>
+            <CardHeader>
+                <CardTitle>Error</CardTitle>
+                <CardDescription>No se pudo cargar la información del condominio.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Link href="/admin/dashboard">
+                    <Button>Volver al Panel</Button>
+                </Link>
+            </CardContent>
+          </Card>
+        </div>
+    );
+  }
+
+  const mapCenter = { lat: -23.5505, lng: -46.6333 }; // Default, should be replaced with condo location
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -1247,7 +1285,7 @@ function CondominioDashboardPageContent({ condoId }: { condoId: string }) {
              <TabsContent value="map" className="mt-4">
               {apiKey ? (
                  <APIProvider apiKey={apiKey} libraries={['drawing']}>
-                    <CondoMapTab center={condo.location} />
+                    <CondoMapTab center={mapCenter} />
                  </APIProvider>
               ) : (
                 <Card>

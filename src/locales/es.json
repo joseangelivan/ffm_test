@@ -110,6 +110,10 @@
           "condoUpdated": "Condominio actualizado con éxito."
         }
       },
+       "deleteCondoDialog": {
+        "title": "¿Estás seguro?",
+        "description": "Esta acción no se puede deshacer. Esto eliminará permanentemente el condominio \"{name}\" y todos sus datos asociados."
+      },
       "table": {
         "condo": "Condominio",
         "devices": "Dispositivos",
@@ -134,6 +138,9 @@
         "passwordLabel": "Contraseña",
         "canCreateAdminsLabel": "Permitir a este usuario crear otros administradores",
         "createButton": "Crear Administrador"
+      },
+      "loadingOverlay": {
+          "creating": "Creando..."
       }
     },
     "condoDashboard": {

@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import React, { useState, useEffect, useRef, useActionState } from 'react';
+import React, { useState, useEffect, useActionState, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
   Building,
@@ -82,20 +83,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { handleLogoutAction, getSettings, updateSettings, createAdmin } from '@/actions/auth';
+import { createCondominio, getCondominios, updateCondominio, deleteCondominio, type Condominio } from '@/actions/condos';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Checkbox } from './ui/checkbox';
 
-
-type Condominio = {
-  id: string;
-  name: string;
-  address: string;
-  devices: number;
-  residents: number;
-  doormen: number;
-};
 
 type Session = {
     id: string;
@@ -104,12 +97,6 @@ type Session = {
     canCreateAdmins: boolean;
     type: 'admin' | 'resident' | 'gatekeeper';
 }
-
-const mockCondominios = [
-    { id: 'condo-001', name: 'Residencial Jardins', address: 'Rua das Flores, 123', devices: 15, residents: 45, doormen: 3 },
-    { id: 'condo-002', name: 'Condomínio Morada do Sol', address: 'Av. Principal, 456', devices: 25, residents: 80, doormen: 5 },
-    { id: 'condo-003', name: 'Parque das Águas', address: 'Alameda dos Pássaros, 789', devices: 8, residents: 22, doormen: 2 },
-];
 
 function LogoutDialogContent() {
     const { pending } = useFormStatus();
@@ -159,7 +146,7 @@ function LoadingOverlay() {
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
             <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                 <Loader className="h-12 w-12 animate-spin" />
-                <span>Creando...</span>
+                <span>{t('adminDashboard.loadingOverlay.creating')}</span>
             </div>
         </div>
     );
@@ -168,8 +155,8 @@ function LoadingOverlay() {
 function ManageAdminsForm({closeDialog}: {closeDialog: () => void}) {
     const { t } = useLocale();
     const { toast } = useToast();
-    const { pending } = useFormStatus();
     const [state, formAction] = useActionState(createAdmin, undefined);
+    const { pending } = useFormStatus();
     
     useEffect(() => {
         if (state?.success === false) {
@@ -260,7 +247,8 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const { toast } = useToast();
   const router = useRouter();
 
-  const [condominios, setCondominios] = useState<Condominio[]>(mockCondominios);
+  const [condominios, setCondominios] = useState<Condominio[]>([]);
+  const [loading, setLoading] = useState(true);
   
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
   const [newCondoName, setNewCondoName] = useState('');
@@ -268,10 +256,23 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
 
   const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
   const [editingCondo, setEditingCondo] = useState<Condominio | null>(null);
-  const [editCondoName, setEditCondoName] = useState('');
-  const [editCondoAddress, setEditCondoAddress] = useState('');
-
+  
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  const fetchCondos = async () => {
+      setLoading(true);
+      const result = await getCondominios();
+      if(result.success && result.data) {
+          setCondominios(result.data);
+      } else {
+          toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+      }
+      setLoading(false);
+  }
+
+  useEffect(() => {
+    fetchCondos();
+  }, []);
 
   useEffect(() => {
     async function loadSettings() {
@@ -296,71 +297,64 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       await updateSettings({ language: newLocale });
   }
 
-  useEffect(() => {
-    if (editingCondo) {
-      setEditCondoName(editingCondo.name);
-      setEditCondoAddress(editingCondo.address);
+  const handleCreateCondominio = async (formData: FormData) => {
+    const result = await createCondominio(formData);
+    if (result.success) {
+      toast({
+        title: t('toast.successTitle'),
+        description: result.message,
+      });
+      setIsNewCondoDialogOpen(false);
+      setNewCondoName('');
+      setNewCondoAddress('');
+      fetchCondos(); // Refetch list
     } else {
-      setEditCondoName('');
-      setEditCondoAddress('');
-    }
-  }, [editingCondo]);
-
-  const handleCreateCondominio = () => {
-    if (!newCondoName || !newCondoAddress) {
       toast({
         title: t('toast.errorTitle'),
-        description: t('adminDashboard.toast.fillAllFields'),
+        description: result.message,
         variant: 'destructive',
       });
-      return;
     }
-    const newCondo: Condominio = {
-      id: `condo-${Math.random().toString(36).substr(2, 9)}`,
-      name: newCondoName,
-      address: newCondoAddress,
-      devices: 0,
-      residents: 0,
-      doormen: 0,
-    };
-    setCondominios(prev => [...prev, newCondo]);
-    toast({
-      title: t('toast.successTitle'),
-      description: t('adminDashboard.toast.condoCreated', { name: newCondoName }),
-    });
-    setNewCondoName('');
-    setNewCondoAddress('');
-    setIsNewCondoDialogOpen(false);
+    return result;
   };
 
-  const handleEditCondo = () => {
-    if (!editingCondo || !editCondoName || !editCondoAddress) {
-      toast({
-        title: t('toast.errorTitle'),
-        description: t('adminDashboard.toast.fillAllFields'),
-        variant: 'destructive',
-      });
-      return;
+  const handleEditCondo = async (formData: FormData) => {
+    if (!editingCondo) return;
+    formData.append('id', editingCondo.id);
+    
+    const result = await updateCondominio(formData);
+    if (result.success) {
+        toast({
+            title: t('toast.successTitle'),
+            description: result.message,
+        });
+        setIsEditCondoDialogOpen(false);
+        setEditingCondo(null);
+        fetchCondos();
+    } else {
+        toast({
+            title: t('toast.errorTitle'),
+            description: result.message,
+            variant: 'destructive',
+        });
     }
-    setCondominios(prev =>
-      prev.map(c =>
-        c.id === editingCondo.id ? { ...c, name: editCondoName, address: editCondoAddress } : c
-      )
-    );
-    toast({
-        title: t('toast.successTitle'),
-        description: t('adminDashboard.editCondoDialog.toast.condoUpdated'),
-    });
-    setEditingCondo(null);
-    setIsEditCondoDialogOpen(false);
   };
   
-  const handleDeleteCondo = (condoId: string) => {
-    setCondominios(prev => prev.filter(c => c.id !== condoId));
-    toast({
-      title: t('toast.successTitle'),
-      description: t('adminDashboard.toast.condoDeleted'),
-    });
+  const handleDeleteCondo = async (condoId: string) => {
+    const result = await deleteCondominio(condoId);
+     if (result.success) {
+        toast({
+            title: t('toast.successTitle'),
+            description: result.message,
+        });
+        fetchCondos();
+    } else {
+        toast({
+            title: t('toast.errorTitle'),
+            description: result.message,
+            variant: 'destructive',
+        });
+    }
   }
 
   const openEditDialog = (condo: Condominio) => {
@@ -475,34 +469,38 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{t('adminDashboard.newCondoDialog.title')}</DialogTitle>
-                    <DialogDescription>{t('adminDashboard.newCondoDialog.description')}</DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="condo-name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
-                      <Input
-                        id="condo-name"
-                        value={newCondoName}
-                        onChange={(e) => setNewCondoName(e.target.value)}
-                        placeholder="Ex: Residencial Jardins"
-                      />
+                  <form action={handleCreateCondominio}>
+                    <DialogHeader>
+                      <DialogTitle>{t('adminDashboard.newCondoDialog.title')}</DialogTitle>
+                      <DialogDescription>{t('adminDashboard.newCondoDialog.description')}</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
+                        <Input
+                          id="name"
+                          name="name"
+                          placeholder="Ex: Residencial Jardins"
+                          required
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="address">{t('adminDashboard.newCondoDialog.addressLabel')}</Label>
+                        <Input
+                          id="address"
+                          name="address"
+                          placeholder="Ex: Rua das Flores, 123"
+                          required
+                        />
+                      </div>
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="condo-address">{t('adminDashboard.newCondoDialog.addressLabel')}</Label>
-                      <Input
-                        id="condo-address"
-                        value={newCondoAddress}
-                        onChange={(e) => setNewCondoAddress(e.target.value)}
-                        placeholder="Ex: Rua das Flores, 123"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsNewCondoDialogOpen(false)}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
-                    <Button onClick={handleCreateCondominio}>{t('adminDashboard.newCondoDialog.create')}</Button>
-                  </DialogFooter>
+                    <DialogFooter>
+                      <DialogClose asChild>
+                        <Button variant="outline">{t('adminDashboard.newCondoDialog.cancel')}</Button>
+                      </DialogClose>
+                      <Button type="submit">{t('adminDashboard.newCondoDialog.create')}</Button>
+                    </DialogFooter>
+                  </form>
                 </DialogContent>
               </Dialog>
             </CardHeader>
@@ -520,15 +518,23 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {condominios.map((condo) => (
+                  {loading ? (
+                    Array.from({ length: 3 }).map((_, index) => (
+                        <TableRow key={index}>
+                            <TableCell colSpan={5} className="p-4">
+                                <Skeleton className="h-10 w-full" />
+                            </TableCell>
+                        </TableRow>
+                    ))
+                  ) : condominios.map((condo) => (
                     <TableRow key={condo.id} >
                       <TableCell>
                         <div className="font-medium">{condo.name}</div>
                         <div className="text-sm text-muted-foreground">{condo.address}</div>
                       </TableCell>
-                      <TableCell>{condo.devices}</TableCell>
-                      <TableCell>{condo.residents}</TableCell>
-                      <TableCell>{condo.doormen}</TableCell>
+                      <TableCell>{condo.devices_count || 0}</TableCell>
+                      <TableCell>{condo.residents_count || 0}</TableCell>
+                      <TableCell>{condo.gatekeepers_count || 0}</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -544,9 +550,27 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                             <DropdownMenuItem onSelect={() => openEditDialog(condo)}>
                                 <Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteCondo(condo.id)}>
-                                <Trash2 className="h-4 w-4 mr-2"/>{t('adminDashboard.table.delete')}
-                            </DropdownMenuItem>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>
+                                        <Trash2 className="h-4 w-4 mr-2"/>{t('adminDashboard.table.delete')}
+                                    </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>{t('adminDashboard.deleteCondoDialog.title')}</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            {t('adminDashboard.deleteCondoDialog.description', {name: condo.name})}
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>{t('adminDashboard.newCondoDialog.cancel')}</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDeleteCondo(condo.id)} className={buttonVariants({variant: 'destructive'})}>
+                                            {t('adminDashboard.table.delete')}
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -560,38 +584,44 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       </main>
 
       {/* Edit Condo Dialog */}
-      <Dialog open={isEditCondoDialogOpen} onOpenChange={setIsEditCondoDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('adminDashboard.editCondoDialog.title')}</DialogTitle>
-            <DialogDescription>{t('adminDashboard.editCondoDialog.description')}</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-condo-name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
-              <Input
-                id="edit-condo-name"
-                value={editCondoName}
-                onChange={(e) => setEditCondoName(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-condo-address">{t('adminDashboard.newCondoDialog.addressLabel')}</Label>
-              <Input
-                id="edit-condo-address"
-                value={editCondoAddress}
-                onChange={(e) => setEditCondoAddress(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditCondoDialogOpen(false)}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
-            <Button onClick={handleEditCondo}>{t('adminDashboard.editCondoDialog.save')}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {editingCondo && (
+        <Dialog open={isEditCondoDialogOpen} onOpenChange={setIsEditCondoDialogOpen}>
+            <DialogContent>
+            <form action={handleEditCondo}>
+                <DialogHeader>
+                    <DialogTitle>{t('adminDashboard.editCondoDialog.title')}</DialogTitle>
+                    <DialogDescription>{t('adminDashboard.editCondoDialog.description')}</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                    <Label htmlFor="name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
+                    <Input
+                        id="name"
+                        name="name"
+                        defaultValue={editingCondo.name}
+                        required
+                    />
+                    </div>
+                    <div className="grid gap-2">
+                    <Label htmlFor="address">{t('adminDashboard.newCondoDialog.addressLabel')}</Label>
+                    <Input
+                        id="address"
+                        name="address"
+                        defaultValue={editingCondo.address}
+                        required
+                    />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="outline">{t('adminDashboard.newCondoDialog.cancel')}</Button>
+                    </DialogClose>
+                    <Button type="submit">{t('adminDashboard.editCondoDialog.save')}</Button>
+                </DialogFooter>
+            </form>
+            </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
-
-    
