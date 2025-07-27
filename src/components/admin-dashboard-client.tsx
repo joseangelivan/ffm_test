@@ -600,27 +600,22 @@ function CondoFormWrapper({
   }, [isEditMode, preparedLocationData]);
   
   const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
+    let fieldsToReset: Partial<LocationData> = {};
+
+    if (field === 'continent') {
+      fieldsToReset = { country: '', state: '', city: '', countries: [], states: [], cities: [] };
+    } else if (field === 'country') {
+      fieldsToReset = { state: '', city: '', states: [], cities: [] };
+    } else if (field === 'state') {
+      fieldsToReset = { city: '', cities: [] };
+    }
+
     startTransition(() => {
-        setLocationData(currentData => {
-            const newData: Partial<LocationData> = { ...currentData, [field]: value };
-            if (field === 'continent') {
-                newData.country = '';
-                newData.state = '';
-                newData.city = '';
-                newData.countries = [];
-                newData.states = [];
-                newData.cities = [];
-            } else if (field === 'country') {
-                newData.state = '';
-                newData.city = '';
-                newData.states = [];
-                newData.cities = [];
-            } else if (field === 'state') {
-                newData.city = '';
-                newData.cities = [];
-            }
-            return newData;
-        });
+      setLocationData(currentData => ({
+        ...currentData,
+        [field]: value,
+        ...fieldsToReset,
+      }));
     });
   }, []);
 
@@ -628,7 +623,9 @@ function CondoFormWrapper({
   useEffect(() => {
     if (!locationData.continent) {
         if(locationData.countries?.length !== 0) {
-            setLocationData(prev => ({...prev, countries: []}));
+            startTransition(() => {
+              setLocationData(prev => ({...prev, countries: []}));
+            });
         }
         return;
     };
@@ -649,7 +646,9 @@ function CondoFormWrapper({
   useEffect(() => {
     if (!locationData.country) {
        if(locationData.states?.length !== 0) {
-            setLocationData(prev => ({...prev, states: []}));
+            startTransition(() => {
+              setLocationData(prev => ({...prev, states: []}));
+            });
        }
        return;
     }
@@ -671,7 +670,9 @@ function CondoFormWrapper({
   useEffect(() => {
     if (!locationData.state || !locationData.country) {
        if(locationData.cities?.length !== 0) {
-            setLocationData(prev => ({...prev, cities: []}));
+            startTransition(() => {
+              setLocationData(prev => ({...prev, cities: []}));
+            });
        }
        return;
     }
