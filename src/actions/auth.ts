@@ -210,8 +210,8 @@ export async function getSettings(): Promise<UserSettings | null> {
         const pool = await getDbPool();
         client = await pool.connect();
         
-        const tableName = `${session.type}_settings`;
-        const userIdColumn = `${session.type}_id`;
+        const tableName = `admin_settings`;
+        const userIdColumn = `admin_id`;
 
         const result = await client.query(`SELECT theme, language FROM ${tableName} WHERE ${userIdColumn} = $1`, [session.id]);
         
@@ -241,8 +241,8 @@ export async function updateSettings(settings: Partial<UserSettings>): Promise<{
         const pool = await getDbPool();
         client = await pool.connect();
 
-        const tableName = `${session.type}_settings`;
-        const userIdColumn = `${session.type}_id`;
+        const tableName = `admin_settings`;
+        const userIdColumn = `admin_id`;
 
         const setClauses = [];
         const values = [];
@@ -330,10 +330,12 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
         await client.query('DELETE FROM sessions WHERE user_id = $1 AND user_type = $2', [userId, userType]);
         await client.query('INSERT INTO sessions (user_id, user_type, token, expires_at) VALUES ($1, $2, $3, $4)', [userId, userType, token, expirationDate]);
 
-        const settingsTable = `${userType}_settings`;
-        const userIdColumn = `${userType}_id`;
-        await client.query(`INSERT INTO ${settingsTable} (${userIdColumn}) VALUES ($1) ON CONFLICT (${userIdColumn}) DO NOTHING;`, [userId]);
-
+        if (userType === 'admin') {
+            const settingsTable = `admin_settings`;
+            const userIdColumn = `admin_id`;
+            await client.query(`INSERT INTO ${settingsTable} (${userIdColumn}) VALUES ($1) ON CONFLICT (${userIdColumn}) DO NOTHING;`, [userId]);
+        }
+        
         cookies().set('session', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
