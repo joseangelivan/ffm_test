@@ -60,5 +60,5 @@ EXECUTE FUNCTION update_updated_at_column();
 -- Insert a default admin user.
 -- The password is 'adminivan123'
 INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES
-('Angel Ivan', 'angelivan34@gmail.com', crypt('adminivan123', gen_salt('bf')), TRUE)
+('José Angel Iván Rubianes Silvas', 'angelivan34@gmail.com', crypt('adminivan123', gen_salt('bf')), TRUE)
 ON CONFLICT (email) DO NOTHING;

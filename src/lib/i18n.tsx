@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { createContext, useState, useContext, useCallback } from 'react';
+import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
 import es from '../locales/es.json';
 import pt from '../locales/pt.json';
 
@@ -26,6 +27,15 @@ function getNestedValue(obj: any, path: string): string | undefined {
 
 export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [locale, setLocale] = useState<Locale>('es');
+
+  useEffect(() => {
+    const userLanguage = navigator.language.toLowerCase();
+    if (userLanguage.startsWith('pt')) {
+      setLocale('pt');
+    } else {
+      setLocale('es');
+    }
+  }, []);
 
   const t = useCallback((key: string, replacements?: Record<string, string>) => {
     const translation = getNestedValue(translations[locale], key) || getNestedValue(translations['es'], key) || key;
