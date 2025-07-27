@@ -57,14 +57,3 @@ CREATE TABLE sessions (
 -- Initial Admin User
 INSERT INTO admins (name, email, password_hash, can_create_admins)
 VALUES ('Admin Ivan', 'angelivan34@gmail.com', crypt('adminivan123', gen_salt('bf')), TRUE);
-
--- This table will be created and managed by the migration runner code.
--- It should not be part of the application's schema itself.
--- Keeping it commented here for documentation purposes.
---
--- CREATE TABLE schema_migrations (
---     id SERIAL PRIMARY KEY,
---     migration_name VARCHAR(255) NOT NULL UNIQUE,
---     applied_at TIMESTAMPTZ DEFAULT NOW(),
---     sql_script TEXT
--- );
