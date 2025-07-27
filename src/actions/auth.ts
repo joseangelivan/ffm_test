@@ -69,13 +69,20 @@ async function runMigrations(p: Pool) {
 
         if (isNewDatabase) {
             console.log("No existing 'admins' table found. Assuming a new database setup.");
-            console.log("Initializing database with 'src/lib/base_schema_admin.sql'...");
             
-            const schemaSqlPath = path.join(process.cwd(), 'src', 'lib', 'base_schema_admin.sql');
-            const schemaSql = await fs.readFile(schemaSqlPath, 'utf-8');
-            await client.query(schemaSql);
-            
-            console.log('--- Database initialized successfully using base_schema_admin.sql. ---');
+            const baseSchemaFiles = ['base_schema_admin.sql', 'base_schema_entry_control.sql'];
+
+            for (const schemaFile of baseSchemaFiles) {
+                console.log(`Initializing database with 'src/lib/${schemaFile}'...`);
+                const schemaSqlPath = path.join(process.cwd(), 'src', 'lib', schemaFile);
+                try {
+                    const schemaSql = await fs.readFile(schemaSqlPath, 'utf-8');
+                    await client.query(schemaSql);
+                    console.log(`--- Database initialized successfully using ${schemaFile}. ---`);
+                } catch (err) {
+                    console.error(`Could not read or apply ${schemaFile}. Skipping. Error:`, err);
+                }
+            }
             
         } else {
             console.log("Existing data found. Checking for incremental migrations...");
@@ -325,7 +332,7 @@ export async function handleLogoutAction() {
     if (sessionCookie) {
         let client;
         try {
-            const pool = await getDbPoo();
+            const pool = await getDbPool();
             client = await pool.connect();
             await client.query('DELETE FROM sessions WHERE token = $1', [sessionCookie.value]);
         } catch (error) {
