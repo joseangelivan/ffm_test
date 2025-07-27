@@ -44,6 +44,29 @@ async function checkAdmin() {
     return session;
 }
 
+/**
+ * For internal use by the mailer. Does not check for admin session.
+ * @returns A list of SMTP configurations.
+ */
+export async function getSmtpConfigsForMailer(): Promise<SmtpConfiguration[]> {
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        const result = await client.query('SELECT * FROM smtp_configurations ORDER BY priority ASC');
+        return result.rows;
+    } catch (error) {
+        console.error("Error getting SMTP configurations for mailer:", error);
+        return [];
+    } finally {
+        if (client) client.release();
+    }
+}
+
+/**
+ * For use by the admin UI. Checks for admin session.
+ * @returns A list of SMTP configurations.
+ */
 export async function getSmtpConfigurations(): Promise<SmtpConfiguration[]> {
     let client;
     try {
@@ -211,3 +234,5 @@ export async function updateSmtpOrder(orderedIds: string[]): Promise<ActionState
         return { success: false, message: error.message || 'Error del servidor.' };
     }
 }
+
+    

@@ -10,7 +10,7 @@ import { JWT_SECRET } from '@/lib/config';
 import fs from 'fs/promises';
 import path from 'path';
 import nodemailer from 'nodemailer';
-import { getSmtpConfigurations } from './smtp';
+import { getSmtpConfigsForMailer } from './smtp';
 
 // --- Database Pool and Migration Logic ---
 
@@ -622,7 +622,7 @@ export async function deleteAdmin(id: string): Promise<ActionState> {
 }
 
 async function sendEmail(to: string, subject: string, html: string): Promise<{success: boolean, message: string}> {
-    const smtpConfigs = await getSmtpConfigurations();
+    const smtpConfigs = await getSmtpConfigsForMailer();
 
     if (smtpConfigs.length === 0) {
         console.error("No SMTP configurations found in the database.");
@@ -717,6 +717,8 @@ export async function sendAdminCredentialsEmail(adminId: string, appUrl: string)
         if(client) client.release();
     }
 }
+    
+
     
 
     
