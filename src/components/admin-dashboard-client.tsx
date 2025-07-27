@@ -100,6 +100,7 @@ type Session = {
 }
 
 type LocationData = {
+    continent?: string;
     country?: string;
     state?: string;
     city?: string;
@@ -121,67 +122,48 @@ const LocationSelector = ({
     const { t } = useLocale();
     const [isPending, startTransition] = useTransition();
 
-    // States for options
-    const [allContinents, setAllContinents] = useState<any[]>([]);
+    const [continents] = useState(["Africa", "Americas", "Asia", "Europe", "Oceania"]);
     const [countries, setCountries] = useState<string[]>([]);
     const [states, setStates] = useState<string[]>([]);
     const [cities, setCities] = useState<string[]>([]);
 
-    // States for selections
-    const [selectedContinent, setSelectedContinent] = useState("");
+    const [selectedContinent, setSelectedContinent] = useState(defaultValues.continent || "");
     const [selectedCountry, setSelectedCountry] = useState(defaultValues.country || "");
     const [selectedState, setSelectedState] = useState(defaultValues.state || "");
     const [selectedCity, setSelectedCity] = useState(defaultValues.city || "");
     
-    // States for granular loading indicators
     const [loadingCountries, setLoadingCountries] = useState(false);
     const [loadingStates, setLoadingStates] = useState(false);
     const [loadingCities, setLoadingCities] = useState(false);
 
-    // Initial data load effect
     useEffect(() => {
-      const loadInitialData = async () => {
-        if (onLoadingStateChange) onLoadingStateChange(true);
-        
-        try {
-            const response = await fetch('https://restcountries.com/v3.1/all?fields=region,name');
-            const initialCountryList = await response.json();
-            const uniqueContinents = [...new Set(initialCountryList.map((c: any) => c.region))].filter(Boolean).sort();
-            setAllContinents(initialCountryList); // Store the full list
+        const loadInitialData = async () => {
+            if (!defaultValues.continent) return;
 
-            if (!defaultValues.country) {
-                if (onLoadingStateChange) onLoadingStateChange(false);
-                return;
-            }
+            if (onLoadingStateChange) onLoadingStateChange(true);
+            
+            try {
+                // Step 1: Set continent (it's already in defaultValues)
+                setSelectedContinent(defaultValues.continent);
+                onLocationChange('continent', defaultValues.continent);
 
-            // Step 1: Find and set continent
-            const countryData = initialCountryList.find((c:any) => c.name.common === defaultValues.country);
-            if (!countryData || !countryData.region) {
-                console.warn(`Could not find continent for country: ${defaultValues.country}`);
-                if (onLoadingStateChange) onLoadingStateChange(false);
-                return;
-            }
-            const continent = countryData.region;
-            setSelectedContinent(continent);
+                // Step 2: Load countries for the determined continent
+                setLoadingCountries(true);
+                const countriesResponse = await fetch(`https://restcountries.com/v3.1/region/${defaultValues.continent}?fields=name`);
+                const countriesData = await countriesResponse.json();
+                const countryNames = countriesData.map((c: any) => c.name.common).sort();
+                setCountries(countryNames);
+                setLoadingCountries(false);
 
-            // Step 2: Load countries for the determined continent
-            setLoadingCountries(true);
-            const countriesResponse = await fetch(`https://restcountries.com/v3.1/region/${continent}?fields=name`);
-            const countriesData = await countriesResponse.json();
-            const countryNames = countriesData.map((c: any) => c.name.common).sort();
-            setCountries(countryNames);
-            setLoadingCountries(false);
+                if (!countryNames.includes(defaultValues.country || '')) {
+                    console.warn(`Country "${defaultValues.country}" not found in continent "${defaultValues.continent}". Stopping.`);
+                    return;
+                }
+                setSelectedCountry(defaultValues.country!);
+                onLocationChange('country', defaultValues.country!);
 
-            if (!countryNames.includes(defaultValues.country)) {
-                console.warn(`Country "${defaultValues.country}" not found in continent "${continent}". Stopping.`);
-                if (onLoadingStateChange) onLoadingStateChange(false);
-                return;
-            }
-            setSelectedCountry(defaultValues.country);
-            onLocationChange('country', defaultValues.country);
 
-            // Step 3: Load states for the selected country
-            if (defaultValues.state) {
+                // Step 3: Load states for the selected country
                 setLoadingStates(true);
                 const statesResponse = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
                     method: 'POST',
@@ -192,61 +174,59 @@ const LocationSelector = ({
                 setLoadingStates(false);
                 if (statesData.error || !statesData.data?.states) {
                     console.warn(`Could not fetch states for ${defaultValues.country}.`);
-                    if (onLoadingStateChange) onLoadingStateChange(false);
                     return;
                 }
                 const stateNames = statesData.data.states.map((s: any) => s.name).sort();
                 setStates(stateNames);
-                if (!stateNames.includes(defaultValues.state)) {
-                    console.warn(`State "${defaultValues.state}" not found in country "${defaultValues.country}". Stopping.`);
-                    if (onLoadingStateChange) onLoadingStateChange(false);
+
+                if (!stateNames.includes(defaultValues.state || '')) {
+                     console.warn(`State "${defaultValues.state}" not found in country "${defaultValues.country}". Stopping.`);
                     return;
                 }
-                setSelectedState(defaultValues.state);
-                onLocationChange('state', defaultValues.state);
+                setSelectedState(defaultValues.state!);
+                onLocationChange('state', defaultValues.state!);
 
                 // Step 4: Load cities for the selected state
-                if (defaultValues.city) {
-                    setLoadingCities(true);
-                    const citiesResponse = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ country: defaultValues.country, state: defaultValues.state })
-                    });
-                    const citiesData = await citiesResponse.json();
-                    setLoadingCities(false);
-                    if (citiesData.error || !Array.isArray(citiesData.data)) {
-                        console.warn(`Could not fetch cities for ${defaultValues.state}.`);
-                        if (onLoadingStateChange) onLoadingStateChange(false);
-                        return;
-                    }
-                    const cityNames = citiesData.data.sort();
-                    setCities(cityNames);
-
-                    if (cityNames.includes(defaultValues.city)) {
-                        setSelectedCity(defaultValues.city);
-                        onLocationChange('city', defaultValues.city);
-                    } else {
-                        console.warn(`City "${defaultValues.city}" not found in state "${defaultValues.state}".`);
-                    }
+                setLoadingCities(true);
+                const citiesResponse = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ country: defaultValues.country, state: defaultValues.state })
+                });
+                const citiesData = await citiesResponse.json();
+                setLoadingCities(false);
+                if (citiesData.error || !Array.isArray(citiesData.data)) {
+                    console.warn(`Could not fetch cities for ${defaultValues.state}.`);
+                    return;
                 }
+                const cityNames = citiesData.data.sort();
+                setCities(cityNames);
+
+                if (cityNames.includes(defaultValues.city || '')) {
+                    setSelectedCity(defaultValues.city!);
+                    onLocationChange('city', defaultValues.city!);
+                } else {
+                    console.warn(`City "${defaultValues.city}" not found in state "${defaultValues.state}".`);
+                }
+
+            } catch (error) {
+                console.error("Failed during initial location data load:", error);
+            } finally {
+                 if (onLoadingStateChange) onLoadingStateChange(false);
             }
+        };
 
-        } catch (error) {
-            console.error("Failed during initial location data load:", error);
-        } finally {
-            if (onLoadingStateChange) onLoadingStateChange(false);
-        }
-      };
-
-      loadInitialData();
+        startTransition(() => {
+            loadInitialData();
+        });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [defaultValues.country, defaultValues.state, defaultValues.city]);
+    }, [defaultValues.country, defaultValues.state, defaultValues.city, defaultValues.continent]);
 
 
-    const handleContinentChange = async (continent: string) => {
+    const handleContinentChange = (continent: string) => {
         startTransition(async () => {
             setSelectedContinent(continent);
+            onLocationChange('continent', continent);
             // Clear all dependent fields
             setCountries([]);
             setStates([]);
@@ -276,7 +256,7 @@ const LocationSelector = ({
         });
     };
 
-    const handleCountryChange = async (countryName: string) => {
+    const handleCountryChange = (countryName: string) => {
         startTransition(async () => {
             setSelectedCountry(countryName);
             onLocationChange('country', countryName);
@@ -313,7 +293,7 @@ const LocationSelector = ({
         });
     };
     
-    const handleStateChange = async (stateName: string) => {
+    const handleStateChange = (stateName: string) => {
         startTransition(async () => {
             setSelectedState(stateName);
             onLocationChange('state', stateName);
@@ -351,8 +331,6 @@ const LocationSelector = ({
         setSelectedCity(cityName);
         onLocationChange('city', cityName);
     };
-    
-    const uniqueContinents = [...new Set(allContinents.map((c: any) => c.region))].filter(Boolean).sort();
 
     return (
         <div className="grid grid-cols-2 gap-4">
@@ -367,7 +345,7 @@ const LocationSelector = ({
                         <SelectValue placeholder={"Seleccionar continente"} />
                     </SelectTrigger>
                     <SelectContent>
-                        {uniqueContinents.map((continent: any) => <SelectItem key={continent} value={continent}>{continent}</SelectItem>)}
+                        {continents.map((continent: any) => <SelectItem key={continent} value={continent}>{continent}</SelectItem>)}
                     </SelectContent>
                 </Select>
             </div>
@@ -603,6 +581,7 @@ function CondoFormFields({
             </DialogDescription>
           </DialogHeader>
            <div className="grid gap-4 py-4">
+            <input type="hidden" name="continent" value={locationData.continent || ''} />
             <input type="hidden" name="country" value={locationData.country || ''} />
             <input type="hidden" name="state" value={locationData.state || ''} />
             <input type="hidden" name="city" value={locationData.city || ''} />
@@ -709,7 +688,7 @@ function CondoFormWrapper({
   }, [state, t, toast, closeDialog]);
 
   return (
-    <div className={cn('relative transition-opacity', isFormBusy && 'opacity-50')}>
+    <div className={cn('relative transition-opacity')}>
         {isFormBusy && (
              <LoadingOverlay
               text={
@@ -719,7 +698,7 @@ function CondoFormWrapper({
               }
             />
         )}
-        <form ref={formRef} action={dispatchFormAction}>
+        <form ref={formRef} action={dispatchFormAction} className={cn(isFormBusy && 'opacity-50')}>
           <CondoFormFields
             isEditMode={isEditMode}
             initialData={initialData}

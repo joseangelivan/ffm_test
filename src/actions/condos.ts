@@ -15,6 +15,7 @@ export type Condominio = {
   devices_count?: number;
   residents_count?: number;
   gatekeepers_count?: number;
+  continent?: string;
   country?: string;
   state?: string;
   city?: string;
@@ -30,6 +31,7 @@ type ActionState<T> = {
 
 const CondominioSchema = z.object({
     name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
+    continent: z.string().min(2, 'El continente es obligatorio.'),
     country: z.string().min(2, 'El país es obligatorio.'),
     state: z.string().min(2, 'El estado/provincia es obligatorio.'),
     city: z.string().min(2, 'La ciudad es obligatoria.'),
@@ -50,7 +52,7 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
         client = await pool.connect();
         const result = await client.query(`
             SELECT 
-                id, name, created_at, updated_at, country, state, city, street, number
+                id, name, created_at, updated_at, continent, country, state, city, street, number
             FROM 
                 condominiums
             ORDER BY 
@@ -97,6 +99,7 @@ export async function getCondominioById(id: string): Promise<ActionState<Condomi
             address: `${condoData.street} ${condoData.number}, ${condoData.city}, ${condoData.state}`,
             created_at: condoData.created_at,
             updated_at: condoData.updated_at,
+            continent: condoData.continent,
             country: condoData.country,
             state: condoData.state,
             city: condoData.city,
@@ -122,6 +125,7 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
 
     const validatedFields = CondominioSchema.safeParse({
         name: formData.get('name'),
+        continent: formData.get('continent'),
         country: formData.get('country'),
         state: formData.get('state'),
         city: formData.get('city'),
@@ -138,15 +142,15 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
         };
     }
     
-    const { name, country, state, city, street, number } = validatedFields.data;
+    const { name, continent, country, state, city, street, number } = validatedFields.data;
 
     let client;
     try {
         const pool = await getDbPool();
         client = await pool.connect();
         await client.query(
-            'INSERT INTO condominiums (name, country, state, city, street, number) VALUES ($1, $2, $3, $4, $5, $6)',
-            [name, country, state, city, street, number]
+            'INSERT INTO condominiums (name, continent, country, state, city, street, number) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+            [name, continent, country, state, city, street, number]
         );
         return { success: true, message: `Condomínio "${name}" criado com sucesso.` };
     } catch (error: any) {
@@ -173,6 +177,7 @@ export async function updateCondominio(prevState: any, formData: FormData): Prom
     
     const validatedFields = CondominioSchema.safeParse({
         name: formData.get('name'),
+        continent: formData.get('continent'),
         country: formData.get('country'),
         state: formData.get('state'),
         city: formData.get('city'),
@@ -188,15 +193,15 @@ export async function updateCondominio(prevState: any, formData: FormData): Prom
             message: firstError || "Error de validación."
         };
     }
-    const { name, country, state, city, street, number } = validatedFields.data;
+    const { name, continent, country, state, city, street, number } = validatedFields.data;
     
     let client;
     try {
         const pool = await getDbPool();
         client = await pool.connect();
         const result = await client.query(
-            'UPDATE condominiums SET name = $1, country = $2, state = $3, city = $4, street = $5, number = $6, updated_at = NOW() WHERE id = $7 RETURNING *',
-            [name, country, state, city, street, number, id]
+            'UPDATE condominiums SET name = $1, continent = $2, country = $3, state = $4, city = $5, street = $6, number = $7, updated_at = NOW() WHERE id = $8 RETURNING *',
+            [name, continent, country, state, city, street, number, id]
         );
         if (result.rowCount === 0) {
             return { success: false, message: 'No se encontró el condominio para actualizar.' };
