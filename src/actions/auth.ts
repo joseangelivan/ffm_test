@@ -261,62 +261,31 @@ export async function updateSettings(settings: Partial<UserSettings>): Promise<{
 export async function getSession(sessionToken?: string) {
     if (!sessionToken) return null;
 
-    let client;
     try {
-        const pool = await getDbPool();
-        client = await pool.connect();
+        const { payload } = await jwtVerify(sessionToken, JWT_SECRET, {
+            algorithms: [JWT_ALG],
+        });
         
-        const sessionResult = await client.query(
-            'SELECT user_id, user_type FROM sessions WHERE token = $1 AND expires_at > NOW()', 
-            [sessionToken]
-        );
-
-        if (sessionResult.rows.length === 0) {
-            return null; 
-        }
-
-        const { user_id, user_type } = sessionResult.rows[0];
-
-        let userResult;
-        if (user_type === 'admin') {
-             userResult = await client.query('SELECT * FROM admins WHERE id = $1', [user_id]);
-        } else if (user_type === 'resident') {
-            userResult = await client.query('SELECT * FROM residents WHERE id = $1', [user_id]);
-        } else if (user_type === 'gatekeeper') {
-            userResult = await client.query('SELECT * FROM gatekeepers WHERE id = $1', [user_id]);
-        } else {
-            // Unrecognized user_type
-            return null;
-        }
-
-        if(!userResult || userResult.rows.length === 0) {
-            return null;
-        }
-        
-        const user = userResult.rows[0];
-
-        // This object structure must be consistent across all user types
+        // Now the payload from the token is trusted.
+        // We can use it directly without another DB call in many cases.
         return {
-            id: user.id as string,
-            email: user.email as string,
-            name: user.name as string,
-            type: user_type as 'admin' | 'resident' | 'gatekeeper',
-            canCreateAdmins: user.can_create_admins as boolean | undefined, // Only admins will have this
+            id: payload.id as string,
+            email: payload.email as string,
+            name: payload.name as string,
+            type: payload.type as 'admin' | 'resident' | 'gatekeeper',
+            canCreateAdmins: payload.canCreateAdmins as boolean | undefined,
         };
-
     } catch (error: any) {
-        if (!error.message.includes('Database initialization failed')) {
-            console.error('Failed to verify session, possibly malformed or invalid token:', error.message);
+        // This will catch expired tokens, invalid signatures, etc.
+        // We don't need to log every invalid token attempt.
+        if (error.code !== 'ERR_JWT_EXPIRED' && error.code !== 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED') {
+           console.error('Error verifying JWT:', error);
         }
         return null;
-    } finally {
-        if (client) {
-            client.release();
-        }
     }
 }
 
-async function createSession(userId: string, userType: 'admin' | 'resident' | 'gatekeeper') {
+async function createSession(userId: string, userType: 'admin' | 'resident' | 'gatekeeper', userData: {email: string, name: string, canCreateAdmins?: boolean}) {
     let client;
     try {
         const pool = await getDbPool();
@@ -325,7 +294,13 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
         const expirationTime = '1h';
         const expirationDate = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
 
-        const sessionPayload = { id: userId, type: userType };
+        const sessionPayload = { 
+            id: userId, 
+            type: userType,
+            email: userData.email,
+            name: userData.name,
+            canCreateAdmins: userData.canCreateAdmins
+        };
         
         const token = await new SignJWT(sessionPayload)
           .setProtectedHeader({ alg: JWT_ALG })
@@ -333,6 +308,7 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
           .setExpirationTime(expirationTime)
           .sign(JWT_SECRET);
         
+        // We still store the session in the DB for server-side revocation (logout)
         await client.query('DELETE FROM sessions WHERE user_id = $1 AND user_type = $2', [userId, userType]);
         await client.query('INSERT INTO sessions (user_id, user_type, token, expires_at) VALUES ($1, $2, $3, $4)', [userId, userType, token, expirationDate]);
 
@@ -399,7 +375,7 @@ export async function authenticateUser(prevState: AuthState | undefined, formDat
           return { success: false, message: 'Credenciales inválidas.' };
         }
 
-        const sessionResult = await createSession(user.id, dbUserType);
+        const sessionResult = await createSession(user.id, dbUserType, { email: user.email, name: user.name });
         if(!sessionResult.success) {
             return { success: false, message: 'Ocurrió un error al iniciar sesión.' };
         }
@@ -453,7 +429,11 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       };
     }
     
-    const sessionResult = await createSession(admin.id, 'admin');
+    const sessionResult = await createSession(admin.id, 'admin', {
+        email: admin.email,
+        name: admin.name,
+        canCreateAdmins: admin.can_create_admins,
+    });
     if(!sessionResult.success) {
         return { success: false, message: 'An internal server error occurred during session creation.' };
     }
@@ -540,3 +520,5 @@ export async function createAdmin(prevState: CreateAdminState | undefined, formD
         if (client) client.release();
     }
 }
+
+    
