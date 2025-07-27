@@ -22,7 +22,10 @@ const alertVariants = cva(
   }
 )
 
-const Alert = React.forwardRef<
+const AlertContext = React.createContext<{ variant: VariantProps<typeof alertVariants>['variant'] } | null>(null);
+
+
+const AlertInternal = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof alertVariants>
 >(({ className, variant, ...props }, ref) => (
@@ -33,7 +36,7 @@ const Alert = React.forwardRef<
     {...props}
   />
 ))
-Alert.displayName = "Alert"
+AlertInternal.displayName = "AlertInternal"
 
 const AlertTitle = React.forwardRef<
   HTMLParagraphElement,
@@ -64,17 +67,16 @@ const AlertDescription = React.forwardRef<
         }
     };
     
-    // Find the parent Alert variant to only add copy button to destructive alerts
     const parentContext = React.useContext(AlertContext);
 
     return (
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-4">
             <div
-                ref={textToCopy}
-                className={cn("text-sm [&_p]:leading-relaxed", className)}
+                ref={ref}
+                className={cn("text-sm [&_p]:leading-relaxed flex-grow", className)}
                 {...props}
             >
-                {children}
+             <div ref={textToCopy}>{children}</div>
             </div>
             {parentContext?.variant === 'destructive' && (
                  <Button
@@ -93,20 +95,17 @@ const AlertDescription = React.forwardRef<
 AlertDescription.displayName = "AlertDescription"
 
 
-// We need a context to pass the variant to the AlertDescription
-const AlertContext = React.createContext<{ variant: VariantProps<typeof alertVariants>['variant'] } | null>(null);
-
-const AlertWithProvider = React.forwardRef<
+const Alert = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof alertVariants>
 >(({ variant, ...props }, ref) => {
   return (
     <AlertContext.Provider value={{ variant }}>
-      <Alert ref={ref} variant={variant} {...props} />
+      <AlertInternal ref={ref} variant={variant} {...props} />
     </AlertContext.Provider>
   );
 });
-AlertWithProvider.displayName = "AlertWithProvider";
+Alert.displayName = "Alert";
 
 
-export { AlertWithProvider as Alert, AlertTitle, AlertDescription }
+export { Alert, AlertTitle, AlertDescription }
