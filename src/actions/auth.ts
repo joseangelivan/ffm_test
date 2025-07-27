@@ -70,17 +70,17 @@ async function runMigrations(p: Pool) {
         if (isNewDatabase) {
             console.log("No existing 'admins' table found. Assuming a new database setup.");
             
-            const baseSchemaFiles = ['base_schema_admin.sql', 'base_schema_entry_control.sql'];
+            const baseSchemaDirs = ['sql/admin', 'sql/entry_control'];
 
-            for (const schemaFile of baseSchemaFiles) {
-                console.log(`Initializing database with 'src/lib/${schemaFile}'...`);
-                const schemaSqlPath = path.join(process.cwd(), 'src', 'lib', schemaFile);
+            for (const schemaDir of baseSchemaDirs) {
+                const schemaSqlPath = path.join(process.cwd(), 'src', 'lib', schemaDir, 'schema.sql');
+                console.log(`Initializing database with '${schemaSqlPath}'...`);
                 try {
                     const schemaSql = await fs.readFile(schemaSqlPath, 'utf-8');
                     await client.query(schemaSql);
-                    console.log(`--- Database initialized successfully using ${schemaFile}. ---`);
+                    console.log(`--- Database initialized successfully using ${schemaDir}/schema.sql. ---`);
                 } catch (err) {
-                    console.error(`Could not read or apply ${schemaFile}. Skipping. Error:`, err);
+                    console.error(`Could not read or apply ${schemaDir}/schema.sql. Skipping. Error:`, err);
                 }
             }
             
