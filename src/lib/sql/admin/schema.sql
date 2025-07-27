@@ -1,11 +1,18 @@
--- Base schema for the admin panel
+-- This schema is for administrative data, such as admins and condominiums.
+-- It should only be applied once when the database is first set up.
 
--- Enable UUID generation
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Create the table for condominiums, which will be managed by admins.
+CREATE TABLE IF NOT EXISTS condominiums (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    address TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- Admins table
+-- Admins are the superusers of the system.
 CREATE TABLE IF NOT EXISTS admins (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
@@ -14,28 +21,21 @@ CREATE TABLE IF NOT EXISTS admins (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Admin settings table
-CREATE TABLE IF NOT EXISTS admin_settings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    admin_id UUID NOT NULL UNIQUE REFERENCES admins(id) ON DELETE CASCADE,
-    theme VARCHAR(50) DEFAULT 'light',
-    language VARCHAR(10) DEFAULT 'es',
-    created_at TIMESTAMTz DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Sessions table for admins
+-- Sessions for admins to manage their login state.
 CREATE TABLE IF NOT EXISTS sessions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID REFERENCES admins(id) ON DELETE CASCADE,
     token TEXT NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email);
-CREATE INDEX IF NOT EXISTS idx_sessions_admin_id ON sessions(admin_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
-
-    
+-- Settings for each admin, like theme and language preferences.
+CREATE TABLE IF NOT EXISTS admin_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID REFERENCES admins(id) ON DELETE CASCADE UNIQUE,
+    theme VARCHAR(50) DEFAULT 'light',
+    language VARCHAR(10) DEFAULT 'es',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
