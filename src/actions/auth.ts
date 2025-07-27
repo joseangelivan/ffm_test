@@ -285,6 +285,7 @@ export async function getSession(sessionToken?: string) {
         } else if (user_type === 'gatekeeper') {
             userResult = await client.query('SELECT * FROM gatekeepers WHERE id = $1', [user_id]);
         } else {
+            // Unrecognized user_type
             return null;
         }
 
@@ -294,12 +295,13 @@ export async function getSession(sessionToken?: string) {
         
         const user = userResult.rows[0];
 
+        // This object structure must be consistent across all user types
         return {
-            id: user_id as string,
+            id: user.id as string,
             email: user.email as string,
             name: user.name as string,
             type: user_type as 'admin' | 'resident' | 'gatekeeper',
-            canCreateAdmins: user.can_create_admins as boolean | undefined,
+            canCreateAdmins: user.can_create_admins as boolean | undefined, // Only admins will have this
         };
 
     } catch (error: any) {
@@ -538,5 +540,3 @@ export async function createAdmin(prevState: CreateAdminState | undefined, formD
         if (client) client.release();
     }
 }
-
-    
