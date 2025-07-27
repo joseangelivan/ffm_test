@@ -1,28 +1,45 @@
--- Esquema base para la tabla de condominios
+-- Condominiums table to store information about each condominium complex
 CREATE TABLE IF NOT EXISTS condominiums (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL UNIQUE,
-    continent VARCHAR(255),
-    country VARCHAR(255),
-    state VARCHAR(255),
-    city VARCHAR(255),
-    street VARCHAR(255),
-    number VARCHAR(50),
+    continent VARCHAR(255) NOT NULL,
+    country VARCHAR(255) NOT NULL,
+    state VARCHAR(255) NOT NULL,
+    city VARCHAR(255) NOT NULL,
+    street VARCHAR(255) NOT NULL,
+    number VARCHAR(50) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Trigger para actualizar `updated_at` en cada modificación
-CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS TRIGGER AS $$
+-- Function to update the updated_at column, if not already created by another schema
+DO $$
 BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'trigger_set_timestamp') THEN
+        CREATE FUNCTION trigger_set_timestamp()
+        RETURNS TRIGGER AS $func$
+        BEGIN
+          NEW.updated_at = NOW();
+          RETURN NEW;
+        END;
+        $func$ LANGUAGE plpgsql;
+    END IF;
+END
+$$;
 
-DROP TRIGGER IF EXISTS trigger_set_updated_at_condominiums ON condominiums;
-CREATE TRIGGER trigger_set_updated_at_condominiums
-BEFORE UPDATE ON condominiums
-FOR EACH ROW
-EXECUTE FUNCTION set_updated_at();
+
+-- Trigger to automatically update updated_at on condominiums table
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_trigger
+        WHERE tgname = 'set_condominiums_timestamp' AND tgrelid = 'condominiums'::regclass
+    ) THEN
+        CREATE TRIGGER set_condominiums_timestamp
+        BEFORE UPDATE ON condominiums
+        FOR EACH ROW
+        EXECUTE FUNCTION trigger_set_timestamp();
+    END IF;
+END
+$$;
