@@ -50,8 +50,7 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
         client = await pool.connect();
         const result = await client.query(`
             SELECT 
-                id, name, street, number, city, state, country, created_at, updated_at,
-                (street || ', ' || number || ', ' || city || ', ' || state || ', ' || country) as address
+                id, name, created_at, updated_at
             FROM 
                 condominiums
             ORDER BY 
@@ -59,6 +58,12 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
         `);
         const data = result.rows.map(condo => ({
             ...condo,
+            street: '',
+            number: '',
+            city: '',
+            state: '',
+            country: '',
+            address: condo.name, // Use name as a placeholder for display
             residents_count: 0,
             gatekeepers_count: 0,
             devices_count: 0
@@ -85,11 +90,27 @@ export async function getCondominioById(id: string): Promise<ActionState<Condomi
     try {
         const pool = await getDbPool();
         client = await pool.connect();
-        const result = await client.query('SELECT * FROM condominiums WHERE id = $1', [id]);
+        const result = await client.query('SELECT *, (name) as address FROM condominiums WHERE id = $1', [id]);
         if (result.rows.length === 0) {
             return { success: false, message: 'Condominio no encontrado.' };
         }
-        return { success: true, message: 'Condominio obtenido.', data: result.rows[0] };
+        
+        const condoData = result.rows[0];
+        // Ensure all fields from the type are present
+        const fullCondo: Condominio = {
+            id: condoData.id,
+            name: condoData.name,
+            street: condoData.street || '',
+            number: condoData.number || '',
+            city: condoData.city || '',
+            state: condoData.state || '',
+            country: condoData.country || '',
+            address: condoData.address || condoData.name,
+            created_at: condoData.created_at,
+            updated_at: condoData.updated_at,
+        };
+
+        return { success: true, message: 'Condominio obtenido.', data: fullCondo };
     } catch (error) {
         console.error(`Error getting condominio by id ${id}:`, error);
         return { success: false, message: 'Error del servidor.' };
