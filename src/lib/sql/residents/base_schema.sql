@@ -1,17 +1,18 @@
--- Base schema for the residents domain
 
 CREATE TABLE IF NOT EXISTS residents (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    housing_details TEXT, -- e.g., "Apt 101, Block B"
-    is_active BOOLEAN DEFAULT TRUE,
+    password_hash TEXT NOT NULL,
+    condominium_id UUID,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_residents_condominium_id ON residents(condominium_id);
-CREATE INDEX IF NOT EXISTS idx_residents_email ON residents(email);
+CREATE TABLE IF NOT EXISTS resident_settings (
+    resident_id UUID PRIMARY KEY REFERENCES residents(id) ON DELETE CASCADE,
+    theme VARCHAR(10) DEFAULT 'light',
+    language VARCHAR(5) DEFAULT 'pt',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);

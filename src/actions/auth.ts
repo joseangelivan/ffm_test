@@ -290,6 +290,10 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
 
         if(userType === 'admin') {
             await client.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING;', [userId]);
+        } else if (userType === 'resident') {
+            await client.query('INSERT INTO resident_settings (resident_id) VALUES ($1) ON CONFLICT (resident_id) DO NOTHING;', [userId]);
+        } else if (userType === 'gatekeeper') {
+            await client.query('INSERT INTO gatekeeper_settings (gatekeeper_id) VALUES ($1) ON CONFLICT (gatekeeper_id) DO NOTHING;', [userId]);
         }
 
         cookies().set('session', token, {
