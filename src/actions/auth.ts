@@ -620,43 +620,51 @@ export async function deleteAdmin(id: string): Promise<ActionState> {
     }
 }
 
+function createTransporter() {
+    // If SMTP_USER and SMTP_PASS are set, assume production and use Gmail SMTP.
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+        return nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true, // use SSL
+            auth: {
+                user: process.env.SMTP_USER, // Your Gmail address
+                pass: process.env.SMTP_PASS, // Your Gmail App Password
+            },
+        });
+    }
 
-// NOTE: Nodemailer setup. This requires environment variables for a real SMTP server.
-// For development, we can use a service like Ethereal.
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.ethereal.email",
-    port: parseInt(process.env.SMTP_PORT || "587", 10),
-    secure: (process.env.SMTP_SECURE === 'true'), // true for 465, false for other ports
-    auth: {
-        user: process.env.SMTP_USER, // generated ethereal user
-        pass: process.env.SMTP_PASS, // generated ethereal password
-    },
-});
+    // Otherwise, fall back to Ethereal for development.
+    // We create a new test account for each server start.
+    return nodemailer.createTransport({
+        host: "smtp.ethereal.email",
+        port: 587,
+        secure: false, // true for 465, false for other ports
+        auth: {
+            user: process.env.ETHEREAL_USER, // Will be generated
+            pass: process.env.ETHEREAL_PASS, // Will be generated
+        },
+    });
+}
 
 async function sendEmail(to: string, subject: string, html: string) {
-    // Verify connection configuration
-    if (process.env.NODE_ENV !== 'production') {
-        try {
-            await transporter.verify();
-            console.log("Nodemailer transporter is ready to send emails.");
-        } catch(error) {
-             console.error("Nodemailer transporter verification failed. Creating a test account.", error);
-             // Create a test account if no credentials are provided
+    const transporter = createTransporter();
+
+    // In development, ensure we have Ethereal credentials if none are provided.
+    if (process.env.NODE_ENV !== 'production' && (!process.env.SMTP_USER || !process.env.SMTP_PASS)) {
+        // If ethereal credentials are not in env, create a test account
+        if (!transporter.options.auth || !(transporter.options.auth as any).user) {
              const testAccount = await nodemailer.createTestAccount();
-             transporter.options({
-                 host: "smtp.ethereal.email",
-                 port: 587,
-                 secure: false,
-                 auth: {
-                     user: testAccount.user,
-                     pass: testAccount.pass
-                 }
-             });
+             transporter.options.auth = {
+                 user: testAccount.user,
+                 pass: testAccount.pass
+             };
+             console.log("Created new Ethereal test account:", testAccount.user);
         }
     }
     
     const info = await transporter.sendMail({
-        from: `"Follow For Me" <${process.env.EMAIL_FROM || 'noreply@followforme.com'}>`,
+        from: `"Follow For Me" <${process.env.SMTP_USER || 'noreply@followforme.com'}>`,
         to: to,
         subject: subject,
         html: html,
@@ -701,6 +709,8 @@ export async function sendAdminCredentialsEmail(adminId: string, appUrl: string)
         
         // Update the admin's password in the database
         await client.query('UPDATE admins SET password_hash = $1, updated_at = NOW() WHERE id = $2', [passwordHash, adminId]);
+        
+        const adminLoginUrl = new URL('/admin/login', appUrl).toString();
 
         const emailHtml = `
             <h1>Bienvenido a Follow For Me</h1>
@@ -708,7 +718,7 @@ export async function sendAdminCredentialsEmail(adminId: string, appUrl: string)
             <p>Se ha creado o restablecido una cuenta de administrador para ti.</p>
             <p>Puedes iniciar sesión en la plataforma usando las siguientes credenciales:</p>
             <ul>
-                <li><strong>URL de Acceso:</strong> <a href="${appUrl}/admin/login">${appUrl}/admin/login</a></li>
+                <li><strong>URL de Acceso:</strong> <a href="${adminLoginUrl}">${adminLoginUrl}</a></li>
                 <li><strong>Email:</strong> ${admin.email}</li>
                 <li><strong>Contraseña Temporal:</strong> ${tempPassword}</li>
             </ul>
