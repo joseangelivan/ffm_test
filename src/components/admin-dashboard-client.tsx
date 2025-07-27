@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef, useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useFormStatus, useActionState } from 'react-dom';
 import {
   Building,
   PlusCircle,
@@ -210,7 +210,7 @@ function ManageAdminsDialog() {
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="password">{t('adminDashboard.manageAdmins.passwordLabel')}</Label>
-                            <Input id="password" name="password" type="password" required/>
+                            <Input id="password" name="password" type="password" required autoComplete="new-password" />
                         </div>
                         <div className="flex items-center space-x-2">
                            <Checkbox id="can_create_admins" name="can_create_admins" />
