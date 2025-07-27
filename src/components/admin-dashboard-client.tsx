@@ -528,7 +528,7 @@ function CondoFormFields({
                         required
                         disabled={isFormPending}
                     />
-                     <Button type="button" variant="outline" size="sm" onClick={onVerifyAddress} disabled={isFormPending || !locationData.country || !locationData.state || !locationData.city}>
+                     <Button type="button" variant="outline" size="sm" onClick={onVerifyAddress} disabled={isFormPending || !locationData.city}>
                         {t('addressVerification.checkButton')}
                     </Button>
                 </div>
@@ -569,21 +569,21 @@ function CondoFormWrapper({
   formAction,
   initialData,
   isEditMode,
-  preloadedLocationData,
   getCachedData,
   fetchCountries,
   fetchStates,
   fetchCities,
+  setIsParentLoading,
 }: {
   closeDialog: () => void;
   formAction: (prevState: any, formData: FormData) => Promise<any>;
   initialData: Partial<Condominio>;
   isEditMode: boolean;
-  preloadedLocationData?: Partial<LocationData>;
   getCachedData: (key: string, fetcher: () => Promise<any>) => Promise<any>;
   fetchCountries: (continent: string) => Promise<{ name: string }[]>;
   fetchStates: (country: string) => Promise<{ name: string }[]>;
   fetchCities: (country: string, state: string) => Promise<string[]>;
+  setIsParentLoading: (isLoading: boolean) => void;
 }) {
   const { t } = useLocale();
   const { toast } = useToast();
@@ -594,12 +594,38 @@ function CondoFormWrapper({
   const [isVerifyingAddress, setIsVerifyingAddress] = useState(false);
   const [isLocationLoading, startTransition] = useTransition();
 
-  // Effect to initialize state for editing
+  // Effect to load data for editing
   useEffect(() => {
-    if (isEditMode && preloadedLocationData) {
-      setLocationData(preloadedLocationData);
+    if (!isEditMode) return;
+    
+    async function loadEditData() {
+        if (!initialData.continent) return;
+        setIsParentLoading(true);
+        startTransition(async () => {
+            const countries = await fetchCountries(initialData.continent!);
+            setLocationData({ ...initialData, countries });
+        });
     }
-  }, [isEditMode, preloadedLocationData]);
+    loadEditData();
+  }, [isEditMode, initialData, fetchCountries, setIsParentLoading]);
+
+  useEffect(() => {
+    if (!isEditMode || !locationData.countries || !initialData.country) return;
+     startTransition(async () => {
+        const states = await fetchStates(initialData.country!);
+        setLocationData(current => ({ ...current, states }));
+     });
+  }, [isEditMode, locationData.countries, initialData.country, fetchStates]);
+
+  useEffect(() => {
+    if (!isEditMode || !locationData.states || !initialData.state || !initialData.country) return;
+    startTransition(async () => {
+        const cities = await fetchCities(initialData.country!, initialData.state!);
+        setLocationData(current => ({...current, cities}));
+        setIsParentLoading(false);
+    });
+  }, [isEditMode, locationData.states, initialData.state, initialData.country, fetchCities, setIsParentLoading]);
+
 
   const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
     startTransition(async () => {
@@ -714,7 +740,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
   
   const [editingCondoData, setEditingCondoData] = useState<Condominio | null>(null);
-  const [preloadedLocationData, setPreloadedLocationData] = useState<Partial<LocationData> | null>(null);
   const [isPreparingEdit, setIsPreparingEdit] = useState(false);
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -826,7 +851,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     return result;
   };
 
-  const prepareAndOpenEditDialog = useCallback(async (condo: Condominio) => {
+  const prepareAndOpenEditDialog = useCallback((condo: Condominio) => {
     if (!condo.continent || !condo.country || !condo.state) {
         toast({
             title: t('toast.errorTitle'),
@@ -835,34 +860,9 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
         });
         return;
     }
-    setIsPreparingEdit(true);
-    try {
-        const [countries, states, cities] = await Promise.all([
-            fetchCountries(condo.continent),
-            fetchStates(condo.country),
-            fetchCities(condo.country, condo.state)
-        ]);
-        
-        setEditingCondoData(condo);
-        setPreloadedLocationData({
-            ...condo,
-            countries,
-            states,
-            cities
-        });
-        setIsEditCondoDialogOpen(true);
-
-    } catch (error) {
-        console.error("Failed to preload location data for editing:", error);
-        toast({
-            title: t('toast.errorTitle'),
-            description: t('toast.preloadError'),
-            variant: 'destructive',
-        });
-    } finally {
-        setIsPreparingEdit(false);
-    }
-  }, [toast, t, fetchCountries, fetchStates, fetchCities]);
+    setEditingCondoData(condo);
+    setIsEditCondoDialogOpen(true);
+  }, [toast, t]);
   
   const handleDeleteCondo = async (condoId: string) => {
     const result = await deleteCondominio(condoId);
@@ -889,7 +889,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       setIsNewCondoDialogOpen(false);
       setIsEditCondoDialogOpen(false);
       setEditingCondoData(null);
-      setPreloadedLocationData(null);
       fetchCondos();
   }, [fetchCondos]);
 
@@ -1006,6 +1005,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                         fetchCountries={fetchCountries}
                         fetchStates={fetchStates}
                         fetchCities={fetchCities}
+                        setIsParentLoading={() => {}}
                     />
                 </DialogContent>
               </Dialog>
@@ -1099,22 +1099,21 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
         <Dialog open={isEditCondoDialogOpen} onOpenChange={(isOpen) => {
             if (!isOpen) {
               setEditingCondoData(null);
-              setPreloadedLocationData(null);
             }
             setIsEditCondoDialogOpen(isOpen);
         }}>
             <DialogContent>
-                {editingCondoData && preloadedLocationData && (
+                {editingCondoData && (
                     <CondoFormWrapper
                         closeDialog={handleCondoFormSuccess}
                         formAction={handleUpdateCondoAction}
                         initialData={editingCondoData}
                         isEditMode={true}
-                        preloadedLocationData={preloadedLocationData}
                         getCachedData={getCachedData}
                         fetchCountries={fetchCountries}
                         fetchStates={fetchStates}
                         fetchCities={fetchCities}
+                        setIsParentLoading={setIsPreparingEdit}
                     />
                 )}
             </DialogContent>
@@ -1122,3 +1121,5 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
+
+    
