@@ -573,63 +573,29 @@ function CondoFormWrapper({
   fetchCountries,
   fetchStates,
   fetchCities,
-  setIsParentLoading,
 }: {
   closeDialog: () => void;
   formAction: (prevState: any, formData: FormData) => Promise<any>;
-  initialData: Partial<Condominio>;
+  initialData: Partial<LocationData> & Partial<Condominio>;
   isEditMode: boolean;
   getCachedData: (key: string, fetcher: () => Promise<any>) => Promise<any>;
   fetchCountries: (continent: string) => Promise<{ name: string }[]>;
   fetchStates: (country: string) => Promise<{ name: string }[]>;
   fetchCities: (country: string, state: string) => Promise<string[]>;
-  setIsParentLoading: (isLoading: boolean) => void;
 }) {
   const { t } = useLocale();
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   const [state, dispatchFormAction, isFormPending] = useActionState(formAction, undefined);
   
-  const [locationData, setLocationData] = useState<Partial<LocationData>>({});
+  const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData);
   const [isVerifyingAddress, setIsVerifyingAddress] = useState(false);
   const [isLocationLoading, startTransition] = useTransition();
-
-  // Effect to load data for editing
-  useEffect(() => {
-    if (!isEditMode) return;
-    
-    async function loadEditData() {
-        if (!initialData.continent) return;
-        setIsParentLoading(true);
-        startTransition(async () => {
-            const countries = await fetchCountries(initialData.continent!);
-            setLocationData({ ...initialData, countries });
-        });
-    }
-    loadEditData();
-  }, [isEditMode, initialData, fetchCountries, setIsParentLoading]);
-
-  useEffect(() => {
-    if (!isEditMode || !locationData.countries || !initialData.country) return;
-     startTransition(async () => {
-        const states = await fetchStates(initialData.country!);
-        setLocationData(current => ({ ...current, states }));
-     });
-  }, [isEditMode, locationData.countries, initialData.country, fetchStates]);
-
-  useEffect(() => {
-    if (!isEditMode || !locationData.states || !initialData.state || !initialData.country) return;
-    startTransition(async () => {
-        const cities = await fetchCities(initialData.country!, initialData.state!);
-        setLocationData(current => ({...current, cities}));
-        setIsParentLoading(false);
-    });
-  }, [isEditMode, locationData.states, initialData.state, initialData.country, fetchCities, setIsParentLoading]);
-
-
-  const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
+  
+  const handleLocationChange = useCallback(async (field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
     startTransition(async () => {
         let fieldsToUpdate: Partial<LocationData> = { [field]: value };
+        let newLocationData = {...locationData, ...fieldsToUpdate};
 
         if (field === 'continent') {
             fieldsToUpdate = { ...fieldsToUpdate, country: '', state: '', city: '', states: [], cities: [] };
@@ -637,12 +603,16 @@ function CondoFormWrapper({
             fieldsToUpdate.countries = countries;
         } else if (field === 'country') {
             fieldsToUpdate = { ...fieldsToUpdate, state: '', city: '', cities: [] };
-            const states = await fetchStates(value);
-            fieldsToUpdate.states = states;
-        } else if (field === 'state' && locationData.country) {
-            fieldsToUpdate = { ...fieldsToUpdate, city: '' };
-            const cities = await fetchCities(locationData.country, value);
-            fieldsToUpdate.cities = cities;
+            if (newLocationData.country) {
+                const states = await fetchStates(newLocationData.country);
+                fieldsToUpdate.states = states;
+            }
+        } else if (field === 'state' && newLocationData.country) {
+             fieldsToUpdate = { ...fieldsToUpdate, city: '' };
+             if (newLocationData.state) {
+                const cities = await fetchCities(newLocationData.country, newLocationData.state);
+                fieldsToUpdate.cities = cities;
+             }
         }
         
         setLocationData(currentData => ({
@@ -650,7 +620,7 @@ function CondoFormWrapper({
             ...fieldsToUpdate,
         }));
     });
-  }, [locationData.country, fetchCountries, fetchStates, fetchCities]);
+  }, [locationData, fetchCountries, fetchStates, fetchCities]);
 
   useEffect(() => {
     if (state?.success === false) {
@@ -739,7 +709,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
   const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
   
-  const [editingCondoData, setEditingCondoData] = useState<Condominio | null>(null);
+  const [editingCondoData, setEditingCondoData] = useState<Condominio & Partial<LocationData> | null>(null);
   const [isPreparingEdit, setIsPreparingEdit] = useState(false);
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -851,18 +821,29 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     return result;
   };
 
-  const prepareAndOpenEditDialog = useCallback((condo: Condominio) => {
+  const prepareAndOpenEditDialog = useCallback(async (condo: Condominio) => {
     if (!condo.continent || !condo.country || !condo.state) {
-        toast({
-            title: t('toast.errorTitle'),
-            description: "Condominio con datos de ubicación incompletos.",
-            variant: 'destructive',
-        });
+        toast({ title: t('toast.errorTitle'), description: "Condominio con datos de ubicación incompletos.", variant: 'destructive' });
         return;
     }
-    setEditingCondoData(condo);
+    
+    setIsPreparingEdit(true);
+
+    const countries = await fetchCountries(condo.continent);
+    const states = await fetchStates(condo.country);
+    const cities = await fetchCities(condo.country, condo.state);
+
+    setEditingCondoData({
+        ...condo,
+        countries,
+        states,
+        cities,
+    });
+
     setIsEditCondoDialogOpen(true);
-  }, [toast, t]);
+    setIsPreparingEdit(false);
+
+  }, [toast, t, fetchCountries, fetchStates, fetchCities]);
   
   const handleDeleteCondo = async (condoId: string) => {
     const result = await deleteCondominio(condoId);
@@ -1005,7 +986,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                         fetchCountries={fetchCountries}
                         fetchStates={fetchStates}
                         fetchCities={fetchCities}
-                        setIsParentLoading={() => {}}
                     />
                 </DialogContent>
               </Dialog>
@@ -1113,7 +1093,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                         fetchCountries={fetchCountries}
                         fetchStates={fetchStates}
                         fetchCities={fetchCities}
-                        setIsParentLoading={setIsPreparingEdit}
                     />
                 )}
             </DialogContent>
@@ -1122,4 +1101,3 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   );
 }
 
-    
