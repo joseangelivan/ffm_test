@@ -15,6 +15,11 @@ export type Condominio = {
   devices_count?: number;
   residents_count?: number;
   gatekeepers_count?: number;
+  country?: string;
+  state?: string;
+  city?: string;
+  street?: string;
+  number?: string;
 };
 
 type ActionState<T> = {
@@ -45,7 +50,7 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
         client = await pool.connect();
         const result = await client.query(`
             SELECT 
-                id, name, created_at, updated_at
+                id, name, created_at, updated_at, country, state, city, street, number
             FROM 
                 condominiums
             ORDER BY 
@@ -53,7 +58,7 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
         `);
         const data = result.rows.map(condo => ({
             ...condo,
-            address: condo.name, // Use name as a placeholder for display
+            address: `${condo.street} ${condo.number}, ${condo.city}, ${condo.state}`,
             residents_count: 0,
             gatekeepers_count: 0,
             devices_count: 0
@@ -80,19 +85,23 @@ export async function getCondominioById(id: string): Promise<ActionState<Condomi
     try {
         const pool = await getDbPool();
         client = await pool.connect();
-        const result = await client.query('SELECT *, (name) as address FROM condominiums WHERE id = $1', [id]);
+        const result = await client.query('SELECT * FROM condominiums WHERE id = $1', [id]);
         if (result.rows.length === 0) {
             return { success: false, message: 'Condominio no encontrado.' };
         }
         
         const condoData = result.rows[0];
-        // Ensure all fields from the type are present
         const fullCondo: Condominio = {
             id: condoData.id,
             name: condoData.name,
-            address: condoData.address || condoData.name,
+            address: `${condoData.street} ${condoData.number}, ${condoData.city}, ${condoData.state}`,
             created_at: condoData.created_at,
             updated_at: condoData.updated_at,
+            country: condoData.country,
+            state: condoData.state,
+            city: condoData.city,
+            street: condoData.street,
+            number: condoData.number
         };
 
         return { success: true, message: 'Condominio obtenido.', data: fullCondo };

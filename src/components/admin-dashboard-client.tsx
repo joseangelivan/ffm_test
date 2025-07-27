@@ -105,17 +105,21 @@ type LocationData = {
     city?: string;
     street?: string;
     number?: string;
-}
+};
 
-const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled }: { defaultValues?: Partial<LocationData>, onLocationChange: (name: string, value: string) => void, isFormDisabled?: boolean }) => {
+const LocationSelector = ({ 
+    defaultValues, 
+    onLocationChange, 
+    isFormDisabled 
+}: { 
+    defaultValues: Partial<LocationData>, 
+    onLocationChange: (name: string, value: string) => void, 
+    isFormDisabled?: boolean 
+}) => {
     const { t } = useLocale();
     const [countries, setCountries] = useState<any[]>([]);
     const [states, setStates] = useState<any[]>([]);
     const [cities, setCities] = useState<any[]>([]);
-
-    const [selectedCountry, setSelectedCountry] = useState(defaultValues.country || '');
-    const [selectedState, setSelectedState] = useState(defaultValues.state || '');
-    const [selectedCity, setSelectedCity] = useState(defaultValues.city || '');
 
     const [loadingCountries, setLoadingCountries] = useState(false);
     const [loadingStates, setLoadingStates] = useState(false);
@@ -144,7 +148,8 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
     }, []);
 
     useEffect(() => {
-        if (!selectedCountry) {
+        const country = defaultValues.country;
+        if (!country) {
             setStates([]);
             setCities([]);
             return;
@@ -156,10 +161,9 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
                 const response = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ country: selectedCountry })
+                    body: JSON.stringify({ country })
                 });
                 const data = await response.json();
-
                 if (!data.error && data.data?.states) {
                     const stateNames = data.data.states.map((s: any) => s.name).sort();
                     setStates(stateNames);
@@ -175,10 +179,13 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
         };
         
         fetchStates();
-    }, [selectedCountry]);
+    }, [defaultValues.country]);
     
     useEffect(() => {
-        if (!selectedCountry || !selectedState) {
+        const country = defaultValues.country;
+        const state = defaultValues.state;
+
+        if (!country || !state) {
             setCities([]);
             return;
         }
@@ -189,7 +196,7 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
                 const response = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ country: selectedCountry, state: selectedState })
+                    body: JSON.stringify({ country, state })
                 });
                 const data = await response.json();
                 if (!data.error && data.data) {
@@ -206,26 +213,20 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
         };
 
         fetchCities();
-    }, [selectedCountry, selectedState]);
+    }, [defaultValues.country, defaultValues.state]);
     
     const handleCountryChange = (value: string) => {
-        setSelectedCountry(value);
-        setSelectedState('');
-        setSelectedCity('');
         onLocationChange('country', value);
         onLocationChange('state', '');
         onLocationChange('city', '');
     }
 
     const handleStateChange = (value: string) => {
-        setSelectedState(value);
-        setSelectedCity('');
         onLocationChange('state', value);
         onLocationChange('city', '');
     }
 
     const handleCityChange = (value: string) => {
-        setSelectedCity(value);
         onLocationChange('city', value);
     }
 
@@ -233,7 +234,7 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
         <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
                 <Label htmlFor="country-display">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
-                <Select onValueChange={handleCountryChange} defaultValue={selectedCountry} disabled={loadingCountries || isFormDisabled}>
+                <Select onValueChange={handleCountryChange} value={defaultValues.country} disabled={loadingCountries || isFormDisabled}>
                     <SelectTrigger id="country-display">
                         <SelectValue placeholder={loadingCountries ? "Cargando países..." : "Seleccionar país"} />
                     </SelectTrigger>
@@ -244,7 +245,7 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
             </div>
             <div className="grid gap-2">
                 <Label htmlFor="state-display">{t('adminDashboard.newCondoDialog.stateLabel')}</Label>
-                <Select onValueChange={handleStateChange} value={selectedState} disabled={!selectedCountry || loadingStates || isFormDisabled}>
+                <Select onValueChange={handleStateChange} value={defaultValues.state} disabled={!defaultValues.country || loadingStates || isFormDisabled}>
                     <SelectTrigger id="state-display">
                          <SelectValue placeholder={loadingStates ? "Cargando estados..." : "Seleccionar estado"} />
                     </SelectTrigger>
@@ -255,7 +256,7 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
             </div>
              <div className="grid gap-2 col-span-2">
                 <Label htmlFor="city-display">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
-                 <Select onValueChange={handleCityChange} value={selectedCity} disabled={!selectedState || loadingCities || isFormDisabled}>
+                 <Select onValueChange={handleCityChange} value={defaultValues.city} disabled={!defaultValues.state || loadingCities || isFormDisabled}>
                     <SelectTrigger id="city-display">
                         <SelectValue placeholder={loadingCities ? "Cargando ciudades..." : "Seleccionar ciudad"} />
                     </SelectTrigger>
@@ -422,11 +423,21 @@ function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
     const [state, dispatchFormAction] = useActionState(formAction, undefined);
     const { pending } = useFormStatus();
 
-    const [locationData, setLocationData] = useState({
-        country: initialData?.country || '',
-        state: initialData?.state || '',
-        city: initialData?.city || '',
+    const [locationData, setLocationData] = useState<Partial<LocationData>>({
+        country: '',
+        state: '',
+        city: '',
     });
+
+    useEffect(() => {
+        if (isEditMode && initialData) {
+            setLocationData({
+                country: initialData.country,
+                state: initialData.state,
+                city: initialData.city,
+            });
+        }
+    }, [isEditMode, initialData]);
 
     const handleLocationChange = (name: string, value: string) => {
         setLocationData(prev => ({...prev, [name]: value}));
@@ -442,11 +453,10 @@ function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
         }
     }, [state, t, toast, closeDialog]);
 
-
     return (
         <form action={dispatchFormAction}>
              <div className={cn("relative transition-opacity", pending && "opacity-50")}>
-                {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.creating')} />}
+                {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.editCondoDialog.save') : t('adminDashboard.loadingOverlay.creating')} />}
                 <DialogHeader>
                     <DialogTitle>{isEditMode ? t('adminDashboard.editCondoDialog.title') : t('adminDashboard.newCondoDialog.title')}</DialogTitle>
                     <DialogDescription>{isEditMode ? t('adminDashboard.editCondoDialog.description') : t('adminDashboard.newCondoDialog.description')}</DialogDescription>
@@ -483,7 +493,7 @@ function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
                         <Button variant="outline" type="button" disabled={pending}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
                     </DialogClose>
                      <Button type="submit" disabled={pending}>
-                        {pending ? (isEditMode ? 'Salvando...' : 'Criando...') : (isEditMode ? t('adminDashboard.editCondoDialog.save') : t('adminDashboard.newCondoDialog.create'))}
+                        {pending ? (isEditMode ? t('adminDashboard.editCondoDialog.save')+'...' : t('adminDashboard.newCondoDialog.create')+'...') : (isEditMode ? t('adminDashboard.editCondoDialog.save') : t('adminDashboard.newCondoDialog.create'))}
                     </Button>
                 </DialogFooter>
             </div>
