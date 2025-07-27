@@ -217,9 +217,9 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
     return (
         <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-                <Label htmlFor="country">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
-                <Select name="country" onValueChange={handleCountryChange} defaultValue={defaultValues.country} disabled={loadingCountries || isFormDisabled}>
-                    <SelectTrigger>
+                <Label htmlFor="country-display">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
+                <Select onValueChange={handleCountryChange} defaultValue={defaultValues.country} disabled={loadingCountries || isFormDisabled}>
+                    <SelectTrigger id="country-display">
                         <SelectValue placeholder={loadingCountries ? "Cargando países..." : "Seleccionar país"} />
                     </SelectTrigger>
                     <SelectContent>
@@ -228,9 +228,9 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
                 </Select>
             </div>
             <div className="grid gap-2">
-                <Label htmlFor="state">{t('adminDashboard.newCondoDialog.stateLabel')}</Label>
-                <Select name="state" onValueChange={handleStateChange} defaultValue={defaultValues.state} disabled={!selectedCountry || loadingStates || isFormDisabled}>
-                    <SelectTrigger>
+                <Label htmlFor="state-display">{t('adminDashboard.newCondoDialog.stateLabel')}</Label>
+                <Select onValueChange={handleStateChange} value={selectedState} disabled={!selectedCountry || loadingStates || isFormDisabled}>
+                    <SelectTrigger id="state-display">
                          <SelectValue placeholder={loadingStates ? "Cargando estados..." : "Seleccionar estado"} />
                     </SelectTrigger>
                     <SelectContent>
@@ -239,9 +239,9 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
                 </Select>
             </div>
              <div className="grid gap-2 col-span-2">
-                <Label htmlFor="city">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
-                 <Select name="city" onValueChange={(value) => onLocationChange('city', value)} defaultValue={defaultValues.city} disabled={!selectedState || loadingCities || isFormDisabled}>
-                    <SelectTrigger>
+                <Label htmlFor="city-display">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
+                 <Select onValueChange={(value) => onLocationChange('city', value)} value={locationData.city} disabled={!selectedState || loadingCities || isFormDisabled}>
+                    <SelectTrigger id="city-display">
                         <SelectValue placeholder={loadingCities ? "Cargando ciudades..." : "Seleccionar ciudad"} />
                     </SelectTrigger>
                     <SelectContent>
@@ -405,8 +405,8 @@ function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
     const { t } = useLocale();
     const { toast } = useToast();
     const [state, dispatchFormAction] = useActionState(formAction, undefined);
-    const formRef = useRef<HTMLFormElement>(null);
-    const [locationData, setLocationData] = useState<Record<string, string>>({
+    
+    const [locationData, setLocationData] = useState({
         country: initialData?.country || '',
         state: initialData?.state || '',
         city: initialData?.city || '',
@@ -414,15 +414,6 @@ function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
 
     const handleLocationChange = (name: string, value: string) => {
         setLocationData(prev => ({...prev, [name]: value}));
-    }
-
-    const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        const formData = new FormData(event.currentTarget);
-        Object.entries(locationData).forEach(([key, value]) => {
-            formData.set(key, value);
-        });
-        dispatchFormAction(formData);
     }
     
     useEffect(() => {
@@ -438,7 +429,7 @@ function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
     const { pending } = useFormStatus();
 
     return (
-        <form ref={formRef} onSubmit={handleFormSubmit}>
+        <form action={dispatchFormAction}>
              <div className={cn("relative transition-opacity", pending && "opacity-50")}>
                 {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.creating')} />}
                 <DialogHeader>
@@ -450,7 +441,14 @@ function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
                         <Label htmlFor="name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
                         <Input id="name" name="name" defaultValue={initialData?.name} placeholder="Ex: Residencial Jardins" required disabled={pending} />
                     </div>
+                    
+                    {/* Location data as hidden inputs */}
+                    <input type="hidden" name="country" value={locationData.country} />
+                    <input type="hidden" name="state" value={locationData.state} />
+                    <input type="hidden" name="city" value={locationData.city} />
+                    
                     <LocationSelector onLocationChange={handleLocationChange} defaultValues={initialData || {}} isFormDisabled={pending} />
+                    
                     <div className="grid grid-cols-3 gap-4">
                         <div className="grid gap-2 col-span-2">
                             <Label htmlFor="street">{t('adminDashboard.newCondoDialog.streetLabel')}</Label>
@@ -464,7 +462,7 @@ function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
                 </div>
                 <DialogFooter>
                     <DialogClose asChild>
-                        <Button variant="outline" disabled={pending}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
+                        <Button variant="outline" type="button" disabled={pending}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
                     </DialogClose>
                      <Button type="submit" disabled={pending}>
                         {pending ? (isEditMode ? 'Salvando...' : 'Criando...') : (isEditMode ? t('adminDashboard.editCondoDialog.save') : t('adminDashboard.newCondoDialog.create'))}
