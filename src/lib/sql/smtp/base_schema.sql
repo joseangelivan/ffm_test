@@ -1,31 +1,39 @@
--- Tabla para almacenar configuraciones de SMTP
+-- Base schema for smtp_configurations
 CREATE TABLE IF NOT EXISTS smtp_configurations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     host VARCHAR(255) NOT NULL,
     port INTEGER NOT NULL,
-    secure BOOLEAN NOT NULL DEFAULT true,
+    secure BOOLEAN DEFAULT TRUE,
     auth_user VARCHAR(255) NOT NULL,
-    auth_pass TEXT NOT NULL, -- En una aplicación real, esto debería estar encriptado
+    auth_pass TEXT NOT NULL, -- Should be encrypted in a real app
     priority INTEGER NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Trigger para actualizar automáticamente el campo updated_at
-CREATE OR REPLACE FUNCTION set_updated_at_timestamp()
+-- Function to automatically update the 'updated_at' timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE 'plpgsql';
 
-DROP TRIGGER IF EXISTS set_smtp_configurations_updated_at ON smtp_configurations;
-CREATE TRIGGER set_smtp_configurations_updated_at
+-- Trigger for smtp_configurations table
+DROP TRIGGER IF EXISTS update_smtp_configurations_updated_at ON smtp_configurations;
+CREATE TRIGGER update_smtp_configurations_updated_at
 BEFORE UPDATE ON smtp_configurations
 FOR EACH ROW
-EXECUTE FUNCTION set_updated_at_timestamp();
+EXECUTE FUNCTION update_updated_at_column();
 
--- Índices para mejorar el rendimiento de las búsquedas
-CREATE INDEX IF NOT EXISTS idx_smtp_configurations_priority ON smtp_configurations(priority);
+-- Base schema for user sessions
+CREATE TABLE IF NOT EXISTS sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    user_type VARCHAR(50) NOT NULL,
+    token TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
