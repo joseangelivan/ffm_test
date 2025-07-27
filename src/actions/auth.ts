@@ -143,7 +143,7 @@ type AdminSettings = {
 
 export async function getAdminSettings(): Promise<AdminSettings | null> {
     const session = await getCurrentSession();
-    if (!session) return null;
+    if (!session || session.type !== 'admin') return null;
     let client;
     try {
         const pool = await getDbPool();
@@ -167,7 +167,7 @@ export async function getAdminSettings(): Promise<AdminSettings | null> {
 
 export async function updateAdminSettings(settings: Partial<AdminSettings>): Promise<{success: boolean}> {
     const session = await getCurrentSession();
-    if (!session) return { success: false };
+    if (!session || session.type !== 'admin') return { success: false };
 
     let client;
     try {
@@ -211,36 +211,52 @@ export async function getSession(sessionToken?: string) {
     try {
         const pool = await getDbPool();
         client = await pool.connect();
-        const result = await client.query(
-            'SELECT admin_id FROM sessions WHERE token = $1 AND expires_at > NOW()', 
-            [sessionToken]
-        );
-
-        if (result.rows.length === 0) {
-            return null; 
-        }
 
         const { payload } = await jwtVerify(sessionToken, JWT_SECRET, {
             algorithms: [JWT_ALG],
-            ignoreExpiration: true, 
         });
+        
+        const sessionResult = await client.query(
+            'SELECT user_id, user_type FROM sessions WHERE token = $1 AND expires_at > NOW()', 
+            [sessionToken]
+        );
 
-        const adminResult = await client.query('SELECT name, email, can_create_admins FROM admins WHERE id = $1', [payload.id]);
-        if(adminResult.rows.length === 0) {
+        if (sessionResult.rows.length === 0) {
+            return null; 
+        }
+
+        const { user_id, user_type } = sessionResult.rows[0];
+
+        if(user_id !== payload.id || user_type !== payload.type) {
+            return null;
+        }
+
+        let userResult;
+        if (user_type === 'admin') {
+             userResult = await client.query('SELECT name, email, can_create_admins FROM admins WHERE id = $1', [user_id]);
+        } else if (user_type === 'resident') {
+            userResult = await client.query('SELECT name, email FROM residents WHERE id = $1', [user_id]);
+        } else if (user_type === 'gatekeeper') {
+            userResult = await client.query('SELECT name, email FROM gatekeepers WHERE id = $1', [user_id]);
+        } else {
+            return null;
+        }
+
+        if(!userResult || userResult.rows.length === 0) {
             return null;
         }
         
-        const admin = adminResult.rows[0];
+        const user = userResult.rows[0];
 
         return {
-            id: payload.id as string,
-            email: admin.email as string,
-            name: admin.name as string,
-            canCreateAdmins: admin.can_create_admins as boolean,
+            id: user_id as string,
+            email: user.email as string,
+            name: user.name as string,
+            type: user_type as 'admin' | 'resident' | 'gatekeeper',
+            canCreateAdmins: user.can_create_admins as boolean | undefined,
         };
 
     } catch (error: any) {
-        // If the error is due to the DB not being ready, we don't want to log a scary "malformed token" message.
         if (!error.message.includes('Database initialization failed')) {
             console.error('Failed to verify session, possibly malformed or invalid token:', error.message);
         }
@@ -250,6 +266,108 @@ export async function getSession(sessionToken?: string) {
             client.release();
         }
     }
+}
+
+async function createSession(userId: string, userType: 'admin' | 'resident' | 'gatekeeper') {
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+
+        const expirationTime = '1h';
+        const expirationDate = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+        const sessionPayload = { id: userId, type: userType };
+        
+        const token = await new SignJWT(sessionPayload)
+          .setProtectedHeader({ alg: JWT_ALG })
+          .setIssuedAt()
+          .setExpirationTime(expirationTime)
+          .sign(JWT_SECRET);
+        
+        await client.query('DELETE FROM sessions WHERE user_id = $1 AND user_type = $2', [userId, userType]);
+        await client.query('INSERT INTO sessions (user_id, user_type, token, expires_at) VALUES ($1, $2, $3, $4)', [userId, userType, token, expirationDate]);
+
+        if(userType === 'admin') {
+            await client.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING;', [userId]);
+        }
+
+        cookies().set('session', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 60 * 60, // 1 hour
+            path: '/',
+        });
+
+        return { success: true };
+    } catch(error) {
+        console.error(`Error creating session for ${userType} ${userId}:`, error);
+        return { success: false };
+    } finally {
+        if(client) client.release();
+    }
+}
+
+export async function authenticateUser(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
+    let client;
+    try {
+        const email = formData.get('email') as string;
+        const password = formData.get('password') as string;
+        const userType = formData.get('user_type') as 'residente' | 'porteria';
+        
+        if (!email || !password || !userType) {
+            return { success: false, message: 'Email, contraseña y tipo de usuario son requeridos.' };
+        }
+
+        const pool = await getDbPool();
+        client = await pool.connect();
+        
+        let tableName: string;
+        let redirectPath: string;
+        let dbUserType: 'resident' | 'gatekeeper';
+
+        if (userType === 'residente') {
+            tableName = 'residents';
+            redirectPath = '/dashboard';
+            dbUserType = 'resident';
+        } else if (userType === 'porteria') {
+            tableName = 'gatekeepers';
+            redirectPath = '/gatekeeper/dashboard'; // Or wherever they should go
+            dbUserType = 'gatekeeper';
+        } else {
+            return { success: false, message: 'Tipo de usuario inválido.' };
+        }
+
+        const result = await client.query(`SELECT * FROM ${tableName} WHERE email = $1`, [email]);
+
+        if (result.rows.length === 0) {
+          return { success: false, message: 'Credenciales inválidas.' };
+        }
+        
+        const user = result.rows[0];
+        const passwordMatch = await bcrypt.compare(password, user.password_hash);
+        
+        if (!passwordMatch) {
+          return { success: false, message: 'Credenciales inválidas.' };
+        }
+
+        const sessionResult = await createSession(user.id, dbUserType);
+        if(!sessionResult.success) {
+            return { success: false, message: 'Ocurrió un error al iniciar sesión.' };
+        }
+
+    } catch (error: any) {
+        console.error('Error during user authentication:', error);
+        return { 
+          success: false, 
+          message: 'Ocurrió un error en el servidor.',
+          debugInfo: `Error caught: ${error.message}. Stack: ${error.stack}`
+        };
+    } finally {
+        if(client) client.release();
+    }
+
+    redirect('/dashboard');
 }
 
 
@@ -287,29 +405,10 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       };
     }
     
-    const expirationTime = '1h';
-    const expirationDate = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
-
-    const sessionPayload = { 
-        id: admin.id
-    };
-
-    const token = await new SignJWT(sessionPayload)
-      .setProtectedHeader({ alg: JWT_ALG })
-      .setIssuedAt()
-      .setExpirationTime(expirationTime)
-      .sign(JWT_SECRET);
-    
-    await client.query('DELETE FROM sessions WHERE admin_id = $1', [admin.id]);
-    await client.query('INSERT INTO sessions (admin_id, token, expires_at) VALUES ($1, $2, $3)', [admin.id, token, expirationDate]);
-    await client.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING;', [admin.id]);
-
-    cookies().set('session', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 60 * 60, // 1 hour
-        path: '/',
-    });
+    const sessionResult = await createSession(admin.id, 'admin');
+    if(!sessionResult.success) {
+        return { success: false, message: 'An internal server error occurred during session creation.' };
+    }
     
   } catch (error: any) {
     console.error('Error during authentication:', error);
@@ -393,3 +492,5 @@ export async function createAdmin(prevState: CreateAdminState | undefined, formD
         if (client) client.release();
     }
 }
+
+    
