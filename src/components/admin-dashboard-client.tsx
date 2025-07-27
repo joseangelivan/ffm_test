@@ -81,7 +81,7 @@ import { useLocale } from '@/lib/i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { handleLogoutAction, getSettings, updateSettings, getCurrentSession, createAdmin } from '@/actions/auth';
+import { handleLogoutAction, getSettings, updateSettings, createAdmin } from '@/actions/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -231,12 +231,11 @@ function ManageAdminsDialog() {
     )
 }
 
-export default function AdminDashboardClient({ session: initialSession }: { session: Session }) {
+export default function AdminDashboardClient({ session }: { session: Session }) {
   const { t, setLocale, locale } = useLocale();
   const { toast } = useToast();
   const router = useRouter();
 
-  const [session, setSession] = useState<Session | null>(initialSession);
   const [condominios, setCondominios] = useState<Condominio[]>(mockCondominios);
   
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
@@ -251,22 +250,16 @@ export default function AdminDashboardClient({ session: initialSession }: { sess
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
-    async function checkSession() {
-      const currentSession = await getCurrentSession();
-      if (!currentSession) {
-        router.push('/admin/login');
-      } else {
-        setSession(currentSession as Session);
-        const settings = await getSettings();
-        if (settings) {
-            setTheme(settings.theme);
-            setLocale(settings.language);
-            document.documentElement.classList.toggle('dark', settings.theme === 'dark');
-        }
+    async function loadSettings() {
+      const settings = await getSettings();
+      if (settings) {
+          setTheme(settings.theme);
+          setLocale(settings.language);
+          document.documentElement.classList.toggle('dark', settings.theme === 'dark');
       }
     }
-    checkSession();
-  }, [router, setLocale]);
+    loadSettings();
+  }, [setLocale]);
 
   const handleSetTheme = async (newTheme: 'light' | 'dark') => {
     setTheme(newTheme);
