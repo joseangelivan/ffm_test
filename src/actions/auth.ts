@@ -273,7 +273,7 @@ export async function getSession(sessionToken?: string) {
             email: payload.email as string,
             name: payload.name as string,
             type: payload.type as 'admin' | 'resident' | 'gatekeeper',
-            canCreateAdmins: payload.canCreateAdmins as boolean | undefined,
+            canCreateAdmins: payload.canCreateAdmins as boolean,
         };
     } catch (error: any) {
         // This will catch expired tokens, invalid signatures, etc.
@@ -299,7 +299,7 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
             type: userType,
             email: userData.email,
             name: userData.name,
-            canCreateAdmins: userData.canCreateAdmins
+            canCreateAdmins: !!userData.canCreateAdmins
         };
         
         const token = await new SignJWT(sessionPayload)
@@ -520,5 +520,7 @@ export async function createAdmin(prevState: CreateAdminState | undefined, formD
         if (client) client.release();
     }
 }
+
+    
 
     
