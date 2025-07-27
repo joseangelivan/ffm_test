@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useActionState, useRef, useTransition } from 'react';
+import React, { useState, useEffect, useActionState, useRef, useTransition, useCallback } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
   Building,
@@ -117,28 +117,23 @@ const LocationSelector = ({
     isFormDisabled?: boolean
 }) => {
     const { t } = useLocale();
-
     const [isPending, startTransition] = useTransition();
 
-    // Data lists for dropdowns
     const [allCountries, setAllCountries] = useState<any[]>([]);
     const [continents, setContinents] = useState<string[]>([]);
     const [countries, setCountries] = useState<any[]>([]);
     const [states, setStates] = useState<any[]>([]);
     const [cities, setCities] = useState<any[]>([]);
 
-    // Selected values
     const [selectedContinent, setSelectedContinent] = useState("");
     const [selectedCountry, setSelectedCountry] = useState(defaultValues.country || "");
     const [selectedState, setSelectedState] = useState(defaultValues.state || "");
 
-    // Loading states
     const [loadingContinents, setLoadingContinents] = useState(true);
     const [loadingCountries, setLoadingCountries] = useState(false);
     const [loadingStates, setLoadingStates] = useState(false);
     const [loadingCities, setLoadingCities] = useState(false);
 
-    // Initial data load effect
     useEffect(() => {
         const fetchInitialData = async () => {
             setLoadingContinents(true);
@@ -159,9 +154,11 @@ const LocationSelector = ({
                     if (defaultValues.country) {
                         const currentCountry = countryData.find((c: any) => c.name === defaultValues.country);
                         if (currentCountry) {
-                            setSelectedContinent(currentCountry.continent);
-                            setCountries(countryData.filter(c => c.continent === currentCountry.continent));
-                            setSelectedCountry(currentCountry.name);
+                            startTransition(() => {
+                                setSelectedContinent(currentCountry.continent);
+                                setCountries(countryData.filter(c => c.continent === currentCountry.continent));
+                                setSelectedCountry(currentCountry.name);
+                            });
                         }
                     }
                      if (defaultValues.state) {
@@ -177,7 +174,6 @@ const LocationSelector = ({
         fetchInitialData();
     }, [defaultValues.country, defaultValues.state]);
 
-    // Effect to fetch states when country changes
     useEffect(() => {
         const fetchStates = async () => {
             if (!selectedCountry) {
@@ -198,11 +194,9 @@ const LocationSelector = ({
                     const stateNames = data.data.states.map((s: any) => s.name).sort();
                     startTransition(() => {
                         setStates(stateNames);
-                        // If default state exists and is in the new list, keep it
                         if (defaultValues.state && stateNames.includes(defaultValues.state)) {
                             setSelectedState(defaultValues.state);
                         } else {
-                             // If the previously selected state is not in the new list, clear it
                             if (!stateNames.includes(selectedState)) {
                                 setSelectedState("");
                                 onLocationChange('state', '');
@@ -219,12 +213,10 @@ const LocationSelector = ({
                 setLoadingStates(false);
             }
         };
-        
-        fetchStates();
+        if(selectedCountry) fetchStates();
     }, [selectedCountry, defaultValues.state]);
 
 
-    // Effect to fetch cities when state changes
     useEffect(() => {
         const fetchCities = async () => {
              if (!selectedCountry || !selectedState) {
@@ -255,38 +247,43 @@ const LocationSelector = ({
             }
         };
 
-        fetchCities();
+        if(selectedState) fetchCities();
     }, [selectedCountry, selectedState]);
 
 
     const handleContinentChange = (continent: string) => {
-        setSelectedContinent(continent);
-        setCountries(allCountries.filter(c => c.continent === continent));
-        // Reset subsequent fields
-        setSelectedCountry('');
-        onLocationChange('country', '');
-        setSelectedState('');
-        onLocationChange('state', '');
-        setCities([]);
-        onLocationChange('city', '');
+        startTransition(() => {
+            setSelectedContinent(continent);
+            setCountries(allCountries.filter(c => c.continent === continent));
+            setSelectedCountry('');
+            onLocationChange('country', '');
+            setStates([]);
+            setSelectedState('');
+            onLocationChange('state', '');
+            setCities([]);
+            onLocationChange('city', '');
+        });
     }
 
     const handleCountryChange = (countryName: string) => {
-        setSelectedCountry(countryName);
-        onLocationChange('country', countryName);
-        // Reset subsequent fields
-        setSelectedState('');
-        onLocationChange('state', '');
-        setCities([]);
-        onLocationChange('city', '');
+        startTransition(() => {
+            setSelectedCountry(countryName);
+            onLocationChange('country', countryName);
+            setStates([]);
+            setSelectedState('');
+            onLocationChange('state', '');
+            setCities([]);
+            onLocationChange('city', '');
+        });
     }
 
     const handleStateChange = (stateName: string) => {
-        setSelectedState(stateName);
-        onLocationChange('state', stateName);
-        // Reset subsequent fields
-        setCities([]);
-        onLocationChange('city', '');
+        startTransition(() => {
+            setSelectedState(stateName);
+            onLocationChange('state', stateName);
+            setCities([]);
+            onLocationChange('city', '');
+        });
     }
 
     return (
@@ -306,7 +303,7 @@ const LocationSelector = ({
                 <Label htmlFor="country-display">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
                 <Select onValueChange={handleCountryChange} value={selectedCountry} disabled={!selectedContinent || loadingCountries || isFormDisabled}>
                     <SelectTrigger id="country-display">
-                        <SelectValue placeholder={loadingCountries ? "Cargando países..." : "Seleccionar país"} />
+                        <SelectValue placeholder={loadingCountries || isPending ? "Cargando países..." : "Seleccionar país"} />
                     </SelectTrigger>
                     <SelectContent>
                         {countries.map((country: any) => <SelectItem key={country.code} value={country.name}>{country.name}</SelectItem>)}
@@ -538,7 +535,6 @@ function CondoForm({
 
   return (
     <form action={dispatchFormAction}>
-      {/* Hidden inputs to pass location data to the server action */}
       <input type="hidden" name="country" value={locationData.country} />
       <input type="hidden" name="state" value={locationData.state} />
       <input type="hidden" name="city" value={locationData.city} />
@@ -947,4 +943,3 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
-
