@@ -117,10 +117,11 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange }: { defaultVal
         const fetchCountries = async () => {
             setLoadingCountries(true);
             try {
-                const response = await fetch('https://restcountries.com/v3.1/all?fields=name');
+                // Using a more reliable API for countries
+                const response = await fetch('https://restcountries.com/v3.1/all?fields=name,cca2');
                 let data = await response.json();
                 if (response.ok) {
-                   data = data.map((c: any) => c.name.common).sort();
+                   data = data.map((c: any) => ({ name: c.name.common, code: c.cca2 })).sort((a:any, b:any) => a.name.localeCompare(b.name));
                    setCountries(data);
                 } else {
                     setCountries([]);
@@ -145,6 +146,13 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange }: { defaultVal
         const fetchStates = async () => {
             setLoadingStates(true);
             try {
+                const countryInfo = countries.find(c => c.name === selectedCountry);
+                if (!countryInfo) {
+                    setStates([]);
+                    setLoadingStates(false);
+                    return;
+                }
+
                 const response = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -167,7 +175,7 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange }: { defaultVal
         };
         
         fetchStates();
-    }, [selectedCountry]);
+    }, [selectedCountry, countries]);
     
     useEffect(() => {
         if (!selectedCountry || !selectedState) {
@@ -184,7 +192,7 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange }: { defaultVal
                     body: JSON.stringify({ country: selectedCountry, state: selectedState })
                 });
                 const data = await response.json();
-                if (!data.error) {
+                if (!data.error && data.data) {
                     setCities(data.data.sort());
                 } else {
                     setCities([]);
@@ -223,7 +231,7 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange }: { defaultVal
                         <SelectValue placeholder={loadingCountries ? "Cargando países..." : "Seleccionar país"} />
                     </SelectTrigger>
                     <SelectContent>
-                        {countries.map((country: any) => <SelectItem key={country} value={country}>{country}</SelectItem>)}
+                        {countries.map((country: any) => <SelectItem key={country.code} value={country.name}>{country.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
             </div>
@@ -800,7 +808,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="number">{t('adminDashboard.newCondoDialog.numberLabel')}</Label>
-                            <Input id="number" name="name" defaultValue={editingCondo.number} required />
+                            <Input id="number" name="number" defaultValue={editingCondo.number} required />
                         </div>
                     </div>
                 </div>
@@ -817,3 +825,5 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
+
+    
