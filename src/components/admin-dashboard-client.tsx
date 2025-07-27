@@ -352,14 +352,17 @@ function ManageAdminsDialog() {
     )
 }
 
+// Caching helpers are now passed down, so they must be defined in the parent component.
 function AddressVerificationDialog({
   locationData,
   onSelectAddress,
   onClose,
+  getCachedData,
 }: {
   locationData: Partial<Pick<LocationData, 'street' | 'city' | 'state' | 'country'>>;
-  onSelectAddress: (address: Pick<LocationData, 'street' | 'number'>) => void;
+  onSelectAddress: (address: Pick<GeocodeResult, 'route' | 'street_number'>) => void;
   onClose: () => void;
+  getCachedData: (key: string, fetcher: () => Promise<any>) => Promise<any>;
 }) {
   const { t } = useLocale();
   const [isLoading, setIsLoading] = useState(true);
@@ -376,12 +379,16 @@ function AddressVerificationDialog({
 
       setIsLoading(true);
       setError(null);
-      const response = await geocodeAddress({
-        street: locationData.street,
-        city: locationData.city,
-        state: locationData.state,
-        country: locationData.country,
-      });
+      
+      const { street, city, state, country } = locationData;
+      const cacheKey = `geocode_${country}_${state}_${city}_${street}`;
+      
+      const response = await getCachedData(cacheKey, () => geocodeAddress({
+        street: street!,
+        city: city!,
+        state: state!,
+        country: country!,
+      }));
 
       if (response.success && response.data) {
         setResults(response.data);
@@ -391,12 +398,12 @@ function AddressVerificationDialog({
       setIsLoading(false);
     }
     verify();
-  }, [locationData, t]);
+  }, [locationData, t, getCachedData]);
 
   const handleSelect = (result: GeocodeResult) => {
     onSelectAddress({
-      street: result.route,
-      number: result.street_number || '',
+      route: result.route,
+      street_number: result.street_number,
     });
     onClose();
   };
@@ -521,7 +528,7 @@ function CondoFormFields({
                         required
                         disabled={isFormPending}
                     />
-                     <Button type="button" variant="outline" size="sm" onClick={onVerifyAddress} disabled={isFormPending || !locationData.city}>
+                     <Button type="button" variant="outline" size="sm" onClick={onVerifyAddress} disabled={isFormPending || !locationData.country || !locationData.state || !locationData.city}>
                         {t('addressVerification.checkButton')}
                     </Button>
                 </div>
@@ -557,77 +564,26 @@ function CondoFormFields({
     )
 }
 
-// --- Caching helpers for location data ---
-async function getCachedData(key: string, fetcher: () => Promise<any>) {
-    try {
-        const cached = sessionStorage.getItem(key);
-        if (cached) {
-            return JSON.parse(cached);
-        }
-        const data = await fetcher();
-        if (data) {
-            sessionStorage.setItem(key, JSON.stringify(data));
-        }
-        return data;
-    } catch (error) {
-        console.error(`Failed to get or set cached data for key "${key}":`, error);
-        // Fallback to fetching directly if caching fails
-        return fetcher();
-    }
-}
-
-const fetchCountries = (continent: string) => getCachedData(`countries_${continent}`, async () => {
-    try {
-        const res = await fetch(`https://restcountries.com/v3.1/region/${continent}?fields=name`);
-        const data = await res.json();
-        return (data || []).map((c: any) => ({ name: c.name.common })).sort((a: any, b: any) => a.name.localeCompare(b.name));
-    } catch (e) {
-        console.error("Failed to load countries", e);
-        return [];
-    }
-});
-
-const fetchStates = (country: string) => getCachedData(`states_${country}`, async () => {
-    try {
-        const res = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country })
-        });
-        const data = await res.json();
-        if (data.error) return [];
-        return (data.data?.states || []).sort((a: any, b: any) => a.name.localeCompare(b.name));
-    } catch (e) {
-        console.error("Failed to load states", e);
-        return [];
-    }
-});
-
-const fetchCities = (country: string, state: string) => getCachedData(`cities_${country}_${state}`, async () => {
-    try {
-        const res = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country, state })
-        });
-        const data = await res.json();
-        if (data.error) return [];
-        return (Array.isArray(data.data) ? data.data : []).sort();
-    } catch (e) {
-        console.error("Failed to load cities", e);
-        return [];
-    }
-});
-
-
 function CondoFormWrapper({
   closeDialog,
   formAction,
   initialData,
   isEditMode,
   preloadedLocationData,
+  getCachedData,
+  fetchCountries,
+  fetchStates,
+  fetchCities,
 }: {
   closeDialog: () => void;
   formAction: (prevState: any, formData: FormData) => Promise<any>;
   initialData: Partial<Condominio>;
   isEditMode: boolean;
   preloadedLocationData?: Partial<LocationData>;
+  getCachedData: (key: string, fetcher: () => Promise<any>) => Promise<any>;
+  fetchCountries: (continent: string) => Promise<{ name: string }[]>;
+  fetchStates: (country: string) => Promise<{ name: string }[]>;
+  fetchCities: (country: string, state: string) => Promise<string[]>;
 }) {
   const { t } = useLocale();
   const { toast } = useToast();
@@ -647,28 +603,28 @@ function CondoFormWrapper({
 
   const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
     startTransition(async () => {
-        let fieldsToReset: Partial<LocationData> = {};
+        let fieldsToUpdate: Partial<LocationData> = { [field]: value };
+
         if (field === 'continent') {
-            fieldsToReset = { country: '', state: '', city: '', countries: [], states: [], cities: [] };
+            fieldsToUpdate = { ...fieldsToUpdate, country: '', state: '', city: '', states: [], cities: [] };
             const countries = await fetchCountries(value);
-            fieldsToReset.countries = countries;
+            fieldsToUpdate.countries = countries;
         } else if (field === 'country') {
-            fieldsToReset = { state: '', city: '', states: [], cities: [] };
+            fieldsToUpdate = { ...fieldsToUpdate, state: '', city: '', cities: [] };
             const states = await fetchStates(value);
-            fieldsToReset.states = states;
+            fieldsToUpdate.states = states;
         } else if (field === 'state' && locationData.country) {
-            fieldsToReset = { city: '', cities: [] };
+            fieldsToUpdate = { ...fieldsToUpdate, city: '' };
             const cities = await fetchCities(locationData.country, value);
-            fieldsToReset.cities = cities;
+            fieldsToUpdate.cities = cities;
         }
         
         setLocationData(currentData => ({
             ...currentData,
-            [field]: value,
-            ...fieldsToReset,
+            ...fieldsToUpdate,
         }));
     });
-  }, [locationData.country]);
+  }, [locationData.country, fetchCountries, fetchStates, fetchCities]);
 
   useEffect(() => {
     if (state?.success === false) {
@@ -687,11 +643,11 @@ function CondoFormWrapper({
     }
   }, [state, t, toast, closeDialog]);
 
-  const handleSelectAddress = (address: Pick<LocationData, 'street' | 'number'>) => {
+  const handleSelectAddress = (address: Pick<GeocodeResult, 'route' | 'street_number'>) => {
       const streetInput = formRef.current?.elements.namedItem('street') as HTMLInputElement | null;
       const numberInput = formRef.current?.elements.namedItem('number') as HTMLInputElement | null;
-      if (streetInput) streetInput.value = address.street || '';
-      if (numberInput) numberInput.value = address.number || '';
+      if (streetInput) streetInput.value = address.route || '';
+      if (numberInput) numberInput.value = address.street_number || '';
   };
 
   const handleVerifyAddress = () => {
@@ -738,6 +694,7 @@ function CondoFormWrapper({
                 locationData={locationData}
                 onSelectAddress={handleSelectAddress}
                 onClose={() => setIsVerifyingAddress(false)}
+                getCachedData={getCachedData}
             />
         </Dialog>
     </>
@@ -761,6 +718,65 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const [isPreparingEdit, setIsPreparingEdit] = useState(false);
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  // --- Caching helpers for location data ---
+  const getCachedData = useCallback(async (key: string, fetcher: () => Promise<any>) => {
+    if (typeof window === 'undefined') return fetcher();
+    try {
+        const cached = sessionStorage.getItem(key);
+        if (cached) {
+            return JSON.parse(cached);
+        }
+        const data = await fetcher();
+        if (data) {
+            sessionStorage.setItem(key, JSON.stringify(data));
+        }
+        return data;
+    } catch (error) {
+        console.error(`Failed to get or set cached data for key "${key}":`, error);
+        return fetcher();
+    }
+  }, []);
+
+  const fetchCountries = useCallback((continent: string) => getCachedData(`countries_${continent}`, async () => {
+    try {
+        const res = await fetch(`https://restcountries.com/v3.1/region/${continent}?fields=name`);
+        const data = await res.json();
+        return (data || []).map((c: any) => ({ name: c.name.common })).sort((a: any, b: any) => a.name.localeCompare(b.name));
+    } catch (e) {
+        console.error("Failed to load countries", e);
+        return [];
+    }
+  }), [getCachedData]);
+
+  const fetchStates = useCallback((country: string) => getCachedData(`states_${country}`, async () => {
+    try {
+        const res = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country })
+        });
+        const data = await res.json();
+        if (data.error) return [];
+        return (data.data?.states || []).sort((a: any, b: any) => a.name.localeCompare(b.name));
+    } catch (e) {
+        console.error("Failed to load states", e);
+        return [];
+    }
+  }), [getCachedData]);
+
+  const fetchCities = useCallback((country: string, state: string) => getCachedData(`cities_${country}_${state}`, async () => {
+    try {
+        const res = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country, state })
+        });
+        const data = await res.json();
+        if (data.error) return [];
+        return (Array.isArray(data.data) ? data.data : []).sort();
+    } catch (e) {
+        console.error("Failed to load cities", e);
+        return [];
+    }
+  }), [getCachedData]);
+
 
   const fetchCondos = useCallback(async () => {
       setLoading(true);
@@ -811,12 +827,20 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   };
 
   const prepareAndOpenEditDialog = useCallback(async (condo: Condominio) => {
+    if (!condo.continent || !condo.country || !condo.state) {
+        toast({
+            title: t('toast.errorTitle'),
+            description: "Condominio con datos de ubicación incompletos.",
+            variant: 'destructive',
+        });
+        return;
+    }
     setIsPreparingEdit(true);
     try {
         const [countries, states, cities] = await Promise.all([
-            fetchCountries(condo.continent!),
-            fetchStates(condo.country!),
-            fetchCities(condo.country!, condo.state!)
+            fetchCountries(condo.continent),
+            fetchStates(condo.country),
+            fetchCities(condo.country, condo.state)
         ]);
         
         setEditingCondoData(condo);
@@ -838,7 +862,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     } finally {
         setIsPreparingEdit(false);
     }
-  }, [toast, t]);
+  }, [toast, t, fetchCountries, fetchStates, fetchCities]);
   
   const handleDeleteCondo = async (condoId: string) => {
     const result = await deleteCondominio(condoId);
@@ -978,6 +1002,10 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                         formAction={createCondominio}
                         isEditMode={false}
                         initialData={{}}
+                        getCachedData={getCachedData}
+                        fetchCountries={fetchCountries}
+                        fetchStates={fetchStates}
+                        fetchCities={fetchCities}
                     />
                 </DialogContent>
               </Dialog>
@@ -1083,6 +1111,10 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                         initialData={editingCondoData}
                         isEditMode={true}
                         preloadedLocationData={preloadedLocationData}
+                        getCachedData={getCachedData}
+                        fetchCountries={fetchCountries}
+                        fetchStates={fetchStates}
+                        fetchCities={fetchCities}
                     />
                 )}
             </DialogContent>
