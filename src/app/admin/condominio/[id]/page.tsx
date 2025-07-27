@@ -1210,10 +1210,10 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
 }
 
 
-function CondominioDashboardPageContent({ params }: { params: { id: string } }) {
+function CondominioDashboardPageContent({ condoId }: { condoId: string }) {
   const { t } = useLocale();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const condo = mockCondoDetails;
+  const condo = mockCondoDetails; // In a real app, you'd fetch this based on condoId
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -1277,5 +1277,5 @@ export default async function CondominioDashboardPage({ params }: { params: { id
     redirect('/admin/login');
   }
 
-  return <CondominioDashboardPageContent params={params} />;
+  return <CondominioDashboardPageContent condoId={params.id} />;
 }
