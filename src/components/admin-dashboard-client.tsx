@@ -424,20 +424,20 @@ function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
     const { pending } = useFormStatus();
 
     const [locationData, setLocationData] = useState<Partial<LocationData>>({
-        country: '',
-        state: '',
-        city: '',
+        country: initialData?.country || '',
+        state: initialData?.state || '',
+        city: initialData?.city || '',
     });
 
     useEffect(() => {
-        if (isEditMode && initialData) {
+        if(isEditMode && initialData) {
             setLocationData({
                 country: initialData.country,
                 state: initialData.state,
-                city: initialData.city,
-            });
+                city: initialData.city
+            })
         }
-    }, [isEditMode, initialData]);
+    }, [isEditMode, initialData])
 
     const handleLocationChange = (name: string, value: string) => {
         setLocationData(prev => ({...prev, [name]: value}));
@@ -812,5 +812,3 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
-
-    
