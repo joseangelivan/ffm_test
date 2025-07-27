@@ -1,11 +1,10 @@
--- Esquema base para la tabla de residentes
-CREATE TABLE IF NOT EXISTS residents (
+-- Esquema base para la tabla de porteros (gatekeepers)
+CREATE TABLE IF NOT EXISTS gatekeepers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    unit_details TEXT, -- Ej: "Torre A, Apto 101"
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -19,23 +18,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trigger_set_updated_at_residents ON residents;
-CREATE TRIGGER trigger_set_updated_at_residents
-BEFORE UPDATE ON residents
+DROP TRIGGER IF EXISTS trigger_set_updated_at_gatekeepers ON gatekeepers;
+CREATE TRIGGER trigger_set_updated_at_gatekeepers
+BEFORE UPDATE ON gatekeepers
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
--- Tabla de configuraciones de idioma/tema para residentes
-CREATE TABLE IF NOT EXISTS resident_settings (
-    resident_id UUID PRIMARY KEY REFERENCES residents(id) ON DELETE CASCADE,
+-- Tabla de configuraciones de idioma/tema para porteros
+CREATE TABLE IF NOT EXISTS gatekeeper_settings (
+    gatekeeper_id UUID PRIMARY KEY REFERENCES gatekeepers(id) ON DELETE CASCADE,
     language VARCHAR(5) DEFAULT 'pt',
     theme VARCHAR(10) DEFAULT 'light',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-DROP TRIGGER IF EXISTS trigger_set_updated_at_resident_settings ON resident_settings;
-CREATE TRIGGER trigger_set_updated_at_resident_settings
-BEFORE UPDATE ON resident_settings
+DROP TRIGGER IF EXISTS trigger_set_updated_at_gatekeeper_settings ON gatekeeper_settings;
+CREATE TRIGGER trigger_set_updated_at_gatekeeper_settings
+BEFORE UPDATE ON gatekeeper_settings
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
