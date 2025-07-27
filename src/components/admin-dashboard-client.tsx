@@ -143,7 +143,7 @@ const LocationSelector = ({
                 if (response.ok) {
                     const uniqueContinents = [...new Set(data.map((c:any) => c.region))].filter(Boolean).sort();
                     
-                    startTransition(() => {
+                    startTransition(async () => {
                         setAllContinents(uniqueContinents);
                         if(defaultValues.country) {
                              const currentCountryResponse = await fetch(`https://restcountries.com/v3.1/name/${defaultValues.country}?fullText=true&fields=region`);
@@ -613,6 +613,7 @@ function CondoFormWrapper({
 }) {
   const { t } = useLocale();
   const { toast } = useToast();
+  const formRef = useRef<HTMLFormElement>(null);
   const [state, dispatchFormAction, isPending] = useActionState(formAction, undefined);
   
   useEffect(() => {
@@ -633,7 +634,7 @@ function CondoFormWrapper({
   }, [state, t, toast, closeDialog]);
 
   return (
-    <form action={dispatchFormAction}>
+    <form ref={formRef} action={dispatchFormAction}>
        <CondoFormFields
          isEditMode={isEditMode}
          initialData={initialData}
