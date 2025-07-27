@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Textarea } from './ui/textarea';
 import { cn } from '@/lib/utils';
+import { LanguageSwitcher } from './language-switcher';
 
 interface AdminLoginFormProps {
     authenticateAdmin: (prevState: any, formData: FormData) => Promise<any>;
