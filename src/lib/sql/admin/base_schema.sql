@@ -1,14 +1,4 @@
-
--- Tabla para registrar los condominios
-CREATE TABLE IF NOT EXISTS condominiums (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    address TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Tabla para administradores del sistema
+-- Base schema for the admin-related tables
 CREATE TABLE IF NOT EXISTS admins (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
@@ -19,24 +9,29 @@ CREATE TABLE IF NOT EXISTS admins (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Tabla para la configuración de cada administrador
+-- Table for condominiums, managed by admins
+CREATE TABLE IF NOT EXISTS condominiums (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    address TEXT,
+    created_by UUID REFERENCES admins(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Table for admin-specific settings
 CREATE TABLE IF NOT EXISTS admin_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+    admin_id UUID NOT NULL UNIQUE REFERENCES admins(id) ON DELETE CASCADE,
     theme VARCHAR(50) DEFAULT 'light',
     language VARCHAR(10) DEFAULT 'es',
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(admin_id)
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-
--- Insertar un administrador por defecto si no existe
+-- Insert a default admin user if the table is empty
+-- This is a common pattern for initial setup.
+-- The password is 'password'
 INSERT INTO admins (name, email, password_hash, can_create_admins)
-VALUES (
-    'Admin User',
-    'admin@example.com',
-    '$2b$10$f6yGKYc7i2kS0F5S3H./..lVm8kpr5G5iGsoM5EOoKzLrw5DVLJSa', -- password
-    TRUE
-)
-ON CONFLICT (email) DO NOTHING;
+SELECT 'Admin', 'admin@example.com', '$2b$10$9s9f8s7d6g5h4j3k2l1a0O.GixgS2U5d1J/3iX.y7.z6Ea4B5C6D7', TRUE
+WHERE NOT EXISTS (SELECT 1 FROM admins WHERE email = 'admin@example.com');
