@@ -262,11 +262,11 @@ export async function getSession(sessionToken?: string) {
 
         let userResult;
         if (user_type === 'admin') {
-             userResult = await client.query('SELECT name, email, can_create_admins FROM admins WHERE id = $1', [user_id]);
+             userResult = await client.query('SELECT * FROM admins WHERE id = $1', [user_id]);
         } else if (user_type === 'resident') {
-            userResult = await client.query('SELECT name, email FROM residents WHERE id = $1', [user_id]);
+            userResult = await client.query('SELECT * FROM residents WHERE id = $1', [user_id]);
         } else if (user_type === 'gatekeeper') {
-            userResult = await client.query('SELECT name, email FROM gatekeepers WHERE id = $1', [user_id]);
+            userResult = await client.query('SELECT * FROM gatekeepers WHERE id = $1', [user_id]);
         } else {
             return null;
         }
