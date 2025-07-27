@@ -12,7 +12,9 @@
       "selectUserType": "Seleccionar tipo de usuario",
       "resident": "Residente",
       "gatekeeper": "Portería",
-      "adminLogin": "Acceso de Administrador"
+      "adminLogin": "Acceso de Administrador",
+      "showPassword": "Mostrar contraseña",
+      "hidePassword": "Ocultar contraseña"
     },
     "dashboard": {
         "title": "Panel de Control",
@@ -176,7 +178,7 @@
           "name": "Nombre",
           "type": "Tipo",
           "status": "Estado",
-          "actions": "Acciones"
+          "actions": "Ações"
         },
         "manageDialog": {
             "title": "Gestionar Dispositivo: {name}",

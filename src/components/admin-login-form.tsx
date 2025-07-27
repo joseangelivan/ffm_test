@@ -13,10 +13,10 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mail, Lock, AlertCircle, Loader } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
-import { useActionState, useRef } from 'react';
+import { useActionState, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -54,6 +54,7 @@ function SubmitButton() {
 function LoginFormContent({ state }: { state: any }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
+    const [showPassword, setShowPassword] = useState(false);
 
     return (
         <div className={cn("relative transition-opacity", pending && "opacity-50")}>
@@ -92,13 +93,24 @@ function LoginFormContent({ state }: { state: any }) {
                     <Input
                       id="password"
                       name="password"
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
-                      className="pl-10"
+                      className="pl-10 pr-10"
                       required
                       autoComplete="current-password"
                       disabled={pending}
                     />
+                     <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:bg-transparent"
+                        onClick={() => setShowPassword(prev => !prev)}
+                        disabled={pending}
+                        aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                      >
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </Button>
                   </div>
                 </div>
                 {state?.success === false && state.message && (

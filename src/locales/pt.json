@@ -12,7 +12,9 @@
       "selectUserType": "Selecione o tipo de usuário",
       "resident": "Residente",
       "gatekeeper": "Portaria",
-      "adminLogin": "Acesso de Administrador"
+      "adminLogin": "Acesso de Administrador",
+      "showPassword": "Mostrar senha",
+      "hidePassword": "Ocultar senha"
     },
     "dashboard": {
         "title": "Painel de Controle",

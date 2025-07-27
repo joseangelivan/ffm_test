@@ -1,10 +1,10 @@
 
 'use client';
 
-import React, { useActionState } from 'react';
+import React, { useActionState, useState } from 'react';
 import Link from 'next/link';
 import { useFormStatus } from 'react-dom';
-import { Mail, Lock, Users, Loader, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Users, Loader, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -60,6 +60,7 @@ export default function LoginForm() {
   const { t } = useLocale();
   const [state, formAction] = useActionState(authenticateUser, undefined);
   const { pending } = useFormStatus();
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <div className={cn('relative transition-opacity', pending && 'opacity-50')}>
@@ -135,13 +136,24 @@ export default function LoginForm() {
                 <Input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
-                  className="pl-10"
+                  className="pl-10 pr-10"
                   autoComplete="current-password"
                   disabled={pending}
                   required
                 />
+                 <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:bg-transparent"
+                    onClick={() => setShowPassword(prev => !prev)}
+                    disabled={pending}
+                    aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </Button>
               </div>
             </div>
             {state?.success === false && state.message && (
