@@ -80,7 +80,11 @@
         "deviceRemovedDescription": "O dispositivo foi removido da sua lista com sucesso.",
         "deviceSelectedTitle": "Dispositivo Selecionado",
         "deviceSelectedDescription": "Agora rastreando \"{name}\" no mapa.",
-        "preloadError": "Falha ao carregar dados de localização para edição."
+        "preloadError": "Falha ao carregar dados de localização para edição.",
+        "copied": {
+            "title": "Copiado",
+            "description": "Mensagem de erro copiada para a área de transferência."
+        }
     },
     "adminLogin": {
       "title": "Portal do Administrador",

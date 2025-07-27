@@ -13,14 +13,12 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mail, Lock, AlertCircle, Loader, Eye, EyeOff, Copy, Check } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
-import { useActionState, useRef, useState } from 'react';
+import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Textarea } from './ui/textarea';
 import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
 
@@ -154,21 +152,6 @@ function LoginFormContent({ state }: { state: any }) {
 
 export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProps) {
   const [state, formAction] = useActionState(authenticateAdmin, undefined);
-  const { toast } = useToast();
-  
-  const hasShownSuccessToast = useRef(false);
-
-  if (state?.success === true && !hasShownSuccessToast.current) {
-    toast({
-      title: "Login Successful",
-      description: "Redirecting to dashboard...",
-    });
-    hasShownSuccessToast.current = true;
-  }
-  
-  if (state?.success === false && hasShownSuccessToast.current) {
-      hasShownSuccessToast.current = false;
-  }
 
   return (
     <div className="light relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">

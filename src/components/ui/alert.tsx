@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 
 import { cn } from "@/lib/utils"
 import { Button } from "./button";
+import { useLocale } from "@/lib/i18n";
 
 const alertVariants = cva(
   "relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground",
@@ -54,12 +55,13 @@ const AlertDescription = React.forwardRef<
 >(({ className, children, isCopyable = false, ...props }, ref) => {
     const [isCopied, setIsCopied] = React.useState(false);
     const { toast } = useToast();
+    const { t } = useLocale();
     const textToCopy = React.useRef<HTMLDivElement>(null);
 
     const handleCopy = () => {
         if (textToCopy.current) {
             navigator.clipboard.writeText(textToCopy.current.innerText);
-            toast({ title: "Copiado", description: "Mensaje de error copiado al portapapeles." });
+            toast({ title: t('toast.copied.title'), description: t('toast.copied.description') });
             setIsCopied(true);
             setTimeout(() => setIsCopied(false), 2000);
         }

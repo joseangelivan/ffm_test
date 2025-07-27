@@ -80,7 +80,11 @@
         "deviceRemovedDescription": "El dispositivo ha sido eliminado de tu lista correctamente.",
         "deviceSelectedTitle": "Dispositivo Seleccionado",
         "deviceSelectedDescription": "Ahora siguiendo \"{name}\" en el mapa.",
-        "preloadError": "No se pudieron cargar los datos de ubicación para la edición."
+        "preloadError": "No se pudieron cargar los datos de ubicación para la edición.",
+        "copied": {
+            "title": "Copiado",
+            "description": "Mensaje de error copiado al portapapeles."
+        }
     },
     "adminLogin": {
       "title": "Portal del Administrador",
