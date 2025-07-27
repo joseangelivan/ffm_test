@@ -99,8 +99,15 @@ type Session = {
     type: 'admin' | 'resident' | 'gatekeeper';
 }
 
+type LocationData = {
+    country?: string;
+    state?: string;
+    city?: string;
+    street?: string;
+    number?: string;
+}
 
-const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled }: { defaultValues?: Partial<Omit<Condominio, 'id' | 'created_at' | 'updated_at' | 'address'>>, onLocationChange: (name: string, value: string) => void, isFormDisabled?: boolean }) => {
+const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled }: { defaultValues?: Partial<LocationData>, onLocationChange: (name: string, value: string) => void, isFormDisabled?: boolean }) => {
     const { t } = useLocale();
     const [countries, setCountries] = useState<any[]>([]);
     const [states, setStates] = useState<any[]>([]);
@@ -108,6 +115,7 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
 
     const [selectedCountry, setSelectedCountry] = useState(defaultValues.country || '');
     const [selectedState, setSelectedState] = useState(defaultValues.state || '');
+    const [selectedCity, setSelectedCity] = useState(defaultValues.city || '');
 
     const [loadingCountries, setLoadingCountries] = useState(false);
     const [loadingStates, setLoadingStates] = useState(false);
@@ -203,6 +211,7 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
     const handleCountryChange = (value: string) => {
         setSelectedCountry(value);
         setSelectedState('');
+        setSelectedCity('');
         onLocationChange('country', value);
         onLocationChange('state', '');
         onLocationChange('city', '');
@@ -210,15 +219,21 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
 
     const handleStateChange = (value: string) => {
         setSelectedState(value);
+        setSelectedCity('');
         onLocationChange('state', value);
         onLocationChange('city', '');
+    }
+
+    const handleCityChange = (value: string) => {
+        setSelectedCity(value);
+        onLocationChange('city', value);
     }
 
     return (
         <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
                 <Label htmlFor="country-display">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
-                <Select onValueChange={handleCountryChange} defaultValue={defaultValues.country} disabled={loadingCountries || isFormDisabled}>
+                <Select onValueChange={handleCountryChange} defaultValue={selectedCountry} disabled={loadingCountries || isFormDisabled}>
                     <SelectTrigger id="country-display">
                         <SelectValue placeholder={loadingCountries ? "Cargando países..." : "Seleccionar país"} />
                     </SelectTrigger>
@@ -240,7 +255,7 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled
             </div>
              <div className="grid gap-2 col-span-2">
                 <Label htmlFor="city-display">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
-                 <Select onValueChange={(value) => onLocationChange('city', value)} value={locationData.city} disabled={!selectedState || loadingCities || isFormDisabled}>
+                 <Select onValueChange={handleCityChange} value={selectedCity} disabled={!selectedState || loadingCities || isFormDisabled}>
                     <SelectTrigger id="city-display">
                         <SelectValue placeholder={loadingCities ? "Cargando ciudades..." : "Seleccionar ciudad"} />
                     </SelectTrigger>
@@ -399,13 +414,14 @@ function ManageAdminsDialog() {
 function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
     closeDialog: () => void;
     formAction: (prevState: any, formData: FormData) => Promise<any>;
-    initialData?: Condominio | null;
+    initialData?: Condominio & LocationData | null;
     isEditMode: boolean;
 }) {
     const { t } = useLocale();
     const { toast } = useToast();
     const [state, dispatchFormAction] = useActionState(formAction, undefined);
-    
+    const { pending } = useFormStatus();
+
     const [locationData, setLocationData] = useState({
         country: initialData?.country || '',
         state: initialData?.state || '',
@@ -426,7 +442,6 @@ function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
         }
     }, [state, t, toast, closeDialog]);
 
-    const { pending } = useFormStatus();
 
     return (
         <form action={dispatchFormAction}>
@@ -442,12 +457,15 @@ function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
                         <Input id="name" name="name" defaultValue={initialData?.name} placeholder="Ex: Residencial Jardins" required disabled={pending} />
                     </div>
                     
-                    {/* Location data as hidden inputs */}
                     <input type="hidden" name="country" value={locationData.country} />
                     <input type="hidden" name="state" value={locationData.state} />
                     <input type="hidden" name="city" value={locationData.city} />
                     
-                    <LocationSelector onLocationChange={handleLocationChange} defaultValues={initialData || {}} isFormDisabled={pending} />
+                    <LocationSelector 
+                        onLocationChange={handleLocationChange} 
+                        defaultValues={locationData}
+                        isFormDisabled={pending} 
+                    />
                     
                     <div className="grid grid-cols-3 gap-4">
                         <div className="grid gap-2 col-span-2">
@@ -478,12 +496,12 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const { toast } = useToast();
   const router = useRouter();
 
-  const [condominios, setCondominios] = useState<Condominio[]>([]);
+  const [condominios, setCondominios] = useState<(Condominio & LocationData)[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
   const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
-  const [editingCondo, setEditingCondo] = useState<Condominio | null>(null);
+  const [editingCondo, setEditingCondo] = useState<(Condominio & LocationData) | null>(null);
   
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
@@ -491,7 +509,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       setLoading(true);
       const result = await getCondominios();
       if(result.success && result.data) {
-          setCondominios(result.data);
+          setCondominios(result.data as (Condominio & LocationData)[]);
       } else {
           toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
       }
@@ -553,7 +571,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     }
   }
 
-  const openEditDialog = (condo: Condominio) => {
+  const openEditDialog = (condo: Condominio & LocationData) => {
     setEditingCondo(condo);
     setIsEditCondoDialogOpen(true);
   };
