@@ -29,6 +29,7 @@ import {
   Mail,
   Mailbox,
   GripVertical,
+  Send,
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -89,7 +90,7 @@ import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { handleLogoutAction, getSettings, updateSettings, createAdmin, getAdmins, updateAdmin, deleteAdmin, sendAdminCredentialsEmail, type Admin } from '@/actions/auth';
 import { createCondominio, getCondominios, updateCondominio, deleteCondominio, type Condominio } from '@/actions/condos';
-import { createSmtpConfiguration, getSmtpConfigurations, updateSmtpConfiguration, deleteSmtpConfiguration, updateSmtpOrder, type SmtpConfiguration } from '@/actions/smtp';
+import { createSmtpConfiguration, getSmtpConfigurations, updateSmtpConfiguration, deleteSmtpConfiguration, updateSmtpOrder, testSmtpConfiguration, type SmtpConfiguration } from '@/actions/smtp';
 import { geocodeAddress, type GeocodeResult } from '@/actions/geocoding';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -273,6 +274,7 @@ function SmtpConfigDialog() {
   const [configs, setConfigs] = useState<SmtpConfiguration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, startSubmitting] = useTransition();
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<SmtpConfiguration | null>(null);
@@ -337,11 +339,24 @@ function SmtpConfigDialog() {
     });
   }
 
+  const handleTest = (id: string) => {
+      setTestingId(id);
+      startSubmitting(async () => {
+          const result = await testSmtpConfiguration(id);
+          if (result.success) {
+              toast({ title: t('toast.successTitle'), description: result.message, duration: 9000 });
+          } else {
+              toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', duration: 9000 });
+          }
+          setTestingId(null);
+      });
+  }
+
   return (
     <>
       <DialogContent className="sm:max-w-2xl">
-        <div className={cn("relative", isSubmitting && "opacity-50")}>
-            {isSubmitting && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
+        <div className={cn("relative", (isSubmitting && !testingId) && "opacity-50")}>
+            {isSubmitting && !testingId && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
             <DialogHeader>
                 <DialogTitle>Configurar envío de correo (SMTP)</DialogTitle>
                 <DialogDescription>
@@ -370,10 +385,13 @@ function SmtpConfigDialog() {
                                 <p className="font-medium">{config.name} <span className="text-muted-foreground text-sm">({config.host})</span></p>
                                 <p className="text-sm text-muted-foreground">{config.auth_user}</p>
                             </div>
-                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(config)}><Edit className="h-4 w-4"/></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleTest(config.id)} disabled={isSubmitting}>
+                                {testingId === config.id ? <Loader className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4"/>}
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(config)} disabled={isSubmitting}><Edit className="h-4 w-4"/></Button>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4"/></Button>
+                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={isSubmitting}><Trash2 className="h-4 w-4"/></Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
@@ -417,6 +435,10 @@ function SmtpFormDialog({ config, onSuccess, onCancel }: { config: SmtpConfigura
     // We pass a function to useActionState to handle the success case without causing infinite loops.
     const [state, dispatch] = useActionState(formAction, undefined);
     
+    const onFormSuccessCallback = useCallback(() => {
+        onSuccess();
+    }, [onSuccess]);
+
     useEffect(() => {
         if (!state) return;
         if (state.success === false) {
@@ -424,9 +446,9 @@ function SmtpFormDialog({ config, onSuccess, onCancel }: { config: SmtpConfigura
         }
         if (state.success === true) {
             toast({ title: t('toast.successTitle'), description: state.message });
-            onSuccess();
+            onFormSuccessCallback();
         }
-    }, [state, t, toast, onSuccess]);
+    }, [state, t, toast, onFormSuccessCallback]);
     
     return (
         <DialogContent className="sm:max-w-lg">
@@ -1161,7 +1183,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     }
     return result;
   };
-
+  
   const prepareAndOpenEditDialog = useCallback(async (condo: Condominio) => {
     setIsPreparingEdit(true);
 
@@ -1185,7 +1207,9 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     
     try {
         if (!condo.continent || !condo.country || !condo.state) {
-            throw new Error("Condominio con datos de ubicación incompletos.");
+            toast({ title: t('toast.errorTitle'), description: "Condominio con datos de ubicación incompletos.", variant: 'destructive' });
+            setIsPreparingEdit(false);
+            return;
         }
 
         const [countries, states, cities] = await Promise.all([
@@ -1193,7 +1217,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
             fetchStates(condo.country),
             fetchCities(condo.country, condo.state)
         ]);
-
+        
         setEditingCondoData({
             ...condo,
             countries,
@@ -1468,3 +1492,4 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
+

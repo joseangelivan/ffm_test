@@ -3,6 +3,7 @@
 
 import { z } from 'zod';
 import { getDbPool, getCurrentSession } from './auth';
+import nodemailer from 'nodemailer';
 
 // For this example, we'll store the password in plaintext in the DB.
 // In a real-world application, this should be encrypted using a secret key
@@ -260,4 +261,81 @@ export async function updateSmtpOrder(orderedIds: string[]): Promise<ActionState
     }
 }
 
+
+export async function testSmtpConfiguration(id: string): Promise<ActionState> {
+    try {
+        await checkAdmin();
+        if (!id) return { success: false, message: "ID no proporcionado." };
+
+        let client;
+        let config: SmtpConfiguration | undefined;
+
+        try {
+            const pool = await getDbPool();
+            client = await pool.connect();
+            const result = await client.query('SELECT * FROM smtp_configurations WHERE id = $1', [id]);
+            if (result.rows.length === 0) {
+                return { success: false, message: "Configuración no encontrada." };
+            }
+            config = result.rows[0];
+        } finally {
+            if (client) client.release();
+        }
+
+        if (!config) {
+             return { success: false, message: "Error al recuperar la configuración." };
+        }
+
+        try {
+             const transporter = nodemailer.createTransport({
+                host: config.host,
+                port: config.port,
+                secure: config.secure,
+                auth: {
+                    user: config.auth_user,
+                    pass: config.auth_pass,
+                },
+                // Add a timeout to prevent long hangs
+                connectionTimeout: 5 * 1000, // 5 seconds
+                greetingTimeout: 5 * 1000, // 5 seconds
+            });
+
+            // Verify connection configuration
+            await transporter.verify();
+
+            const info = await transporter.sendMail({
+                from: `"${config.name} (Prueba)" <${config.auth_user}>`,
+                to: config.auth_user, // Send to self
+                subject: 'Prueba de Conexión SMTP - Follow For Me',
+                html: `
+                    <h1>¡Conexión Exitosa!</h1>
+                    <p>Este es un correo de prueba de la configuración SMTP llamada "<b>${config.name}</b>" en tu aplicación Follow For Me.</p>
+                    <p>Si recibiste este correo, significa que la configuración es correcta.</p>
+                    <p>Detalles:</p>
+                    <ul>
+                        <li><b>Host:</b> ${config.host}</li>
+                        <li><b>Puerto:</b> ${config.port}</li>
+                        <li><b>Usuario:</b> ${config.auth_user}</li>
+                    </ul>
+                `,
+            });
+             return { success: true, message: `Correo de prueba enviado con éxito a ${config.auth_user}.` };
+
+        } catch (error: any) {
+             console.error(`Failed to send test email with config "${config.name}". Error: ${error}`);
+             // Provide a more specific error message
+             const errorMessage = error.code === 'EAUTH' 
+                ? 'Error de autenticación. Verifica el usuario y la contraseña.'
+                : error.code === 'ECONNECTION'
+                ? 'Error de conexión. Verifica el host y el puerto.'
+                : `Error del servidor: ${error.message}`;
+
+             return { success: false, message: errorMessage };
+        }
+
+    } catch (error: any) {
+        console.error(`Error testing SMTP config ${id}:`, error);
+        return { success: false, message: error.message || 'Error del servidor.' };
+    }
+}
     
