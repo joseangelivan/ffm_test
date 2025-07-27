@@ -69,13 +69,13 @@ async function runMigrations(p: Pool) {
 
         if (isNewDatabase) {
             console.log("No existing 'admins' data found. Assuming a new database setup.");
-            console.log("Initializing database with 'src/lib/schema.sql'...");
+            console.log("Initializing database with 'src/lib/base_schema.sql'...");
             
-            const schemaSqlPath = path.join(process.cwd(), 'src', 'lib', 'schema.sql');
+            const schemaSqlPath = path.join(process.cwd(), 'src', 'lib', 'base_schema.sql');
             const schemaSql = await fs.readFile(schemaSqlPath, 'utf-8');
             await client.query(schemaSql);
             
-            console.log('--- Database initialized successfully using schema.sql. ---');
+            console.log('--- Database initialized successfully using base_schema.sql. ---');
             
         } else {
             console.log("Existing data found. Checking for incremental migrations...");
@@ -89,11 +89,14 @@ async function runMigrations(p: Pool) {
             await client.query('BEGIN');
             try {
                 for (const file of migrationFiles) {
+                    if (!file.trim()) continue; // Skip empty files
+                    const fileContent = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
+                    if (!fileContent.trim()) continue; // Skip empty files
+
                     if (!appliedMigrations.has(file)) {
                         console.log(`--- Applying new migration: ${file} ---`);
-                        const sql = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
-                        await client.query(sql);
-                        await client.query('INSERT INTO schema_migrations (migration_name, sql_script) VALUES ($1, $2)', [file, sql]);
+                        await client.query(fileContent);
+                        await client.query('INSERT INTO schema_migrations (migration_name, sql_script) VALUES ($1, $2)', [file, fileContent]);
                         console.log(`--- Migration '${file}' applied and registered successfully. ---`);
                     }
                 }
