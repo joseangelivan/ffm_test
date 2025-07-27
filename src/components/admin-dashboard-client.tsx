@@ -153,12 +153,23 @@ function CreateAdminSubmitButton() {
     )
 }
 
-function ManageAdminsDialog() {
+function LoadingOverlay() {
+    const { t } = useLocale();
+    return (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
+            <div className="flex items-center gap-4 text-2xl text-muted-foreground">
+                <Loader className="h-12 w-12 animate-spin" />
+                <span>Creando...</span>
+            </div>
+        </div>
+    );
+}
+
+function ManageAdminsForm({closeDialog}: {closeDialog: () => void}) {
     const { t } = useLocale();
     const { toast } = useToast();
+    const { pending } = useFormStatus();
     const [state, formAction] = useActionState(createAdmin, undefined);
-    const formRef = useRef<HTMLFormElement>(null);
-    const [isOpen, setIsOpen] = useState(false);
     
     useEffect(() => {
         if (state?.success === false) {
@@ -173,10 +184,61 @@ function ManageAdminsDialog() {
                 title: t('toast.successTitle'),
                 description: state.message
             });
-            formRef.current?.reset();
-            setIsOpen(false);
+            closeDialog();
         }
-    }, [state, t, toast]);
+    }, [state, t, toast, closeDialog]);
+
+    return (
+        <form action={formAction}>
+            <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+                {pending && <LoadingOverlay />}
+                <DialogHeader>
+                    <DialogTitle>{t('adminDashboard.manageAdmins.title')}</DialogTitle>
+                    <DialogDescription>{t('adminDashboard.manageAdmins.description')}</DialogDescription>
+                </DialogHeader>
+                 <div className="grid gap-4 py-4">
+                    {state?.success === false && (
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
+                            <AlertDescription>{state.message}</AlertDescription>
+                        </Alert>
+                    )}
+                    <div className="grid gap-2">
+                        <Label htmlFor="name">{t('adminDashboard.manageAdmins.nameLabel')}</Label>
+                        <Input id="name" name="name" placeholder="John Doe" required disabled={pending}/>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="email">{t('adminDashboard.manageAdmins.emailLabel')}</Label>
+                        <Input id="email" name="email" type="email" placeholder="admin@example.com" required autoComplete="email" disabled={pending}/>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="password">{t('adminDashboard.manageAdmins.passwordLabel')}</Label>
+                        <Input id="password" name="password" type="password" required autoComplete="new-password" disabled={pending}/>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                       <Checkbox id="can_create_admins" name="can_create_admins" disabled={pending}/>
+                       <Label htmlFor="can_create_admins" className="text-sm font-normal">
+                            {t('adminDashboard.manageAdmins.canCreateAdminsLabel')}
+                        </Label>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="outline" disabled={pending}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
+                    </DialogClose>
+                    <Button type="submit" disabled={pending}>
+                        {t('adminDashboard.manageAdmins.createButton')}
+                    </Button>
+                </DialogFooter>
+            </div>
+        </form>
+    )
+}
+
+function ManageAdminsDialog() {
+    const { t } = useLocale();
+    const [isOpen, setIsOpen] = useState(false);
     
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -187,45 +249,7 @@ function ManageAdminsDialog() {
                 </DropdownMenuItem>
             </DialogTrigger>
             <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{t('adminDashboard.manageAdmins.title')}</DialogTitle>
-                    <DialogDescription>{t('adminDashboard.manageAdmins.description')}</DialogDescription>
-                </DialogHeader>
-                <form action={formAction} ref={formRef}>
-                     <div className="grid gap-4 py-4">
-                        {state?.success === false && (
-                            <Alert variant="destructive">
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-                                <AlertDescription>{state.message}</AlertDescription>
-                            </Alert>
-                        )}
-                        <div className="grid gap-2">
-                            <Label htmlFor="name">{t('adminDashboard.manageAdmins.nameLabel')}</Label>
-                            <Input id="name" name="name" placeholder="John Doe" required/>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="email">{t('adminDashboard.manageAdmins.emailLabel')}</Label>
-                            <Input id="email" name="email" type="email" placeholder="admin@example.com" required autoComplete="email"/>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="password">{t('adminDashboard.manageAdmins.passwordLabel')}</Label>
-                            <Input id="password" name="password" type="password" required autoComplete="new-password" />
-                        </div>
-                        <div className="flex items-center space-x-2">
-                           <Checkbox id="can_create_admins" name="can_create_admins" />
-                           <Label htmlFor="can_create_admins" className="text-sm font-normal">
-                                {t('adminDashboard.manageAdmins.canCreateAdminsLabel')}
-                            </Label>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <DialogClose asChild>
-                            <Button variant="outline">{t('adminDashboard.newCondoDialog.cancel')}</Button>
-                        </DialogClose>
-                        <CreateAdminSubmitButton />
-                    </DialogFooter>
-                </form>
+                <ManageAdminsForm closeDialog={() => setIsOpen(false)} />
             </DialogContent>
         </Dialog>
     )
@@ -569,3 +593,5 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
+
+    
