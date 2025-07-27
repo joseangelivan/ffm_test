@@ -19,7 +19,7 @@ import { useLocale } from '@/lib/i18n';
 import { useActionState, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from './ui/textarea';
 import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
