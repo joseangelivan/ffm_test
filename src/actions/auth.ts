@@ -69,9 +69,14 @@ async function runMigrations(p: Pool) {
                         console.log(`- Applying base schema from '${dirent.name}/base_schema.sql'...`);
                         await client.query(schemaSql);
                     }
-                } catch (err) {
-                    // This will catch errors like file not found, so it's safe.
-                    console.warn(`Could not read or apply ${dirent.name}/base_schema.sql. Skipping. Error:`, err);
+                } catch (err: any) {
+                    if (err.code === 'ENOENT') {
+                        // This is expected if a directory doesn't have a base_schema.sql (e.g., 'utilities' after cleanup)
+                        console.warn(`Could not find ${dirent.name}/base_schema.sql. Skipping.`);
+                    } else {
+                        // Re-throw other errors (e.g., permission issues)
+                        throw err;
+                    }
                 }
             }
         }
