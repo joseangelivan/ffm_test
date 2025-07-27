@@ -89,6 +89,15 @@ async function runMigrations(p: Pool) {
         // Step 1: Apply all base schemas. `IF NOT EXISTS` makes this safe to run every time.
         console.log("Applying base schemas...");
         const sqlBaseDir = path.join(process.cwd(), 'src', 'lib', 'sql');
+        
+        // Ensure the base directory for SQL schemas exists
+        try {
+            await fs.access(sqlBaseDir);
+        } catch (error) {
+            console.log("No 'src/lib/sql' directory found. Creating it.");
+            await fs.mkdir(sqlBaseDir, { recursive: true });
+        }
+
         const schemaDirs = (await fs.readdir(sqlBaseDir, { withFileTypes: true }))
             .filter(dirent => dirent.isDirectory());
 
