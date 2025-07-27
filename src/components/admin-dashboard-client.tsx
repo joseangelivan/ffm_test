@@ -139,15 +139,13 @@ const LocationSelector = ({
     useEffect(() => {
         const loadInitialData = async () => {
             if (!defaultValues.continent) return;
-
             if (onLoadingStateChange) onLoadingStateChange(true);
-            
+
             try {
-                // Step 1: Set continent (it's already in defaultValues)
+                // Step 1: Set continent and load countries
                 setSelectedContinent(defaultValues.continent);
                 onLocationChange('continent', defaultValues.continent);
-
-                // Step 2: Load countries for the determined continent
+                
                 setLoadingCountries(true);
                 const countriesResponse = await fetch(`https://restcountries.com/v3.1/region/${defaultValues.continent}?fields=name`);
                 const countriesData = await countriesResponse.json();
@@ -155,58 +153,43 @@ const LocationSelector = ({
                 setCountries(countryNames);
                 setLoadingCountries(false);
 
-                if (!countryNames.includes(defaultValues.country || '')) {
-                    console.warn(`Country "${defaultValues.country}" not found in continent "${defaultValues.continent}". Stopping.`);
+                if (!defaultValues.country || !countryNames.includes(defaultValues.country)) {
+                    console.warn(`Country "${defaultValues.country}" not found. Stopping.`);
                     return;
                 }
-                setSelectedCountry(defaultValues.country!);
-                onLocationChange('country', defaultValues.country!);
+                setSelectedCountry(defaultValues.country);
+                onLocationChange('country', defaultValues.country);
 
-
-                // Step 3: Load states for the selected country
+                // Step 2: Load states
                 setLoadingStates(true);
                 const statesResponse = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ country: defaultValues.country })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country: defaultValues.country })
                 });
                 const statesData = await statesResponse.json();
-                setLoadingStates(false);
-                if (statesData.error || !statesData.data?.states) {
-                    console.warn(`Could not fetch states for ${defaultValues.country}.`);
-                    return;
-                }
-                const stateNames = statesData.data.states.map((s: any) => s.name).sort();
+                const stateNames = (statesData.data?.states || []).map((s: any) => s.name).sort();
                 setStates(stateNames);
+                setLoadingStates(false);
 
-                if (!stateNames.includes(defaultValues.state || '')) {
-                     console.warn(`State "${defaultValues.state}" not found in country "${defaultValues.country}". Stopping.`);
+                if (!defaultValues.state || !stateNames.includes(defaultValues.state)) {
+                    console.warn(`State "${defaultValues.state}" not found. Stopping.`);
                     return;
                 }
-                setSelectedState(defaultValues.state!);
-                onLocationChange('state', defaultValues.state!);
+                setSelectedState(defaultValues.state);
+                onLocationChange('state', defaultValues.state);
 
-                // Step 4: Load cities for the selected state
+                // Step 3: Load cities
                 setLoadingCities(true);
                 const citiesResponse = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ country: defaultValues.country, state: defaultValues.state })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country: defaultValues.country, state: defaultValues.state })
                 });
                 const citiesData = await citiesResponse.json();
-                setLoadingCities(false);
-                if (citiesData.error || !Array.isArray(citiesData.data)) {
-                    console.warn(`Could not fetch cities for ${defaultValues.state}.`);
-                    return;
-                }
-                const cityNames = citiesData.data.sort();
+                const cityNames = (Array.isArray(citiesData.data) ? citiesData.data : []).sort();
                 setCities(cityNames);
-
-                if (cityNames.includes(defaultValues.city || '')) {
-                    setSelectedCity(defaultValues.city!);
-                    onLocationChange('city', defaultValues.city!);
-                } else {
-                    console.warn(`City "${defaultValues.city}" not found in state "${defaultValues.state}".`);
+                setLoadingCities(false);
+                
+                if (defaultValues.city && cityNames.includes(defaultValues.city)) {
+                    setSelectedCity(defaultValues.city);
+                    onLocationChange('city', defaultValues.city);
                 }
 
             } catch (error) {
@@ -216,11 +199,13 @@ const LocationSelector = ({
             }
         };
 
-        startTransition(() => {
-            loadInitialData();
-        });
+        if (defaultValues.continent && defaultValues.country) {
+            startTransition(() => {
+                loadInitialData();
+            });
+        }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [defaultValues.country, defaultValues.state, defaultValues.city, defaultValues.continent]);
+    }, [defaultValues.continent, defaultValues.country, defaultValues.state, defaultValues.city]);
 
 
     const handleContinentChange = (continent: string) => {
@@ -1022,7 +1007,3 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
-
-    
-
-    
