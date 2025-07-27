@@ -21,6 +21,7 @@ import {
   Trash2,
   User,
   Watch,
+  Loader
 } from 'lucide-react';
 import { APIProvider } from '@vis.gl/react-google-maps';
 
@@ -82,6 +83,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import MapComponent, { Marker } from '@/components/map';
+import { getCurrentSession, getSettings, updateSettings } from '@/actions/auth';
 
 type Device = {
   id: string;
@@ -92,10 +94,11 @@ type Device = {
   battery: number | null;
 };
 
-type User = {
-  name: string;
-  email: string;
-  avatarUrl: string;
+type Session = {
+    id: string;
+    email: string;
+    name: string;
+    type: 'admin' | 'resident' | 'gatekeeper';
 };
 
 const deviceIcons = {
@@ -257,10 +260,10 @@ export default function DashboardClient({
   user,
   devices: initialDevices,
 }: {
-  user: User;
+  user: { name: string; email: string; avatarUrl: string };
   devices: Device[];
 }) {
-  const [isLoading, setIsLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
   const [devices, setDevices] = useState<Device[]>(initialDevices);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(
     initialDevices.find(d => d.status === 'Online') || initialDevices[0] || null
@@ -270,26 +273,37 @@ export default function DashboardClient({
   const { t, setLocale, locale } = useLocale();
   const router = useRouter();
 
-  const [theme, setTheme] = useState('light');
-
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    setTheme(savedTheme);
-    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
-  }, []);
+    async function checkSession() {
+      const currentSession = await getCurrentSession();
+      if (!currentSession) {
+        router.push('/');
+      } else {
+        setSession(currentSession as Session);
+        const settings = await getSettings();
+        if (settings) {
+            setTheme(settings.theme);
+            setLocale(settings.language);
+            document.documentElement.classList.toggle('dark', settings.theme === 'dark');
+        }
+      }
+    }
+    checkSession();
+  }, [router, setLocale]);
 
-  const handleSetTheme = (newTheme: 'light' | 'dark') => {
+  const handleSetTheme = async (newTheme: 'light' | 'dark') => {
     setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    await updateSettings({ theme: newTheme });
   }
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1000);
-    return () => clearTimeout(timer);
-  }, []);
+  const handleSetLocale = async (newLocale: 'es' | 'pt') => {
+      setLocale(newLocale);
+      await updateSettings({ language: newLocale });
+  }
 
   useEffect(() => {
     if (!selectedDevice || selectedDevice.status === 'Offline') return;
@@ -374,7 +388,7 @@ export default function DashboardClient({
     .filter((marker): marker is Marker => marker !== null);
 
 
-  if (isLoading) {
+  if (!session) {
     return <DashboardSkeleton />;
   }
 
@@ -399,8 +413,8 @@ export default function DashboardClient({
               <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user.name}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                      <p className="text-sm font-medium leading-none">{session.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{session.email}</p>
                   </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -422,10 +436,10 @@ export default function DashboardClient({
                                 </DropdownMenuSubTrigger>
                                 <DropdownMenuPortal>
                                     <DropdownMenuSubContent>
-                                        <DropdownMenuItem onClick={() => setLocale('es')}>
+                                        <DropdownMenuItem onClick={() => handleSetLocale('es')}>
                                         Español {locale === 'es' && <span className="ml-auto">✓</span>}
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setLocale('pt')}>
+                                        <DropdownMenuItem onClick={() => handleSetLocale('pt')}>
                                         Português {locale === 'pt' && <span className="ml-auto">✓</span>}
                                         </DropdownMenuItem>
                                     </DropdownMenuSubContent>

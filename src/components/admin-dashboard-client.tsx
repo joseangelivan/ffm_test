@@ -81,7 +81,7 @@ import { useLocale } from '@/lib/i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { handleLogoutAction, getAdminSettings, updateAdminSettings, getCurrentSession, createAdmin } from '@/actions/auth';
+import { handleLogoutAction, getSettings, updateSettings, getCurrentSession, createAdmin } from '@/actions/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -102,6 +102,7 @@ type Session = {
     email: string;
     name: string;
     canCreateAdmins: boolean;
+    type: 'admin' | 'resident' | 'gatekeeper';
 }
 
 const mockCondominios = [
@@ -230,12 +231,12 @@ function ManageAdminsDialog() {
     )
 }
 
-export default function AdminDashboardClient() {
+export default function AdminDashboardClient({ session: initialSession }: { session: Session }) {
   const { t, setLocale, locale } = useLocale();
   const { toast } = useToast();
   const router = useRouter();
 
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<Session | null>(initialSession);
   const [condominios, setCondominios] = useState<Condominio[]>(mockCondominios);
   
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
@@ -255,8 +256,8 @@ export default function AdminDashboardClient() {
       if (!currentSession) {
         router.push('/admin/login');
       } else {
-        setSession(currentSession);
-        const settings = await getAdminSettings();
+        setSession(currentSession as Session);
+        const settings = await getSettings();
         if (settings) {
             setTheme(settings.theme);
             setLocale(settings.language);
@@ -270,12 +271,12 @@ export default function AdminDashboardClient() {
   const handleSetTheme = async (newTheme: 'light' | 'dark') => {
     setTheme(newTheme);
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
-    await updateAdminSettings({ theme: newTheme });
+    await updateSettings({ theme: newTheme });
   }
 
   const handleSetLocale = async (newLocale: 'es' | 'pt') => {
       setLocale(newLocale);
-      await updateAdminSettings({ language: newLocale });
+      await updateSettings({ language: newLocale });
   }
 
   useEffect(() => {

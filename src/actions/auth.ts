@@ -136,43 +136,55 @@ type CreateAdminState = {
   message: string;
 }
 
-type AdminSettings = {
+type UserSettings = {
     theme: 'light' | 'dark';
     language: 'es' | 'pt';
 }
 
-export async function getAdminSettings(): Promise<AdminSettings | null> {
+// Generic settings functions
+export async function getSettings(): Promise<UserSettings | null> {
     const session = await getCurrentSession();
-    if (!session || session.type !== 'admin') return null;
+    if (!session) return null;
+    
     let client;
     try {
         const pool = await getDbPool();
         client = await pool.connect();
-        const result = await client.query('SELECT theme, language FROM admin_settings WHERE admin_id = $1', [session.id]);
+        
+        const tableName = `${session.type}_settings`;
+        const userIdColumn = `${session.type}_id`;
+
+        const result = await client.query(`SELECT theme, language FROM ${tableName} WHERE ${userIdColumn} = $1`, [session.id]);
         
         if (result.rows.length > 0) {
-            return result.rows[0] as AdminSettings;
+            return result.rows[0] as UserSettings;
         }
 
-        await client.query('INSERT INTO admin_settings (admin_id, theme, language) VALUES ($1, $2, $3) ON CONFLICT (admin_id) DO NOTHING', [session.id, 'light', 'pt']);
-        return { theme: 'light', language: 'pt' };
+        // This case should ideally not happen if createSession works correctly, but it's a good fallback.
+        const defaultSettings: UserSettings = { theme: 'light', language: 'pt' };
+        await client.query(`INSERT INTO ${tableName} (${userIdColumn}, theme, language) VALUES ($1, $2, $3) ON CONFLICT (${userIdColumn}) DO NOTHING`, [session.id, defaultSettings.theme, defaultSettings.language]);
+        return defaultSettings;
 
     } catch (error) {
-        console.error('Failed to get admin settings:', error);
+        console.error(`Failed to get settings for ${session.type} ${session.id}:`, error);
         return null;
     } finally {
         if (client) client.release();
     }
 }
 
-export async function updateAdminSettings(settings: Partial<AdminSettings>): Promise<{success: boolean}> {
+export async function updateSettings(settings: Partial<UserSettings>): Promise<{success: boolean}> {
     const session = await getCurrentSession();
-    if (!session || session.type !== 'admin') return { success: false };
+    if (!session) return { success: false };
 
     let client;
     try {
         const pool = await getDbPool();
         client = await pool.connect();
+
+        const tableName = `${session.type}_settings`;
+        const userIdColumn = `${session.type}_id`;
+
         const setClauses = [];
         const values = [];
         let valueIndex = 1;
@@ -191,18 +203,19 @@ export async function updateAdminSettings(settings: Partial<AdminSettings>): Pro
         }
 
         values.push(session.id);
-        const query = `UPDATE admin_settings SET ${setClauses.join(', ')}, updated_at = NOW() WHERE admin_id = $${valueIndex}`;
+        const query = `UPDATE ${tableName} SET ${setClauses.join(', ')}, updated_at = NOW() WHERE ${userIdColumn} = $${valueIndex}`;
         
         await client.query(query, values);
         
         return { success: true };
     } catch (error) {
-        console.error('Failed to update admin settings:', error);
+        console.error(`Failed to update settings for ${session.type} ${session.id}:`, error);
         return { success: false };
     } finally {
         if (client) client.release();
     }
 }
+
 
 export async function getSession(sessionToken?: string) {
     if (!sessionToken) return null;
@@ -288,13 +301,9 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
         await client.query('DELETE FROM sessions WHERE user_id = $1 AND user_type = $2', [userId, userType]);
         await client.query('INSERT INTO sessions (user_id, user_type, token, expires_at) VALUES ($1, $2, $3, $4)', [userId, userType, token, expirationDate]);
 
-        if(userType === 'admin') {
-            await client.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING;', [userId]);
-        } else if (userType === 'resident') {
-            await client.query('INSERT INTO resident_settings (resident_id) VALUES ($1) ON CONFLICT (resident_id) DO NOTHING;', [userId]);
-        } else if (userType === 'gatekeeper') {
-            await client.query('INSERT INTO gatekeeper_settings (gatekeeper_id) VALUES ($1) ON CONFLICT (gatekeeper_id) DO NOTHING;', [userId]);
-        }
+        const settingsTable = `${userType}_settings`;
+        const userIdColumn = `${userType}_id`;
+        await client.query(`INSERT INTO ${settingsTable} (${userIdColumn}) VALUES ($1) ON CONFLICT (${userIdColumn}) DO NOTHING;`, [userId]);
 
         cookies().set('session', token, {
             httpOnly: true,
