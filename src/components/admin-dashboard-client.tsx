@@ -424,12 +424,12 @@ function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
     const { pending } = useFormStatus();
 
     const [locationData, setLocationData] = useState<Partial<LocationData>>({
-        country: '',
-        state: '',
-        city: '',
+        country: initialData?.country || '',
+        state: initialData?.state || '',
+        city: initialData?.city || '',
     });
 
-    useEffect(() => {
+     useEffect(() => {
         if (isEditMode && initialData) {
             setLocationData({
                 country: initialData.country,
