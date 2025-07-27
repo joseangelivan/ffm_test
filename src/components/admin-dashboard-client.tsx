@@ -135,84 +135,95 @@ const LocationSelector = ({
     const [loadingCountries, setLoadingCountries] = useState(false);
     const [loadingStates, setLoadingStates] = useState(false);
     const [loadingCities, setLoadingCities] = useState(false);
-
+    
+    // Effect 1: Load countries when a continent is selected (manually or by default)
     useEffect(() => {
-        const loadInitialData = async () => {
-            if (!defaultValues.continent) return;
+        const fetchCountries = async () => {
+            if (!selectedContinent) return;
+            setLoadingCountries(true);
             if (onLoadingStateChange) onLoadingStateChange(true);
-
             try {
-                // Step 1: Set continent and load countries
-                setSelectedContinent(defaultValues.continent);
-                onLocationChange('continent', defaultValues.continent);
-                
-                setLoadingCountries(true);
-                const countriesResponse = await fetch(`https://restcountries.com/v3.1/region/${defaultValues.continent}?fields=name`);
-                const countriesData = await countriesResponse.json();
-                const countryNames = countriesData.map((c: any) => c.name.common).sort();
+                const response = await fetch(`https://restcountries.com/v3.1/region/${selectedContinent}?fields=name`);
+                const data = await response.json();
+                const countryNames = (data || []).map((c: any) => c.name.common).sort();
                 setCountries(countryNames);
-                setLoadingCountries(false);
-
-                if (!defaultValues.country || !countryNames.includes(defaultValues.country)) {
-                    console.warn(`Country "${defaultValues.country}" not found. Stopping.`);
-                    return;
+                if (defaultValues.country && countryNames.includes(defaultValues.country)) {
+                   setSelectedCountry(defaultValues.country);
                 }
-                setSelectedCountry(defaultValues.country);
-                onLocationChange('country', defaultValues.country);
-
-                // Step 2: Load states
-                setLoadingStates(true);
-                const statesResponse = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country: defaultValues.country })
-                });
-                const statesData = await statesResponse.json();
-                const stateNames = (statesData.data?.states || []).map((s: any) => s.name).sort();
-                setStates(stateNames);
-                setLoadingStates(false);
-
-                if (!defaultValues.state || !stateNames.includes(defaultValues.state)) {
-                    console.warn(`State "${defaultValues.state}" not found. Stopping.`);
-                    return;
-                }
-                setSelectedState(defaultValues.state);
-                onLocationChange('state', defaultValues.state);
-
-                // Step 3: Load cities
-                setLoadingCities(true);
-                const citiesResponse = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country: defaultValues.country, state: defaultValues.state })
-                });
-                const citiesData = await citiesResponse.json();
-                const cityNames = (Array.isArray(citiesData.data) ? citiesData.data : []).sort();
-                setCities(cityNames);
-                setLoadingCities(false);
-                
-                if (defaultValues.city && cityNames.includes(defaultValues.city)) {
-                    setSelectedCity(defaultValues.city);
-                    onLocationChange('city', defaultValues.city);
-                }
-
             } catch (error) {
-                console.error("Failed during initial location data load:", error);
+                console.error("Failed to fetch countries", error);
             } finally {
-                 if (onLoadingStateChange) onLoadingStateChange(false);
+                setLoadingCountries(false);
             }
         };
 
-        if (defaultValues.continent && defaultValues.country) {
-            startTransition(() => {
-                loadInitialData();
-            });
-        }
+        fetchCountries();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [defaultValues.continent, defaultValues.country, defaultValues.state, defaultValues.city]);
+    }, [selectedContinent]);
+
+
+    // Effect 2: Load states when a country is selected
+    useEffect(() => {
+        const fetchStates = async () => {
+            if (!selectedCountry) return;
+            setLoadingStates(true);
+            if (onLoadingStateChange) onLoadingStateChange(true);
+            try {
+                const response = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country: selectedCountry })
+                });
+                const data = await response.json();
+                const stateNames = (data.data?.states || []).map((s: any) => s.name).sort();
+                setStates(stateNames);
+                if (defaultValues.state && stateNames.includes(defaultValues.state)) {
+                    setSelectedState(defaultValues.state);
+                }
+            } catch (error) {
+                console.error("Failed to fetch states", error);
+            } finally {
+                setLoadingStates(false);
+            }
+        };
+
+        fetchStates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedCountry]);
+
+    // Effect 3: Load cities when a state is selected
+    useEffect(() => {
+        const fetchCities = async () => {
+            if (!selectedState || !selectedCountry) return;
+            setLoadingCities(true);
+            if (onLoadingStateChange) onLoadingStateChange(true);
+            try {
+                const response = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country: selectedCountry, state: selectedState })
+                });
+                const data = await response.json();
+                const cityNames = (Array.isArray(data.data) ? data.data : []).sort();
+                setCities(cityNames);
+                if (defaultValues.city && cityNames.includes(defaultValues.city)) {
+                    setSelectedCity(defaultValues.city);
+                }
+            } catch (error) {
+                console.error("Failed to fetch cities", error);
+            } finally {
+                setLoadingCities(false);
+                if (onLoadingStateChange) onLoadingStateChange(false);
+            }
+        };
+
+        fetchCities();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedState]);
 
 
     const handleContinentChange = (continent: string) => {
-        startTransition(async () => {
-            setSelectedContinent(continent);
+        startTransition(() => {
             onLocationChange('continent', continent);
-            // Clear all dependent fields
+            setSelectedContinent(continent);
+            
+            // Clear dependent fields
             setCountries([]);
             setStates([]);
             setCities([]);
@@ -222,29 +233,14 @@ const LocationSelector = ({
             onLocationChange('country', '');
             onLocationChange('state', '');
             onLocationChange('city', '');
-
-            if (!continent) return;
-
-            setLoadingCountries(true);
-            try {
-                const response = await fetch(`https://restcountries.com/v3.1/region/${continent}?fields=name`);
-                const data = await response.json();
-                if (response.ok) {
-                    const countryNames = data.map((c: any) => c.name.common).sort();
-                    setCountries(countryNames);
-                }
-            } catch (error) {
-                console.error("Failed to fetch countries for continent:", continent, error);
-            } finally {
-                setLoadingCountries(false);
-            }
         });
     };
 
     const handleCountryChange = (countryName: string) => {
-        startTransition(async () => {
-            setSelectedCountry(countryName);
+       startTransition(() => {
             onLocationChange('country', countryName);
+            setSelectedCountry(countryName);
+
             // Clear dependent fields
             setStates([]);
             setCities([]);
@@ -252,69 +248,24 @@ const LocationSelector = ({
             setSelectedCity('');
             onLocationChange('state', '');
             onLocationChange('city', '');
-            
-            if (!countryName) return;
-
-            setLoadingStates(true);
-            try {
-                const response = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ country: countryName })
-                });
-                const data = await response.json();
-                if (!data.error && data.data?.states) {
-                    const stateNames = data.data.states.map((s: any) => s.name).sort();
-                    setStates(stateNames);
-                } else {
-                    setStates([]);
-                }
-            } catch (error) {
-                console.error("Failed to fetch states for country:", countryName, error);
-                setStates([]);
-            } finally {
-                setLoadingStates(false);
-            }
-        });
+       });
     };
     
     const handleStateChange = (stateName: string) => {
-        startTransition(async () => {
-            setSelectedState(stateName);
+        startTransition(() => {
             onLocationChange('state', stateName);
+            setSelectedState(stateName);
+
             // Clear dependent fields
             setCities([]);
             setSelectedCity('');
             onLocationChange('city', '');
-
-            if (!stateName || !selectedCountry) return;
-            
-            setLoadingCities(true);
-            try {
-                const response = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ country: selectedCountry, state: stateName })
-                });
-                const data = await response.json();
-                if (!data.error && Array.isArray(data.data)) {
-                    const sortedCities = data.data.sort();
-                    setCities(sortedCities);
-                } else {
-                    setCities([]);
-                }
-            } catch (error) {
-                console.error("Failed to fetch cities for state:", stateName, error);
-                setCities([]);
-            } finally {
-                setLoadingCities(false);
-            }
         });
     };
 
     const handleCityChange = (cityName: string) => {
-        setSelectedCity(cityName);
         onLocationChange('city', cityName);
+        setSelectedCity(cityName);
     };
 
     return (
@@ -1007,3 +958,4 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
+
