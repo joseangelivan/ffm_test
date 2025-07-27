@@ -30,6 +30,10 @@ import {
   Mailbox,
   GripVertical,
   Send,
+  Lock,
+  EyeOff,
+  Bell,
+  RefreshCw,
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -88,7 +92,7 @@ import { useLocale } from '@/lib/i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { handleLogoutAction, getSettings, updateSettings, createAdmin, getAdmins, updateAdmin, deleteAdmin, sendAdminCredentialsEmail, type Admin } from '@/actions/auth';
+import { handleLogoutAction, getSettings, updateSettings, createAdmin, getAdmins, updateAdmin, deleteAdmin, sendAdminCredentialsEmail, sendEmailChangePin, updateAdminAccount, type Admin } from '@/actions/auth';
 import { createCondominio, getCondominios, updateCondominio, deleteCondominio, type Condominio } from '@/actions/condos';
 import { createSmtpConfiguration, getSmtpConfigurations, updateSmtpConfiguration, deleteSmtpConfiguration, updateSmtpOrder, testSmtpConfiguration, type SmtpConfiguration } from '@/actions/smtp';
 import { geocodeAddress, type GeocodeResult } from '@/actions/geocoding';
@@ -98,6 +102,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Switch } from './ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 
 type Session = {
@@ -714,6 +719,151 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
     )
 }
 
+function ManageAccountDialog({ session, onUpdate }: { session: Session, onUpdate: () => void }) {
+    const { t } = useLocale();
+    const { toast } = useToast();
+    const [state, formAction] = useActionState(updateAdminAccount, undefined);
+    const [isPinLoading, startPinTransition] = useTransition();
+    const [emailValue, setEmailValue] = useState(session.email);
+    
+    useEffect(() => {
+        if (state?.success === false) {
+            toast({ title: t('toast.errorTitle'), description: state.message, variant: 'destructive' });
+        }
+        if (state?.success === true) {
+            toast({ title: t('toast.successTitle'), description: state.message });
+            if (state.message.includes('cerrará la sesión')) {
+                // If email was changed, force a logout after a delay to read the message.
+                setTimeout(() => handleLogoutAction(), 3000);
+            }
+            onUpdate();
+        }
+    }, [state, t, toast, onUpdate]);
+    
+    const handleSendPin = () => {
+        startPinTransition(async () => {
+            const result = await sendEmailChangePin(emailValue);
+            if (result.success) {
+                toast({ title: t('toast.successTitle'), description: result.message });
+            } else {
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            }
+        });
+    };
+
+    return (
+        <DialogContent className="sm:max-w-md">
+            <form action={formAction}>
+                 <ManageAccountFields
+                    session={session}
+                    emailValue={emailValue}
+                    onEmailChange={setEmailValue}
+                    onSendPin={handleSendPin}
+                    isPinLoading={isPinLoading}
+                    formState={state}
+                />
+            </form>
+        </DialogContent>
+    );
+}
+
+function ManageAccountFields({ session, emailValue, onEmailChange, onSendPin, isPinLoading, formState }: { session: Session, emailValue: string, onEmailChange: (v:string) => void, onSendPin: () => void, isPinLoading: boolean, formState: any }) {
+    const { pending } = useFormStatus();
+    const { t } = useLocale();
+    const [showPassword, setShowPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    
+    const isEmailChanged = emailValue !== session.email;
+    
+    return (
+         <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+            {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.updating')} />}
+            <DialogHeader>
+                <DialogTitle>Mi Cuenta</DialogTitle>
+                <DialogDescription>Gestiona tu información personal y de seguridad.</DialogDescription>
+            </DialogHeader>
+
+            <Tabs defaultValue="profile">
+                <TabsList className="grid w-full grid-cols-2 mt-4">
+                    <TabsTrigger value="profile">Perfil</TabsTrigger>
+                    <TabsTrigger value="security">Seguridad</TabsTrigger>
+                </TabsList>
+                <TabsContent value="profile">
+                    <Card>
+                        <CardHeader><CardTitle>Información del Perfil</CardTitle></CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="name">Nombre</Label>
+                                <Input id="name" name="name" defaultValue={session.name} required />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="email">Correo Electrónico</Label>
+                                <Input id="email" name="email" type="email" value={emailValue} onChange={(e) => onEmailChange(e.target.value)} required />
+                            </div>
+                            {isEmailChanged && (
+                                <Card className="p-4 bg-muted/50 border-dashed">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="email_pin">PIN de Verificación</Label>
+                                        <div className="flex gap-2">
+                                            <Input id="email_pin" name="email_pin" placeholder="PIN de 6 dígitos" />
+                                            <Button type="button" variant="outline" onClick={onSendPin} disabled={isPinLoading}>
+                                                {isPinLoading ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
+                                                Enviar PIN
+                                            </Button>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">Para cambiar tu correo, enviaremos un PIN a la nueva dirección.</p>
+                                    </div>
+                                </Card>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+                <TabsContent value="security">
+                     <Card>
+                        <CardHeader><CardTitle>Cambiar Contraseña</CardTitle></CardHeader>
+                        <CardContent className="space-y-4">
+                             <div className="grid gap-2">
+                                <Label htmlFor="current_password">Contraseña Actual</Label>
+                                <div className="relative">
+                                    <Input id="current_password" name="current_password" type={showPassword ? "text" : "password"} autoComplete="current-password" />
+                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(p => !p)}><Eye className="h-4 w-4"/></Button>
+                                </div>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="new_password">Nueva Contraseña</Label>
+                                 <div className="relative">
+                                    <Input id="new_password" name="new_password" type={showNewPassword ? "text" : "password"} autoComplete="new-password"/>
+                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowNewPassword(p => !p)}><Eye className="h-4 w-4"/></Button>
+                                </div>
+                            </div>
+                             <div className="grid gap-2">
+                                <Label htmlFor="confirm_password">Confirmar Nueva Contraseña</Label>
+                                <div className="relative">
+                                    <Input id="confirm_password" name="confirm_password" type={showConfirmPassword ? "text" : "password"} autoComplete="new-password"/>
+                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(p => !p)}><Eye className="h-4 w-4"/></Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
+            
+            {formState?.success === false && (
+                <Alert variant="destructive" className="mt-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
+                    <AlertDescription>{formState.message}</AlertDescription>
+                </Alert>
+            )}
+
+            <DialogFooter className="pt-4 mt-4 border-t">
+                <DialogClose asChild><Button type="button" variant="outline" disabled={pending}>Cancelar</Button></DialogClose>
+                <Button type="submit" disabled={pending}>Guardar Cambios</Button>
+            </DialogFooter>
+        </div>
+    );
+}
 
 // Caching helpers are now passed down, so they must be defined in the parent component.
 function AddressVerificationDialog({
@@ -1111,6 +1261,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
   const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
   
   const [editingCondoData, setEditingCondoData] = useState<Condominio & Partial<LocationData> | null>(null);
   const [isPreparingEdit, setIsPreparingEdit] = useState(false);
@@ -1287,6 +1438,10 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                 </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                 <DropdownMenuItem onSelect={() => setIsAccountDialogOpen(true)}>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Mi Cuenta</span>
+                </DropdownMenuItem>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
                     <Settings className="mr-2 h-4 w-4" />
@@ -1488,6 +1643,11 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                     />
                 )}
             </DialogContent>
+        </Dialog>
+        
+        {/* Manage Account Dialog */}
+        <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
+            <ManageAccountDialog session={session} onUpdate={() => setIsAccountDialogOpen(false)} />
         </Dialog>
     </div>
   );

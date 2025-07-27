@@ -717,6 +717,166 @@ export async function sendAdminCredentialsEmail(adminId: string, appUrl: string)
         if(client) client.release();
     }
 }
+
+// --- Account Management ---
+
+function generateVerificationPin(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit PIN
+}
+
+export async function sendEmailChangePin(newEmail: string): Promise<ActionState> {
+    const session = await getCurrentSession();
+    if (!session || session.type !== 'admin') {
+        return { success: false, message: "No autorizado." };
+    }
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+
+        const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1', [newEmail]);
+        if (existingAdmin.rows.length > 0) {
+            return { success: false, message: 'Este correo electrónico ya está en uso.' };
+        }
+        
+        const pin = generateVerificationPin();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+        await client.query(
+            'INSERT INTO admin_verification_pins (admin_id, pin, email, expires_at) VALUES ($1, $2, $3, $4) ON CONFLICT (admin_id) DO UPDATE SET pin = $2, email = $3, expires_at = $4',
+            [session.id, pin, newEmail, expiresAt]
+        );
+
+        const emailHtml = `
+            <h1>Verifica tu nuevo correo electrónico</h1>
+            <p>Hola ${session.name},</p>
+            <p>Has solicitado cambiar tu correo electrónico en Follow For Me a esta dirección.</p>
+            <p>Para confirmar el cambio, usa el siguiente PIN de verificación:</p>
+            <h2>${pin}</h2>
+            <p>Este PIN expirará en 10 minutos.</p>
+        `;
+
+        return await sendEmail(newEmail, 'Tu PIN de Verificación de Follow For Me', emailHtml);
+
+    } catch (error) {
+        console.error("Error sending verification PIN:", error);
+        return { success: false, message: "Error del servidor al enviar el PIN." };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+export async function updateAdminAccount(prevState: any, formData: FormData): Promise<ActionState> {
+    const session = await getCurrentSession();
+    if (!session || session.type !== 'admin') {
+        return { success: false, message: "No autorizado." };
+    }
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+
+        // Get current admin data
+        const adminResult = await client.query('SELECT * FROM admins WHERE id = $1', [session.id]);
+        if (adminResult.rows.length === 0) {
+            return { success: false, message: "No se encontró la cuenta de administrador." };
+        }
+        const currentAdmin = adminResult.rows[0];
+
+        // --- Handle Profile Update ---
+        const name = formData.get('name') as string;
+        const email = formData.get('email') as string;
+        const emailPin = formData.get('email_pin') as string;
+        
+        const updateClauses = [];
+        const values = [];
+        let valueIndex = 1;
+
+        if (name && name !== currentAdmin.name) {
+            updateClauses.push(`name = $${valueIndex++}`);
+            values.push(name);
+        }
+
+        if (email && email !== currentAdmin.email) {
+            if (!emailPin) {
+                return { success: false, message: "Se requiere un PIN para cambiar el correo electrónico." };
+            }
+
+            const pinResult = await client.query(
+                'SELECT * FROM admin_verification_pins WHERE admin_id = $1 AND email = $2 AND pin = $3 AND expires_at > NOW()',
+                [session.id, email, emailPin]
+            );
+
+            if (pinResult.rows.length === 0) {
+                return { success: false, message: "PIN inválido o expirado." };
+            }
+            
+            // Check if new email is already taken by someone else
+            const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1 AND id != $2', [email, session.id]);
+            if (existingAdmin.rows.length > 0) {
+                return { success: false, message: 'El nuevo correo electrónico ya está en uso.' };
+            }
+
+            updateClauses.push(`email = $${valueIndex++}`);
+            values.push(email);
+
+            // Invalidate the PIN after use
+            await client.query('DELETE FROM admin_verification_pins WHERE admin_id = $1', [session.id]);
+        }
+        
+        if (updateClauses.length > 0) {
+             updateClauses.push(`updated_at = NOW()`);
+             values.push(session.id);
+             const query = `UPDATE admins SET ${updateClauses.join(', ')} WHERE id = $${valueIndex}`;
+             await client.query(query, values);
+        }
+        
+        // --- Handle Password Update ---
+        const currentPassword = formData.get('current_password') as string;
+        const newPassword = formData.get('new_password') as string;
+        const confirmPassword = formData.get('confirm_password') as string;
+
+        if (currentPassword || newPassword || confirmPassword) {
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                return { success: false, message: "Por favor, completa todos los campos de contraseña." };
+            }
+            if (newPassword !== confirmPassword) {
+                return { success: false, message: "Las nuevas contraseñas no coinciden." };
+            }
+
+            const passwordMatch = await bcrypt.compare(currentPassword, currentAdmin.password_hash);
+            if (!passwordMatch) {
+                return { success: false, message: "La contraseña actual es incorrecta." };
+            }
+
+            const newPasswordHash = await bcrypt.hash(newPassword, 10);
+            await client.query('UPDATE admins SET password_hash = $1, updated_at = NOW() WHERE id = $2', [newPasswordHash, session.id]);
+        }
+        
+        if (updateClauses.length > 0 || (newPassword && newPassword === confirmPassword)) {
+            // If email was changed, we need to re-issue the session token with the new email
+            if (email && email !== currentAdmin.email) {
+                await createSession(session.id, 'admin', {
+                    email: email,
+                    name: name || currentAdmin.name,
+                    canCreateAdmins: currentAdmin.can_create_admins,
+                });
+                 return { success: true, message: "Cuenta actualizada. Se cerrará la sesión para aplicar el cambio de correo." };
+            }
+             return { success: true, message: "Cuenta actualizada exitosamente." };
+        }
+
+        return { success: false, message: "No se realizaron cambios." };
+        
+    } catch (error) {
+        console.error("Error updating admin account:", error);
+        return { success: false, message: "Error del servidor." };
+    } finally {
+        if (client) client.release();
+    }
+}
     
 
     
