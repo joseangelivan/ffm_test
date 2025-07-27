@@ -1,3 +1,4 @@
+
 CREATE TABLE IF NOT EXISTS condominiums (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) UNIQUE NOT NULL,
@@ -10,3 +11,8 @@ CREATE TABLE IF NOT EXISTS condominiums (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Insert a test condominium for verification purposes
+INSERT INTO condominiums (name, continent, country, state, city, street, number)
+VALUES ('Condomínio Exemplo', 'Americas', 'Brazil', 'Sao Paulo', 'Sao Paulo', 'Avenida Paulista', '1000')
+ON CONFLICT (name) DO NOTHING;
