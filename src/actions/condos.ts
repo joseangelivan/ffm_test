@@ -49,12 +49,18 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
         const pool = await getDbPool();
         client = await pool.connect();
         const result = await client.query(`
-            SELECT 
-                *, 
-                (SELECT COUNT(*) FROM residents WHERE condominium_id = condominiums.id) as residents_count,
-                (street || ', ' || number || ', ' || city || ', ' || state || ', ' || country) as address
-            FROM condominiums 
-            ORDER BY created_at DESC
+             SELECT 
+                c.*,
+                (c.street || ', ' || c.number || ', ' || c.city || ', ' || c.state || ', ' || c.country) as address,
+                COALESCE(COUNT(r.id), 0) as residents_count
+            FROM 
+                condominiums c
+            LEFT JOIN 
+                residents r ON c.id = r.condominium_id
+            GROUP BY 
+                c.id
+            ORDER BY 
+                c.created_at DESC;
         `);
         return { success: true, message: 'Condominios obtenidos.', data: result.rows };
     } catch (error) {
@@ -123,12 +129,15 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
         const pool = await getDbPool();
         client = await pool.connect();
         await client.query(
-            'INSERT INTO condominiums (name, country, state, city, street, number) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (name) DO NOTHING',
+            'INSERT INTO condominiums (name, country, state, city, street, number) VALUES ($1, $2, $3, $4, $5, $6)',
             [name, country, state, city, street, number]
         );
         return { success: true, message: `Condomínio "${name}" criado com sucesso.` };
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error creating condominio:', error);
+         if (error.code === '23505') { // Unique violation
+            return { success: false, message: 'Ya existe un condominio con ese nombre.' };
+        }
         return { success: false, message: 'Error del servidor al crear el condominio.' };
     } finally {
         if (client) client.release();
