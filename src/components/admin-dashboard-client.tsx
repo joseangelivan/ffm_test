@@ -23,7 +23,9 @@ import {
   Sun,
   Loader,
   KeyRound,
-  AlertCircle
+  AlertCircle,
+  MapPin,
+  CheckCircle,
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -84,6 +86,7 @@ import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { handleLogoutAction, getSettings, updateSettings, createAdmin } from '@/actions/auth';
 import { createCondominio, getCondominios, updateCondominio, deleteCondominio, type Condominio } from '@/actions/condos';
+import { geocodeAddress, type GeocodeResult } from '@/actions/geocoding';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -100,18 +103,15 @@ type Session = {
 }
 
 type LocationData = {
-    continent?: string;
-    country?: string;
-    state?: string;
-    city?: string;
-    street?: string;
-    number?: string;
-    countries?: string[];
-    states?: string[];
-    cities?: string[];
-    loadingCountries?: boolean;
-    loadingStates?: boolean;
-    loadingCities?: boolean;
+    continent: string;
+    country: string;
+    state: string;
+    city: string;
+    street: string;
+    number: string;
+    countries: string[];
+    states: string[];
+    cities: string[];
 };
 
 const LocationSelector = ({
@@ -152,10 +152,10 @@ const LocationSelector = ({
         <Select
           onValueChange={(value) => onLocationChange('country', value)}
           value={locationData.country}
-          disabled={!locationData.continent || locationData.loadingCountries || isFormDisabled}
+          disabled={!locationData.continent || isFormDisabled}
         >
           <SelectTrigger id="country-display">
-            <SelectValue placeholder={locationData.loadingCountries ? "Cargando países..." : "Seleccionar país"} />
+            <SelectValue placeholder={!locationData.continent ? "Seleccionar continente primero" : "Seleccionar país"} />
           </SelectTrigger>
           <SelectContent>
             {locationData.countries?.map((country) => (
@@ -171,10 +171,10 @@ const LocationSelector = ({
         <Select
           onValueChange={(value) => onLocationChange('state', value)}
           value={locationData.state}
-          disabled={!locationData.country || locationData.loadingStates || isFormDisabled}
+          disabled={!locationData.country || isFormDisabled}
         >
           <SelectTrigger id="state-display">
-            <SelectValue placeholder={locationData.loadingStates ? "Cargando estados..." : "Seleccionar estado"} />
+            <SelectValue placeholder={!locationData.country ? "Seleccionar país primero" : "Seleccionar estado"} />
           </SelectTrigger>
           <SelectContent>
             {locationData.states?.map((state) => (
@@ -190,10 +190,10 @@ const LocationSelector = ({
         <Select
           onValueChange={(value) => onLocationChange('city', value)}
           value={locationData.city}
-          disabled={!locationData.state || locationData.loadingCities || isFormDisabled}
+          disabled={!locationData.state || isFormDisabled}
         >
           <SelectTrigger id="city-display">
-            <SelectValue placeholder={locationData.loadingCities ? "Cargando ciudades..." : "Seleccionar ciudad"} />
+            <SelectValue placeholder={!locationData.state ? "Seleccionar estado primero" : "Seleccionar ciudad"} />
           </SelectTrigger>
           <SelectContent>
             {locationData.cities?.map((city) => (
@@ -351,18 +351,118 @@ function ManageAdminsDialog() {
     )
 }
 
+function AddressVerificationDialog({
+  locationData,
+  onSelectAddress,
+  onClose,
+}: {
+  locationData: Partial<Pick<LocationData, 'street' | 'city' | 'state' | 'country'>>;
+  onSelectAddress: (address: Pick<LocationData, 'street' | 'number'>) => void;
+  onClose: () => void;
+}) {
+  const { t } = useLocale();
+  const [isLoading, setIsLoading] = useState(true);
+  const [results, setResults] = useState<GeocodeResult[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function verify() {
+      if (!locationData.street || !locationData.city || !locationData.state || !locationData.country) {
+        setError(t('addressVerification.error.missingInfo'));
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+      const response = await geocodeAddress({
+        street: locationData.street,
+        city: locationData.city,
+        state: locationData.state,
+        country: locationData.country,
+      });
+
+      if (response.success && response.data) {
+        setResults(response.data);
+      } else if (!response.success) {
+        setError(response.message);
+      }
+      setIsLoading(false);
+    }
+    verify();
+  }, [locationData, t]);
+
+  const handleSelect = (result: GeocodeResult) => {
+    onSelectAddress({
+      street: result.route,
+      number: result.street_number || '',
+    });
+    onClose();
+  };
+  
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>{t('addressVerification.title')}</DialogTitle>
+        <DialogDescription>
+          {t('addressVerification.description')}
+        </DialogDescription>
+      </DialogHeader>
+      <div className="py-4 max-h-[60vh] overflow-y-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+            <Loader className="h-5 w-5 animate-spin" />
+            <span>{t('addressVerification.loading')}</span>
+          </div>
+        ) : error ? (
+           <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : results.length > 0 ? (
+          <div className="space-y-2">
+            {results.map((result, index) => (
+              <button
+                key={index}
+                onClick={() => handleSelect(result)}
+                className="w-full text-left p-3 rounded-md border hover:bg-accent transition-colors flex items-start gap-4"
+              >
+                <MapPin className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
+                <div className="flex-grow">
+                    <p className="font-semibold">{result.route}{result.street_number ? `, ${result.street_number}` : ''}</p>
+                    <p className="text-sm text-muted-foreground">{result.formatted_address}</p>
+                </div>
+                <div className="ml-auto pl-2">
+                    <CheckCircle className="h-5 w-5 text-green-500"/>
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-muted-foreground py-8">{t('addressVerification.notFound')}</p>
+        )}
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>{t('common.close')}</Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
 function CondoFormFields({
   isEditMode,
-  initialData,
   isFormPending,
   locationData,
   onLocationChange,
+  onVerifyAddress,
 }: {
   isEditMode: boolean,
   initialData?: Condominio | null,
   isFormPending: boolean,
   locationData: Partial<LocationData>;
-  onLocationChange: (field: keyof LocationData, value: string) => void;
+  onLocationChange: (field: keyof Omit<LocationData, 'countries' | 'states' | 'cities'>, value: string) => void;
+  onVerifyAddress: () => void;
 }) {
     const { t } = useLocale();
 
@@ -392,7 +492,7 @@ function CondoFormFields({
               <Input
                 id="name"
                 name="name"
-                defaultValue={initialData?.name}
+                defaultValue={locationData?.name}
                 placeholder="Ex: Residencial Jardins"
                 required
                 disabled={isFormPending}
@@ -410,14 +510,20 @@ function CondoFormFields({
                 <Label htmlFor="street">
                   {t('adminDashboard.newCondoDialog.streetLabel')}
                 </Label>
-                <Input
-                  id="street"
-                  name="street"
-                  defaultValue={initialData?.street}
-                  placeholder="Ex: Rua das Flores"
-                  required
-                  disabled={isFormPending}
-                />
+                <div className="flex items-center gap-2">
+                    <Input
+                        id="street"
+                        name="street"
+                        value={locationData.street}
+                        onChange={(e) => onLocationChange('street', e.target.value)}
+                        placeholder="Ex: Rua das Flores"
+                        required
+                        disabled={isFormPending}
+                    />
+                     <Button type="button" variant="outline" size="sm" onClick={onVerifyAddress} disabled={isFormPending || !locationData.street}>
+                        {t('addressVerification.checkButton')}
+                    </Button>
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="number">
@@ -426,7 +532,8 @@ function CondoFormFields({
                 <Input
                   id="number"
                   name="number"
-                  defaultValue={initialData?.number}
+                  value={locationData.number}
+                  onChange={(e) => onLocationChange('number', e.target.value)}
                   placeholder="Ex: 123"
                   required
                   disabled={isFormPending}
@@ -455,71 +562,66 @@ function CondoFormWrapper({
   formAction,
   initialData,
   isEditMode,
-  preloadedLocationData,
 }: {
   closeDialog: () => void;
   formAction: (prevState: any, formData: FormData) => Promise<any>;
-  initialData?: Condominio | null;
+  initialData: Partial<LocationData> & { name?: string };
   isEditMode: boolean;
-  preloadedLocationData?: Partial<LocationData>;
 }) {
   const { t } = useLocale();
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   const [state, dispatchFormAction, isPending] = useActionState(formAction, undefined);
   
-  const [locationData, setLocationData] = useState<Partial<LocationData>>({
-    continent: initialData?.continent || '',
-    country: initialData?.country || '',
-    state: initialData?.state || '',
-    city: initialData?.city || '',
-    countries: preloadedLocationData?.countries || [],
-    states: preloadedLocationData?.states || [],
-    cities: preloadedLocationData?.cities || [],
-    loadingCountries: false,
-    loadingStates: false,
-    loadingCities: false,
-  });
+  const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData);
+  const [isVerifyingAddress, setIsVerifyingAddress] = useState(false);
   
   const handleLocationChange = useCallback(async (field: keyof LocationData, value: string) => {
-      setLocationData(prev => ({...prev, [field]: value}));
+      const newData = {...locationData, [field]: value};
 
       if(field === 'continent') {
-          setLocationData(prev => ({...prev, country: '', state: '', city: '', states: [], cities: [], loadingCountries: true}));
+          newData.country = '';
+          newData.state = '';
+          newData.city = '';
+          newData.states = [];
+          newData.cities = [];
           try {
              const res = await fetch(`https://restcountries.com/v3.1/region/${value}?fields=name`);
              const data = await res.json();
-             const countryNames = (data || []).map((c: any) => c.name.common).sort();
-             setLocationData(prev => ({ ...prev, countries: countryNames, loadingCountries: false }));
+             newData.countries = (data || []).map((c: any) => c.name.common).sort();
           } catch(e) {
-              setLocationData(prev => ({...prev, loadingCountries: false}));
+             console.error("Failed to load countries", e);
+             newData.countries = [];
           }
       } else if (field === 'country') {
-          setLocationData(prev => ({...prev, state: '', city: '', cities: [], loadingStates: true}));
+          newData.state = '';
+          newData.city = '';
+          newData.cities = [];
           try {
              const res = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country: value })
              });
              const data = await res.json();
-             const stateNames = (data.data?.states || []).map((s: any) => s.name).sort();
-             setLocationData(prev => ({ ...prev, states: stateNames, loadingStates: false }));
+             newData.states = (data.data?.states || []).map((s: any) => s.name).sort();
           } catch(e) {
-              setLocationData(prev => ({...prev, loadingStates: false}));
+             console.error("Failed to load states", e);
+             newData.states = [];
           }
       } else if (field === 'state') {
-          setLocationData(prev => ({...prev, city: '', loadingCities: true}));
+          newData.city = '';
           try {
               const res = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country: locationData.country, state: value })
               });
               const data = await res.json();
-              const cityNames = (Array.isArray(data.data) ? data.data : []).sort();
-              setLocationData(prev => ({...prev, cities: cityNames, loadingCities: false}));
+              newData.cities = (Array.isArray(data.data) ? data.data : []).sort();
           } catch (e) {
-              setLocationData(prev => ({...prev, loadingCities: false}));
+              console.error("Failed to load cities", e);
+              newData.cities = [];
           }
       }
-  }, [locationData.country]);
+      setLocationData(newData);
+  }, [locationData]);
   
   useEffect(() => {
     if (state?.success === false) {
@@ -538,23 +640,38 @@ function CondoFormWrapper({
     }
   }, [state, t, toast, closeDialog]);
 
+  const handleSelectAddress = (address: Pick<LocationData, 'street' | 'number'>) => {
+    setLocationData(prev => ({...prev, street: address.street, number: address.number}));
+  };
+
   return (
-    <div className={cn('relative transition-opacity', isPending && 'opacity-50')}>
-        {isPending && (
-             <LoadingOverlay
-              text={isEditMode ? t('adminDashboard.editCondoDialog.save') + '...' : t('adminDashboard.loadingOverlay.creating')}
+    <>
+        <div className={cn('relative transition-opacity', isPending && 'opacity-50')}>
+            {isPending && (
+                <LoadingOverlay
+                text={isEditMode ? t('adminDashboard.editCondoDialog.save') + '...' : t('adminDashboard.loadingOverlay.creating')}
+                />
+            )}
+            <form ref={formRef} action={dispatchFormAction}>
+            <input type="hidden" name="id" value={(initialData as any).id || ''} />
+            <CondoFormFields
+                isEditMode={isEditMode}
+                initialData={initialData as any}
+                isFormPending={isPending}
+                locationData={locationData}
+                onLocationChange={handleLocationChange}
+                onVerifyAddress={() => setIsVerifyingAddress(true)}
             />
-        )}
-        <form ref={formRef} action={dispatchFormAction}>
-          <CondoFormFields
-            isEditMode={isEditMode}
-            initialData={initialData}
-            isFormPending={isPending}
-            locationData={locationData}
-            onLocationChange={handleLocationChange}
-          />
-        </form>
-    </div>
+            </form>
+        </div>
+        <Dialog open={isVerifyingAddress} onOpenChange={setIsVerifyingAddress}>
+            <AddressVerificationDialog
+                locationData={locationData}
+                onSelectAddress={handleSelectAddress}
+                onClose={() => setIsVerifyingAddress(false)}
+            />
+        </Dialog>
+    </>
   );
 }
 
@@ -569,8 +686,9 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
   const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
-  const [editingCondo, setEditingCondo] = useState<Condominio | null>(null);
-  const [preloadedLocationData, setPreloadedLocationData] = useState<Partial<LocationData>>({});
+  
+  const [editingCondoData, setEditingCondoData] = useState<Partial<LocationData> | null>(null);
+
   const [isPreparingEdit, setIsPreparingEdit] = useState(false);
   
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -614,8 +732,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   }
   
   const handleEditCondoAction = async (prevState: any, formData: FormData) => {
-    if (!editingCondo) return { success: false, message: "No condo selected for editing."};
-    formData.append('id', editingCondo.id);
+    if (!editingCondoData) return { success: false, message: "No condo selected for editing."};
     
     const result = await updateCondominio(prevState, formData);
     if (result.success) {
@@ -626,9 +743,20 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
 
   const prepareAndOpenEditDialog = async (condo: Condominio) => {
     setIsPreparingEdit(true);
-    setEditingCondo(condo);
 
-    const loadedData: Partial<LocationData> = {};
+    const loadedData: Partial<LocationData> & { id: string, name: string } = {
+        id: condo.id,
+        name: condo.name,
+        continent: condo.continent,
+        country: condo.country,
+        state: condo.state,
+        city: condo.city,
+        street: condo.street,
+        number: condo.number,
+        countries: [],
+        states: [],
+        cities: [],
+    };
 
     try {
         if (condo.continent) {
@@ -652,17 +780,15 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                 }
             }
         }
-        setPreloadedLocationData(loadedData);
     } catch (error) {
         console.error("Failed to preload location data:", error);
         toast({ title: "Error", description: "No se pudieron cargar los datos de ubicación para la edición.", variant: "destructive" });
-        setPreloadedLocationData({}); // Reset on error
     } finally {
+        setEditingCondoData(loadedData);
         setIsPreparingEdit(false);
         setIsEditCondoDialogOpen(true);
     }
   };
-
   
   const handleDeleteCondo = async (condoId: string) => {
     const result = await deleteCondominio(condoId);
@@ -688,14 +814,13 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const handleCondoFormSuccess = useCallback(() => {
       setIsNewCondoDialogOpen(false);
       setIsEditCondoDialogOpen(false);
-      setEditingCondo(null);
-      setPreloadedLocationData({});
+      setEditingCondoData(null);
       fetchCondos();
   }, [fetchCondos]);
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
-       {isPreparingEdit && <LoadingOverlay text="Preparando edición..." />}
+       {isPreparingEdit && <LoadingOverlay text={t('adminDashboard.loadingOverlay.preparingEdit')} />}
        <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-50">
         <div className="flex items-center gap-2">
             <Shield className="h-6 w-6 text-primary"/>
@@ -801,6 +926,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                         closeDialog={handleCondoFormSuccess}
                         formAction={createCondominio}
                         isEditMode={false}
+                        initialData={{}}
                     />
                 </DialogContent>
               </Dialog>
@@ -854,7 +980,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                             <DropdownMenuItem onSelect={() => navigateToCondo(condo.id)}>
                                 <Eye className="h-4 w-4 mr-2"/>{t('adminDashboard.table.manage')}
                             </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => prepareAndOpenEditDialog(condo)}>
+                            <DropdownMenuItem onSelect={() => prepareAndOpenEditDialog(condo)} disabled={isPreparingEdit}>
                                 <Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}
                             </DropdownMenuItem>
                             <AlertDialog>
@@ -893,19 +1019,17 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       {/* Edit Condo Dialog */}
         <Dialog open={isEditCondoDialogOpen} onOpenChange={(isOpen) => {
             if (!isOpen) {
-              setEditingCondo(null);
-              setPreloadedLocationData({});
+              setEditingCondoData(null);
             }
             setIsEditCondoDialogOpen(isOpen);
         }}>
             <DialogContent>
-                {editingCondo && (
+                {editingCondoData && (
                     <CondoFormWrapper
                         closeDialog={handleCondoFormSuccess}
                         formAction={handleEditCondoAction}
-                        initialData={editingCondo}
+                        initialData={editingCondoData}
                         isEditMode={true}
-                        preloadedLocationData={preloadedLocationData}
                     />
                 )}
             </DialogContent>

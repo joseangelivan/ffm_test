@@ -138,7 +138,8 @@
         "createButton": "Criar Administrador"
       },
       "loadingOverlay": {
-          "creating": "Criando..."
+          "creating": "Criando...",
+          "preparingEdit": "Preparando edição..."
       }
     },
     "condoDashboard": {
@@ -198,6 +199,17 @@
             "tokenCopied": "Token copiado para a área de transferência."
         }
       }
+    },
+    "addressVerification": {
+        "checkButton": "Verificar",
+        "title": "Resultados da Verificação de Endereço",
+        "description": "Encontramos os seguintes endereços. Selecione o correto para preencher automaticamente.",
+        "loading": "Procurando endereços...",
+        "notFound": "Endereço não encontrado.",
+        "selectButton": "Selecionar",
+        "error": {
+            "missingInfo": "Por favor, selecione continente, país, estado e cidade antes de verificar a rua."
+        }
     },
      "userTypes": {
         "residente": "Residente",
