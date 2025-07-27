@@ -26,6 +26,7 @@ import {
   AlertCircle,
   MapPin,
   CheckCircle,
+  Mail,
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -84,7 +85,7 @@ import { useLocale } from '@/lib/i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { handleLogoutAction, getSettings, updateSettings, createAdmin } from '@/actions/auth';
+import { handleLogoutAction, getSettings, updateSettings, createAdmin, getAdmins, updateAdmin, deleteAdmin, sendAdminCredentialsEmail, type Admin } from '@/actions/auth';
 import { createCondominio, getCondominios, updateCondominio, deleteCondominio, type Condominio } from '@/actions/condos';
 import { geocodeAddress, type GeocodeResult } from '@/actions/geocoding';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -261,82 +262,68 @@ function LoadingOverlay({ text }: { text: string }) {
     );
 }
 
-function ManageAdminsForm({closeDialog}: {closeDialog: () => void}) {
-    const { t } = useLocale();
-    const { toast } = useToast();
-    const [state, formAction] = useActionState(createAdmin, undefined);
-    
-    useEffect(() => {
-        if (state?.success === false) {
-            toast({
-                title: t('toast.errorTitle'),
-                description: state.message,
-                variant: 'destructive'
-            });
-        }
-        if (state?.success === true) {
-            toast({
-                title: t('toast.successTitle'),
-                description: state.message
-            });
-            closeDialog();
-        }
-    }, [state, t, toast, closeDialog]);
-
-    return (
-        <form action={formAction}>
-            <FormFields />
-        </form>
-    )
-}
-
-function FormFields() {
-    const { t } = useLocale();
-    const { pending } = useFormStatus();
-
-    return (
-         <div className={cn("relative transition-opacity", pending && "opacity-50")}>
-            {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.creating')} />}
-            <DialogHeader>
-                <DialogTitle>{t('adminDashboard.manageAdmins.title')}</DialogTitle>
-                <DialogDescription>{t('adminDashboard.manageAdmins.description')}</DialogDescription>
-            </DialogHeader>
-             <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                    <Label htmlFor="name">{t('adminDashboard.manageAdmins.nameLabel')}</Label>
-                    <Input id="name" name="name" placeholder="John Doe" required disabled={pending}/>
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="email">{t('adminDashboard.manageAdmins.emailLabel')}</Label>
-                    <Input id="email" name="email" type="email" placeholder="admin@example.com" required autoComplete="email" disabled={pending}/>
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="password">{t('adminDashboard.manageAdmins.passwordLabel')}</Label>
-                    <Input id="password" name="password" type="password" required autoComplete="new-password" disabled={pending}/>
-                </div>
-                <div className="flex items-center space-x-2">
-                   <Checkbox id="can_create_admins" name="can_create_admins" disabled={pending}/>
-                   <Label htmlFor="can_create_admins" className="text-sm font-normal">
-                        {t('adminDashboard.manageAdmins.canCreateAdminsLabel')}
-                    </Label>
-                </div>
-            </div>
-            <DialogFooter>
-                <DialogClose asChild>
-                    <Button variant="outline" disabled={pending}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
-                </DialogClose>
-                <Button type="submit" disabled={pending}>
-                    {t('adminDashboard.manageAdmins.createButton')}
-                </Button>
-            </DialogFooter>
-        </div>
-    )
-}
 
 function ManageAdminsDialog() {
     const { t } = useLocale();
+    const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
+    const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
+    const [admins, setAdmins] = useState<Admin[]>([]);
+    const [loadingAdmins, setLoadingAdmins] = useState(true);
+    const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
+    const [isSubmitting, startSubmitting] = useTransition();
+
+    const fetchAdmins = useCallback(async () => {
+        setLoadingAdmins(true);
+        const result = await getAdmins();
+        if (result.admins) {
+            setAdmins(result.admins);
+        } else {
+            toast({ title: t('toast.errorTitle'), description: result.error, variant: 'destructive' });
+        }
+        setLoadingAdmins(false);
+    }, [toast, t]);
+
+    useEffect(() => {
+        if (isOpen && view === 'list') {
+            fetchAdmins();
+        }
+    }, [isOpen, view, fetchAdmins]);
     
+    const handleDelete = (admin: Admin) => {
+       startSubmitting(async () => {
+           const result = await deleteAdmin(admin.id);
+           if (result.success) {
+               toast({ title: t('toast.successTitle'), description: result.message });
+               fetchAdmins();
+           } else {
+               toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+           }
+       });
+    };
+
+    const handleSendEmail = (adminId: string) => {
+        startSubmitting(async () => {
+            const appUrl = window.location.origin;
+            const result = await sendAdminCredentialsEmail(adminId, appUrl);
+             if (result.success) {
+               toast({ title: t('toast.successTitle'), description: result.message });
+           } else {
+               toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+           }
+        });
+    }
+
+    const onFormSuccess = () => {
+        setView('list');
+        fetchAdmins();
+    };
+
+    const handleEditClick = (admin: Admin) => {
+        setSelectedAdmin(admin);
+        setView('edit');
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
@@ -345,12 +332,145 @@ function ManageAdminsDialog() {
                     <span>{t('adminDashboard.manageAdmins.title')}</span>
                 </DropdownMenuItem>
             </DialogTrigger>
-            <DialogContent>
-                <ManageAdminsForm closeDialog={() => setIsOpen(false)} />
+            <DialogContent className="sm:max-w-2xl">
+                 <div className={cn("relative transition-opacity", isSubmitting && "opacity-50")}>
+                    {isSubmitting && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
+                    
+                    {view === 'list' && (
+                        <>
+                        <DialogHeader>
+                            <DialogTitle>{t('adminDashboard.manageAdmins.title')}</DialogTitle>
+                            <DialogDescription>{t('adminDashboard.manageAdmins.listDescription')}</DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                           <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>{t('adminDashboard.manageAdmins.table.name')}</TableHead>
+                                        <TableHead>{t('adminDashboard.manageAdmins.table.email')}</TableHead>
+                                        <TableHead>{t('adminDashboard.manageAdmins.table.permissions')}</TableHead>
+                                        <TableHead><span className="sr-only">{t('adminDashboard.table.actions')}</span></TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {loadingAdmins ? (
+                                        Array.from({length: 2}).map((_, i) => <TableRow key={i}><TableCell colSpan={4}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                                    ) : admins.map(admin => (
+                                        <TableRow key={admin.id}>
+                                            <TableCell>{admin.name}</TableCell>
+                                            <TableCell>{admin.email}</TableCell>
+                                            <TableCell>{admin.can_create_admins ? t('adminDashboard.manageAdmins.canCreateAdminsLabel') : '---'}</TableCell>
+                                            <TableCell className="text-right">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4"/></Button></DropdownMenuTrigger>
+                                                    <DropdownMenuContent>
+                                                        <DropdownMenuItem onSelect={() => handleEditClick(admin)}><Edit className="mr-2 h-4 w-4"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
+                                                        <DropdownMenuItem onSelect={() => handleSendEmail(admin.id)}><Mail className="mr-2 h-4 w-4"/>{t('adminDashboard.manageAdmins.sendCredentials')}</DropdownMenuItem>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}><Trash2 className="mr-2 h-4 w-4"/>{t('adminDashboard.table.delete')}</DropdownMenuItem>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>{t('adminDashboard.deleteCondoDialog.title')}</AlertDialogTitle>
+                                                                    <AlertDialogDescription>{t('adminDashboard.manageAdmins.deleteConfirmation', {name: admin.name})}</AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>{t('adminDashboard.newCondoDialog.cancel')}</AlertDialogCancel>
+                                                                    <AlertDialogAction onClick={() => handleDelete(admin)} className={buttonVariants({variant: 'destructive'})}>{t('adminDashboard.table.delete')}</AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                        <DialogFooter className="sm:justify-between">
+                            <DialogClose asChild><Button variant="outline">{t('common.close')}</Button></DialogClose>
+                            <Button onClick={() => setView('create')}><UserPlus className="mr-2 h-4 w-4"/>{t('adminDashboard.manageAdmins.createButton')}</Button>
+                        </DialogFooter>
+                        </>
+                    )}
+
+                    {view === 'create' && <AdminForm onSuccess={onFormSuccess} onCancel={() => setView('list')} />}
+                    {view === 'edit' && selectedAdmin && <AdminForm admin={selectedAdmin} onSuccess={onFormSuccess} onCancel={() => setView('list')} />}
+                </div>
             </DialogContent>
         </Dialog>
     )
 }
+
+function AdminForm({ admin, onSuccess, onCancel }: { admin?: Admin, onSuccess: () => void, onCancel: () => void }) {
+    const { t } = useLocale();
+    const { toast } = useToast();
+    const isEditMode = !!admin;
+    const formAction = isEditMode ? updateAdmin : createAdmin;
+    const [state, dispatch] = useActionState(formAction, undefined);
+    
+    useEffect(() => {
+        if (state?.success === false) {
+            toast({ title: t('toast.errorTitle'), description: state.message, variant: 'destructive' });
+        }
+        if (state?.success === true) {
+            toast({ title: t('toast.successTitle'), description: state.message });
+            onSuccess();
+        }
+    }, [state, t, toast, onSuccess]);
+    
+    return (
+        <form action={dispatch}>
+            <AdminFormFields admin={admin} onCancel={onCancel}/>
+        </form>
+    );
+}
+
+function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => void }) {
+    const { t } = useLocale();
+    const { pending } = useFormStatus();
+    const isEditMode = !!admin;
+
+    return (
+         <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+            {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating')} />}
+            <DialogHeader>
+                <DialogTitle>{isEditMode ? t('adminDashboard.manageAdmins.editTitle') : t('adminDashboard.manageAdmins.createTitle')}</DialogTitle>
+                <DialogDescription>{t('adminDashboard.manageAdmins.formDescription')}</DialogDescription>
+            </DialogHeader>
+            <input type="hidden" name="id" value={admin?.id || ''} />
+             <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="name">{t('adminDashboard.manageAdmins.nameLabel')}</Label>
+                    <Input id="name" name="name" defaultValue={admin?.name} placeholder="John Doe" required disabled={pending}/>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="email">{t('adminDashboard.manageAdmins.emailLabel')}</Label>
+                    <Input id="email" name="email" type="email" defaultValue={admin?.email} placeholder="admin@example.com" required autoComplete="email" disabled={pending}/>
+                </div>
+                {!isEditMode && <div className="grid gap-2">
+                    <Label htmlFor="password">{t('adminDashboard.manageAdmins.passwordLabel')}</Label>
+                    <Input id="password" name="password" type="password" required autoComplete="new-password" disabled={pending}/>
+                </div>}
+                <div className="flex items-center space-x-2">
+                   <Checkbox id="can_create_admins" name="can_create_admins" defaultChecked={admin?.can_create_admins} disabled={pending}/>
+                   <Label htmlFor="can_create_admins" className="text-sm font-normal">
+                        {t('adminDashboard.manageAdmins.canCreateAdminsLabel')}
+                    </Label>
+                </div>
+            </div>
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
+                <Button type="submit" disabled={pending}>
+                    {isEditMode ? t('adminDashboard.editCondoDialog.save') : t('adminDashboard.manageAdmins.createButton')}
+                </Button>
+            </DialogFooter>
+        </div>
+    )
+}
+
 
 // Caching helpers are now passed down, so they must be defined in the parent component.
 function AddressVerificationDialog({
@@ -570,18 +690,12 @@ function CondoFormWrapper({
   initialData,
   isEditMode,
   getCachedData,
-  fetchCountries,
-  fetchStates,
-  fetchCities,
 }: {
   closeDialog: () => void;
   formAction: (prevState: any, formData: FormData) => Promise<any>;
   initialData: Partial<LocationData> & Partial<Condominio>;
   isEditMode: boolean;
   getCachedData: (key: string, fetcher: () => Promise<any>) => Promise<any>;
-  fetchCountries: (continent: string) => Promise<{ name: string }[]>;
-  fetchStates: (country: string) => Promise<{ name: string }[]>;
-  fetchCities: (country: string, state: string) => Promise<string[]>;
 }) {
   const { t } = useLocale();
   const { toast } = useToast();
@@ -590,12 +704,42 @@ function CondoFormWrapper({
   
   const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData);
   const [isVerifyingAddress, setIsVerifyingAddress] = useState(false);
-  const [isLocationLoading, startTransition] = useTransition();
+
+  const fetchCountries = useCallback((continent: string) => getCachedData(`countries_${continent}`, async () => {
+    try {
+        const res = await fetch(`https://restcountries.com/v3.1/region/${continent}?fields=name`);
+        const data = await res.json();
+        return (data || []).map((c: any) => ({ name: c.name.common })).sort((a: any, b: any) => a.name.localeCompare(b.name));
+    } catch (e) { return []; }
+  }), [getCachedData]);
+
+  const fetchStates = useCallback((country: string) => getCachedData(`states_${country}`, async () => {
+    try {
+        const res = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country })
+        });
+        const data = await res.json();
+        if (data.error) return [];
+        return (data.data?.states || []).sort((a: any, b: any) => a.name.localeCompare(b.name));
+    } catch (e) { return []; }
+  }), [getCachedData]);
+
+  const fetchCities = useCallback((country: string, state: string) => getCachedData(`cities_${country}_${state}`, async () => {
+    try {
+        const res = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country, state })
+        });
+        const data = await res.json();
+        if (data.error) return [];
+        return (Array.isArray(data.data) ? data.data : []).sort();
+    } catch (e) { return []; }
+  }), [getCachedData]);
   
-  const handleLocationChange = useCallback(async (field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
-    startTransition(async () => {
+  const [isLocationLoading, startLocationTransition] = useTransition();
+
+  const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
+    startLocationTransition(async () => {
         let fieldsToUpdate: Partial<LocationData> = { [field]: value };
-        let newLocationData = {...locationData, ...fieldsToUpdate};
 
         if (field === 'continent') {
             fieldsToUpdate = { ...fieldsToUpdate, country: '', state: '', city: '', states: [], cities: [] };
@@ -603,14 +747,13 @@ function CondoFormWrapper({
             fieldsToUpdate.countries = countries;
         } else if (field === 'country') {
             fieldsToUpdate = { ...fieldsToUpdate, state: '', city: '', cities: [] };
-            if (newLocationData.country) {
-                const states = await fetchStates(newLocationData.country);
-                fieldsToUpdate.states = states;
-            }
-        } else if (field === 'state' && newLocationData.country) {
+            const states = await fetchStates(value);
+            fieldsToUpdate.states = states;
+        } else if (field === 'state') {
              fieldsToUpdate = { ...fieldsToUpdate, city: '' };
-             if (newLocationData.state) {
-                const cities = await fetchCities(newLocationData.country, newLocationData.state);
+             const currentCountry = locationData.country || initialData.country;
+             if(currentCountry) {
+                const cities = await fetchCities(currentCountry, value);
                 fieldsToUpdate.cities = cities;
              }
         }
@@ -620,7 +763,8 @@ function CondoFormWrapper({
             ...fieldsToUpdate,
         }));
     });
-  }, [locationData, fetchCountries, fetchStates, fetchCities]);
+  }, [locationData.country, initialData.country, fetchCountries, fetchStates, fetchCities]);
+
 
   useEffect(() => {
     if (state?.success === false) {
@@ -733,46 +877,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     }
   }, []);
 
-  const fetchCountries = useCallback((continent: string) => getCachedData(`countries_${continent}`, async () => {
-    try {
-        const res = await fetch(`https://restcountries.com/v3.1/region/${continent}?fields=name`);
-        const data = await res.json();
-        return (data || []).map((c: any) => ({ name: c.name.common })).sort((a: any, b: any) => a.name.localeCompare(b.name));
-    } catch (e) {
-        console.error("Failed to load countries", e);
-        return [];
-    }
-  }), [getCachedData]);
-
-  const fetchStates = useCallback((country: string) => getCachedData(`states_${country}`, async () => {
-    try {
-        const res = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country })
-        });
-        const data = await res.json();
-        if (data.error) return [];
-        return (data.data?.states || []).sort((a: any, b: any) => a.name.localeCompare(b.name));
-    } catch (e) {
-        console.error("Failed to load states", e);
-        return [];
-    }
-  }), [getCachedData]);
-
-  const fetchCities = useCallback((country: string, state: string) => getCachedData(`cities_${country}_${state}`, async () => {
-    try {
-        const res = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country, state })
-        });
-        const data = await res.json();
-        if (data.error) return [];
-        return (Array.isArray(data.data) ? data.data : []).sort();
-    } catch (e) {
-        console.error("Failed to load cities", e);
-        return [];
-    }
-  }), [getCachedData]);
-
-
   const fetchCondos = useCallback(async () => {
       setLoading(true);
       const result = await getCondominios();
@@ -829,6 +933,36 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     
     setIsPreparingEdit(true);
 
+    const fetchCountries = (continent: string) => getCachedData(`countries_${continent}`, async () => {
+      try {
+          const res = await fetch(`https://restcountries.com/v3.1/region/${continent}?fields=name`);
+          const data = await res.json();
+          return (data || []).map((c: any) => ({ name: c.name.common })).sort((a: any, b: any) => a.name.localeCompare(b.name));
+      } catch (e) { return []; }
+    });
+
+    const fetchStates = (country: string) => getCachedData(`states_${country}`, async () => {
+        try {
+            const res = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country })
+            });
+            const data = await res.json();
+            if (data.error) return [];
+            return (data.data?.states || []).sort((a: any, b: any) => a.name.localeCompare(b.name));
+        } catch (e) { return []; }
+    });
+
+    const fetchCities = (country: string, state: string) => getCachedData(`cities_${country}_${state}`, async () => {
+        try {
+            const res = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country, state })
+            });
+            const data = await res.json();
+            if (data.error) return [];
+            return (Array.isArray(data.data) ? data.data : []).sort();
+        } catch (e) { return []; }
+    });
+
     const countries = await fetchCountries(condo.continent);
     const states = await fetchStates(condo.country);
     const cities = await fetchCities(condo.country, condo.state);
@@ -843,7 +977,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     setIsEditCondoDialogOpen(true);
     setIsPreparingEdit(false);
 
-  }, [toast, t, fetchCountries, fetchStates, fetchCities]);
+  }, [toast, t, getCachedData]);
   
   const handleDeleteCondo = async (condoId: string) => {
     const result = await deleteCondominio(condoId);
@@ -983,9 +1117,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                         isEditMode={false}
                         initialData={{}}
                         getCachedData={getCachedData}
-                        fetchCountries={fetchCountries}
-                        fetchStates={fetchStates}
-                        fetchCities={fetchCities}
                     />
                 </DialogContent>
               </Dialog>
@@ -1090,9 +1221,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                         initialData={editingCondoData}
                         isEditMode={true}
                         getCachedData={getCachedData}
-                        fetchCountries={fetchCountries}
-                        fetchStates={fetchStates}
-                        fetchCities={fetchCities}
                     />
                 )}
             </DialogContent>
@@ -1100,4 +1228,3 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
-

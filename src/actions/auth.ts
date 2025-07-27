@@ -9,6 +9,7 @@ import { cookies } from 'next/headers';
 import { JWT_SECRET } from '@/lib/config';
 import fs from 'fs/promises';
 import path from 'path';
+import nodemailer from 'nodemailer';
 
 // --- Database Pool and Migration Logic ---
 
@@ -172,10 +173,18 @@ type AuthState = {
   debugInfo?: string;
 };
 
-type CreateAdminState = {
+type ActionState = {
   success: boolean;
   message: string;
 }
+
+export type Admin = {
+    id: string;
+    name: string;
+    email: string;
+    can_create_admins: boolean;
+    created_at: string;
+};
 
 type UserSettings = {
     theme: 'light' | 'dark';
@@ -479,7 +488,7 @@ export async function getCurrentSession() {
   return await getSession(sessionToken?.value);
 }
 
-export async function createAdmin(prevState: CreateAdminState | undefined, formData: FormData): Promise<CreateAdminState> {
+export async function createAdmin(prevState: ActionState | undefined, formData: FormData): Promise<ActionState> {
     const session = await getCurrentSession();
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
@@ -521,6 +530,201 @@ export async function createAdmin(prevState: CreateAdminState | undefined, formD
     }
 }
 
+export async function getAdmins(): Promise<{admins?: Admin[], error?: string}> {
+    const session = await getCurrentSession();
+    if (!session || session.type !== 'admin') {
+        return { error: 'No autorizado.' };
+    }
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        const result = await client.query('SELECT id, name, email, can_create_admins, created_at FROM admins ORDER BY name');
+        return { admins: result.rows };
+    } catch (error) {
+        console.error('Error fetching admins:', error);
+        return { error: 'Error del servidor al obtener administradores.' };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+export async function updateAdmin(prevState: ActionState | undefined, formData: FormData): Promise<ActionState> {
+    const session = await getCurrentSession();
+    if (!session || !session.canCreateAdmins) {
+        return { success: false, message: "No tienes permiso para realizar esta acción." };
+    }
+
+    const id = formData.get('id') as string;
+    const name = formData.get('name') as string;
+    const email = formData.get('email') as string;
+    const canCreateAdmins = formData.get('can_create_admins') === 'on';
+
+    if (!id || !name || !email) {
+        return { success: false, message: 'ID, Nombre y email son obligatorios.' };
+    }
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+
+        // Check for email conflict
+        const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1 AND id != $2', [email, id]);
+        if (existingAdmin.rows.length > 0) {
+            return { success: false, message: 'Ya existe otro administrador con este correo electrónico.' };
+        }
+
+        await client.query(
+            'UPDATE admins SET name = $1, email = $2, can_create_admins = $3, updated_at = NOW() WHERE id = $4',
+            [name, email, canCreateAdmins, id]
+        );
+
+        return { success: true, message: 'Administrador actualizado con éxito.' };
+    } catch (error) {
+        console.error('Error updating admin:', error);
+        return { success: false, message: 'Ocurrió un error en el servidor.' };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+
+export async function deleteAdmin(id: string): Promise<ActionState> {
+    const session = await getCurrentSession();
+    if (!session || !session.canCreateAdmins) {
+        return { success: false, message: "No tienes permiso para realizar esta acción." };
+    }
+    
+    if (id === session.id) {
+        return { success: false, message: "No puedes eliminar tu propia cuenta de administrador." };
+    }
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        const result = await client.query('DELETE FROM admins WHERE id = $1', [id]);
+        
+        if (result.rowCount === 0) {
+            return { success: false, message: 'No se encontró el administrador para eliminar.' };
+        }
+        
+        return { success: true, message: 'Administrador eliminado con éxito.' };
+    } catch (error) {
+        console.error('Error deleting admin:', error);
+        return { success: false, message: 'Ocurrió un error en el servidor.' };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+
+// NOTE: Nodemailer setup. This requires environment variables for a real SMTP server.
+// For development, we can use a service like Ethereal.
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp.ethereal.email",
+    port: parseInt(process.env.SMTP_PORT || "587", 10),
+    secure: (process.env.SMTP_SECURE === 'true'), // true for 465, false for other ports
+    auth: {
+        user: process.env.SMTP_USER, // generated ethereal user
+        pass: process.env.SMTP_PASS, // generated ethereal password
+    },
+});
+
+async function sendEmail(to: string, subject: string, html: string) {
+    // Verify connection configuration
+    if (process.env.NODE_ENV !== 'production') {
+        try {
+            await transporter.verify();
+            console.log("Nodemailer transporter is ready to send emails.");
+        } catch(error) {
+             console.error("Nodemailer transporter verification failed. Creating a test account.", error);
+             // Create a test account if no credentials are provided
+             const testAccount = await nodemailer.createTestAccount();
+             transporter.options({
+                 host: "smtp.ethereal.email",
+                 port: 587,
+                 secure: false,
+                 auth: {
+                     user: testAccount.user,
+                     pass: testAccount.pass
+                 }
+             });
+        }
+    }
+    
+    const info = await transporter.sendMail({
+        from: `"Follow For Me" <${process.env.EMAIL_FROM || 'noreply@followforme.com'}>`,
+        to: to,
+        subject: subject,
+        html: html,
+    });
+    
+    console.log("Message sent: %s", info.messageId);
+    
+    const previewUrl = nodemailer.getTestMessageUrl(info);
+    if (previewUrl) {
+      console.log("Preview URL: %s", previewUrl);
+      return { success: true, message: `Correo enviado. Vista previa disponible en: ${previewUrl}` };
+    }
+    
+    return { success: true, message: 'Correo enviado con éxito.' };
+}
+
+function generateTempPassword(): string {
+    // Generate a random 8-character password
+    return Math.random().toString(36).slice(-8);
+}
+
+
+export async function sendAdminCredentialsEmail(adminId: string, appUrl: string): Promise<ActionState> {
+     const session = await getCurrentSession();
+    if (!session || !session.canCreateAdmins) {
+        return { success: false, message: "No tienes permiso para realizar esta acción." };
+    }
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+
+        const result = await client.query('SELECT name, email FROM admins WHERE id = $1', [adminId]);
+        if (result.rows.length === 0) {
+            return { success: false, message: 'Administrador no encontrado.' };
+        }
+        const admin = result.rows[0];
+        
+        const tempPassword = generateTempPassword();
+        const passwordHash = await bcrypt.hash(tempPassword, 10);
+        
+        // Update the admin's password in the database
+        await client.query('UPDATE admins SET password_hash = $1, updated_at = NOW() WHERE id = $2', [passwordHash, adminId]);
+
+        const emailHtml = `
+            <h1>Bienvenido a Follow For Me</h1>
+            <p>Hola ${admin.name},</p>
+            <p>Se ha creado o restablecido una cuenta de administrador para ti.</p>
+            <p>Puedes iniciar sesión en la plataforma usando las siguientes credenciales:</p>
+            <ul>
+                <li><strong>URL de Acceso:</strong> <a href="${appUrl}/admin/login">${appUrl}/admin/login</a></li>
+                <li><strong>Email:</strong> ${admin.email}</li>
+                <li><strong>Contraseña Temporal:</strong> ${tempPassword}</li>
+            </ul>
+            <p>Se te pedirá que cambies esta contraseña la primera vez que inicies sesión.</p>
+            <p>Gracias,<br/>El Equipo de Follow For Me</p>
+        `;
+
+        return await sendEmail(admin.email, 'Tus Credenciales de Administrador de Follow For Me', emailHtml);
+        
+    } catch(error) {
+        console.error("Error sending admin credentials email:", error);
+        return { success: false, message: "Error del servidor al enviar el correo." }
+    } finally {
+        if(client) client.release();
+    }
+}
     
 
     

@@ -131,17 +131,29 @@
       },
       "manageAdmins": {
         "title": "Gerenciar Administradores",
-        "description": "Criar novas contas de administrador.",
+        "listDescription": "Veja, crie, edite e exclua contas de administrador.",
+        "createTitle": "Criar Novo Administrador",
+        "editTitle": "Editar Administrador",
+        "formDescription": "Preencha os detalhes para a conta de administrador.",
         "nameLabel": "Nome Completo",
         "emailLabel": "Endereço de E-mail",
         "passwordLabel": "Senha",
-        "canCreateAdminsLabel": "Permitir que este usuário crie outros administradores",
-        "createButton": "Criar Administrador"
+        "canCreateAdminsLabel": "Pode criar administradores",
+        "createButton": "Criar Administrador",
+        "deleteConfirmation": "Esta ação não pode ser desfeita. Isso excluirá permanentemente a conta de administrador de {name}.",
+        "table": {
+            "name": "Nome",
+            "email": "Email",
+            "permissions": "Permissões"
+        },
+        "sendCredentials": "Enviar credenciais"
       },
       "loadingOverlay": {
           "creating": "Criando...",
+          "updating": "Atualizando...",
           "preparingEdit": "Preparando edição...",
-          "loading": "Carregando dados..."
+          "loading": "Carregando dados...",
+          "processing": "Processando..."
       }
     },
     "condoDashboard": {
