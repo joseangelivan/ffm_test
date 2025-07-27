@@ -77,6 +77,7 @@ async function runMigrations(p: Pool) {
                     // as we're checking for existence first. We'll log it for debugging.
                     if (err.code !== 'ENOENT') {
                        console.warn(`Could not process schema in '${dirent.name}'. Error: ${err.message}`);
+                       throw err; // Re-throw critical SQL errors
                     }
                     // If ENOENT, we just skip, which is the intended behavior.
                 }
@@ -471,7 +472,7 @@ export async function handleLogoutAction() {
         }
     }
     cookies().delete('session');
-    redirect('/admin/login');
+    redirect('/');
 }
 export async function getCurrentSession() {
   const cookieStore = await cookies();
@@ -520,5 +521,3 @@ export async function createAdmin(prevState: CreateAdminState | undefined, formD
         if (client) client.release();
     }
 }
-
-    

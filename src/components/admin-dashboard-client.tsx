@@ -100,7 +100,7 @@ type Session = {
 }
 
 
-const LocationSelector = ({ defaultValues = {}, onLocationChange }: { defaultValues?: Partial<Condominio>, onLocationChange: (name: string, value: string) => void }) => {
+const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled }: { defaultValues?: Partial<Condominio>, onLocationChange: (name: string, value: string) => void, isFormDisabled?: boolean }) => {
     const { t } = useLocale();
     const [countries, setCountries] = useState<any[]>([]);
     const [states, setStates] = useState<any[]>([]);
@@ -117,7 +117,6 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange }: { defaultVal
         const fetchCountries = async () => {
             setLoadingCountries(true);
             try {
-                // Using a more reliable API for countries
                 const response = await fetch('https://restcountries.com/v3.1/all?fields=name,cca2');
                 let data = await response.json();
                 if (response.ok) {
@@ -146,13 +145,6 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange }: { defaultVal
         const fetchStates = async () => {
             setLoadingStates(true);
             try {
-                const countryInfo = countries.find(c => c.name === selectedCountry);
-                if (!countryInfo) {
-                    setStates([]);
-                    setLoadingStates(false);
-                    return;
-                }
-
                 const response = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -175,7 +167,7 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange }: { defaultVal
         };
         
         fetchStates();
-    }, [selectedCountry, countries]);
+    }, [selectedCountry]);
     
     useEffect(() => {
         if (!selectedCountry || !selectedState) {
@@ -226,7 +218,7 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange }: { defaultVal
         <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
                 <Label htmlFor="country">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
-                <Select name="country" onValueChange={handleCountryChange} defaultValue={defaultValues.country} disabled={loadingCountries}>
+                <Select name="country" onValueChange={handleCountryChange} defaultValue={defaultValues.country} disabled={loadingCountries || isFormDisabled}>
                     <SelectTrigger>
                         <SelectValue placeholder={loadingCountries ? "Cargando países..." : "Seleccionar país"} />
                     </SelectTrigger>
@@ -237,7 +229,7 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange }: { defaultVal
             </div>
             <div className="grid gap-2">
                 <Label htmlFor="state">{t('adminDashboard.newCondoDialog.stateLabel')}</Label>
-                <Select name="state" onValueChange={handleStateChange} defaultValue={defaultValues.state} disabled={!selectedCountry || loadingStates}>
+                <Select name="state" onValueChange={handleStateChange} defaultValue={defaultValues.state} disabled={!selectedCountry || loadingStates || isFormDisabled}>
                     <SelectTrigger>
                          <SelectValue placeholder={loadingStates ? "Cargando estados..." : "Seleccionar estado"} />
                     </SelectTrigger>
@@ -248,7 +240,7 @@ const LocationSelector = ({ defaultValues = {}, onLocationChange }: { defaultVal
             </div>
              <div className="grid gap-2 col-span-2">
                 <Label htmlFor="city">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
-                 <Select name="city" onValueChange={(value) => onLocationChange('city', value)} defaultValue={defaultValues.city} disabled={!selectedState || loadingCities}>
+                 <Select name="city" onValueChange={(value) => onLocationChange('city', value)} defaultValue={defaultValues.city} disabled={!selectedState || loadingCities || isFormDisabled}>
                     <SelectTrigger>
                         <SelectValue placeholder={loadingCities ? "Cargando ciudades..." : "Seleccionar ciudad"} />
                     </SelectTrigger>
@@ -292,14 +284,12 @@ function LogoutDialogContent() {
     )
 }
 
-function CreateCondoSubmitButton() {
+function SubmitButton({ label, pendingLabel }: { label: string; pendingLabel: string }) {
     const { pending } = useFormStatus();
-    const { t } = useLocale();
-
     return (
         <Button type="submit" disabled={pending}>
             {pending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-            {t('adminDashboard.newCondoDialog.create')}
+            {pending ? pendingLabel : label}
         </Button>
     )
 }
@@ -346,8 +336,7 @@ function ManageAdminsForm({closeDialog}: {closeDialog: () => void}) {
 
 function FormFields() {
     const { t } = useLocale();
-    const { pending, data } = useFormStatus();
-    const state = data?.get('state'); // A bit of a hack to get the state back
+    const { pending } = useFormStatus();
 
     return (
          <div className={cn("relative transition-opacity", pending && "opacity-50")}>
@@ -357,7 +346,6 @@ function FormFields() {
                 <DialogDescription>{t('adminDashboard.manageAdmins.description')}</DialogDescription>
             </DialogHeader>
              <div className="grid gap-4 py-4">
-                {/* We don't have access to `state` here directly, so we can't show a generic error alert */}
                 <div className="grid gap-2">
                     <Label htmlFor="name">{t('adminDashboard.manageAdmins.nameLabel')}</Label>
                     <Input id="name" name="name" placeholder="John Doe" required disabled={pending}/>
@@ -408,22 +396,33 @@ function ManageAdminsDialog() {
     )
 }
 
-function CreateCondoForm({ closeDialog }: { closeDialog: () => void }) {
+function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
+    closeDialog: () => void;
+    formAction: (prevState: any, formData: FormData) => Promise<any>;
+    initialData?: Condominio | null;
+    isEditMode: boolean;
+}) {
     const { t } = useLocale();
     const { toast } = useToast();
-    const [state, formAction] = useActionState(createCondominio, undefined);
+    const [state, dispatchFormAction] = useActionState(formAction, undefined);
     const formRef = useRef<HTMLFormElement>(null);
-    const [locationData, setLocationData] = useState<Record<string, string>>({});
+    const [locationData, setLocationData] = useState<Record<string, string>>({
+        country: initialData?.country || '',
+        state: initialData?.state || '',
+        city: initialData?.city || '',
+    });
 
     const handleLocationChange = (name: string, value: string) => {
         setLocationData(prev => ({...prev, [name]: value}));
     }
 
-    const handleFormAction = (formData: FormData) => {
+    const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const formData = new FormData(event.currentTarget);
         Object.entries(locationData).forEach(([key, value]) => {
             formData.set(key, value);
         });
-        formAction(formData);
+        dispatchFormAction(formData);
     }
     
     useEffect(() => {
@@ -436,50 +435,43 @@ function CreateCondoForm({ closeDialog }: { closeDialog: () => void }) {
         }
     }, [state, t, toast, closeDialog]);
 
-    return (
-        <form ref={formRef} action={handleFormAction}>
-            <CreateCondoFields onLocationChange={handleLocationChange}/>
-        </form>
-    );
-}
-
-function CreateCondoFields({onLocationChange}: {onLocationChange: (name: string, value: string) => void}) {
-    const { t } = useLocale();
     const { pending } = useFormStatus();
 
     return (
-        <div className={cn("relative transition-opacity", pending && "opacity-50")}>
-            {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.creating')} />}
-            <DialogHeader>
-                <DialogTitle>{t('adminDashboard.newCondoDialog.title')}</DialogTitle>
-                <DialogDescription>{t('adminDashboard.newCondoDialog.description')}</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                    <Label htmlFor="name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
-                    <Input id="name" name="name" placeholder="Ex: Residencial Jardins" required disabled={pending} />
-                </div>
-                 
-                <LocationSelector onLocationChange={onLocationChange}/>
-
-                <div className="grid grid-cols-3 gap-4">
-                    <div className="grid gap-2 col-span-2">
-                        <Label htmlFor="street">{t('adminDashboard.newCondoDialog.streetLabel')}</Label>
-                        <Input id="street" name="street" placeholder="Ex: Rua das Flores" required disabled={pending} />
-                    </div>
+        <form ref={formRef} onSubmit={handleFormSubmit}>
+             <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+                {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.creating')} />}
+                <DialogHeader>
+                    <DialogTitle>{isEditMode ? t('adminDashboard.editCondoDialog.title') : t('adminDashboard.newCondoDialog.title')}</DialogTitle>
+                    <DialogDescription>{isEditMode ? t('adminDashboard.editCondoDialog.description') : t('adminDashboard.newCondoDialog.description')}</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="number">{t('adminDashboard.newCondoDialog.numberLabel')}</Label>
-                        <Input id="number" name="number" placeholder="Ex: 123" required disabled={pending} />
+                        <Label htmlFor="name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
+                        <Input id="name" name="name" defaultValue={initialData?.name} placeholder="Ex: Residencial Jardins" required disabled={pending} />
+                    </div>
+                    <LocationSelector onLocationChange={handleLocationChange} defaultValues={initialData || {}} isFormDisabled={pending} />
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="grid gap-2 col-span-2">
+                            <Label htmlFor="street">{t('adminDashboard.newCondoDialog.streetLabel')}</Label>
+                            <Input id="street" name="street" defaultValue={initialData?.street} placeholder="Ex: Rua das Flores" required disabled={pending} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="number">{t('adminDashboard.newCondoDialog.numberLabel')}</Label>
+                            <Input id="number" name="number" defaultValue={initialData?.number} placeholder="Ex: 123" required disabled={pending} />
+                        </div>
                     </div>
                 </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="outline" disabled={pending}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
+                    </DialogClose>
+                     <Button type="submit" disabled={pending}>
+                        {pending ? (isEditMode ? 'Salvando...' : 'Criando...') : (isEditMode ? t('adminDashboard.editCondoDialog.save') : t('adminDashboard.newCondoDialog.create'))}
+                    </Button>
+                </DialogFooter>
             </div>
-            <DialogFooter>
-                <DialogClose asChild>
-                    <Button variant="outline" disabled={pending}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
-                </DialogClose>
-                <CreateCondoSubmitButton />
-            </DialogFooter>
-        </div>
+        </form>
     );
 }
 
@@ -541,19 +533,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     
     const result = await updateCondominio(prevState, formData);
     if (result.success) {
-        toast({
-            title: t('toast.successTitle'),
-            description: result.message,
-        });
-        setIsEditCondoDialogOpen(false);
-        setEditingCondo(null);
         fetchCondos();
-    } else {
-        toast({
-            title: t('toast.errorTitle'),
-            description: result.message,
-            variant: 'destructive',
-        });
     }
     return result;
   };
@@ -584,8 +564,10 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     router.push(`/admin/condominio/${condoId}`);
   };
 
-  const handleNewCondoCreated = () => {
+  const handleCondoFormSuccess = () => {
       setIsNewCondoDialogOpen(false);
+      setIsEditCondoDialogOpen(false);
+      setEditingCondo(null);
       fetchCondos();
   }
 
@@ -597,83 +579,83 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
             <h1 className="text-lg font-semibold md:text-2xl font-headline">{t('adminDashboard.title')}</h1>
         </div>
         <div className="ml-auto flex items-center gap-2">
-            <AlertDialog>
-              <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar className="h-10 w-10">
-                      <AvatarImage src={`https://placehold.co/100x100.png?text=${session.name.charAt(0)}`} alt={session.name} data-ai-hint="avatar" />
-                      <AvatarFallback>{session.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{session.name}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{session.email}</p>
-                  </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>{t('dashboard.settings')}</span>
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                        <DropdownMenuSubContent>
-                             <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>
-                                    <Languages className="mr-2 h-4 w-4" />
-                                    <span>{t('dashboard.language')}</span>
-                                </DropdownMenuSubTrigger>
-                                <DropdownMenuPortal>
-                                    <DropdownMenuSubContent>
-                                        <DropdownMenuItem onClick={() => handleSetLocale('es')}>
-                                        Español {locale === 'es' && <span className="ml-auto">✓</span>}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleSetLocale('pt')}>
-                                        Português {locale === 'pt' && <span className="ml-auto">✓</span>}
-                                        </DropdownMenuItem>
-                                    </DropdownMenuSubContent>
-                                </DropdownMenuPortal>
-                            </DropdownMenuSub>
-                            <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>
-                                    <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                                    <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                                    <span>{t('dashboard.theme.title')}</span>
-                                </DropdownMenuSubTrigger>
-                                <DropdownMenuPortal>
-                                    <DropdownMenuSubContent>
-                                        <DropdownMenuItem onClick={() => handleSetTheme('light')}>
-                                        {t('dashboard.theme.light')} {theme === 'light' && <span className="ml-auto">✓</span>}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleSetTheme('dark')}>
-                                        {t('dashboard.theme.dark')} {theme === 'dark' && <span className="ml-auto">✓</span>}
-                                        </DropdownMenuItem>
-                                    </DropdownMenuSubContent>
-                                </DropdownMenuPortal>
-                            </DropdownMenuSub>
-                            {session.canCreateAdmins && <ManageAdminsDialog />}
-                        </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                  </DropdownMenuSub>
-                  <DropdownMenuSeparator />
+            <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                <Avatar className="h-10 w-10">
+                    <AvatarImage src={`https://placehold.co/100x100.png?text=${session.name.charAt(0)}`} alt={session.name} data-ai-hint="avatar" />
+                    <AvatarFallback>{session.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{session.name}</p>
+                    <p className="text-xs leading-none text-muted-foreground">{session.email}</p>
+                </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>{t('dashboard.settings')}</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuPortal>
+                      <DropdownMenuSubContent>
+                           <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>
+                                  <Languages className="mr-2 h-4 w-4" />
+                                  <span>{t('dashboard.language')}</span>
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuPortal>
+                                  <DropdownMenuSubContent>
+                                      <DropdownMenuItem onClick={() => handleSetLocale('es')}>
+                                      Español {locale === 'es' && <span className="ml-auto">✓</span>}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleSetLocale('pt')}>
+                                      Português {locale === 'pt' && <span className="ml-auto">✓</span>}
+                                      </DropdownMenuItem>
+                                  </DropdownMenuSubContent>
+                              </DropdownMenuPortal>
+                          </DropdownMenuSub>
+                          <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>
+                                  <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                                  <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                                  <span>{t('dashboard.theme.title')}</span>
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuPortal>
+                                  <DropdownMenuSubContent>
+                                      <DropdownMenuItem onClick={() => handleSetTheme('light')}>
+                                      {t('dashboard.theme.light')} {theme === 'light' && <span className="ml-auto">✓</span>}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleSetTheme('dark')}>
+                                      {t('dashboard.theme.dark')} {theme === 'dark' && <span className="ml-auto">✓</span>}
+                                      </DropdownMenuItem>
+                                  </DropdownMenuSubContent>
+                              </DropdownMenuPortal>
+                          </DropdownMenuSub>
+                          {session.canCreateAdmins && <ManageAdminsDialog />}
+                      </DropdownMenuSubContent>
+                  </DropdownMenuPortal>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <AlertDialog>
                   <AlertDialogTrigger asChild>
-                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                          <LogOut className="mr-2 h-4 w-4" />
-                          <span>{t('dashboard.logout')}</span>
-                      </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>{t('dashboard.logout')}</span>
+                    </DropdownMenuItem>
                   </AlertDialogTrigger>
-              </DropdownMenuContent>
-              </DropdownMenu>
-              <AlertDialogContent>
-                <form action={handleLogoutAction}>
-                    <LogoutDialogContent />
-                </form>
-              </AlertDialogContent>
-          </AlertDialog>
+                  <AlertDialogContent>
+                    <form action={handleLogoutAction}>
+                      <LogoutDialogContent />
+                    </form>
+                  </AlertDialogContent>
+                </AlertDialog>
+            </DropdownMenuContent>
+            </DropdownMenu>
         </div>
       </header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
@@ -692,7 +674,11 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
-                  <CreateCondoForm closeDialog={handleNewCondoCreated} />
+                    <CondoForm
+                        closeDialog={handleCondoFormSuccess}
+                        formAction={createCondominio}
+                        isEditMode={false}
+                    />
                 </DialogContent>
               </Dialog>
             </CardHeader>
@@ -782,48 +768,19 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       </main>
 
       {/* Edit Condo Dialog */}
-      {editingCondo && (
-        <Dialog open={isEditCondoDialogOpen} onOpenChange={setIsEditCondoDialogOpen}>
+        <Dialog open={isEditCondoDialogOpen} onOpenChange={(isOpen) => {
+            if (!isOpen) setEditingCondo(null);
+            setIsEditCondoDialogOpen(isOpen);
+        }}>
             <DialogContent>
-            <form action={handleEditCondo}>
-                <DialogHeader>
-                    <DialogTitle>{t('adminDashboard.editCondoDialog.title')}</DialogTitle>
-                    <DialogDescription>{t('adminDashboard.editCondoDialog.description')}</DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                     <div className="grid gap-2">
-                        <Label htmlFor="name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
-                        <Input id="name" name="name" defaultValue={editingCondo.name} required />
-                    </div>
-                     <LocationSelector 
-                        defaultValues={editingCondo} 
-                        onLocationChange={(name, value) => {
-                           setEditingCondo(prev => prev ? {...prev, [name]: value} : null)
-                        }}
-                    />
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="grid gap-2 col-span-2">
-                            <Label htmlFor="street">{t('adminDashboard.newCondoDialog.streetLabel')}</Label>
-                            <Input id="street" name="street" defaultValue={editingCondo.street} required />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="number">{t('adminDashboard.newCondoDialog.numberLabel')}</Label>
-                            <Input id="number" name="number" defaultValue={editingCondo.number} required />
-                        </div>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <DialogClose asChild>
-                        <Button variant="outline">{t('adminDashboard.newCondoDialog.cancel')}</Button>
-                    </DialogClose>
-                    <Button type="submit">{t('adminDashboard.editCondoDialog.save')}</Button>
-                </DialogFooter>
-            </form>
+                <CondoForm
+                    closeDialog={handleCondoFormSuccess}
+                    formAction={handleEditCondo}
+                    initialData={editingCondo}
+                    isEditMode={true}
+                />
             </DialogContent>
         </Dialog>
-      )}
     </div>
   );
 }
-
-    

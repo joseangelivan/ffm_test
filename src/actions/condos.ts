@@ -48,23 +48,21 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
     try {
         const pool = await getDbPool();
         client = await pool.connect();
-        // Simplified query to avoid join errors on initial setup
         const result = await client.query(`
             SELECT 
-                *,
+                id, name, street, number, city, state, country, created_at, updated_at,
                 (street || ', ' || number || ', ' || city || ', ' || state || ', ' || country) as address
             FROM 
                 condominiums
             ORDER BY 
                 created_at DESC;
         `);
-        // We manually add the counts for now, they can be fetched later
         const data = result.rows.map(condo => ({
             ...condo,
             residents_count: 0,
             gatekeepers_count: 0,
             devices_count: 0
-        }))
+        }));
         return { success: true, message: 'Condominios obtenidos.', data: data };
     } catch (error) {
         console.error('Error getting condominios:', error);
