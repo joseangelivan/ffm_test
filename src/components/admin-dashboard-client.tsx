@@ -123,7 +123,7 @@ const LocationSelector = ({
     const [continents, setContinents] = useState<string[]>([]);
     const [countries, setCountries] = useState<any[]>([]);
     const [states, setStates] = useState<any[]>([]);
-    const [cities, setCities] = useState<any[]>([]);
+    const [cities, setCities] = useState<string[]>([]);
 
     const [selectedContinent, setSelectedContinent] = useState("");
     const [selectedCountry, setSelectedCountry] = useState(defaultValues.country || "");
@@ -149,26 +149,25 @@ const LocationSelector = ({
                     })).sort((a: any, b: any) => a.name.localeCompare(b.name));
                     
                     const uniqueContinents = [...new Set(countryData.map((c:any) => c.continent))].filter(Boolean).sort();
-                    setContinents(uniqueContinents);
                     setAllCountries(countryData);
                     
-                    // Pre-fill logic for edit mode
-                    if (defaultValues.country) {
-                         startTransition(() => {
+                    startTransition(() => {
+                        setContinents(uniqueContinents);
+                        if (defaultValues.country) {
                             const currentCountry = countryData.find((c: any) => c.name === defaultValues.country);
                             if (currentCountry) {
                                 setSelectedContinent(currentCountry.continent);
                                 setCountries(countryData.filter(c => c.continent === currentCountry.continent));
                                 setSelectedCountry(currentCountry.name);
+                                if (defaultValues.state) {
+                                    setSelectedState(defaultValues.state);
+                                }
+                                if(defaultValues.city) {
+                                    setSelectedCity(defaultValues.city);
+                                }
                             }
-                            if (defaultValues.state) {
-                                setSelectedState(defaultValues.state);
-                            }
-                            if(defaultValues.city) {
-                                setSelectedCity(defaultValues.city)
-                            }
-                        });
-                    }
+                        }
+                    });
                 }
             } catch (error) {
                 console.error("Failed to fetch countries:", error);
@@ -201,6 +200,9 @@ const LocationSelector = ({
                         setStates(stateNames);
                         if (stateNames.includes(defaultValues.state || '')) {
                            setSelectedState(defaultValues.state!);
+                        } else {
+                           setSelectedState('');
+                           onLocationChange('state', '');
                         }
                     });
                 } else {
@@ -214,13 +216,14 @@ const LocationSelector = ({
             }
         };
         if(selectedCountry) fetchStates();
-    }, [selectedCountry]);
+    }, [selectedCountry, defaultValues.state, onLocationChange]);
 
 
     useEffect(() => {
         const fetchCities = async () => {
              if (!selectedCountry || !selectedState) {
                 setCities([]);
+                setSelectedCity('');
                 onLocationChange('city', '');
                 return;
             }
@@ -234,9 +237,13 @@ const LocationSelector = ({
                 const data = await response.json();
                  if (!data.error && Array.isArray(data.data)) {
                     startTransition(() => {
-                        setCities(data.data.sort());
-                        if (data.data.includes(defaultValues.city || '')) {
+                        const sortedCities = data.data.sort();
+                        setCities(sortedCities);
+                        if (sortedCities.includes(defaultValues.city || '')) {
                             setSelectedCity(defaultValues.city!);
+                        } else {
+                            setSelectedCity('');
+                            onLocationChange('city', '');
                         }
                     });
                 } else {
@@ -251,7 +258,7 @@ const LocationSelector = ({
         };
 
         if(selectedState) fetchCities();
-    }, [selectedCountry, selectedState]);
+    }, [selectedCountry, selectedState, defaultValues.city, onLocationChange]);
 
 
     const handleContinentChange = (continent: string) => {
@@ -299,14 +306,13 @@ const LocationSelector = ({
         });
     }
 
-
     return (
         <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2 col-span-2">
                 <Label htmlFor="continent-display">Continente</Label>
                 <Select onValueChange={handleContinentChange} value={selectedContinent} disabled={loadingContinents || isFormDisabled}>
                     <SelectTrigger id="continent-display">
-                        <SelectValue placeholder={loadingContinents ? "Cargando continentes..." : "Seleccionar continente"} />
+                        <SelectValue placeholder={loadingContinents || isPending ? "Cargando continentes..." : "Seleccionar continente"} />
                     </SelectTrigger>
                     <SelectContent>
                         {continents.map((continent: any) => <SelectItem key={continent} value={continent}>{continent}</SelectItem>)}
@@ -508,24 +514,13 @@ function CondoForm({
   const { t } = useLocale();
   const { toast } = useToast();
   const [state, dispatchFormAction] = useActionState(formAction, undefined);
-  const { pending } = useFormStatus();
-
-  const [locationData, setLocationData] = useState<Partial<LocationData>>({});
-
-  useEffect(() => {
-        if (isEditMode && initialData) {
-            setLocationData({
-                country: initialData.country,
-                state: initialData.state,
-                city: initialData.city,
-            });
-        }
-    }, [initialData, isEditMode]);
+  
+  const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData || {});
 
   const handleLocationChange = useCallback((name: string, value: string) => {
     setLocationData((prev) => ({ ...prev, [name]: value }));
   }, []);
-
+  
   useEffect(() => {
     if (state?.success === false) {
       toast({
@@ -548,99 +543,124 @@ function CondoForm({
       <input type="hidden" name="country" value={locationData.country || ''} />
       <input type="hidden" name="state" value={locationData.state || ''} />
       <input type="hidden" name="city" value={locationData.city || ''} />
+      
+      <CondoFormFields 
+        isEditMode={isEditMode}
+        initialData={initialData}
+        locationData={locationData}
+        onLocationChange={handleLocationChange}
+      />
+    </form>
+  );
+}
 
-      <div className={cn('relative transition-opacity', pending && 'opacity-50')}>
-        {pending && (
-          <LoadingOverlay
-            text={
-              isEditMode
-                ? t('adminDashboard.editCondoDialog.save')
-                : t('adminDashboard.loadingOverlay.creating')
-            }
+function CondoFormFields({
+  isEditMode,
+  initialData,
+  locationData,
+  onLocationChange,
+}: {
+  isEditMode: boolean,
+  initialData?: Condominio | null,
+  locationData: Partial<LocationData>,
+  onLocationChange: (name: string, value: string) => void,
+}) {
+  const { t } = useLocale();
+  const { pending } = useFormStatus();
+
+  return (
+    <div className={cn('relative transition-opacity', pending && 'opacity-50')}>
+      {pending && (
+        <LoadingOverlay
+          text={
+            isEditMode
+              ? t('adminDashboard.editCondoDialog.save')
+              : t('adminDashboard.loadingOverlay.creating')
+          }
+        />
+      )}
+      <DialogHeader>
+        <DialogTitle>
+          {isEditMode
+            ? t('adminDashboard.editCondoDialog.title')
+            : t('adminDashboard.newCondoDialog.title')}
+        </DialogTitle>
+        <DialogDescription>
+          {isEditMode
+            ? t('adminDashboard.editCondoDialog.description')
+            : t('adminDashboard.newCondoDialog.description')}
+        </DialogDescription>
+      </DialogHeader>
+      <div className="grid gap-4 py-4">
+        <div className="grid gap-2">
+          <Label htmlFor="name">
+            {t('adminDashboard.newCondoDialog.nameLabel')}
+          </Label>
+          <Input
+            id="name"
+            name="name"
+            defaultValue={initialData?.name}
+            placeholder="Ex: Residencial Jardins"
+            required
+            disabled={pending}
           />
-        )}
-        <DialogHeader>
-          <DialogTitle>
-            {isEditMode
-              ? t('adminDashboard.editCondoDialog.title')
-              : t('adminDashboard.newCondoDialog.title')}
-          </DialogTitle>
-          <DialogDescription>
-            {isEditMode
-              ? t('adminDashboard.editCondoDialog.description')
-              : t('adminDashboard.newCondoDialog.description')}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="name">
-              {t('adminDashboard.newCondoDialog.nameLabel')}
+        </div>
+
+        <LocationSelector
+          onLocationChange={onLocationChange}
+          defaultValues={locationData}
+          isFormDisabled={pending}
+        />
+
+        <div className="grid grid-cols-3 gap-4">
+          <div className="grid gap-2 col-span-2">
+            <Label htmlFor="street">
+              {t('adminDashboard.newCondoDialog.streetLabel')}
             </Label>
             <Input
-              id="name"
-              name="name"
-              defaultValue={initialData?.name}
-              placeholder="Ex: Residencial Jardins"
+              id="street"
+              name="street"
+              defaultValue={initialData?.street}
+              placeholder="Ex: Rua das Flores"
               required
               disabled={pending}
             />
           </div>
-
-          <LocationSelector
-            onLocationChange={handleLocationChange}
-            defaultValues={locationData}
-            isFormDisabled={pending}
-          />
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="grid gap-2 col-span-2">
-              <Label htmlFor="street">
-                {t('adminDashboard.newCondoDialog.streetLabel')}
-              </Label>
-              <Input
-                id="street"
-                name="street"
-                defaultValue={initialData?.street}
-                placeholder="Ex: Rua das Flores"
-                required
-                disabled={pending}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="number">
-                {t('adminDashboard.newCondoDialog.numberLabel')}
-              </Label>
-              <Input
-                id="number"
-                name="number"
-                defaultValue={initialData?.number}
-                placeholder="Ex: 123"
-                required
-                disabled={pending}
-              />
-            </div>
+          <div className="grid gap-2">
+            <Label htmlFor="number">
+              {t('adminDashboard.newCondoDialog.numberLabel')}
+            </Label>
+            <Input
+              id="number"
+              name="number"
+              defaultValue={initialData?.number}
+              placeholder="Ex: 123"
+              required
+              disabled={pending}
+            />
           </div>
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline" type="button" disabled={pending}>
-              {t('adminDashboard.newCondoDialog.cancel')}
-            </Button>
-          </DialogClose>
-          <Button type="submit" disabled={pending}>
-            {pending
-              ? isEditMode
-                ? t('adminDashboard.editCondoDialog.save') + '...'
-                : t('adminDashboard.newCondoDialog.create') + '...'
-              : isEditMode
-              ? t('adminDashboard.editCondoDialog.save')
-              : t('adminDashboard.newCondoDialog.create')}
-          </Button>
-        </DialogFooter>
       </div>
-    </form>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button variant="outline" type="button" disabled={pending}>
+            {t('adminDashboard.newCondoDialog.cancel')}
+          </Button>
+        </DialogClose>
+        <Button type="submit" disabled={pending}>
+          {pending
+            ? isEditMode
+              ? t('adminDashboard.editCondoDialog.save') + '...'
+              : t('adminDashboard.newCondoDialog.create') + '...'
+            : isEditMode
+            ? t('adminDashboard.editCondoDialog.save')
+            : t('adminDashboard.newCondoDialog.create')}
+        </Button>
+      </DialogFooter>
+    </div>
   );
 }
+
 
 export default function AdminDashboardClient({ session }: { session: Session }) {
   const { t, setLocale, locale } = useLocale();
@@ -656,7 +676,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  const fetchCondos = async () => {
+  const fetchCondos = useCallback(async () => {
       setLoading(true);
       const result = await getCondominios();
       if(result.success && result.data) {
@@ -665,11 +685,11 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
           toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
       }
       setLoading(false);
-  }
+  }, [t, toast]);
 
   useEffect(() => {
     fetchCondos();
-  }, []);
+  }, [fetchCondos]);
 
   useEffect(() => {
     async function loadSettings() {
@@ -731,12 +751,12 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     router.push(`/admin/condominio/${condoId}`);
   };
 
-  const handleCondoFormSuccess = () => {
+  const handleCondoFormSuccess = useCallback(() => {
       setIsNewCondoDialogOpen(false);
       setIsEditCondoDialogOpen(false);
       setEditingCondo(null);
       fetchCondos();
-  }
+  }, [fetchCondos]);
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
