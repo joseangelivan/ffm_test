@@ -70,7 +70,7 @@ async function runMigrations(p: Pool) {
         if (isNewDatabase) {
             console.log("No existing 'admins' table found. Assuming a new database setup.");
             
-            const baseSchemaDirs = ['sql/admin', 'sql/residents', 'sql/entry_control', 'sql/sessions', 'sql/condominio'];
+            const baseSchemaDirs = ['sql/admin', 'sql/residents', 'sql/entry_control', 'sql/sessions', 'sql/condominiums'];
 
             for (const schemaDir of baseSchemaDirs) {
                 const schemaSqlPath = path.join(process.cwd(), 'src', 'lib', schemaDir, 'base_schema.sql');
