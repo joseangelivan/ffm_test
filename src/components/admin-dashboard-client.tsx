@@ -128,6 +128,7 @@ const LocationSelector = ({
     const [selectedContinent, setSelectedContinent] = useState("");
     const [selectedCountry, setSelectedCountry] = useState(defaultValues.country || "");
     const [selectedState, setSelectedState] = useState(defaultValues.state || "");
+    const [selectedCity, setSelectedCity] = useState(defaultValues.city || "");
 
     const [loadingContinents, setLoadingContinents] = useState(true);
     const [loadingCountries, setLoadingCountries] = useState(false);
@@ -150,19 +151,23 @@ const LocationSelector = ({
                     const uniqueContinents = [...new Set(countryData.map((c:any) => c.continent))].filter(Boolean).sort();
                     setContinents(uniqueContinents);
                     setAllCountries(countryData);
-
+                    
+                    // Pre-fill logic for edit mode
                     if (defaultValues.country) {
-                        const currentCountry = countryData.find((c: any) => c.name === defaultValues.country);
-                        if (currentCountry) {
-                            startTransition(() => {
+                         startTransition(() => {
+                            const currentCountry = countryData.find((c: any) => c.name === defaultValues.country);
+                            if (currentCountry) {
                                 setSelectedContinent(currentCountry.continent);
                                 setCountries(countryData.filter(c => c.continent === currentCountry.continent));
                                 setSelectedCountry(currentCountry.name);
-                            });
-                        }
-                    }
-                     if (defaultValues.state) {
-                        setSelectedState(defaultValues.state);
+                            }
+                            if (defaultValues.state) {
+                                setSelectedState(defaultValues.state);
+                            }
+                            if(defaultValues.city) {
+                                setSelectedCity(defaultValues.city)
+                            }
+                        });
                     }
                 }
             } catch (error) {
@@ -172,7 +177,7 @@ const LocationSelector = ({
             }
         };
         fetchInitialData();
-    }, [defaultValues.country, defaultValues.state]);
+    }, [defaultValues.country, defaultValues.state, defaultValues.city]);
 
     useEffect(() => {
         const fetchStates = async () => {
@@ -194,27 +199,22 @@ const LocationSelector = ({
                     const stateNames = data.data.states.map((s: any) => s.name).sort();
                     startTransition(() => {
                         setStates(stateNames);
-                        if (defaultValues.state && stateNames.includes(defaultValues.state)) {
-                            setSelectedState(defaultValues.state);
-                        } else {
-                            if (!stateNames.includes(selectedState)) {
-                                setSelectedState("");
-                                onLocationChange('state', '');
-                            }
+                        if (stateNames.includes(defaultValues.state || '')) {
+                           setSelectedState(defaultValues.state!);
                         }
                     });
                 } else {
-                    setStates([]);
+                     startTransition(() => { setStates([]); });
                 }
             } catch (error) {
                 console.error("Failed to fetch states:", error);
-                setStates([]);
+                 startTransition(() => { setStates([]); });
             } finally {
                 setLoadingStates(false);
             }
         };
         if(selectedCountry) fetchStates();
-    }, [selectedCountry, defaultValues.state]);
+    }, [selectedCountry]);
 
 
     useEffect(() => {
@@ -232,16 +232,19 @@ const LocationSelector = ({
                     body: JSON.stringify({ country: selectedCountry, state: selectedState })
                 });
                 const data = await response.json();
-                if (!data.error && Array.isArray(data.data)) {
+                 if (!data.error && Array.isArray(data.data)) {
                     startTransition(() => {
                         setCities(data.data.sort());
+                        if (data.data.includes(defaultValues.city || '')) {
+                            setSelectedCity(defaultValues.city!);
+                        }
                     });
                 } else {
-                    setCities([]);
+                     startTransition(() => { setCities([]); });
                 }
             } catch (error) {
                 console.error("Failed to fetch cities:", error);
-                setCities([]);
+                 startTransition(() => { setCities([]); });
             } finally {
                 setLoadingCities(false);
             }
@@ -261,6 +264,7 @@ const LocationSelector = ({
             setSelectedState('');
             onLocationChange('state', '');
             setCities([]);
+            setSelectedCity('');
             onLocationChange('city', '');
         });
     }
@@ -273,6 +277,7 @@ const LocationSelector = ({
             setSelectedState('');
             onLocationChange('state', '');
             setCities([]);
+            setSelectedCity('');
             onLocationChange('city', '');
         });
     }
@@ -282,9 +287,18 @@ const LocationSelector = ({
             setSelectedState(stateName);
             onLocationChange('state', stateName);
             setCities([]);
+            setSelectedCity('');
             onLocationChange('city', '');
         });
     }
+
+    const handleCityChange = (cityName: string) => {
+        startTransition(() => {
+            setSelectedCity(cityName);
+            onLocationChange('city', cityName);
+        });
+    }
+
 
     return (
         <div className="grid grid-cols-2 gap-4">
@@ -323,7 +337,7 @@ const LocationSelector = ({
             </div>
              <div className="grid gap-2 col-span-2">
                 <Label htmlFor="city-display">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
-                 <Select onValueChange={(value) => onLocationChange('city', value)} value={defaultValues.city} disabled={!selectedState || loadingCities || isFormDisabled}>
+                 <Select onValueChange={handleCityChange} value={selectedCity} disabled={!selectedState || loadingCities || isFormDisabled}>
                     <SelectTrigger id="city-display">
                         <SelectValue placeholder={loadingCities || isPending ? "Cargando ciudades..." : "Seleccionar ciudad"} />
                     </SelectTrigger>
@@ -496,13 +510,9 @@ function CondoForm({
   const [state, dispatchFormAction] = useActionState(formAction, undefined);
   const { pending } = useFormStatus();
 
-  const [locationData, setLocationData] = useState<Partial<LocationData>>({
-    country: initialData?.country || '',
-    state: initialData?.state || '',
-    city: initialData?.city || '',
-  });
+  const [locationData, setLocationData] = useState<Partial<LocationData>>({});
 
-   useEffect(() => {
+  useEffect(() => {
         if (isEditMode && initialData) {
             setLocationData({
                 country: initialData.country,
@@ -535,9 +545,9 @@ function CondoForm({
 
   return (
     <form action={dispatchFormAction}>
-      <input type="hidden" name="country" value={locationData.country} />
-      <input type="hidden" name="state" value={locationData.state} />
-      <input type="hidden" name="city" value={locationData.city} />
+      <input type="hidden" name="country" value={locationData.country || ''} />
+      <input type="hidden" name="state" value={locationData.state || ''} />
+      <input type="hidden" name="city" value={locationData.city || ''} />
 
       <div className={cn('relative transition-opacity', pending && 'opacity-50')}>
         {pending && (
