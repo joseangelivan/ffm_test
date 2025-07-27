@@ -70,7 +70,7 @@ async function runMigrations(p: Pool) {
         if (isNewDatabase) {
             console.log("No existing 'admins' table found. Assuming a new database setup.");
             
-            const baseSchemaDirs = ['sql/admin', 'sql/entry_control'];
+            const baseSchemaDirs = ['sql/admin', 'sql/residents', 'sql/entry_control'];
 
             for (const schemaDir of baseSchemaDirs) {
                 const schemaSqlPath = path.join(process.cwd(), 'src', 'lib', schemaDir, 'base_schema.sql');
@@ -393,5 +393,3 @@ export async function createAdmin(prevState: CreateAdminState | undefined, formD
         if (client) client.release();
     }
 }
-
-    
