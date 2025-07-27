@@ -10,6 +10,7 @@ import { JWT_SECRET } from '@/lib/config';
 import fs from 'fs/promises';
 import path from 'path';
 import nodemailer from 'nodemailer';
+import { getSmtpConfigurations } from './smtp';
 
 // --- Database Pool and Migration Logic ---
 
@@ -620,66 +621,47 @@ export async function deleteAdmin(id: string): Promise<ActionState> {
     }
 }
 
-function createTransporter() {
-    // If SMTP_USER and SMTP_PASS are set, assume production and use Gmail SMTP.
-    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-        return nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 465,
-            secure: true, // use SSL
-            auth: {
-                user: process.env.SMTP_USER, // Your Gmail address
-                pass: process.env.SMTP_PASS, // Your Gmail App Password
-            },
-        });
+async function sendEmail(to: string, subject: string, html: string): Promise<{success: boolean, message: string}> {
+    const smtpConfigs = await getSmtpConfigurations();
+
+    if (smtpConfigs.length === 0) {
+        console.error("No SMTP configurations found in the database.");
+        return { success: false, message: 'No hay configuraciones SMTP disponibles para enviar correos.' };
     }
 
-    // Otherwise, fall back to Ethereal for development.
-    // We create a new test account for each server start.
-    return nodemailer.createTransport({
-        host: "smtp.ethereal.email",
-        port: 587,
-        secure: false, // true for 465, false for other ports
-        auth: {
-            user: process.env.ETHEREAL_USER, // Will be generated
-            pass: process.env.ETHEREAL_PASS, // Will be generated
-        },
-    });
-}
+    for (const config of smtpConfigs) {
+        try {
+            const transporter = nodemailer.createTransport({
+                host: config.host,
+                port: config.port,
+                secure: config.secure,
+                auth: {
+                    user: config.auth_user,
+                    pass: config.auth_pass, // Note: This should be the decrypted password
+                },
+            });
 
-async function sendEmail(to: string, subject: string, html: string) {
-    const transporter = createTransporter();
+            const info = await transporter.sendMail({
+                from: `"${config.name}" <${config.auth_user}>`,
+                to: to,
+                subject: subject,
+                html: html,
+            });
 
-    // In development, ensure we have Ethereal credentials if none are provided.
-    if (process.env.NODE_ENV !== 'production' && (!process.env.SMTP_USER || !process.env.SMTP_PASS)) {
-        // If ethereal credentials are not in env, create a test account
-        if (!transporter.options.auth || !(transporter.options.auth as any).user) {
-             const testAccount = await nodemailer.createTestAccount();
-             transporter.options.auth = {
-                 user: testAccount.user,
-                 pass: testAccount.pass
-             };
-             console.log("Created new Ethereal test account:", testAccount.user);
+            console.log(`Message sent successfully with config "${config.name}": %s`, info.messageId);
+            return { success: true, message: 'Correo enviado con éxito.' };
+
+        } catch (error) {
+            console.error(`Failed to send email with config "${config.name}". Error: ${error}`);
+            // If it fails, the loop will continue to the next configuration
         }
     }
-    
-    const info = await transporter.sendMail({
-        from: `"Follow For Me" <${process.env.SMTP_USER || 'noreply@followforme.com'}>`,
-        to: to,
-        subject: subject,
-        html: html,
-    });
-    
-    console.log("Message sent: %s", info.messageId);
-    
-    const previewUrl = nodemailer.getTestMessageUrl(info);
-    if (previewUrl) {
-      console.log("Preview URL: %s", previewUrl);
-      return { success: true, message: `Correo enviado. Vista previa disponible en: ${previewUrl}` };
-    }
-    
-    return { success: true, message: 'Correo enviado con éxito.' };
+
+    // If all configurations fail
+    console.error("All SMTP configurations failed.");
+    return { success: false, message: 'Error del servidor: Todos los proveedores de correo fallaron.' };
 }
+
 
 function generateTempPassword(): string {
     // Generate a random 8-character password

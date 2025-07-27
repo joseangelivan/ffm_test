@@ -27,6 +27,8 @@ import {
   MapPin,
   CheckCircle,
   Mail,
+  Mailbox,
+  GripVertical,
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -87,6 +89,7 @@ import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { handleLogoutAction, getSettings, updateSettings, createAdmin, getAdmins, updateAdmin, deleteAdmin, sendAdminCredentialsEmail, type Admin } from '@/actions/auth';
 import { createCondominio, getCondominios, updateCondominio, deleteCondominio, type Condominio } from '@/actions/condos';
+import { createSmtpConfiguration, getSmtpConfigurations, updateSmtpConfiguration, deleteSmtpConfiguration, updateSmtpOrder, type SmtpConfiguration } from '@/actions/smtp';
 import { geocodeAddress, type GeocodeResult } from '@/actions/geocoding';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -259,6 +262,27 @@ function LoadingOverlay({ text }: { text: string }) {
                 <span>{text}</span>
             </div>
         </div>
+    );
+}
+
+function SmtpConfigDialog() {
+    // Implement the SMTP configuration management UI here.
+    // This will be a complex component.
+    return (
+        <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+                <DialogTitle>Configurar envío de correo (SMTP)</DialogTitle>
+                <DialogDescription>
+                    Gestiona los servidores de correo para el envío de notificaciones. Arrastra para reordenar la prioridad.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+                <p>La gestión de configuración SMTP estará disponible aquí.</p>
+            </div>
+            <DialogFooter>
+                <DialogClose asChild><Button variant="outline">Cerrar</Button></DialogClose>
+            </DialogFooter>
+        </DialogContent>
     );
 }
 
@@ -503,17 +527,21 @@ function AddressVerificationDialog({
       const { street, city, state, country } = locationData;
       const cacheKey = `geocode_${country}_${state}_${city}_${street}`;
       
-      const response = await getCachedData(cacheKey, () => geocodeAddress({
-        street: street!,
-        city: city!,
-        state: state!,
-        country: country!,
-      }));
+      try {
+        const response = await getCachedData(cacheKey, () => geocodeAddress({
+            street: street!,
+            city: city!,
+            state: state!,
+            country: country!,
+        }));
 
-      if (response.success && response.data) {
-        setResults(response.data);
-      } else if (!response.success) {
-        setError(response.message);
+        if (response.success && response.data) {
+            setResults(response.data);
+        } else if (!response.success) {
+            setError(response.message);
+        }
+      } catch (err: any) {
+         setError(err.message || "An unexpected error occurred.");
       }
       setIsLoading(false);
     }
@@ -740,30 +768,46 @@ function CondoFormWrapper({
   const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
     startLocationTransition(async () => {
         let fieldsToUpdate: Partial<LocationData> = { [field]: value };
-
-        if (field === 'continent') {
-            fieldsToUpdate = { ...fieldsToUpdate, country: '', state: '', city: '', states: [], cities: [] };
-            const countries = await fetchCountries(value);
-            fieldsToUpdate.countries = countries;
-        } else if (field === 'country') {
-            fieldsToUpdate = { ...fieldsToUpdate, state: '', city: '', cities: [] };
-            const states = await fetchStates(value);
-            fieldsToUpdate.states = states;
-        } else if (field === 'state') {
-             fieldsToUpdate = { ...fieldsToUpdate, city: '' };
-             const currentCountry = locationData.country || initialData.country;
-             if(currentCountry) {
-                const cities = await fetchCities(currentCountry, value);
-                fieldsToUpdate.cities = cities;
-             }
-        }
         
-        setLocationData(currentData => ({
-            ...currentData,
-            ...fieldsToUpdate,
-        }));
+        let resetFields: Partial<LocationData> = {};
+        if (field === 'continent') {
+            resetFields = { country: '', state: '', city: '', states: [], cities: [] };
+        } else if (field === 'country') {
+            resetFields = { state: '', city: '', cities: [] };
+        } else if (field === 'state') {
+            resetFields = { city: '' };
+        }
+
+        setLocationData(currentData => ({ ...currentData, ...fieldsToUpdate, ...resetFields }));
     });
-  }, [locationData.country, initialData.country, fetchCountries, fetchStates, fetchCities]);
+  }, []);
+  
+  useEffect(() => {
+    if (locationData.continent && !locationData.countries?.length) {
+        startLocationTransition(async () => {
+            const countries = await fetchCountries(locationData.continent!);
+            setLocationData(current => ({ ...current, countries }));
+        });
+    }
+  }, [locationData.continent, locationData.countries, fetchCountries]);
+
+  useEffect(() => {
+      if (locationData.country && !locationData.states?.length) {
+          startLocationTransition(async () => {
+              const states = await fetchStates(locationData.country!);
+              setLocationData(current => ({...current, states}));
+          });
+      }
+  }, [locationData.country, locationData.states, fetchStates]);
+
+  useEffect(() => {
+      if (locationData.country && locationData.state && !locationData.cities?.length) {
+          startLocationTransition(async () => {
+              const cities = await fetchCities(locationData.country!, locationData.state!);
+              setLocationData(current => ({...current, cities}));
+          });
+      }
+  }, [locationData.country, locationData.state, locationData.cities, fetchCities]);
 
 
   useEffect(() => {
@@ -926,57 +970,50 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   };
 
   const prepareAndOpenEditDialog = useCallback(async (condo: Condominio) => {
-    if (!condo.continent || !condo.country || !condo.state) {
-        toast({ title: t('toast.errorTitle'), description: "Condominio con datos de ubicación incompletos.", variant: 'destructive' });
-        return;
-    }
-    
     setIsPreparingEdit(true);
 
-    const fetchCountries = (continent: string) => getCachedData(`countries_${continent}`, async () => {
-      try {
-          const res = await fetch(`https://restcountries.com/v3.1/region/${continent}?fields=name`);
-          const data = await res.json();
-          return (data || []).map((c: any) => ({ name: c.name.common })).sort((a: any, b: any) => a.name.localeCompare(b.name));
-      } catch (e) { return []; }
-    });
+    const fetchCountries = (continent: string) => getCachedData(`countries_${continent}`, () => 
+        fetch(`https://restcountries.com/v3.1/region/${continent}?fields=name`).then(res => res.json())
+        .then(data => (data || []).map((c: any) => ({ name: c.name.common })).sort((a: any, b: any) => a.name.localeCompare(b.name)))
+        .catch(() => [])
+    );
 
-    const fetchStates = (country: string) => getCachedData(`states_${country}`, async () => {
-        try {
-            const res = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country })
-            });
-            const data = await res.json();
-            if (data.error) return [];
-            return (data.data?.states || []).sort((a: any, b: any) => a.name.localeCompare(b.name));
-        } catch (e) { return []; }
-    });
+    const fetchStates = (country: string) => getCachedData(`states_${country}`, () => 
+        fetch(`https://countriesnow.space/api/v0.1/countries/states`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country }) }).then(res => res.json())
+        .then(data => data.error ? [] : (data.data?.states || []).sort((a: any, b: any) => a.name.localeCompare(b.name)))
+        .catch(() => [])
+    );
 
-    const fetchCities = (country: string, state: string) => getCachedData(`cities_${country}_${state}`, async () => {
-        try {
-            const res = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country, state })
-            });
-            const data = await res.json();
-            if (data.error) return [];
-            return (Array.isArray(data.data) ? data.data : []).sort();
-        } catch (e) { return []; }
-    });
+    const fetchCities = (country: string, state: string) => getCachedData(`cities_${country}_${state}`, () =>
+        fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country, state }) }).then(res => res.json())
+        .then(data => data.error ? [] : (Array.isArray(data.data) ? data.data : []).sort())
+        .catch(() => [])
+    );
+    
+    try {
+        if (!condo.continent || !condo.country || !condo.state) {
+            throw new Error("Condominio con datos de ubicación incompletos.");
+        }
 
-    const countries = await fetchCountries(condo.continent);
-    const states = await fetchStates(condo.country);
-    const cities = await fetchCities(condo.country, condo.state);
+        const [countries, states, cities] = await Promise.all([
+            fetchCountries(condo.continent),
+            fetchStates(condo.country),
+            fetchCities(condo.country, condo.state)
+        ]);
 
-    setEditingCondoData({
-        ...condo,
-        countries,
-        states,
-        cities,
-    });
+        setEditingCondoData({
+            ...condo,
+            countries,
+            states,
+            cities,
+        });
 
-    setIsEditCondoDialogOpen(true);
-    setIsPreparingEdit(false);
-
+        setIsEditCondoDialogOpen(true);
+    } catch (error: any) {
+        toast({ title: t('toast.errorTitle'), description: error.message || t('toast.preloadError'), variant: 'destructive' });
+    } finally {
+        setIsPreparingEdit(false);
+    }
   }, [toast, t, getCachedData]);
   
   const handleDeleteCondo = async (condoId: string) => {
@@ -1073,7 +1110,17 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                                   </DropdownMenuSubContent>
                               </DropdownMenuPortal>
                           </DropdownMenuSub>
-                          {session.canCreateAdmins && <ManageAdminsDialog />}
+                            <DropdownMenuSeparator/>
+                            {session.canCreateAdmins && <ManageAdminsDialog />}
+                            <Dialog>
+                                <DialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                        <Mailbox className="mr-2 h-4 w-4" />
+                                        <span>Configurar SMTP</span>
+                                    </DropdownMenuItem>
+                                </DialogTrigger>
+                                <SmtpConfigDialog />
+                           </Dialog>
                       </DropdownMenuSubContent>
                   </DropdownMenuPortal>
                 </DropdownMenuSub>
