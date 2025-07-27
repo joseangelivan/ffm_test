@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useActionState, useRef } from 'react';
+import React, { useState, useEffect, useActionState, useRef, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
   Building,
@@ -117,16 +117,20 @@ const LocationSelector = ({
     isFormDisabled?: boolean
 }) => {
     const { t } = useLocale();
-    
+
+    const [isPending, startTransition] = useTransition();
+
     // Data lists for dropdowns
     const [allCountries, setAllCountries] = useState<any[]>([]);
     const [continents, setContinents] = useState<string[]>([]);
     const [countries, setCountries] = useState<any[]>([]);
     const [states, setStates] = useState<any[]>([]);
-    const [cities, setCities] = useState<string[]>([]);
+    const [cities, setCities] = useState<any[]>([]);
 
     // Selected values
-    const [selectedContinent, setSelectedContinent] = useState(defaultValues.country ? allCountries.find(c => c.name === defaultValues.country)?.continent || "" : "");
+    const [selectedContinent, setSelectedContinent] = useState("");
+    const [selectedCountry, setSelectedCountry] = useState(defaultValues.country || "");
+    const [selectedState, setSelectedState] = useState(defaultValues.state || "");
 
     // Loading states
     const [loadingContinents, setLoadingContinents] = useState(true);
@@ -134,8 +138,9 @@ const LocationSelector = ({
     const [loadingStates, setLoadingStates] = useState(false);
     const [loadingCities, setLoadingCities] = useState(false);
 
+    // Initial data load effect
     useEffect(() => {
-        const fetchAndGroupCountries = async () => {
+        const fetchInitialData = async () => {
             setLoadingContinents(true);
             try {
                 const response = await fetch('https://restcountries.com/v3.1/all?fields=name,region,cca2');
@@ -150,13 +155,17 @@ const LocationSelector = ({
                     const uniqueContinents = [...new Set(countryData.map((c:any) => c.continent))].filter(Boolean).sort();
                     setContinents(uniqueContinents);
                     setAllCountries(countryData);
-                    
+
                     if (defaultValues.country) {
                         const currentCountry = countryData.find((c: any) => c.name === defaultValues.country);
-                        if (currentCountry && currentCountry.continent) {
+                        if (currentCountry) {
                             setSelectedContinent(currentCountry.continent);
                             setCountries(countryData.filter(c => c.continent === currentCountry.continent));
+                            setSelectedCountry(currentCountry.name);
                         }
+                    }
+                     if (defaultValues.state) {
+                        setSelectedState(defaultValues.state);
                     }
                 }
             } catch (error) {
@@ -165,13 +174,16 @@ const LocationSelector = ({
                 setLoadingContinents(false);
             }
         };
-        fetchAndGroupCountries();
-    }, [defaultValues.country]);
-    
+        fetchInitialData();
+    }, [defaultValues.country, defaultValues.state]);
+
+    // Effect to fetch states when country changes
     useEffect(() => {
         const fetchStates = async () => {
-            if (!defaultValues.country) {
+            if (!selectedCountry) {
                 setStates([]);
+                setSelectedState("");
+                onLocationChange('state', '');
                 return;
             }
             setLoadingStates(true);
@@ -179,12 +191,24 @@ const LocationSelector = ({
                 const response = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ country: defaultValues.country })
+                    body: JSON.stringify({ country: selectedCountry })
                 });
                 const data = await response.json();
                 if (!data.error && data.data?.states) {
                     const stateNames = data.data.states.map((s: any) => s.name).sort();
-                    setStates(stateNames);
+                    startTransition(() => {
+                        setStates(stateNames);
+                        // If default state exists and is in the new list, keep it
+                        if (defaultValues.state && stateNames.includes(defaultValues.state)) {
+                            setSelectedState(defaultValues.state);
+                        } else {
+                             // If the previously selected state is not in the new list, clear it
+                            if (!stateNames.includes(selectedState)) {
+                                setSelectedState("");
+                                onLocationChange('state', '');
+                            }
+                        }
+                    });
                 } else {
                     setStates([]);
                 }
@@ -197,12 +221,15 @@ const LocationSelector = ({
         };
         
         fetchStates();
-    }, [defaultValues.country]);
+    }, [selectedCountry, defaultValues.state]);
 
+
+    // Effect to fetch cities when state changes
     useEffect(() => {
         const fetchCities = async () => {
-             if (!defaultValues.country || !defaultValues.state) {
+             if (!selectedCountry || !selectedState) {
                 setCities([]);
+                onLocationChange('city', '');
                 return;
             }
             setLoadingCities(true);
@@ -210,11 +237,13 @@ const LocationSelector = ({
                  const response = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ country: defaultValues.country, state: defaultValues.state })
+                    body: JSON.stringify({ country: selectedCountry, state: selectedState })
                 });
                 const data = await response.json();
                 if (!data.error && Array.isArray(data.data)) {
-                    setCities(data.data.sort());
+                    startTransition(() => {
+                        setCities(data.data.sort());
+                    });
                 } else {
                     setCities([]);
                 }
@@ -227,25 +256,36 @@ const LocationSelector = ({
         };
 
         fetchCities();
-    }, [defaultValues.country, defaultValues.state]);
+    }, [selectedCountry, selectedState]);
 
 
     const handleContinentChange = (continent: string) => {
         setSelectedContinent(continent);
         setCountries(allCountries.filter(c => c.continent === continent));
+        // Reset subsequent fields
+        setSelectedCountry('');
         onLocationChange('country', '');
+        setSelectedState('');
         onLocationChange('state', '');
+        setCities([]);
         onLocationChange('city', '');
     }
 
-    const handleCountryChange = (value: string) => {
-        onLocationChange('country', value);
+    const handleCountryChange = (countryName: string) => {
+        setSelectedCountry(countryName);
+        onLocationChange('country', countryName);
+        // Reset subsequent fields
+        setSelectedState('');
         onLocationChange('state', '');
+        setCities([]);
         onLocationChange('city', '');
     }
 
-    const handleStateChange = (value: string) => {
-        onLocationChange('state', value);
+    const handleStateChange = (stateName: string) => {
+        setSelectedState(stateName);
+        onLocationChange('state', stateName);
+        // Reset subsequent fields
+        setCities([]);
         onLocationChange('city', '');
     }
 
@@ -264,7 +304,7 @@ const LocationSelector = ({
             </div>
             <div className="grid gap-2">
                 <Label htmlFor="country-display">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
-                <Select onValueChange={handleCountryChange} value={defaultValues.country} disabled={!selectedContinent || loadingCountries || isFormDisabled}>
+                <Select onValueChange={handleCountryChange} value={selectedCountry} disabled={!selectedContinent || loadingCountries || isFormDisabled}>
                     <SelectTrigger id="country-display">
                         <SelectValue placeholder={loadingCountries ? "Cargando países..." : "Seleccionar país"} />
                     </SelectTrigger>
@@ -275,9 +315,9 @@ const LocationSelector = ({
             </div>
             <div className="grid gap-2">
                 <Label htmlFor="state-display">{t('adminDashboard.newCondoDialog.stateLabel')}</Label>
-                <Select onValueChange={handleStateChange} value={defaultValues.state} disabled={!defaultValues.country || loadingStates || isFormDisabled}>
+                <Select onValueChange={handleStateChange} value={selectedState} disabled={!selectedCountry || loadingStates || isFormDisabled}>
                     <SelectTrigger id="state-display">
-                         <SelectValue placeholder={loadingStates ? "Cargando estados..." : "Seleccionar estado"} />
+                         <SelectValue placeholder={loadingStates || isPending ? "Cargando estados..." : "Seleccionar estado"} />
                     </SelectTrigger>
                     <SelectContent>
                        {states.map((state: any) => <SelectItem key={state} value={state}>{state}</SelectItem>)}
@@ -286,9 +326,9 @@ const LocationSelector = ({
             </div>
              <div className="grid gap-2 col-span-2">
                 <Label htmlFor="city-display">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
-                 <Select onValueChange={(value) => onLocationChange('city', value)} value={defaultValues.city} disabled={!defaultValues.state || loadingCities || isFormDisabled}>
+                 <Select onValueChange={(value) => onLocationChange('city', value)} value={defaultValues.city} disabled={!selectedState || loadingCities || isFormDisabled}>
                     <SelectTrigger id="city-display">
-                        <SelectValue placeholder={loadingCities ? "Cargando ciudades..." : "Seleccionar ciudad"} />
+                        <SelectValue placeholder={loadingCities || isPending ? "Cargando ciudades..." : "Seleccionar ciudad"} />
                     </SelectTrigger>
                     <SelectContent>
                         {cities.map((city: any) => <SelectItem key={city} value={city}>{city}</SelectItem>)}
@@ -443,100 +483,157 @@ function ManageAdminsDialog() {
     )
 }
 
-function CondoForm({ closeDialog, formAction, initialData, isEditMode }: {
-    closeDialog: () => void;
-    formAction: (prevState: any, formData: FormData) => Promise<any>;
-    initialData?: Condominio & LocationData | null;
-    isEditMode: boolean;
+function CondoForm({
+  closeDialog,
+  formAction,
+  initialData,
+  isEditMode,
+}: {
+  closeDialog: () => void;
+  formAction: (prevState: any, formData: FormData) => Promise<any>;
+  initialData?: Condominio | null;
+  isEditMode: boolean;
 }) {
-    const { t } = useLocale();
-    const { toast } = useToast();
-    const formRef = useRef<HTMLFormElement>(null);
-    const [state, dispatch] = useActionState(formAction, undefined);
-    const { pending } = useFormStatus();
+  const { t } = useLocale();
+  const { toast } = useToast();
+  const [state, dispatchFormAction] = useActionState(formAction, undefined);
+  const { pending } = useFormStatus();
 
-    const [locationData, setLocationData] = useState<Partial<LocationData>>({
-        country: initialData?.country || '',
-        state: initialData?.state || '',
-        city: initialData?.city || '',
-    });
+  const [locationData, setLocationData] = useState<Partial<LocationData>>({
+    country: initialData?.country || '',
+    state: initialData?.state || '',
+    city: initialData?.city || '',
+  });
 
-     useEffect(() => {
-        if (initialData) {
+   useEffect(() => {
+        if (isEditMode && initialData) {
             setLocationData({
                 country: initialData.country,
                 state: initialData.state,
                 city: initialData.city,
             });
         }
-    }, [initialData]);
+    }, [initialData, isEditMode]);
 
-    const handleLocationChange = (name: string, value: string) => {
-        setLocationData(prev => ({...prev, [name]: value}));
+  const handleLocationChange = useCallback((name: string, value: string) => {
+    setLocationData((prev) => ({ ...prev, [name]: value }));
+  }, []);
+
+  useEffect(() => {
+    if (state?.success === false) {
+      toast({
+        title: t('toast.errorTitle'),
+        description: state.message,
+        variant: 'destructive',
+      });
     }
-    
-    useEffect(() => {
-        if (state?.success === false) {
-            toast({ title: t('toast.errorTitle'), description: state.message, variant: 'destructive' });
-        }
-        if (state?.success === true) {
-            toast({ title: t('toast.successTitle'), description: state.message });
-            closeDialog();
-        }
-    }, [state, t, toast, closeDialog]);
+    if (state?.success === true) {
+      toast({
+        title: t('toast.successTitle'),
+        description: state.message,
+      });
+      closeDialog();
+    }
+  }, [state, t, toast, closeDialog]);
 
-    const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        const formData = new FormData(event.currentTarget);
-        // Append location data to formData before dispatching
-        formData.set('country', locationData.country || '');
-        formData.set('state', locationData.state || '');
-        formData.set('city', locationData.city || '');
-        dispatch(formData);
-    };
+  return (
+    <form action={dispatchFormAction}>
+      {/* Hidden inputs to pass location data to the server action */}
+      <input type="hidden" name="country" value={locationData.country} />
+      <input type="hidden" name="state" value={locationData.state} />
+      <input type="hidden" name="city" value={locationData.city} />
 
-    return (
-        <form ref={formRef} onSubmit={handleFormSubmit}>
-             <div className={cn("relative transition-opacity", pending && "opacity-50")}>
-                {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.editCondoDialog.save') : t('adminDashboard.loadingOverlay.creating')} />}
-                <DialogHeader>
-                    <DialogTitle>{isEditMode ? t('adminDashboard.editCondoDialog.title') : t('adminDashboard.newCondoDialog.title')}</DialogTitle>
-                    <DialogDescription>{isEditMode ? t('adminDashboard.editCondoDialog.description') : t('adminDashboard.newCondoDialog.description')}</DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
-                        <Input id="name" name="name" defaultValue={initialData?.name} placeholder="Ex: Residencial Jardins" required disabled={pending} />
-                    </div>
-                    
-                    <LocationSelector 
-                        onLocationChange={handleLocationChange} 
-                        defaultValues={locationData}
-                        isFormDisabled={pending} 
-                    />
-                    
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="grid gap-2 col-span-2">
-                            <Label htmlFor="street">{t('adminDashboard.newCondoDialog.streetLabel')}</Label>
-                            <Input id="street" name="street" defaultValue={initialData?.street} placeholder="Ex: Rua das Flores" required disabled={pending} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="number">{t('adminDashboard.newCondoDialog.numberLabel')}</Label>
-                            <Input id="number" name="number" defaultValue={initialData?.number} placeholder="Ex: 123" required disabled={pending} />
-                        </div>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <DialogClose asChild>
-                        <Button variant="outline" type="button" disabled={pending}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
-                    </DialogClose>
-                     <Button type="submit" disabled={pending}>
-                        {pending ? (isEditMode ? t('adminDashboard.editCondoDialog.save')+'...' : t('adminDashboard.newCondoDialog.create')+'...') : (isEditMode ? t('adminDashboard.editCondoDialog.save') : t('adminDashboard.newCondoDialog.create'))}
-                    </Button>
-                </DialogFooter>
+      <div className={cn('relative transition-opacity', pending && 'opacity-50')}>
+        {pending && (
+          <LoadingOverlay
+            text={
+              isEditMode
+                ? t('adminDashboard.editCondoDialog.save')
+                : t('adminDashboard.loadingOverlay.creating')
+            }
+          />
+        )}
+        <DialogHeader>
+          <DialogTitle>
+            {isEditMode
+              ? t('adminDashboard.editCondoDialog.title')
+              : t('adminDashboard.newCondoDialog.title')}
+          </DialogTitle>
+          <DialogDescription>
+            {isEditMode
+              ? t('adminDashboard.editCondoDialog.description')
+              : t('adminDashboard.newCondoDialog.description')}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="name">
+              {t('adminDashboard.newCondoDialog.nameLabel')}
+            </Label>
+            <Input
+              id="name"
+              name="name"
+              defaultValue={initialData?.name}
+              placeholder="Ex: Residencial Jardins"
+              required
+              disabled={pending}
+            />
+          </div>
+
+          <LocationSelector
+            onLocationChange={handleLocationChange}
+            defaultValues={locationData}
+            isFormDisabled={pending}
+          />
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="grid gap-2 col-span-2">
+              <Label htmlFor="street">
+                {t('adminDashboard.newCondoDialog.streetLabel')}
+              </Label>
+              <Input
+                id="street"
+                name="street"
+                defaultValue={initialData?.street}
+                placeholder="Ex: Rua das Flores"
+                required
+                disabled={pending}
+              />
             </div>
-        </form>
-    );
+            <div className="grid gap-2">
+              <Label htmlFor="number">
+                {t('adminDashboard.newCondoDialog.numberLabel')}
+              </Label>
+              <Input
+                id="number"
+                name="number"
+                defaultValue={initialData?.number}
+                placeholder="Ex: 123"
+                required
+                disabled={pending}
+              />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" type="button" disabled={pending}>
+              {t('adminDashboard.newCondoDialog.cancel')}
+            </Button>
+          </DialogClose>
+          <Button type="submit" disabled={pending}>
+            {pending
+              ? isEditMode
+                ? t('adminDashboard.editCondoDialog.save') + '...'
+                : t('adminDashboard.newCondoDialog.create') + '...'
+              : isEditMode
+              ? t('adminDashboard.editCondoDialog.save')
+              : t('adminDashboard.newCondoDialog.create')}
+          </Button>
+        </DialogFooter>
+      </div>
+    </form>
+  );
 }
 
 export default function AdminDashboardClient({ session }: { session: Session }) {
@@ -544,12 +641,12 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const { toast } = useToast();
   const router = useRouter();
 
-  const [condominios, setCondominios] = useState<(Condominio & LocationData)[]>([]);
+  const [condominios, setCondominios] = useState<Condominio[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
   const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
-  const [editingCondo, setEditingCondo] = useState<(Condominio & LocationData) | null>(null);
+  const [editingCondo, setEditingCondo] = useState<Condominio | null>(null);
   
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
@@ -557,7 +654,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       setLoading(true);
       const result = await getCondominios();
       if(result.success && result.data) {
-          setCondominios(result.data as (Condominio & LocationData)[]);
+          setCondominios(result.data);
       } else {
           toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
       }
@@ -619,7 +716,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     }
   }
 
-  const openEditDialog = (condo: Condominio & LocationData) => {
+  const openEditDialog = (condo: Condominio) => {
     setEditingCondo(condo);
     setIsEditCondoDialogOpen(true);
   };
@@ -850,3 +947,4 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
+
