@@ -230,6 +230,19 @@
         "portería": "Portaria"
     },
      "common": {
-        "close": "Fechar"
+        "close": "Fechar",
+        "you": "você"
+    },
+    "emails": {
+        "adminCredentials": {
+            "subject": "Suas Credenciais de Administrador da Follow For Me",
+            "title": "Bem-vindo à Follow For Me",
+            "hello": "Olá",
+            "intro": "Uma conta de administrador foi criada ou redefinida para você.",
+            "passwordLabel": "Senha Temporária",
+            "changePasswordPrompt": "Será solicitado que você altere esta senha no primeiro login.",
+            "thanks": "Obrigado,",
+            "teamName": "A Equipe Follow For Me"
+        }
     }
   }

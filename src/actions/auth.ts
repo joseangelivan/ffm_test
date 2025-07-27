@@ -11,6 +11,9 @@ import fs from 'fs/promises';
 import path from 'path';
 import nodemailer from 'nodemailer';
 import { getSmtpConfigsForMailer } from './smtp';
+import es from '@/locales/es.json';
+import pt from '@/locales/pt.json';
+
 
 // --- Database Pool and Migration Logic ---
 
@@ -565,6 +568,10 @@ export async function updateAdmin(prevState: ActionState | undefined, formData: 
     if (!id || !name || !email) {
         return { success: false, message: 'ID, Nombre y email son obligatorios.' };
     }
+    
+    if (id === session.id) {
+        return { success: false, message: "No puedes editar tu propia cuenta desde esta pantalla. Usa la opción 'Mi Cuenta'." };
+    }
 
     let client;
     try {
@@ -679,36 +686,40 @@ export async function sendAdminCredentialsEmail(adminId: string, appUrl: string)
     try {
         const pool = await getDbPool();
         client = await pool.connect();
-
-        const result = await client.query('SELECT name, email FROM admins WHERE id = $1', [adminId]);
-        if (result.rows.length === 0) {
+        
+        const adminResult = await client.query(
+          'SELECT a.name, a.email, s.language FROM admins a LEFT JOIN admin_settings s ON a.id = s.admin_id WHERE a.id = $1',
+          [adminId]
+        );
+        if (adminResult.rows.length === 0) {
             return { success: false, message: 'Administrador no encontrado.' };
         }
-        const admin = result.rows[0];
+        const admin = adminResult.rows[0];
+        const locale = admin.language === 'es' ? 'es' : 'pt';
+        const t = locale === 'es' ? es : pt;
+
         
         const tempPassword = generateTempPassword();
         const passwordHash = await bcrypt.hash(tempPassword, 10);
         
-        // Update the admin's password in the database
         await client.query('UPDATE admins SET password_hash = $1, updated_at = NOW() WHERE id = $2', [passwordHash, adminId]);
         
         const adminLoginUrl = new URL('/admin/login', appUrl).toString();
-
+        
         const emailHtml = `
-            <h1>Bienvenido a Follow For Me</h1>
-            <p>Hola ${admin.name},</p>
-            <p>Se ha creado o restablecido una cuenta de administrador para ti.</p>
-            <p>Puedes iniciar sesión en la plataforma usando las siguientes credenciales:</p>
+            <h1>${t.emails.adminCredentials.title}</h1>
+            <p>${t.emails.adminCredentials.hello}, ${admin.name},</p>
+            <p>${t.emails.adminCredentials.intro}</p>
             <ul>
-                <li><strong>URL de Acceso:</strong> <a href="${adminLoginUrl}">${adminLoginUrl}</a></li>
+                <li><strong>URL:</strong> <a href="${adminLoginUrl}">${adminLoginUrl}</a></li>
                 <li><strong>Email:</strong> ${admin.email}</li>
-                <li><strong>Contraseña Temporal:</strong> ${tempPassword}</li>
+                <li><strong>${t.emails.adminCredentials.passwordLabel}:</strong> ${tempPassword}</li>
             </ul>
-            <p>Se te pedirá que cambies esta contraseña la primera vez que inicies sesión.</p>
-            <p>Gracias,<br/>El Equipo de Follow For Me</p>
+            <p>${t.emails.adminCredentials.changePasswordPrompt}</p>
+            <p>${t.emails.adminCredentials.thanks}<br/>${t.emails.adminCredentials.teamName}</p>
         `;
 
-        return await sendEmail(admin.email, 'Tus Credenciales de Administrador de Follow For Me', emailHtml);
+        return await sendEmail(admin.email, t.emails.adminCredentials.subject, emailHtml);
         
     } catch(error) {
         console.error("Error sending admin credentials email:", error);

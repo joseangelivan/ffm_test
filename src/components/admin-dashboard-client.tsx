@@ -511,7 +511,7 @@ function SmtpFormFields({ config, onCancel }: { config: SmtpConfiguration | null
     )
 }
 
-function ManageAdminsDialog() {
+function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string }) {
     const { t } = useLocale();
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
@@ -603,14 +603,16 @@ function ManageAdminsDialog() {
                                 <TableBody>
                                     {loadingAdmins ? (
                                         Array.from({length: 2}).map((_, i) => <TableRow key={i}><TableCell colSpan={4}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
-                                    ) : admins.map(admin => (
-                                        <TableRow key={admin.id}>
-                                            <TableCell>{admin.name}</TableCell>
+                                    ) : admins.map(admin => {
+                                        const isSelf = admin.id === currentAdminId;
+                                        return (
+                                        <TableRow key={admin.id} className={cn(isSelf && "bg-muted/50")}>
+                                            <TableCell>{admin.name} {isSelf && <span className="text-xs text-muted-foreground ml-1">({t('common.you')})</span>}</TableCell>
                                             <TableCell>{admin.email}</TableCell>
                                             <TableCell>{admin.can_create_admins ? t('adminDashboard.manageAdmins.canCreateAdminsLabel') : '---'}</TableCell>
                                             <TableCell className="text-right">
                                                 <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4"/></Button></DropdownMenuTrigger>
+                                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={isSelf}><MoreVertical className="h-4 w-4"/></Button></DropdownMenuTrigger>
                                                     <DropdownMenuContent>
                                                         <DropdownMenuItem onSelect={() => handleEditClick(admin)}><Edit className="mr-2 h-4 w-4"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
                                                         <DropdownMenuItem onSelect={() => handleSendEmail(admin.id)}><Mail className="mr-2 h-4 w-4"/>{t('adminDashboard.manageAdmins.sendCredentials')}</DropdownMenuItem>
@@ -633,7 +635,7 @@ function ManageAdminsDialog() {
                                                 </DropdownMenu>
                                             </TableCell>
                                         </TableRow>
-                                    ))}
+                                    )})}
                                 </TableBody>
                             </Table>
                         </div>
@@ -1483,7 +1485,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                               </DropdownMenuPortal>
                           </DropdownMenuSub>
                             <DropdownMenuSeparator/>
-                            {session.canCreateAdmins && <ManageAdminsDialog />}
+                            {session.canCreateAdmins && <ManageAdminsDialog currentAdminId={session.id}/>}
                             <Dialog>
                                 <DialogTrigger asChild>
                                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
