@@ -855,7 +855,7 @@ function ManageAccountFields({ session, emailValue, onEmailChange, onSendPin, is
                 <Alert variant="destructive" className="mt-4">
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-                    <AlertDescription>{formState.message}</AlertDescription>
+                    <AlertDescription isCopyable={true}>{formState.message}</AlertDescription>
                 </Alert>
             )}
 
@@ -945,7 +945,7 @@ function AddressVerificationDialog({
            <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription isCopyable={true}>{error}</AlertDescription>
           </Alert>
         ) : results.length > 0 ? (
           <div className="space-y-2">

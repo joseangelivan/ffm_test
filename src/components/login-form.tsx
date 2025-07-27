@@ -160,7 +160,7 @@ export default function LoginForm() {
               <Alert variant="destructive" className="mt-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-                <AlertDescription>{state.message}</AlertDescription>
+                <AlertDescription isCopyable={true}>{state.message}</AlertDescription>
               </Alert>
             )}
           </div>

@@ -22,10 +22,7 @@ const alertVariants = cva(
   }
 )
 
-const AlertContext = React.createContext<{ variant: VariantProps<typeof alertVariants>['variant'] } | null>(null);
-
-
-const AlertInternal = React.forwardRef<
+const Alert = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof alertVariants>
 >(({ className, variant, ...props }, ref) => (
@@ -36,7 +33,8 @@ const AlertInternal = React.forwardRef<
     {...props}
   />
 ))
-AlertInternal.displayName = "AlertInternal"
+Alert.displayName = "Alert"
+
 
 const AlertTitle = React.forwardRef<
   HTMLParagraphElement,
@@ -52,8 +50,8 @@ AlertTitle.displayName = "AlertTitle"
 
 const AlertDescription = React.forwardRef<
   HTMLParagraphElement,
-  React.HTMLAttributes<HTMLParagraphElement>
->(({ className, children, ...props }, ref) => {
+  React.HTMLAttributes<HTMLParagraphElement> & { isCopyable?: boolean }
+>(({ className, children, isCopyable = false, ...props }, ref) => {
     const [isCopied, setIsCopied] = React.useState(false);
     const { toast } = useToast();
     const textToCopy = React.useRef<HTMLDivElement>(null);
@@ -67,8 +65,6 @@ const AlertDescription = React.forwardRef<
         }
     };
     
-    const parentContext = React.useContext(AlertContext);
-
     return (
         <div className="flex items-start justify-between gap-4">
             <div
@@ -78,7 +74,7 @@ const AlertDescription = React.forwardRef<
             >
              <div ref={textToCopy}>{children}</div>
             </div>
-            {parentContext?.variant === 'destructive' && (
+            {isCopyable && (
                  <Button
                     variant="ghost"
                     size="icon"
@@ -93,19 +89,5 @@ const AlertDescription = React.forwardRef<
     );
 });
 AlertDescription.displayName = "AlertDescription"
-
-
-const Alert = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof alertVariants>
->(({ variant, ...props }, ref) => {
-  return (
-    <AlertContext.Provider value={{ variant }}>
-      <AlertInternal ref={ref} variant={variant} {...props} />
-    </AlertContext.Provider>
-  );
-});
-Alert.displayName = "Alert";
-
 
 export { Alert, AlertTitle, AlertDescription }
