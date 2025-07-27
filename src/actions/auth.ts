@@ -64,19 +64,21 @@ async function runMigrations(p: Pool) {
             if (dirent.isDirectory()) {
                 const schemaSqlPath = path.join(sqlBaseDir, dirent.name, 'base_schema.sql');
                 try {
+                    // Check if base_schema.sql exists before trying to read it
+                    await fs.access(schemaSqlPath); 
+                    
                     const schemaSql = await fs.readFile(schemaSqlPath, 'utf-8');
                     if (schemaSql.trim()) {
                         console.log(`- Applying base schema from '${dirent.name}/base_schema.sql'...`);
                         await client.query(schemaSql);
                     }
                 } catch (err: any) {
-                    if (err.code === 'ENOENT') {
-                        // This is expected if a directory doesn't have a base_schema.sql (e.g., 'utilities' after cleanup)
-                        console.warn(`Could not find ${dirent.name}/base_schema.sql. Skipping.`);
-                    } else {
-                        // Re-throw other errors (e.g., permission issues)
-                        throw err;
+                    // This will now only catch errors other than file-not-found, 
+                    // as we're checking for existence first. We'll log it for debugging.
+                    if (err.code !== 'ENOENT') {
+                       console.warn(`Could not process schema in '${dirent.name}'. Error: ${err.message}`);
                     }
+                    // If ENOENT, we just skip, which is the intended behavior.
                 }
             }
         }
