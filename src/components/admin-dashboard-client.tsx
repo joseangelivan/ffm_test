@@ -559,15 +559,21 @@ function CondoFormFields({
 
 // --- Caching helpers for location data ---
 async function getCachedData(key: string, fetcher: () => Promise<any>) {
-    const cached = sessionStorage.getItem(key);
-    if (cached) {
-        return JSON.parse(cached);
+    try {
+        const cached = sessionStorage.getItem(key);
+        if (cached) {
+            return JSON.parse(cached);
+        }
+        const data = await fetcher();
+        if (data) {
+            sessionStorage.setItem(key, JSON.stringify(data));
+        }
+        return data;
+    } catch (error) {
+        console.error(`Failed to get or set cached data for key "${key}":`, error);
+        // Fallback to fetching directly if caching fails
+        return fetcher();
     }
-    const data = await fetcher();
-    if (data) {
-        sessionStorage.setItem(key, JSON.stringify(data));
-    }
-    return data;
 }
 
 const fetchCountries = (continent: string) => getCachedData(`countries_${continent}`, async () => {
