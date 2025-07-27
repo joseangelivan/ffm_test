@@ -110,11 +110,13 @@ type LocationData = {
 const LocationSelector = ({
     defaultValues,
     onLocationChange,
-    isFormDisabled
+    isFormDisabled,
+    onLoadingChange
 }: {
     defaultValues: Partial<LocationData>,
     onLocationChange: (name: string, value: string) => void,
-    isFormDisabled?: boolean
+    isFormDisabled?: boolean,
+    onLoadingChange?: (isLoading: boolean) => void
 }) => {
     const { t } = useLocale();
     const [isPending, startTransition] = useTransition();
@@ -134,27 +136,31 @@ const LocationSelector = ({
     const [loadingStates, setLoadingStates] = useState(false);
     const [loadingCities, setLoadingCities] = useState(false);
 
+    const overallLoading = loadingContinents || loadingCountries || loadingStates || loadingCities;
+
+    useEffect(() => {
+        onLoadingChange?.(overallLoading);
+    }, [overallLoading, onLoadingChange]);
+    
      useEffect(() => {
         const fetchInitialData = async () => {
             setLoadingContinents(true);
             try {
-                const response = await fetch('https://restcountries.com/v3.1/all?fields=name,region,cca2');
+                const response = await fetch('https://restcountries.com/v3.1/all?fields=region');
                 const data = await response.json();
                 if (response.ok) {
                     const uniqueContinents = [...new Set(data.map((c:any) => c.region))].filter(Boolean).sort();
-                    
-                    startTransition(async () => {
-                        setAllContinents(uniqueContinents);
-                        if(defaultValues.country) {
-                             const currentCountryResponse = await fetch(`https://restcountries.com/v3.1/name/${defaultValues.country}?fullText=true&fields=region`);
-                             const currentCountryData = await currentCountryResponse.json();
-                             if(currentCountryData.length > 0) {
-                                 const continent = currentCountryData[0].region;
-                                 setSelectedContinent(continent);
-                                 handleContinentChange(continent, true);
-                             }
-                        }
-                    });
+                    setAllContinents(uniqueContinents);
+                    if(defaultValues.country) {
+                         const currentCountryResponse = await fetch(`https://restcountries.com/v3.1/name/${defaultValues.country}?fullText=true&fields=region`);
+                         const currentCountryData = await currentCountryResponse.json();
+                         if(currentCountryData.length > 0) {
+                             const continent = currentCountryData[0].region;
+                             setSelectedContinent(continent);
+                             // Start the cascade
+                             await handleContinentChange(continent, true);
+                         }
+                    }
                 }
             } catch (error) {
                 console.error("Failed to fetch continents:", error);
@@ -162,22 +168,25 @@ const LocationSelector = ({
                 setLoadingContinents(false);
             }
         };
-        fetchInitialData();
+
+        startTransition(() => {
+            fetchInitialData();
+        });
+
     }, [defaultValues.country]);
 
+
     const handleContinentChange = async (continent: string, isInitialLoad = false) => {
-        startTransition(() => {
-            setSelectedContinent(continent);
-            setCountries([]);
-            setStates([]);
-            setCities([]);
-            setSelectedCountry('');
-            setSelectedState('');
-            setSelectedCity('');
-            onLocationChange('country', '');
-            onLocationChange('state', '');
-            onLocationChange('city', '');
-        });
+        setSelectedContinent(continent);
+        setCountries([]);
+        setStates([]);
+        setCities([]);
+        setSelectedCountry('');
+        setSelectedState('');
+        setSelectedCity('');
+        onLocationChange('country', '');
+        onLocationChange('state', '');
+        onLocationChange('city', '');
 
         if (continent) {
             setLoadingCountries(true);
@@ -185,14 +194,12 @@ const LocationSelector = ({
                 const response = await fetch(`https://restcountries.com/v3.1/region/${continent}?fields=name`);
                 const data = await response.json();
                 if (response.ok) {
-                    startTransition(() => {
-                        const countryNames = data.map((c: any) => c.name.common).sort();
-                        setCountries(countryNames);
-                        if(isInitialLoad && defaultValues.country) {
-                             setSelectedCountry(defaultValues.country);
-                             handleCountryChange(defaultValues.country, true);
-                        }
-                    });
+                    const countryNames = data.map((c: any) => c.name.common).sort();
+                    setCountries(countryNames);
+                    if(isInitialLoad && defaultValues.country) {
+                         setSelectedCountry(defaultValues.country);
+                         await handleCountryChange(defaultValues.country, true);
+                    }
                 }
             } catch (error) {
                 console.error("Failed to fetch countries:", error);
@@ -203,16 +210,14 @@ const LocationSelector = ({
     }
 
     const handleCountryChange = async (countryName: string, isInitialLoad = false) => {
-        startTransition(() => {
-            setSelectedCountry(countryName);
-            onLocationChange('country', countryName);
-            setStates([]);
-            setCities([]);
-            setSelectedState('');
-            setSelectedCity('');
-            onLocationChange('state', '');
-            onLocationChange('city', '');
-        });
+        setSelectedCountry(countryName);
+        onLocationChange('country', countryName);
+        setStates([]);
+        setCities([]);
+        setSelectedState('');
+        setSelectedCity('');
+        onLocationChange('state', '');
+        onLocationChange('city', '');
 
         if (countryName) {
             setLoadingStates(true);
@@ -224,20 +229,18 @@ const LocationSelector = ({
                 });
                 const data = await response.json();
                 if (!data.error && data.data?.states) {
-                    startTransition(() => {
-                        const stateNames = data.data.states.map((s: any) => s.name).sort();
-                        setStates(stateNames);
-                        if(isInitialLoad && defaultValues.state) {
-                             setSelectedState(defaultValues.state);
-                             handleStateChange(defaultValues.state, true);
-                        }
-                    });
+                    const stateNames = data.data.states.map((s: any) => s.name).sort();
+                    setStates(stateNames);
+                    if(isInitialLoad && defaultValues.state) {
+                         setSelectedState(defaultValues.state);
+                         await handleStateChange(defaultValues.state, true);
+                    }
                 } else {
-                     startTransition(() => { setStates([]); });
+                     setStates([]);
                 }
             } catch (error) {
                 console.error("Failed to fetch states:", error);
-                 startTransition(() => { setStates([]); });
+                 setStates([]);
             } finally {
                 setLoadingStates(false);
             }
@@ -245,13 +248,11 @@ const LocationSelector = ({
     }
     
     const handleStateChange = async (stateName: string, isInitialLoad = false) => {
-        startTransition(() => {
-            setSelectedState(stateName);
-            onLocationChange('state', stateName);
-            setCities([]);
-            setSelectedCity('');
-            onLocationChange('city', '');
-        });
+        setSelectedState(stateName);
+        onLocationChange('state', stateName);
+        setCities([]);
+        setSelectedCity('');
+        onLocationChange('city', '');
 
         if (stateName && selectedCountry) {
             setLoadingCities(true);
@@ -263,20 +264,18 @@ const LocationSelector = ({
                 });
                 const data = await response.json();
                 if (!data.error && Array.isArray(data.data)) {
-                    startTransition(() => {
-                        const sortedCities = data.data.sort();
-                        setCities(sortedCities);
-                        if (isInitialLoad && defaultValues.city && sortedCities.includes(defaultValues.city)) {
-                            setSelectedCity(defaultValues.city);
-                            onLocationChange('city', defaultValues.city);
-                        }
-                    });
+                    const sortedCities = data.data.sort();
+                    setCities(sortedCities);
+                    if (isInitialLoad && defaultValues.city && sortedCities.includes(defaultValues.city)) {
+                        setSelectedCity(defaultValues.city);
+                        onLocationChange('city', defaultValues.city);
+                    }
                 } else {
-                     startTransition(() => { setCities([]); });
+                    setCities([]);
                 }
             } catch (error) {
                 console.error("Failed to fetch cities:", error);
-                 startTransition(() => { setCities([]); });
+                setCities([]);
             } finally {
                 setLoadingCities(false);
             }
@@ -284,19 +283,24 @@ const LocationSelector = ({
     }
 
     const handleCityChange = (cityName: string) => {
-        startTransition(() => {
-            setSelectedCity(cityName);
-            onLocationChange('city', cityName);
-        });
+        setSelectedCity(cityName);
+        onLocationChange('city', cityName);
     }
-
-    const isLoading = isPending || loadingContinents || loadingCountries || loadingStates || loadingCities;
+    
+    const createSelectHandler = (setter: Function, action?: (value: string) => Promise<void>) => (value: string) => {
+        startTransition(() => {
+            setter(value);
+            if (action) {
+                action(value);
+            }
+        });
+    };
 
     return (
         <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2 col-span-2">
                 <Label htmlFor="continent-display">Continente</Label>
-                <Select onValueChange={(value) => handleContinentChange(value)} value={selectedContinent} disabled={isFormDisabled || loadingContinents}>
+                <Select onValueChange={createSelectHandler(setSelectedContinent, handleContinentChange)} value={selectedContinent} disabled={isFormDisabled || loadingContinents}>
                     <SelectTrigger id="continent-display">
                         <SelectValue placeholder={loadingContinents ? "Cargando continentes..." : "Seleccionar continente"} />
                     </SelectTrigger>
@@ -307,7 +311,7 @@ const LocationSelector = ({
             </div>
             <div className="grid gap-2">
                 <Label htmlFor="country-display">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
-                <Select onValueChange={(value) => handleCountryChange(value)} value={selectedCountry} disabled={!selectedContinent || loadingCountries || isFormDisabled}>
+                <Select onValueChange={createSelectHandler(setSelectedCountry, handleCountryChange)} value={selectedCountry} disabled={!selectedContinent || loadingCountries || isFormDisabled}>
                     <SelectTrigger id="country-display">
                         <SelectValue placeholder={loadingCountries ? "Cargando países..." : "Seleccionar país"} />
                     </SelectTrigger>
@@ -318,7 +322,7 @@ const LocationSelector = ({
             </div>
             <div className="grid gap-2">
                 <Label htmlFor="state-display">{t('adminDashboard.newCondoDialog.stateLabel')}</Label>
-                <Select onValueChange={(value) => handleStateChange(value)} value={selectedState} disabled={!selectedCountry || loadingStates || isFormDisabled}>
+                <Select onValueChange={createSelectHandler(setSelectedState, handleStateChange)} value={selectedState} disabled={!selectedCountry || loadingStates || isFormDisabled}>
                     <SelectTrigger id="state-display">
                          <SelectValue placeholder={loadingStates ? "Cargando estados..." : "Seleccionar estado"} />
                     </SelectTrigger>
@@ -329,7 +333,7 @@ const LocationSelector = ({
             </div>
              <div className="grid gap-2 col-span-2">
                 <Label htmlFor="city-display">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
-                 <Select onValueChange={handleCityChange} value={selectedCity} disabled={!selectedState || loadingCities || isFormDisabled}>
+                 <Select onValueChange={createSelectHandler(setSelectedCity, (city) => { onLocationChange('city', city); return Promise.resolve()})} value={selectedCity} disabled={!selectedState || loadingCities || isFormDisabled}>
                     <SelectTrigger id="city-display">
                         <SelectValue placeholder={loadingCities ? "Cargando ciudades..." : "Seleccionar ciudad"} />
                     </SelectTrigger>
@@ -338,7 +342,7 @@ const LocationSelector = ({
                     </SelectContent>
                 </Select>
             </div>
-            {isLoading && (
+            {(isPending || overallLoading) && (
                  <div className="col-span-2 flex items-center justify-center gap-2 text-muted-foreground text-sm">
                     <Loader className="h-4 w-4 animate-spin" />
                     Cargando datos de ubicación...
@@ -503,19 +507,22 @@ function CondoFormFields({
 }) {
     const { t } = useLocale();
     const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData || {});
+    const [isLocationLoading, setIsLocationLoading] = useState(isEditMode);
 
     const handleLocationChange = useCallback((name: string, value: string) => {
         setLocationData((prev) => ({ ...prev, [name]: value }));
     }, []);
 
+    const showOverlay = pending || isLocationLoading;
+    
     return (
-        <div className={cn('relative transition-opacity', pending && 'opacity-50')}>
-          {pending && (
+        <div className={cn('relative transition-opacity', showOverlay && 'opacity-50')}>
+          {showOverlay && (
             <LoadingOverlay
               text={
-                isEditMode
-                  ? t('adminDashboard.editCondoDialog.save') + '...'
-                  : t('adminDashboard.loadingOverlay.creating')
+                pending 
+                ? (isEditMode ? t('adminDashboard.editCondoDialog.save') + '...' : t('adminDashboard.loadingOverlay.creating'))
+                : "Cargando ubicación..."
               }
             />
           )}
@@ -545,14 +552,15 @@ function CondoFormFields({
                 defaultValue={initialData?.name}
                 placeholder="Ex: Residencial Jardins"
                 required
-                disabled={pending}
+                disabled={showOverlay}
               />
             </div>
             
             <LocationSelector
               onLocationChange={handleLocationChange}
               defaultValues={locationData}
-              isFormDisabled={pending}
+              isFormDisabled={showOverlay}
+              onLoadingChange={setIsLocationLoading}
             />
 
             <div className="grid grid-cols-3 gap-4">
@@ -566,7 +574,7 @@ function CondoFormFields({
                   defaultValue={initialData?.street}
                   placeholder="Ex: Rua das Flores"
                   required
-                  disabled={pending}
+                  disabled={showOverlay}
                 />
               </div>
               <div className="grid gap-2">
@@ -579,18 +587,18 @@ function CondoFormFields({
                   defaultValue={initialData?.number}
                   placeholder="Ex: 123"
                   required
-                  disabled={pending}
+                  disabled={showOverlay}
                 />
               </div>
             </div>
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline" type="button" disabled={pending}>
+              <Button variant="outline" type="button" disabled={showOverlay}>
                 {t('adminDashboard.newCondoDialog.cancel')}
               </Button>
             </DialogClose>
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={showOverlay}>
               {isEditMode
                 ? t('adminDashboard.editCondoDialog.save')
                 : t('adminDashboard.newCondoDialog.create')}
@@ -956,3 +964,5 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
+
+    
