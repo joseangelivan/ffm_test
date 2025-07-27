@@ -73,14 +73,14 @@ async function runMigrations(p: Pool) {
             const baseSchemaDirs = ['sql/admin', 'sql/entry_control'];
 
             for (const schemaDir of baseSchemaDirs) {
-                const schemaSqlPath = path.join(process.cwd(), 'src', 'lib', schemaDir, 'schema.sql');
+                const schemaSqlPath = path.join(process.cwd(), 'src', 'lib', schemaDir, 'base_schema.sql');
                 console.log(`Initializing database with '${schemaSqlPath}'...`);
                 try {
                     const schemaSql = await fs.readFile(schemaSqlPath, 'utf-8');
                     await client.query(schemaSql);
-                    console.log(`--- Database initialized successfully using ${schemaDir}/schema.sql. ---`);
+                    console.log(`--- Database initialized successfully using ${schemaDir}/base_schema.sql. ---`);
                 } catch (err) {
-                    console.error(`Could not read or apply ${schemaDir}/schema.sql. Skipping. Error:`, err);
+                    console.error(`Could not read or apply ${schemaDir}/base_schema.sql. Skipping. Error:`, err);
                 }
             }
             
@@ -393,3 +393,5 @@ export async function createAdmin(prevState: CreateAdminState | undefined, formD
         if (client) client.release();
     }
 }
+
+    
