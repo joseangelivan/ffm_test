@@ -16,7 +16,6 @@ import { Label } from '@/components/ui/label';
 import { Mail, Lock, AlertCircle, Loader } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
-import { LanguageSwitcher } from '@/components/language-switcher';
 import { useActionState, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -169,5 +168,3 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
     </div>
   );
 }
-
-    

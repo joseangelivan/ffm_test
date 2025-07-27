@@ -1,9 +1,9 @@
 
 'use client';
 
-import React from 'react';
+import React, { useActionState } from 'react';
 import Link from 'next/link';
-import { useFormStatus, useFormState } from 'react-dom';
+import { useFormStatus } from 'react-dom';
 import { Mail, Lock, Users, Loader, AlertCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -58,7 +58,7 @@ function SubmitButton() {
 
 export default function LoginForm() {
   const { t } = useLocale();
-  const [state, formAction] = useFormState(authenticateUser, undefined);
+  const [state, formAction] = useActionState(authenticateUser, undefined);
   const { pending } = useFormStatus();
 
   return (

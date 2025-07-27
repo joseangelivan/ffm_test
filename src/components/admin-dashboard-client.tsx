@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useFormStatus, useFormState } from 'react-dom';
+import React, { useState, useEffect, useRef, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import {
   Building,
   PlusCircle,
@@ -155,7 +155,7 @@ function CreateAdminSubmitButton() {
 function ManageAdminsDialog() {
     const { t } = useLocale();
     const { toast } = useToast();
-    const [state, formAction] = useFormState(createAdmin, undefined);
+    const [state, formAction] = useActionState(createAdmin, undefined);
     const formRef = useRef<HTMLFormElement>(null);
     const [isOpen, setIsOpen] = useState(false);
     
