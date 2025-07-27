@@ -27,13 +27,18 @@ function getNestedValue(obj: any, path: string): string | undefined {
 
 export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [locale, setLocale] = useState<Locale>('es');
+  const [isLocaleDetermined, setIsLocaleDetermined] = useState(false);
 
   useEffect(() => {
-    const userLanguage = navigator.language.toLowerCase();
-    if (userLanguage.startsWith('pt')) {
-      setLocale('pt');
-    } else {
-      setLocale('es');
+    // This effect should only run once on the client.
+    if (typeof window !== 'undefined') {
+      const userLanguage = navigator.language.toLowerCase();
+      if (userLanguage.startsWith('pt')) {
+        setLocale('pt');
+      } else {
+        setLocale('es');
+      }
+      setIsLocaleDetermined(true);
     }
   }, []);
 
@@ -48,6 +53,11 @@ export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     return translation;
   }, [locale]);
+
+  if (!isLocaleDetermined) {
+    // Render nothing or a loading spinner until the locale is determined on the client.
+    return null;
+  }
 
   return (
     <LocaleContext.Provider value={{ locale, setLocale, t }}>
