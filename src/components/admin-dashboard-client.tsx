@@ -413,13 +413,16 @@ function SmtpFormDialog({ config, onSuccess, onCancel }: { config: SmtpConfigura
     const { toast } = useToast();
     const isEditMode = !!config;
     const formAction = isEditMode ? updateSmtpConfiguration : createSmtpConfiguration;
-    const [state, dispatch, isPending] = useActionState(formAction, undefined);
+    
+    // We pass a function to useActionState to handle the success case without causing infinite loops.
+    const [state, dispatch] = useActionState(formAction, undefined);
     
     useEffect(() => {
-        if (state?.success === false) {
+        if (!state) return;
+        if (state.success === false) {
             toast({ title: t('toast.errorTitle'), description: state.message, variant: 'destructive' });
         }
-        if (state?.success === true) {
+        if (state.success === true) {
             toast({ title: t('toast.successTitle'), description: state.message });
             onSuccess();
         }
@@ -427,48 +430,57 @@ function SmtpFormDialog({ config, onSuccess, onCancel }: { config: SmtpConfigura
     
     return (
         <DialogContent className="sm:max-w-lg">
-            <div className={cn("relative transition-opacity", isPending && "opacity-50")}>
-                {isPending && <LoadingOverlay text={isEditMode ? "Actualizando..." : "Creando..."} />}
-                <DialogHeader>
-                    <DialogTitle>{isEditMode ? 'Editar Configuración SMTP' : 'Nueva Configuración SMTP'}</DialogTitle>
-                </DialogHeader>
-                <form action={dispatch}>
-                    <input type="hidden" name="id" value={config?.id || ''} />
-                    <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="name">Nombre</Label>
-                            <Input id="name" name="name" defaultValue={config?.name} placeholder="Mi Cuenta de Gmail" required disabled={isPending}/>
-                        </div>
-                         <div className="grid grid-cols-3 gap-4">
-                            <div className="grid gap-2 col-span-2">
-                                <Label htmlFor="host">Host SMTP</Label>
-                                <Input id="host" name="host" defaultValue={config?.host} placeholder="smtp.gmail.com" required disabled={isPending}/>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="port">Puerto</Label>
-                                <Input id="port" name="port" type="number" defaultValue={config?.port} placeholder="587" required disabled={isPending}/>
-                            </div>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="auth_user">Usuario (Email)</Label>
-                            <Input id="auth_user" name="auth_user" type="email" defaultValue={config?.auth_user} placeholder="tu@email.com" required disabled={isPending}/>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="auth_pass">Contraseña</Label>
-                            <Input id="auth_pass" name="auth_pass" type="password" placeholder={isEditMode ? 'Dejar en blanco para no cambiar' : '••••••••'} required={!isEditMode} disabled={isPending}/>
-                        </div>
-                         <div className="flex items-center space-x-2">
-                           <Switch id="secure" name="secure" defaultChecked={config?.secure ?? true} disabled={isPending}/>
-                           <Label htmlFor="secure">Usar Conexión Segura (TLS)</Label>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>Cancelar</Button>
-                        <Button type="submit" disabled={isPending}>{isEditMode ? 'Guardar Cambios' : 'Crear'}</Button>
-                    </DialogFooter>
-                </form>
-            </div>
+            <form action={dispatch}>
+                 <SmtpFormFields config={config} onCancel={onCancel} />
+            </form>
         </DialogContent>
+    )
+}
+
+function SmtpFormFields({ config, onCancel }: { config: SmtpConfiguration | null, onCancel: () => void}) {
+    const { pending } = useFormStatus();
+    const isEditMode = !!config;
+
+    return (
+        <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+            {pending && <LoadingOverlay text={isEditMode ? "Actualizando..." : "Creando..."} />}
+            <DialogHeader>
+                <DialogTitle>{isEditMode ? 'Editar Configuración SMTP' : 'Nueva Configuración SMTP'}</DialogTitle>
+            </DialogHeader>
+            <input type="hidden" name="id" value={config?.id || ''} />
+            <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="name">Nombre</Label>
+                    <Input id="name" name="name" defaultValue={config?.name} placeholder="Mi Cuenta de Gmail" required disabled={pending}/>
+                </div>
+                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid gap-2 col-span-2">
+                        <Label htmlFor="host">Host SMTP</Label>
+                        <Input id="host" name="host" defaultValue={config?.host} placeholder="smtp.gmail.com" required disabled={pending}/>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="port">Puerto</Label>
+                        <Input id="port" name="port" type="number" defaultValue={config?.port} placeholder="587" required disabled={pending}/>
+                    </div>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="auth_user">Usuario (Email)</Label>
+                    <Input id="auth_user" name="auth_user" type="email" defaultValue={config?.auth_user} placeholder="tu@email.com" required disabled={pending}/>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="auth_pass">Contraseña</Label>
+                    <Input id="auth_pass" name="auth_pass" type="password" placeholder={isEditMode ? 'Dejar en blanco para no cambiar' : '••••••••'} required={!isEditMode} disabled={pending}/>
+                </div>
+                    <div className="flex items-center space-x-2">
+                    <Switch id="secure" name="secure" defaultChecked={config?.secure ?? true} disabled={pending}/>
+                    <Label htmlFor="secure">Usar Conexión Segura (TLS)</Label>
+                </div>
+            </div>
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>Cancelar</Button>
+                <Button type="submit" disabled={pending}>{isEditMode ? 'Guardar Cambios' : 'Crear'}</Button>
+            </DialogFooter>
+        </div>
     )
 }
 

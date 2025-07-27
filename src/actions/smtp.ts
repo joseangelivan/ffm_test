@@ -33,7 +33,7 @@ const SmtpConfigSchema = z.object({
     port: z.coerce.number().int().min(1, "El puerto es obligatorio."),
     secure: z.boolean(),
     auth_user: z.string().email("Debe ser un correo electrónico válido."),
-    auth_pass: z.string().min(1, "La contraseña es obligatoria."),
+    auth_pass: z.string(), // Removed min(1) to allow empty on edit
 });
 
 async function checkAdmin() {
@@ -100,6 +100,11 @@ export async function createSmtpConfiguration(prevState: any, formData: FormData
         if (!validatedFields.success) {
             return { success: false, message: "Error de validación.", errors: validatedFields.error.flatten().fieldErrors };
         }
+        
+        // Add specific check for password on creation
+        if (!validatedFields.data.auth_pass) {
+             return { success: false, message: "La contraseña es obligatoria al crear."};
+        }
 
         const { name, host, port, secure, auth_user, auth_pass } = validatedFields.data;
 
@@ -154,11 +159,19 @@ export async function updateSmtpConfiguration(prevState: any, formData: FormData
         try {
             const pool = await getDbPool();
             client = await pool.connect();
+
+            let query = 'UPDATE smtp_configurations SET name = $1, host = $2, port = $3, secure = $4, auth_user = $5, updated_at = NOW()';
+            const values: any[] = [name, host, port, secure, auth_user];
+
+            if (auth_pass) {
+                query += `, auth_pass = $${values.length + 1}`;
+                values.push(auth_pass);
+            }
+
+            query += ` WHERE id = $${values.length + 1}`;
+            values.push(id);
             
-            const result = await client.query(
-                'UPDATE smtp_configurations SET name = $1, host = $2, port = $3, secure = $4, auth_user = $5, auth_pass = $6, updated_at = NOW() WHERE id = $7',
-                [name, host, port, secure, auth_user, auth_pass, id]
-            );
+            const result = await client.query(query, values);
             
             if (result.rowCount === 0) {
                  return { success: false, message: "Configuración no encontrada." };
@@ -190,7 +203,19 @@ export async function deleteSmtpConfiguration(id: string): Promise<ActionState> 
                 return { success: false, message: "Configuración no encontrada." };
             }
 
+            // Re-order priorities after deletion
+            const remainingConfigs = await client.query('SELECT id FROM smtp_configurations ORDER BY priority ASC');
+            await client.query('BEGIN');
+            for (let i = 0; i < remainingConfigs.rows.length; i++) {
+                await client.query('UPDATE smtp_configurations SET priority = $1 WHERE id = $2', [i + 1, remainingConfigs.rows[i].id]);
+            }
+            await client.query('COMMIT');
+
+
             return { success: true, message: 'Configuración SMTP eliminada con éxito.' };
+        } catch (error) {
+            if (client) await client.query('ROLLBACK');
+            throw error;
         } finally {
             if (client) client.release();
         }
