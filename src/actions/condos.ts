@@ -40,7 +40,7 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
         const pool = await getDbPool();
         client = await pool.connect();
         // We can expand this query later to include counts of residents, devices, etc.
-        const result = await client.query('SELECT *, (SELECT COUNT(*) FROM residents WHERE condominio_id = condominios.id) as residents_count FROM condominios ORDER BY created_at DESC');
+        const result = await client.query('SELECT *, (SELECT COUNT(*) FROM residents WHERE condominium_id = condominiums.id) as residents_count FROM condominiums ORDER BY created_at DESC');
         return { success: true, message: 'Condominios obtenidos.', data: result.rows };
     } catch (error) {
         console.error('Error getting condominios:', error);
@@ -63,7 +63,7 @@ export async function getCondominioById(id: string): Promise<ActionState<Condomi
     try {
         const pool = await getDbPool();
         client = await pool.connect();
-        const result = await client.query('SELECT * FROM condominios WHERE id = $1', [id]);
+        const result = await client.query('SELECT * FROM condominiums WHERE id = $1', [id]);
         if (result.rows.length === 0) {
             return { success: false, message: 'Condominio no encontrado.' };
         }
@@ -101,7 +101,7 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
     try {
         const pool = await getDbPool();
         client = await pool.connect();
-        await client.query('INSERT INTO condominios (name, address) VALUES ($1, $2)', [name, address]);
+        await client.query('INSERT INTO condominiums (name, address) VALUES ($1, $2)', [name, address]);
         return { success: true, message: `Condomínio "${name}" criado com sucesso.` };
     } catch (error) {
         console.error('Error creating condominio:', error);
@@ -140,7 +140,7 @@ export async function updateCondominio(prevState: any, formData: FormData): Prom
         const pool = await getDbPool();
         client = await pool.connect();
         const result = await client.query(
-            'UPDATE condominios SET name = $1, address = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+            'UPDATE condominiums SET name = $1, address = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
             [name, address, id]
         );
         if (result.rowCount === 0) {
@@ -170,7 +170,7 @@ export async function deleteCondominio(id: string): Promise<ActionState<null>> {
         const pool = await getDbPool();
         client = await pool.connect();
         // Consider cascading deletes or checks for related data (residents, devices) here
-        const result = await client.query('DELETE FROM condominios WHERE id = $1', [id]);
+        const result = await client.query('DELETE FROM condominiums WHERE id = $1', [id]);
         if (result.rowCount === 0) {
             return { success: false, message: 'No se encontró el condominio para eliminar.' };
         }
