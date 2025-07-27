@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mail, Lock, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Loader, Eye, EyeOff, Copy, Check } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
 import { useActionState, useRef, useState } from 'react';
@@ -114,12 +114,12 @@ function LoginFormContent({ state }: { state: any }) {
                   </div>
                 </div>
                 {state?.success === false && state.message && (
-                    <Alert variant="destructive" className="mt-4">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Login Failed</AlertTitle>
-                        <AlertDescription>
-                            {state.message}
-                        </AlertDescription>
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Login Failed</AlertTitle>
+                      <AlertDescription>
+                        {state.message}
+                      </AlertDescription>
                     </Alert>
                 )}
                  {process.env.NODE_ENV === 'development' && state?.debugInfo && (
