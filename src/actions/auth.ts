@@ -64,18 +64,18 @@ async function runMigrations(p: Pool) {
         `);
 
         // Step 2: Check if this is a new database by looking for a marker migration or any applied migrations.
-        const initialSetupResult = await client.query('SELECT 1 FROM admins LIMIT 1');
-        const isNewDatabase = initialSetupResult.rows.length === 0;
+        const initialSetupResult = await client.query("SELECT to_regclass('public.admins') as table_exists;");
+        const isNewDatabase = initialSetupResult.rows[0].table_exists === null;
 
         if (isNewDatabase) {
-            console.log("No existing 'admins' data found. Assuming a new database setup.");
-            console.log("Initializing database with 'src/lib/base_schema.sql'...");
+            console.log("No existing 'admins' table found. Assuming a new database setup.");
+            console.log("Initializing database with 'src/lib/base_schema_admin.sql'...");
             
-            const schemaSqlPath = path.join(process.cwd(), 'src', 'lib', 'base_schema.sql');
+            const schemaSqlPath = path.join(process.cwd(), 'src', 'lib', 'base_schema_admin.sql');
             const schemaSql = await fs.readFile(schemaSqlPath, 'utf-8');
             await client.query(schemaSql);
             
-            console.log('--- Database initialized successfully using base_schema.sql. ---');
+            console.log('--- Database initialized successfully using base_schema_admin.sql. ---');
             
         } else {
             console.log("Existing data found. Checking for incremental migrations...");
@@ -325,7 +325,7 @@ export async function handleLogoutAction() {
     if (sessionCookie) {
         let client;
         try {
-            const pool = await getDbPool();
+            const pool = await getDbPoo();
             client = await pool.connect();
             await client.query('DELETE FROM sessions WHERE token = $1', [sessionCookie.value]);
         } catch (error) {
@@ -386,5 +386,3 @@ export async function createAdmin(prevState: CreateAdminState | undefined, formD
         if (client) client.release();
     }
 }
-
-    
