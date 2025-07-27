@@ -206,7 +206,7 @@ function ManageAdminsDialog() {
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="email">{t('adminDashboard.manageAdmins.emailLabel')}</Label>
-                            <Input id="email" name="email" type="email" placeholder="admin@example.com" required/>
+                            <Input id="email" name="email" type="email" placeholder="admin@example.com" required autoComplete="email"/>
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="password">{t('adminDashboard.manageAdmins.passwordLabel')}</Label>
@@ -348,17 +348,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     router.push(`/admin/condominio/${condoId}`);
   };
 
-  if (!session) {
-    return (
-        <div className="flex min-h-screen items-center justify-center bg-background">
-          <div className="flex items-center gap-4 text-2xl text-muted-foreground">
-            <Loader className="h-12 w-12 animate-spin" />
-            <span>Cargando...</span>
-          </div>
-        </div>
-    );
-  }
-  
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
        <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-50">
