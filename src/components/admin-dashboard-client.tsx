@@ -292,6 +292,7 @@ function SmtpConfigDialog() {
   }, [fetchConfigs]);
 
   const handleDragSort = async () => {
+    if (draggedItem.current === null || dragOverItem.current === null) return;
     const configsClone = [...configs];
     const dragged = configsClone.splice(draggedItem.current!, 1)[0];
     configsClone.splice(dragOverItem.current!, 0, dragged);
@@ -313,11 +314,11 @@ function SmtpConfigDialog() {
     });
   };
   
-  const onFormSuccess = () => {
+  const onFormSuccess = useCallback(() => {
       setIsFormOpen(false);
       setEditingConfig(null);
       fetchConfigs();
-  };
+  }, [fetchConfigs]);
 
   const handleEditClick = (config: SmtpConfiguration) => {
       setEditingConfig(config);
