@@ -86,40 +86,37 @@ async function runMigrations(p: Pool) {
     try {
         await client.query('BEGIN');
 
-        // Step 1: Apply all base schemas. `IF NOT EXISTS` makes this safe to run every time.
+        // Step 1: Apply all base schemas from explicit paths.
         console.log("Applying base schemas...");
         const sqlBaseDir = path.join(process.cwd(), 'src', 'lib', 'sql');
         
-        // Ensure the base directory for SQL schemas exists
-        try {
-            await fs.access(sqlBaseDir);
-        } catch (error) {
-            console.log("No 'src/lib/sql' directory found. Creating it.");
-            await fs.mkdir(sqlBaseDir, { recursive: true });
-        }
+        // Define the exact schemas to apply, in order.
+        const schemasToApply = [
+            'admins/base_schema.sql',
+            'condominiums/base_schema.sql',
+            'smtp/base_schema.sql'
+        ];
 
-        const schemaDirs = (await fs.readdir(sqlBaseDir, { withFileTypes: true }))
-            .filter(dirent => dirent.isDirectory());
-
-        for (const dirent of schemaDirs) {
-            const schemaSqlPath = path.join(sqlBaseDir, dirent.name, 'base_schema.sql');
+        for (const schemaPath of schemasToApply) {
+            const schemaSqlPath = path.join(sqlBaseDir, schemaPath);
             try {
                 // Check if base_schema.sql exists before trying to read it
                 await fs.access(schemaSqlPath); 
                 
                 const schemaSql = await fs.readFile(schemaSqlPath, 'utf-8');
                 if (schemaSql.trim()) {
-                    console.log(`- Applying base schema from '${dirent.name}/base_schema.sql'...`);
+                    console.log(`- Applying base schema from '${schemaPath}'...`);
                     await client.query(schemaSql);
                 }
             } catch (err: any) {
                 // This will now only catch errors other than file-not-found, 
                 // as we're checking for existence first. We'll log it for debugging.
                 if (err.code !== 'ENOENT') {
-                   console.warn(`Could not process schema in '${dirent.name}'. Error: ${err.message}`);
+                   console.warn(`Could not process schema in '${schemaPath}'. Error: ${err.message}`);
                    throw err; // Re-throw critical SQL errors
                 }
-                // If ENOENT, we just skip, which is the intended behavior.
+                // If ENOENT, we just skip, which is the intended behavior for optional schemas.
+                console.log(`Schema file not found, skipping: ${schemaPath}`);
             }
         }
         console.log("--- Base schema application complete. ---");
@@ -896,6 +893,8 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         if (client) client.release();
     }
 }
+    
+
     
 
     
