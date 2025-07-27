@@ -1,41 +1,19 @@
--- Esquema base para la tabla de residentes
+-- Base schema for the residents table
 CREATE TABLE IF NOT EXISTS residents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    unit_details TEXT, -- Ej: "Torre A, Apto 101"
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    location VARCHAR(255),
+    housing VARCHAR(255),
+    phone VARCHAR(50),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Trigger para actualizar `updated_at` en cada modificación
-CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trigger_set_updated_at_residents ON residents;
-CREATE TRIGGER trigger_set_updated_at_residents
+-- Trigger to automatically update the updated_at column
+CREATE TRIGGER trigger_update_residents_updated_at
 BEFORE UPDATE ON residents
 FOR EACH ROW
-EXECUTE FUNCTION set_updated_at();
-
--- Tabla de configuraciones de idioma/tema para residentes
-CREATE TABLE IF NOT EXISTS resident_settings (
-    resident_id UUID PRIMARY KEY REFERENCES residents(id) ON DELETE CASCADE,
-    language VARCHAR(5) DEFAULT 'pt',
-    theme VARCHAR(10) DEFAULT 'light',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-DROP TRIGGER IF EXISTS trigger_set_updated_at_resident_settings ON resident_settings;
-CREATE TRIGGER trigger_set_updated_at_resident_settings
-BEFORE UPDATE ON resident_settings
-FOR EACH ROW
-EXECUTE FUNCTION set_updated_at();
+EXECUTE FUNCTION update_updated_at_column();

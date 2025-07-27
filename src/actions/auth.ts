@@ -94,7 +94,9 @@ async function runMigrations(p: Pool) {
         const schemasToApply = [
             'admins/base_schema.sql',
             'condominiums/base_schema.sql',
-            'smtp/base_schema.sql'
+            'smtp/base_schema.sql',
+            'residents/base_schema.sql',
+            'gatekeepers/base_schema.sql'
         ];
 
         for (const schemaPath of schemasToApply) {
