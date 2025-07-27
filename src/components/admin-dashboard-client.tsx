@@ -88,6 +88,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Checkbox } from './ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 
 type Session = {
@@ -97,6 +98,161 @@ type Session = {
     canCreateAdmins: boolean;
     type: 'admin' | 'resident' | 'gatekeeper';
 }
+
+
+const LocationSelector = ({ defaultValues = {}, onLocationChange }: { defaultValues?: Partial<Condominio>, onLocationChange: (name: string, value: string) => void }) => {
+    const { t } = useLocale();
+    const [countries, setCountries] = useState<any[]>([]);
+    const [states, setStates] = useState<any[]>([]);
+    const [cities, setCities] = useState<any[]>([]);
+
+    const [selectedCountry, setSelectedCountry] = useState(defaultValues.country || '');
+    const [selectedState, setSelectedState] = useState(defaultValues.state || '');
+
+    const [loadingCountries, setLoadingCountries] = useState(false);
+    const [loadingStates, setLoadingStates] = useState(false);
+    const [loadingCities, setLoadingCities] = useState(false);
+    
+    useEffect(() => {
+        const fetchCountries = async () => {
+            setLoadingCountries(true);
+            try {
+                const response = await fetch('https://restcountries.com/v3.1/all?fields=name');
+                let data = await response.json();
+                if (response.ok) {
+                   data = data.map((c: any) => c.name.common).sort();
+                   setCountries(data);
+                } else {
+                    setCountries([]);
+                }
+            } catch (error) {
+                console.error("Failed to fetch countries:", error);
+                setCountries([]);
+            } finally {
+                setLoadingCountries(false);
+            }
+        };
+        fetchCountries();
+    }, []);
+
+    useEffect(() => {
+        if (!selectedCountry) {
+            setStates([]);
+            setCities([]);
+            return;
+        };
+
+        const fetchStates = async () => {
+            setLoadingStates(true);
+            try {
+                const response = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ country: selectedCountry })
+                });
+                const data = await response.json();
+
+                if (!data.error && data.data?.states) {
+                    const stateNames = data.data.states.map((s: any) => s.name).sort();
+                    setStates(stateNames);
+                } else {
+                    setStates([]);
+                }
+            } catch (error) {
+                console.error("Failed to fetch states:", error);
+                setStates([]);
+            } finally {
+                setLoadingStates(false);
+            }
+        };
+        
+        fetchStates();
+    }, [selectedCountry]);
+    
+    useEffect(() => {
+        if (!selectedCountry || !selectedState) {
+            setCities([]);
+            return;
+        }
+
+        const fetchCities = async () => {
+            setLoadingCities(true);
+            try {
+                const response = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ country: selectedCountry, state: selectedState })
+                });
+                const data = await response.json();
+                if (!data.error) {
+                    setCities(data.data.sort());
+                } else {
+                    setCities([]);
+                }
+            } catch (error) {
+                console.error("Failed to fetch cities:", error);
+                setCities([]);
+            } finally {
+                setLoadingCities(false);
+            }
+        };
+
+        fetchCities();
+    }, [selectedCountry, selectedState]);
+    
+    const handleCountryChange = (value: string) => {
+        setSelectedCountry(value);
+        setSelectedState('');
+        onLocationChange('country', value);
+        onLocationChange('state', '');
+        onLocationChange('city', '');
+    }
+
+    const handleStateChange = (value: string) => {
+        setSelectedState(value);
+        onLocationChange('state', value);
+        onLocationChange('city', '');
+    }
+
+    return (
+        <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+                <Label htmlFor="country">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
+                <Select name="country" onValueChange={handleCountryChange} defaultValue={defaultValues.country} disabled={loadingCountries}>
+                    <SelectTrigger>
+                        <SelectValue placeholder={loadingCountries ? "Cargando países..." : "Seleccionar país"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {countries.map((country: any) => <SelectItem key={country} value={country}>{country}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="grid gap-2">
+                <Label htmlFor="state">{t('adminDashboard.newCondoDialog.stateLabel')}</Label>
+                <Select name="state" onValueChange={handleStateChange} defaultValue={defaultValues.state} disabled={!selectedCountry || loadingStates}>
+                    <SelectTrigger>
+                         <SelectValue placeholder={loadingStates ? "Cargando estados..." : "Seleccionar estado"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                       {states.map((state: any) => <SelectItem key={state} value={state}>{state}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
+             <div className="grid gap-2 col-span-2">
+                <Label htmlFor="city">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
+                 <Select name="city" onValueChange={(value) => onLocationChange('city', value)} defaultValue={defaultValues.city} disabled={!selectedState || loadingCities}>
+                    <SelectTrigger>
+                        <SelectValue placeholder={loadingCities ? "Cargando ciudades..." : "Seleccionar ciudad"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {cities.map((city: any) => <SelectItem key={city} value={city}>{city}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
+        </div>
+    );
+};
+
 
 function LogoutDialogContent() {
     const { pending } = useFormStatus();
@@ -248,7 +404,20 @@ function CreateCondoForm({ closeDialog }: { closeDialog: () => void }) {
     const { t } = useLocale();
     const { toast } = useToast();
     const [state, formAction] = useActionState(createCondominio, undefined);
+    const formRef = useRef<HTMLFormElement>(null);
+    const [locationData, setLocationData] = useState<Record<string, string>>({});
 
+    const handleLocationChange = (name: string, value: string) => {
+        setLocationData(prev => ({...prev, [name]: value}));
+    }
+
+    const handleFormAction = (formData: FormData) => {
+        Object.entries(locationData).forEach(([key, value]) => {
+            formData.set(key, value);
+        });
+        formAction(formData);
+    }
+    
     useEffect(() => {
         if (state?.success === false) {
             toast({ title: t('toast.errorTitle'), description: state.message, variant: 'destructive' });
@@ -260,13 +429,13 @@ function CreateCondoForm({ closeDialog }: { closeDialog: () => void }) {
     }, [state, t, toast, closeDialog]);
 
     return (
-        <form action={formAction}>
-            <CreateCondoFields />
+        <form ref={formRef} action={handleFormAction}>
+            <CreateCondoFields onLocationChange={handleLocationChange}/>
         </form>
     );
 }
 
-function CreateCondoFields() {
+function CreateCondoFields({onLocationChange}: {onLocationChange: (name: string, value: string) => void}) {
     const { t } = useLocale();
     const { pending } = useFormStatus();
 
@@ -282,20 +451,9 @@ function CreateCondoFields() {
                     <Label htmlFor="name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
                     <Input id="name" name="name" placeholder="Ex: Residencial Jardins" required disabled={pending} />
                 </div>
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="country">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
-                        <Input id="country" name="country" placeholder="Ex: Brasil" required disabled={pending} />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="state">{t('adminDashboard.newCondoDialog.stateLabel')}</Label>
-                        <Input id="state" name="state" placeholder="Ex: SP" required disabled={pending} />
-                    </div>
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="city">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
-                    <Input id="city" name="city" placeholder="Ex: São Paulo" required disabled={pending} />
-                </div>
+                 
+                <LocationSelector onLocationChange={onLocationChange}/>
+
                 <div className="grid grid-cols-3 gap-4">
                     <div className="grid gap-2 col-span-2">
                         <Label htmlFor="street">{t('adminDashboard.newCondoDialog.streetLabel')}</Label>
@@ -629,20 +787,12 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                         <Label htmlFor="name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
                         <Input id="name" name="name" defaultValue={editingCondo.name} required />
                     </div>
-                     <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="country">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
-                            <Input id="country" name="country" defaultValue={editingCondo.country} required />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="state">{t('adminDashboard.newCondoDialog.stateLabel')}</Label>
-                            <Input id="state" name="state" defaultValue={editingCondo.state} required />
-                        </div>
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="city">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
-                        <Input id="city" name="city" defaultValue={editingCondo.city} required />
-                    </div>
+                     <LocationSelector 
+                        defaultValues={editingCondo} 
+                        onLocationChange={(name, value) => {
+                           setEditingCondo(prev => prev ? {...prev, [name]: value} : null)
+                        }}
+                    />
                     <div className="grid grid-cols-3 gap-4">
                         <div className="grid gap-2 col-span-2">
                             <Label htmlFor="street">{t('adminDashboard.newCondoDialog.streetLabel')}</Label>
@@ -650,7 +800,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="number">{t('adminDashboard.newCondoDialog.numberLabel')}</Label>
-                            <Input id="number" name="number" defaultValue={editingCondo.number} required />
+                            <Input id="number" name="name" defaultValue={editingCondo.number} required />
                         </div>
                     </div>
                 </div>
