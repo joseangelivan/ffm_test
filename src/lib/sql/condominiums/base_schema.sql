@@ -1,22 +1,19 @@
--- Crear la extensión si no existe, necesaria para uuid_generate_v4()
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Definición de la tabla de condominios
+-- Base schema for the condominiums table
 CREATE TABLE IF NOT EXISTS condominiums (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL UNIQUE,
-    continent VARCHAR(255) NOT NULL,
-    country VARCHAR(255) NOT NULL,
-    state VARCHAR(255) NOT NULL,
-    city VARCHAR(255) NOT NULL,
-    street VARCHAR(255) NOT NULL,
-    number VARCHAR(50) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    continent VARCHAR(255),
+    country VARCHAR(255),
+    state VARCHAR(255),
+    city VARCHAR(255),
+    street VARCHAR(255),
+    number VARCHAR(50),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Trigger para actualizar el campo updated_at automáticamente
-CREATE OR REPLACE FUNCTION set_updated_at_timestamp()
+-- Trigger to update the updated_at timestamp on any column change
+CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
@@ -24,19 +21,21 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS set_condominiums_updated_at ON condominiums;
-CREATE TRIGGER set_condominiums_updated_at
+-- Drop the trigger if it exists to ensure no errors on re-running
+DROP TRIGGER IF EXISTS on_condominiums_update ON condominiums;
+
+-- Create the trigger
+CREATE TRIGGER on_condominiums_update
 BEFORE UPDATE ON condominiums
 FOR EACH ROW
-EXECUTE FUNCTION set_updated_at_timestamp();
+EXECUTE FUNCTION set_updated_at();
 
--- Insertar un dato de prueba para asegurar que la tabla no esté vacía y facilitar las pruebas
--- Esto solo se insertará si la tabla está vacía para evitar duplicados en ejecuciones posteriores
+-- Insert a test condominium only if the table is empty to avoid duplicates on re-runs
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM condominiums WHERE name = 'Residencial Jardins (Ejemplo)') THEN
-        INSERT INTO condominiums (name, continent, country, state, city, street, number)
-        VALUES ('Residencial Jardins (Ejemplo)', 'Americas', 'Brazil', 'Sao Paulo', 'Sao Paulo', 'Av. Paulista', '1000');
-    END IF;
+   IF NOT EXISTS (SELECT 1 FROM condominiums) THEN
+      INSERT INTO condominiums (name, continent, country, state, city, street, number) 
+      VALUES ('Residencial Jardins', 'Americas', 'Brazil', 'Sao Paulo', 'Sao Paulo', 'Rua das Flores', '123');
+   END IF;
 END
 $$;
