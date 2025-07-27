@@ -2,6 +2,7 @@
 "use client";
 
 import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
+import { Loader } from 'lucide-react';
 import es from '../locales/es.json';
 import pt from '../locales/pt.json';
 
@@ -55,8 +56,11 @@ export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [locale]);
 
   if (!isLocaleDetermined) {
-    // Render nothing or a loading spinner until the locale is determined on the client.
-    return null;
+    return (
+        <div className="flex min-h-screen items-center justify-center bg-background">
+            <Loader className="h-12 w-12 animate-spin text-muted-foreground" />
+        </div>
+    );
   }
 
   return (
