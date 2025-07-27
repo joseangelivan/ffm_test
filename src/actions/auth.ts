@@ -13,43 +13,69 @@ import path from 'path';
 // --- Database Pool and Migration Logic ---
 
 let pool: Pool | undefined;
-let migrationsHaveRun = false;
+
+// A simple in-memory lock to prevent concurrent migration runs.
+// This is crucial for serverless environments where multiple instances can spin up.
+let migrationLock: Promise<void> | null = null;
+
 
 export async function getDbPool(): Promise<Pool> {
     if (pool) {
         return pool;
     }
 
-    const newPool = new Pool({
-        host: 'mainline.proxy.rlwy.net',
-        port: 38539,
-        user: 'postgres',
-        password: 'vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT',
-        database: 'railway',
-        ssl: {
-            rejectUnauthorized: false,
-        },
+    // If a migration is already in progress, wait for it to complete.
+    if (migrationLock) {
+        await migrationLock;
+        // After waiting, if the pool is now initialized, return it.
+        if (pool) return pool;
+    }
+
+    // Start a new migration process, guarded by the lock.
+    let releaseLock: () => void;
+    let reportError: (err: any) => void;
+
+    migrationLock = new Promise<void>((resolve, reject) => {
+        releaseLock = resolve;
+        reportError = reject;
     });
 
-    // The first time the pool is created, run migrations.
-    // Subsequent calls will return the existing pool.
     try {
+        const newPool = new Pool({
+            host: 'mainline.proxy.rlwy.net',
+            port: 38539,
+            user: 'postgres',
+            password: 'vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT',
+            database: 'railway',
+            ssl: {
+                rejectUnauthorized: false,
+            },
+        });
+
+        // Run migrations before assigning the pool to the global scope.
         await runMigrations(newPool);
+
+        // Assign the successfully migrated pool.
         pool = newPool;
+
+        // Release the lock to allow other requests to proceed.
+        releaseLock!(); 
+        
         return pool;
     } catch (error) {
         console.error("CRITICAL: Failed to initialize database connection and run migrations. The application may not function.", error);
+        // Report the error to any waiting promises.
+        reportError!(error);
         // We re-throw here to ensure that parts of the app that depend on the DB
         // don't proceed in a broken state.
         throw new Error("Database initialization failed.");
+    } finally {
+        // Ensure the lock is cleared regardless of outcome, allowing future attempts.
+        migrationLock = null;
     }
 }
 
 async function runMigrations(p: Pool) {
-    if (migrationsHaveRun) {
-        return;
-    }
-    
     console.log('--- Starting database migration process ---');
     const client = await p.connect();
     try {
@@ -133,7 +159,6 @@ async function runMigrations(p: Pool) {
          throw error; // Re-throw to be caught by the outer try-catch
     } finally {
         client.release();
-        migrationsHaveRun = true;
         console.log("--- Database migration process finished. ---")
     }
 }
