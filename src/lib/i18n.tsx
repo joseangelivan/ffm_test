@@ -27,24 +27,24 @@ function getNestedValue(obj: any, path: string): string | undefined {
 }
 
 export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [locale, setLocale] = useState<Locale>('es');
+  const [locale, setLocale] = useState<Locale>('pt');
   const [isLocaleDetermined, setIsLocaleDetermined] = useState(false);
 
   useEffect(() => {
     // This effect should only run once on the client.
     if (typeof window !== 'undefined') {
       const userLanguage = navigator.language.toLowerCase();
-      if (userLanguage.startsWith('pt')) {
-        setLocale('pt');
-      } else {
+      if (userLanguage.startsWith('es')) {
         setLocale('es');
+      } else {
+        setLocale('pt');
       }
       setIsLocaleDetermined(true);
     }
   }, []);
 
   const t = useCallback((key: string, replacements?: Record<string, string>) => {
-    const translation = getNestedValue(translations[locale], key) || getNestedValue(translations['es'], key) || key;
+    const translation = getNestedValue(translations[locale], key) || getNestedValue(translations['pt'], key) || key;
 
     if (replacements) {
         return Object.entries(replacements).reduce((acc, [k, v]) => {
