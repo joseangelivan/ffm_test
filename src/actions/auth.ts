@@ -154,8 +154,8 @@ export async function getAdminSettings(): Promise<AdminSettings | null> {
             return result.rows[0] as AdminSettings;
         }
 
-        await client.query('INSERT INTO admin_settings (admin_id, theme, language) VALUES ($1, $2, $3) ON CONFLICT (admin_id) DO NOTHING', [session.id, 'light', 'es']);
-        return { theme: 'light', language: 'es' };
+        await client.query('INSERT INTO admin_settings (admin_id, theme, language) VALUES ($1, $2, $3) ON CONFLICT (admin_id) DO NOTHING', [session.id, 'light', 'pt']);
+        return { theme: 'light', language: 'pt' };
 
     } catch (error) {
         console.error('Failed to get admin settings:', error);
@@ -492,5 +492,3 @@ export async function createAdmin(prevState: CreateAdminState | undefined, formD
         if (client) client.release();
     }
 }
-
-    
