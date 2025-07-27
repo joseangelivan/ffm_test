@@ -143,13 +143,13 @@ const LocationSelector = ({
                         continent: c.region
                     })).sort((a: any, b: any) => a.name.localeCompare(b.name));
                     
-                    const uniqueContinents = [...new Set(countryData.map((c:any) => c.continent))].sort();
+                    const uniqueContinents = [...new Set(countryData.map((c:any) => c.continent))].filter(Boolean).sort();
                     setContinents(uniqueContinents);
                     setAllCountries(countryData);
                     
                     if (defaultValues.country) {
-                        const currentCountry = countryData.find(c => c.name === defaultValues.country);
-                        if (currentCountry) {
+                        const currentCountry = countryData.find((c: any) => c.name === defaultValues.country);
+                        if (currentCountry && currentCountry.continent) {
                             handleContinentChange(currentCountry.continent, false);
                         }
                     }
@@ -161,7 +161,7 @@ const LocationSelector = ({
             }
         };
         fetchAndGroupCountries();
-    }, []);
+    }, [defaultValues.country]);
     
     const handleContinentChange = (continent: string, resetCountry = true) => {
         setLoadingCountries(true);
@@ -221,13 +221,13 @@ const LocationSelector = ({
         const fetchCities = async () => {
             setLoadingCities(true);
             try {
-                const response = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
+                 const response = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ country, state })
                 });
                 const data = await response.json();
-                if (!data.error && data.data) {
+                if (!data.error && Array.isArray(data.data)) {
                     setCities(data.data.sort());
                 } else {
                     setCities([]);
@@ -256,9 +256,9 @@ const LocationSelector = ({
 
     return (
         <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
+            <div className="grid gap-2 col-span-2">
                 <Label htmlFor="continent-display">Continente</Label>
-                <Select onValueChange={handleContinentChange} value={selectedContinent} disabled={loadingContinents || isFormDisabled}>
+                <Select onValueChange={(value) => handleContinentChange(value)} value={selectedContinent} disabled={loadingContinents || isFormDisabled}>
                     <SelectTrigger id="continent-display">
                         <SelectValue placeholder={loadingContinents ? "Cargando continentes..." : "Seleccionar continente"} />
                     </SelectTrigger>
@@ -289,7 +289,7 @@ const LocationSelector = ({
                     </SelectContent>
                 </Select>
             </div>
-             <div className="grid gap-2">
+             <div className="grid gap-2 col-span-2">
                 <Label htmlFor="city-display">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
                  <Select onValueChange={(value) => onLocationChange('city', value)} value={defaultValues.city} disabled={!defaultValues.state || loadingCities || isFormDisabled}>
                     <SelectTrigger id="city-display">
