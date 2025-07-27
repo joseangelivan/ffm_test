@@ -9,7 +9,12 @@ import { getCurrentSession, getDbPool } from './auth';
 export type Condominio = {
   id: string;
   name: string;
-  address: string;
+  street: string;
+  number: string;
+  city: string;
+  state: string;
+  country: string;
+  address?: string; // Optional full address string for display
   created_at: string;
   updated_at: string;
   devices_count?: number;
@@ -25,7 +30,11 @@ type ActionState<T> = {
 
 const CondominioSchema = z.object({
     name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
-    address: z.string().min(5, 'La dirección debe tener al menos 5 caracteres.'),
+    country: z.string().min(2, 'El país es obligatorio.'),
+    state: z.string().min(2, 'El estado/provincia es obligatorio.'),
+    city: z.string().min(2, 'La ciudad es obligatoria.'),
+    street: z.string().min(3, 'La calle es obligatoria.'),
+    number: z.string().min(1, 'El número es obligatorio.'),
 });
 
 
@@ -39,8 +48,14 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
     try {
         const pool = await getDbPool();
         client = await pool.connect();
-        // We can expand this query later to include counts of residents, devices, etc.
-        const result = await client.query('SELECT *, (SELECT COUNT(*) FROM residents WHERE condominium_id = condominiums.id) as residents_count FROM condominiums ORDER BY created_at DESC');
+        const result = await client.query(`
+            SELECT 
+                *, 
+                (SELECT COUNT(*) FROM residents WHERE condominium_id = condominiums.id) as residents_count,
+                (street || ', ' || number || ', ' || city || ', ' || state || ', ' || country) as address
+            FROM condominiums 
+            ORDER BY created_at DESC
+        `);
         return { success: true, message: 'Condominios obtenidos.', data: result.rows };
     } catch (error) {
         console.error('Error getting condominios:', error);
@@ -85,23 +100,32 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
 
     const validatedFields = CondominioSchema.safeParse({
         name: formData.get('name'),
-        address: formData.get('address'),
+        country: formData.get('country'),
+        state: formData.get('state'),
+        city: formData.get('city'),
+        street: formData.get('street'),
+        number: formData.get('number'),
     });
 
     if (!validatedFields.success) {
+        const errors = validatedFields.error.flatten().fieldErrors;
+        const firstError = Object.values(errors)[0]?.[0];
         return {
             success: false,
-            message: validatedFields.error.flatten().fieldErrors.name?.[0] || validatedFields.error.flatten().fieldErrors.address?.[0] || "Error de validación."
+            message: firstError || "Error de validación."
         };
     }
     
-    const { name, address } = validatedFields.data;
+    const { name, country, state, city, street, number } = validatedFields.data;
 
     let client;
     try {
         const pool = await getDbPool();
         client = await pool.connect();
-        await client.query('INSERT INTO condominiums (name, address) VALUES ($1, $2)', [name, address]);
+        await client.query(
+            'INSERT INTO condominiums (name, country, state, city, street, number) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (name) DO NOTHING',
+            [name, country, state, city, street, number]
+        );
         return { success: true, message: `Condomínio "${name}" criado com sucesso.` };
     } catch (error) {
         console.error('Error creating condominio:', error);
@@ -124,31 +148,40 @@ export async function updateCondominio(prevState: any, formData: FormData): Prom
     
     const validatedFields = CondominioSchema.safeParse({
         name: formData.get('name'),
-        address: formData.get('address'),
+        country: formData.get('country'),
+        state: formData.get('state'),
+        city: formData.get('city'),
+        street: formData.get('street'),
+        number: formData.get('number'),
     });
 
     if (!validatedFields.success) {
+        const errors = validatedFields.error.flatten().fieldErrors;
+        const firstError = Object.values(errors)[0]?.[0];
         return {
             success: false,
-            message: "Error de validación."
+            message: firstError || "Error de validación."
         };
     }
-    const { name, address } = validatedFields.data;
+    const { name, country, state, city, street, number } = validatedFields.data;
     
     let client;
     try {
         const pool = await getDbPool();
         client = await pool.connect();
         const result = await client.query(
-            'UPDATE condominiums SET name = $1, address = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
-            [name, address, id]
+            'UPDATE condominiums SET name = $1, country = $2, state = $3, city = $4, street = $5, number = $6, updated_at = NOW() WHERE id = $7 RETURNING *',
+            [name, country, state, city, street, number, id]
         );
         if (result.rowCount === 0) {
             return { success: false, message: 'No se encontró el condominio para actualizar.' };
         }
         return { success: true, message: 'Condomínio atualizado com sucesso.' };
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error updating condominio:', error);
+        if (error.code === '23505') { // Unique violation
+            return { success: false, message: 'Ya existe un condominio con ese nombre.' };
+        }
         return { success: false, message: 'Error del servidor.' };
     } finally {
         if (client) client.release();

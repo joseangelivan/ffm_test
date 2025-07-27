@@ -100,6 +100,11 @@
         "description": "Insira os detalhes do novo condominio.",
         "nameLabel": "Nome do Condomínio",
         "addressLabel": "Endereço",
+        "countryLabel": "País",
+        "stateLabel": "Estado",
+        "cityLabel": "Cidade",
+        "streetLabel": "Rua",
+        "numberLabel": "Número",
         "cancel": "Cancelar",
         "create": "Criar"
       },

@@ -282,9 +282,29 @@ function CreateCondoFields() {
                     <Label htmlFor="name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
                     <Input id="name" name="name" placeholder="Ex: Residencial Jardins" required disabled={pending} />
                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="country">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
+                        <Input id="country" name="country" placeholder="Ex: Brasil" required disabled={pending} />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="state">{t('adminDashboard.newCondoDialog.stateLabel')}</Label>
+                        <Input id="state" name="state" placeholder="Ex: SP" required disabled={pending} />
+                    </div>
+                </div>
                 <div className="grid gap-2">
-                    <Label htmlFor="address">{t('adminDashboard.newCondoDialog.addressLabel')}</Label>
-                    <Input id="address" name="address" placeholder="Ex: Rua das Flores, 123" required disabled={pending} />
+                    <Label htmlFor="city">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
+                    <Input id="city" name="city" placeholder="Ex: São Paulo" required disabled={pending} />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                    <div className="grid gap-2 col-span-2">
+                        <Label htmlFor="street">{t('adminDashboard.newCondoDialog.streetLabel')}</Label>
+                        <Input id="street" name="street" placeholder="Ex: Rua das Flores" required disabled={pending} />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="number">{t('adminDashboard.newCondoDialog.numberLabel')}</Label>
+                        <Input id="number" name="number" placeholder="Ex: 123" required disabled={pending} />
+                    </div>
                 </div>
             </div>
             <DialogFooter>
@@ -605,23 +625,33 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                     <DialogDescription>{t('adminDashboard.editCondoDialog.description')}</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                    <Label htmlFor="name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
-                    <Input
-                        id="name"
-                        name="name"
-                        defaultValue={editingCondo.name}
-                        required
-                    />
+                     <div className="grid gap-2">
+                        <Label htmlFor="name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
+                        <Input id="name" name="name" defaultValue={editingCondo.name} required />
+                    </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="country">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
+                            <Input id="country" name="country" defaultValue={editingCondo.country} required />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="state">{t('adminDashboard.newCondoDialog.stateLabel')}</Label>
+                            <Input id="state" name="state" defaultValue={editingCondo.state} required />
+                        </div>
                     </div>
                     <div className="grid gap-2">
-                    <Label htmlFor="address">{t('adminDashboard.newCondoDialog.addressLabel')}</Label>
-                    <Input
-                        id="address"
-                        name="address"
-                        defaultValue={editingCondo.address}
-                        required
-                    />
+                        <Label htmlFor="city">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
+                        <Input id="city" name="city" defaultValue={editingCondo.city} required />
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="grid gap-2 col-span-2">
+                            <Label htmlFor="street">{t('adminDashboard.newCondoDialog.streetLabel')}</Label>
+                            <Input id="street" name="street" defaultValue={editingCondo.street} required />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="number">{t('adminDashboard.newCondoDialog.numberLabel')}</Label>
+                            <Input id="number" name="number" defaultValue={editingCondo.number} required />
+                        </div>
                     </div>
                 </div>
                 <DialogFooter>
