@@ -9,12 +9,7 @@ import { getCurrentSession, getDbPool } from './auth';
 export type Condominio = {
   id: string;
   name: string;
-  street: string;
-  number: string;
-  city: string;
-  state: string;
-  country: string;
-  address?: string; // Optional full address string for display
+  address: string;
   created_at: string;
   updated_at: string;
   devices_count?: number;
@@ -58,11 +53,6 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
         `);
         const data = result.rows.map(condo => ({
             ...condo,
-            street: '',
-            number: '',
-            city: '',
-            state: '',
-            country: '',
             address: condo.name, // Use name as a placeholder for display
             residents_count: 0,
             gatekeepers_count: 0,
@@ -100,11 +90,6 @@ export async function getCondominioById(id: string): Promise<ActionState<Condomi
         const fullCondo: Condominio = {
             id: condoData.id,
             name: condoData.name,
-            street: condoData.street || '',
-            number: condoData.number || '',
-            city: condoData.city || '',
-            state: condoData.state || '',
-            country: condoData.country || '',
             address: condoData.address || condoData.name,
             created_at: condoData.created_at,
             updated_at: condoData.updated_at,

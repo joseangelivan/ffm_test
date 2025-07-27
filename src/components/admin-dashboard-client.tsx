@@ -100,7 +100,7 @@ type Session = {
 }
 
 
-const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled }: { defaultValues?: Partial<Condominio>, onLocationChange: (name: string, value: string) => void, isFormDisabled?: boolean }) => {
+const LocationSelector = ({ defaultValues = {}, onLocationChange, isFormDisabled }: { defaultValues?: Partial<Omit<Condominio, 'id' | 'created_at' | 'updated_at' | 'address'>>, onLocationChange: (name: string, value: string) => void, isFormDisabled?: boolean }) => {
     const { t } = useLocale();
     const [countries, setCountries] = useState<any[]>([]);
     const [states, setStates] = useState<any[]>([]);
@@ -773,12 +773,14 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
             setIsEditCondoDialogOpen(isOpen);
         }}>
             <DialogContent>
-                <CondoForm
-                    closeDialog={handleCondoFormSuccess}
-                    formAction={handleEditCondo}
-                    initialData={editingCondo}
-                    isEditMode={true}
-                />
+                {editingCondo && (
+                    <CondoForm
+                        closeDialog={handleCondoFormSuccess}
+                        formAction={handleEditCondo}
+                        initialData={editingCondo}
+                        isEditMode={true}
+                    />
+                )}
             </DialogContent>
         </Dialog>
     </div>
