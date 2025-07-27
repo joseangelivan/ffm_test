@@ -15,7 +15,7 @@ import path from 'path';
 let pool: Pool | undefined;
 let migrationsHaveRun = false;
 
-async function getDbPool(): Promise<Pool> {
+export async function getDbPool(): Promise<Pool> {
     if (pool) {
         return pool;
     }
