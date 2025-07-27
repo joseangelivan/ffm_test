@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -78,9 +77,8 @@ import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
-import { getCurrentSession } from '@/actions/auth';
 import { getCondominioById, type Condominio } from '@/actions/condos';
-import { redirect } from 'next/navigation';
+
 
 // Mock data
 const mockDevices = [
@@ -1309,11 +1307,16 @@ function CondominioDashboardPageContent({ condoId }: { condoId: string }) {
 }
 
 
+import { getCurrentSession } from '@/actions/auth';
+import { redirect } from 'next/navigation';
+
+// This is the Server Component part of the page.
 export default async function CondominioDashboardPage({ params }: { params: { id: string } }) {
   const session = await getCurrentSession();
   if (!session) {
     redirect('/admin/login');
   }
 
+  // It renders the Client Component, passing the necessary props.
   return <CondominioDashboardPageContent condoId={params.id} />;
 }
