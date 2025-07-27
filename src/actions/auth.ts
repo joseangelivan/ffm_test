@@ -240,10 +240,6 @@ export async function getSession(sessionToken?: string) {
     try {
         const pool = await getDbPool();
         client = await pool.connect();
-
-        const { payload } = await jwtVerify(sessionToken, JWT_SECRET, {
-            algorithms: [JWT_ALG],
-        });
         
         const sessionResult = await client.query(
             'SELECT user_id, user_type FROM sessions WHERE token = $1 AND expires_at > NOW()', 
@@ -255,10 +251,6 @@ export async function getSession(sessionToken?: string) {
         }
 
         const { user_id, user_type } = sessionResult.rows[0];
-
-        if(user_id !== payload.id || user_type !== payload.type) {
-            return null;
-        }
 
         let userResult;
         if (user_type === 'admin') {
