@@ -79,7 +79,8 @@
         "deviceRemovedTitle": "Dispositivo Eliminado",
         "deviceRemovedDescription": "El dispositivo ha sido eliminado de tu lista correctamente.",
         "deviceSelectedTitle": "Dispositivo Seleccionado",
-        "deviceSelectedDescription": "Ahora siguiendo \"{name}\" en el mapa."
+        "deviceSelectedDescription": "Ahora siguiendo \"{name}\" en el mapa.",
+        "preloadError": "No se pudieron cargar los datos de ubicación para la edición."
     },
     "adminLogin": {
       "title": "Portal del Administrador",
@@ -139,7 +140,8 @@
       },
       "loadingOverlay": {
           "creating": "Creando...",
-          "preparingEdit": "Preparando edición..."
+          "preparingEdit": "Preparando edición...",
+          "loading": "Cargando datos..."
       }
     },
     "condoDashboard": {

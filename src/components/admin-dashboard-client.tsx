@@ -110,8 +110,8 @@ type LocationData = {
     city: string;
     street: string;
     number: string;
-    countries: string[];
-    states: string[];
+    countries: { name: string }[];
+    states: { name: string }[];
     cities: string[];
 };
 
@@ -153,15 +153,15 @@ const LocationSelector = ({
         <Select
           onValueChange={(value) => onLocationChange('country', value)}
           value={locationData.country}
-          disabled={!locationData.continent || isFormDisabled}
+          disabled={!locationData.continent || isFormDisabled || !locationData.countries?.length}
         >
           <SelectTrigger id="country-display">
             <SelectValue placeholder={!locationData.continent ? "Seleccionar continente primero" : "Seleccionar país"} />
           </SelectTrigger>
           <SelectContent>
             {locationData.countries?.map((country) => (
-              <SelectItem key={country} value={country}>
-                {country}
+              <SelectItem key={country.name} value={country.name}>
+                {country.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -172,15 +172,15 @@ const LocationSelector = ({
         <Select
           onValueChange={(value) => onLocationChange('state', value)}
           value={locationData.state}
-          disabled={!locationData.country || isFormDisabled}
+          disabled={!locationData.country || isFormDisabled || !locationData.states?.length}
         >
           <SelectTrigger id="state-display">
             <SelectValue placeholder={!locationData.country ? "Seleccionar país primero" : "Seleccionar estado"} />
           </SelectTrigger>
           <SelectContent>
             {locationData.states?.map((state) => (
-              <SelectItem key={state} value={state}>
-                {state}
+              <SelectItem key={state.name} value={state.name}>
+                {state.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -191,7 +191,7 @@ const LocationSelector = ({
         <Select
           onValueChange={(value) => onLocationChange('city', value)}
           value={locationData.city}
-          disabled={!locationData.state || isFormDisabled}
+          disabled={!locationData.state || isFormDisabled || !locationData.cities?.length}
         >
           <SelectTrigger id="city-display">
             <SelectValue placeholder={!locationData.state ? "Seleccionar estado primero" : "Seleccionar ciudad"} />
@@ -460,7 +460,7 @@ function CondoFormFields({
   onVerifyAddress,
 }: {
   isEditMode: boolean,
-  initialData: Partial<LocationData>,
+  initialData: Partial<Condominio>,
   isFormPending: boolean,
   locationData: Partial<LocationData>;
   onLocationChange: (field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => void;
@@ -562,11 +562,15 @@ function CondoFormWrapper({
   formAction,
   initialData: condoData,
   isEditMode,
+  preparedLocationData,
+  isLoading,
 }: {
   closeDialog: () => void;
   formAction: (prevState: any, formData: FormData) => Promise<any>;
   initialData: Partial<Condominio>;
   isEditMode: boolean;
+  preparedLocationData?: Partial<LocationData>;
+  isLoading?: boolean;
 }) {
   const { t } = useLocale();
   const { toast } = useToast();
@@ -581,12 +585,19 @@ function CondoFormWrapper({
     country: condoData.country,
     state: condoData.state,
     city: condoData.city,
-    countries: [],
-    states: [],
-    cities: [],
+    countries: preparedLocationData?.countries || [],
+    states: preparedLocationData?.states || [],
+    cities: preparedLocationData?.cities || [],
   });
   const [isVerifyingAddress, setIsVerifyingAddress] = useState(false);
   const [isLocationLoading, startTransition] = useTransition();
+
+  // Effect to sync with prepared data when editing
+  useEffect(() => {
+    if (isEditMode && preparedLocationData) {
+        setLocationData(prev => ({ ...prev, ...preparedLocationData }));
+    }
+  }, [isEditMode, preparedLocationData]);
   
   const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
     startTransition(() => {
@@ -615,13 +626,20 @@ function CondoFormWrapper({
 
   // Effect to load countries when continent changes
   useEffect(() => {
-    if (!locationData.continent) return;
+    if (!locationData.continent) {
+        if(locationData.countries?.length !== 0) {
+            setLocationData(prev => ({...prev, countries: []}));
+        }
+        return;
+    };
     let isMounted = true;
     fetch(`https://restcountries.com/v3.1/region/${locationData.continent}?fields=name`)
       .then(res => res.json())
       .then(data => {
         if (isMounted) {
-          setLocationData(prev => ({...prev, countries: (data || []).map((c: any) => c.name.common).sort()}));
+          startTransition(() => {
+            setLocationData(prev => ({...prev, countries: (data || []).map((c: any) => ({name: c.name.common})).sort((a:any, b:any) => a.name.localeCompare(b.name))}));
+          });
         }
       }).catch(e => console.error("Failed to load countries", e));
     return () => { isMounted = false };
@@ -629,14 +647,21 @@ function CondoFormWrapper({
 
   // Effect to load states when country changes
   useEffect(() => {
-    if (!locationData.country) return;
+    if (!locationData.country) {
+       if(locationData.states?.length !== 0) {
+            setLocationData(prev => ({...prev, states: []}));
+       }
+       return;
+    }
     let isMounted = true;
     fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country: locationData.country })
     }).then(res => res.json())
       .then(data => {
-        if (isMounted) {
-          setLocationData(prev => ({...prev, states: (data.data?.states || []).map((s: any) => s.name).sort()}));
+        if (isMounted && !data.error) {
+           startTransition(() => {
+                setLocationData(prev => ({...prev, states: (data.data?.states || []).sort((a:any, b:any) => a.name.localeCompare(b.name))}));
+           });
         }
       }).catch(e => console.error("Failed to load states", e));
     return () => { isMounted = false };
@@ -644,14 +669,21 @@ function CondoFormWrapper({
 
   // Effect to load cities when state changes
   useEffect(() => {
-    if (!locationData.state || !locationData.country) return;
+    if (!locationData.state || !locationData.country) {
+       if(locationData.cities?.length !== 0) {
+            setLocationData(prev => ({...prev, cities: []}));
+       }
+       return;
+    }
     let isMounted = true;
     fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country: locationData.country, state: locationData.state })
     }).then(res => res.json())
       .then(data => {
-        if (isMounted) {
-          setLocationData(prev => ({...prev, cities: (Array.isArray(data.data) ? data.data : []).sort()}));
+        if (isMounted && !data.error) {
+           startTransition(() => {
+                setLocationData(prev => ({...prev, cities: (Array.isArray(data.data) ? data.data : []).sort()}));
+           });
         }
       }).catch(e => console.error("Failed to load cities", e));
     return () => { isMounted = false };
@@ -694,21 +726,21 @@ function CondoFormWrapper({
       }
   }
   
-  const isFormDisabled = isFormPending || isLocationLoading;
+  const isFormDisabled = isFormPending || isLocationLoading || isLoading;
 
   return (
     <>
         <div className={cn('relative transition-opacity', isFormDisabled && 'opacity-50')}>
             {isFormDisabled && (
                 <LoadingOverlay
-                text={isLocationLoading ? t('adminDashboard.loadingOverlay.preparingEdit') : (isEditMode ? t('adminDashboard.editCondoDialog.save') + '...' : t('adminDashboard.loadingOverlay.creating'))}
+                text={isLoading ? t('adminDashboard.loadingOverlay.preparingEdit') : (isLocationLoading ? t('adminDashboard.loadingOverlay.loading') : (isEditMode ? t('adminDashboard.editCondoDialog.save') + '...' : t('adminDashboard.loadingOverlay.creating')))}
                 />
             )}
             <form ref={formRef} action={dispatchFormAction}>
             <input type="hidden" name="id" value={condoData.id || ''} />
             <CondoFormFields
                 isEditMode={isEditMode}
-                initialData={locationData}
+                initialData={condoData}
                 isFormPending={isFormDisabled}
                 locationData={locationData}
                 onLocationChange={handleLocationChange}
@@ -740,6 +772,8 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
   
   const [editingCondoData, setEditingCondoData] = useState<Condominio | null>(null);
+  const [preparedLocationData, setPreparedLocationData] = useState<Partial<LocationData>>({});
+  const [isPreparingEdit, setIsPreparingEdit] = useState(false);
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
@@ -781,7 +815,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       await updateSettings({ language: newLocale });
   }
   
-  const handleEditCondoAction = async (prevState: any, formData: FormData) => {
+  const handleUpdateCondoAction = async (prevState: any, formData: FormData) => {
     if (!editingCondoData) return { success: false, message: "No condo selected for editing."};
     
     const result = await updateCondominio(prevState, formData);
@@ -791,10 +825,59 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     return result;
   };
 
-  const openEditDialog = (condo: Condominio) => {
+  const prepareAndOpenEditDialog = useCallback(async (condo: Condominio) => {
+    setIsPreparingEdit(true);
     setEditingCondoData(condo);
+
+    const location: Partial<LocationData> = {
+      continent: condo.continent,
+      country: condo.country,
+      state: condo.state,
+      city: condo.city,
+      countries: [],
+      states: [],
+      cities: [],
+    };
+
+    try {
+        if(condo.continent) {
+            const countriesRes = await fetch(`https://restcountries.com/v3.1/region/${condo.continent}?fields=name`);
+            const countriesData = await countriesRes.json();
+            location.countries = (countriesData || []).map((c: any) => ({name: c.name.common})).sort((a:any, b:any) => a.name.localeCompare(b.name));
+        }
+
+        if(condo.country) {
+            const statesRes = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country: condo.country })
+            });
+            const statesData = await statesRes.json();
+            if (!statesData.error) {
+                location.states = (statesData.data?.states || []).sort((a:any, b:any) => a.name.localeCompare(b.name));
+            }
+        }
+        
+        if(condo.state && condo.country) {
+            const citiesRes = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country: condo.country, state: condo.state })
+            });
+            const citiesData = await citiesRes.json();
+            if (!citiesData.error) {
+                location.cities = (Array.isArray(citiesData.data) ? citiesData.data : []).sort();
+            }
+        }
+    } catch (error) {
+        console.error("Failed to preload location data", error);
+        toast({
+            title: t('toast.errorTitle'),
+            description: t('toast.preloadError'),
+            variant: 'destructive',
+        });
+    }
+
+    setPreparedLocationData(location);
     setIsEditCondoDialogOpen(true);
-  };
+    setIsPreparingEdit(false);
+  }, [t, toast]);
   
   const handleDeleteCondo = async (condoId: string) => {
     const result = await deleteCondominio(condoId);
@@ -821,11 +904,13 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       setIsNewCondoDialogOpen(false);
       setIsEditCondoDialogOpen(false);
       setEditingCondoData(null);
+      setPreparedLocationData({});
       fetchCondos();
   }, [fetchCondos]);
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
+       {isPreparingEdit && <LoadingOverlay text={t('adminDashboard.loadingOverlay.preparingEdit')} />}
        <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-50">
         <div className="flex items-center gap-2">
             <Shield className="h-6 w-6 text-primary"/>
@@ -985,7 +1070,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                             <DropdownMenuItem onSelect={() => navigateToCondo(condo.id)}>
                                 <Eye className="h-4 w-4 mr-2"/>{t('adminDashboard.table.manage')}
                             </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => openEditDialog(condo)}>
+                            <DropdownMenuItem onSelect={() => prepareAndOpenEditDialog(condo)}>
                                 <Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}
                             </DropdownMenuItem>
                             <AlertDialog>
@@ -1032,9 +1117,11 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                 {editingCondoData && (
                     <CondoFormWrapper
                         closeDialog={handleCondoFormSuccess}
-                        formAction={handleEditCondoAction}
+                        formAction={handleUpdateCondoAction}
                         initialData={editingCondoData}
                         isEditMode={true}
+                        preparedLocationData={preparedLocationData}
+                        isLoading={isPreparingEdit}
                     />
                 )}
             </DialogContent>
