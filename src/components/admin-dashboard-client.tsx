@@ -721,10 +721,21 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
     )
 }
 
-function ManageAccountDialog({ session, onUpdate }: { session: Session, onUpdate: () => void }) {
+function ManageAccountDialog({ session }: { session: Session }) {
     const { t } = useLocale();
     const { toast } = useToast();
+    const router = useRouter();
+    const [isOpen, setIsOpen] = useState(true);
     const [state, formAction] = useActionState(updateAdminAccount, undefined);
+
+    useEffect(() => {
+        if (!isOpen) {
+            const parentDialogTrigger = document.querySelector('[data-radix-dialog-trigger][aria-expanded="true"]');
+            if (parentDialogTrigger) {
+                (parentDialogTrigger as HTMLElement).click();
+            }
+        }
+    }, [isOpen]);
 
     useEffect(() => {
         if (state?.success === false) {
@@ -735,21 +746,22 @@ function ManageAccountDialog({ session, onUpdate }: { session: Session, onUpdate
             if (state.message.includes('cerrará la sesión')) {
                 setTimeout(() => handleLogoutAction(), 3000);
             } else {
-                onUpdate();
+                setIsOpen(false);
+                router.refresh(); 
             }
         }
-    }, [state, t, toast, onUpdate]);
+    }, [state, t, toast, router]);
 
     return (
         <DialogContent className="sm:max-w-md">
             <form action={formAction}>
-                 <ManageAccountFields session={session} onCancel={onUpdate} />
+                 <ManageAccountFields session={session} />
             </form>
         </DialogContent>
     );
 }
 
-function ManageAccountFields({ session, onCancel }: { session: Session, onCancel: () => void }) {
+function ManageAccountFields({ session }: { session: Session }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
     const { toast } = useToast();
@@ -885,7 +897,9 @@ function ManageAccountFields({ session, onCancel }: { session: Session, onCancel
             </Tabs>
             
             <DialogFooter className="pt-4 mt-4 border-t">
-                <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
+                 <DialogClose asChild>
+                    <Button type="button" variant="outline" disabled={pending}>{t('common.cancel')}</Button>
+                 </DialogClose>
                 <Button type="submit" disabled={isSaveChangesDisabled}>{t('common.saveChanges')}</Button>
             </DialogFooter>
         </div>
@@ -1437,11 +1451,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       fetchCondos();
   };
 
-  const handleAccountUpdate = useCallback(() => {
-    setIsAccountDialogOpen(false);
-    router.refresh();
-  }, [router]);
-
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
        {isPreparingEdit && <LoadingOverlay text={t('adminDashboard.loadingOverlay.preparingEdit')} />}
@@ -1468,10 +1477,15 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                 </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                 <DropdownMenuItem onSelect={() => setIsAccountDialogOpen(true)}>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>{t('adminDashboard.account.myAccount')}</span>
-                </DropdownMenuItem>
+                 <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
+                    <DialogTrigger asChild>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                            <User className="mr-2 h-4 w-4" />
+                            <span>{t('adminDashboard.account.myAccount')}</span>
+                        </DropdownMenuItem>
+                    </DialogTrigger>
+                    <ManageAccountDialog session={session} />
+                </Dialog>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
                     <Settings className="mr-2 h-4 w-4" />
@@ -1673,11 +1687,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                     />
                 )}
             </DialogContent>
-        </Dialog>
-        
-        {/* Manage Account Dialog */}
-        <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
-            <ManageAccountDialog session={session} onUpdate={handleAccountUpdate} />
         </Dialog>
     </div>
   );
