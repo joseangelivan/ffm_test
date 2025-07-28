@@ -18,80 +18,81 @@ import pt from '@/locales/pt.json';
 // --- Database Pool and Migration Logic ---
 
 let pool: Pool | undefined;
-
-// A simple in-memory lock to prevent concurrent migration runs.
-// This is crucial for serverless environments where multiple instances can spin up.
 let migrationLock: Promise<void> | null = null;
 
+async function initializeDatabase(): Promise<Pool> {
+    console.log("--- Attempting to initialize database pool and run migrations ---");
+    const newPool = new Pool({
+        host: 'mainline.proxy.rlwy.net',
+        port: 38539,
+        user: 'postgres',
+        password: 'vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT',
+        database: 'railway',
+        ssl: {
+            rejectUnauthorized: false,
+        },
+    });
+
+    try {
+        // Test connection before running migrations
+        const client = await newPool.connect();
+        console.log("--- Database connection successful. Starting migration process. ---");
+        client.release();
+
+        await runMigrations(newPool);
+        console.log("--- Database migrations completed successfully. ---");
+        return newPool;
+    } catch (error) {
+        console.error("CRITICAL: Failed during database initialization or migration.", error);
+        // Ensure the pool is closed if initialization fails to prevent leaks
+        await newPool.end();
+        throw new Error("Database initialization failed.");
+    }
+}
 
 export async function getDbPool(): Promise<Pool> {
     if (pool) {
         return pool;
     }
 
-    // If a migration is already in progress, wait for it to complete.
     if (migrationLock) {
         await migrationLock;
-        // After waiting, if the pool is now initialized, return it.
-        if (pool) return pool;
+        // After waiting, the pool should be initialized.
+        // If it's still not there, something went very wrong.
+        if (!pool) throw new Error("Waited for migration lock, but pool is still not available.");
+        return pool;
     }
 
-    // Start a new migration process, guarded by the lock.
-    let releaseLock: () => void;
-    let reportError: (err: any) => void;
-
-    migrationLock = new Promise<void>((resolve, reject) => {
-        releaseLock = resolve;
-        reportError = reject;
+    // Set the lock *before* starting the initialization.
+    // This makes all subsequent calls wait for this one to finish.
+    migrationLock = initializeDatabase().then(newPool => {
+        pool = newPool; // Assign to the global variable on success
+        console.log("--- Database pool has been successfully assigned. ---");
+    }).catch(err => {
+        // If initialization fails, we clear the lock so the next request can try again.
+        migrationLock = null;
+        // Re-throw the error to ensure calling functions know about the failure.
+        throw err;
     });
 
-    try {
-        const newPool = new Pool({
-            host: 'mainline.proxy.rlwy.net',
-            port: 38539,
-            user: 'postgres',
-            password: 'vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT',
-            database: 'railway',
-            ssl: {
-                rejectUnauthorized: false,
-            },
-        });
-
-        // Run migrations before assigning the pool to the global scope.
-        await runMigrations(newPool);
-
-        // Assign the successfully migrated pool.
-        pool = newPool;
-
-        // Release the lock to allow other requests to proceed.
-        releaseLock!(); 
-        
-        return pool;
-    } catch (error) {
-        console.error("CRITICAL: Failed to initialize database connection and run migrations. The application may not function.", error);
-        // Report the error to any waiting promises.
-        reportError!(error);
-        // We re-throw here to ensure that parts of the app that depend on the DB
-        // don't proceed in a broken state.
-        throw new Error("Database initialization failed.");
-    } finally {
-        // Ensure the lock is cleared regardless of outcome, allowing future attempts.
-        migrationLock = null;
-    }
+    await migrationLock;
+    
+    if (!pool) throw new Error("Database pool initialization did not complete as expected.");
+    return pool;
 }
 
+
 async function runMigrations(p: Pool) {
-    console.log('--- Starting database migration process ---');
+    console.log('--- [runMigrations] Starting migration transaction ---');
     const client = await p.connect();
     try {
         await client.query('BEGIN');
-        console.log('Transaction started.');
+        console.log('[runMigrations] Transaction started.');
 
         // Step 1: Apply all base schemas from explicit paths.
-        console.log("Applying base schemas...");
+        console.log("[runMigrations] Applying base schemas...");
         const sqlBaseDir = path.join(process.cwd(), 'src', 'lib', 'sql');
         
-        // Define the exact schemas to apply, in order.
         const schemasToApply = [
             'admins/base_schema.sql',
             'condominiums/base_schema.sql',
@@ -105,24 +106,24 @@ async function runMigrations(p: Pool) {
             try {
                 const schemaSql = await fs.readFile(fullSchemaPath, 'utf-8');
                 if (schemaSql.trim()) {
-                    console.log(`- Applying base schema from '${schemaPath}'...`);
+                    console.log(`- [runMigrations] Applying schema from '${schemaPath}'...`);
                     const result = await client.query(schemaSql);
                     console.log(`- -> Schema '${schemaPath}' applied. Response:`, result.command, result.rowCount);
                 }
             } catch (err: any) {
                 if (err.code === 'ENOENT') {
-                   console.log(`Schema file not found, skipping: ${schemaPath}`);
+                   console.log(`[runMigrations] Schema file not found, skipping: ${schemaPath}`);
                 } else {
-                   console.error(`Could not process schema in '${schemaPath}'. Error: ${err.message}`);
-                   throw err; // Re-throw critical SQL errors
+                   console.error(`[runMigrations] Could not process schema in '${schemaPath}'. Error: ${err.message}`);
+                   throw err;
                 }
             }
         }
-        console.log("--- Base schema application complete. ---");
+        console.log("[runMigrations] --- Base schema application complete. ---");
 
         // Step 2: Ensure the migrations table exists.
-        console.log("Checking for migrations table...");
-        const migrationTableResult = await client.query(`
+        console.log("[runMigrations] Checking for migrations table...");
+        await client.query(`
             CREATE TABLE IF NOT EXISTS schema_migrations (
                 id SERIAL PRIMARY KEY,
                 migration_name VARCHAR(255) NOT NULL UNIQUE,
@@ -130,16 +131,15 @@ async function runMigrations(p: Pool) {
                 sql_script TEXT
             );
         `);
-        console.log('Migrations table checked. Response:', migrationTableResult.command, migrationTableResult.rowCount);
+        console.log('[runMigrations] Migrations table checked.');
 
         // Step 3: Check for and apply incremental migrations.
-        console.log("Checking for incremental migrations...");
+        console.log("[runMigrations] Checking for incremental migrations...");
         const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
-        // Ensure migrations directory exists before trying to read it
         try {
             await fs.access(migrationsDir);
         } catch (error) {
-            console.log("No 'migrations' directory found. Creating it.");
+            console.log("[runMigrations] No 'migrations' directory found. Creating it.");
             await fs.mkdir(migrationsDir);
         }
 
@@ -147,7 +147,7 @@ async function runMigrations(p: Pool) {
 
         const appliedMigrationsResult = await client.query('SELECT migration_name FROM schema_migrations');
         const appliedMigrations = new Set(appliedMigrationsResult.rows.map(r => r.migration_name));
-        console.log('Already applied migrations:', Array.from(appliedMigrations));
+        console.log('[runMigrations] Already applied migrations:', Array.from(appliedMigrations));
 
         for (const file of migrationFiles) {
             if (!file.trim() || appliedMigrations.has(file)) continue;
@@ -155,20 +155,19 @@ async function runMigrations(p: Pool) {
             const fileContent = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
             if (!fileContent.trim()) continue;
 
-            console.log(`--- Applying new incremental migration: ${file} ---`);
-            const migrationResult = await client.query(fileContent);
-            console.log(`- -> Migration '${file}' applied. Response:`, migrationResult.command, migrationResult.rowCount);
-            const insertResult = await client.query('INSERT INTO schema_migrations (migration_name, sql_script) VALUES ($1, $2)', [file, fileContent]);
-            console.log(`- -> Migration '${file}' registered. Response:`, insertResult.command, insertResult.rowCount);
+            console.log(`--- [runMigrations] Applying new incremental migration: ${file} ---`);
+            await client.query(fileContent);
+            await client.query('INSERT INTO schema_migrations (migration_name, sql_script) VALUES ($1, $2)', [file, fileContent]);
+            console.log(`- -> [runMigrations] Migration '${file}' applied and registered.`);
         }
         
         // --- SEEDING STEP ---
-        console.log("Checking if seeding is required...");
+        console.log("[runMigrations] Checking if seeding is required...");
         const adminCheck = await client.query('SELECT id FROM admins LIMIT 1');
-        console.log('Admin check response:', adminCheck.command, adminCheck.rowCount);
+        console.log('[runMigrations] Admin check rowCount:', adminCheck.rowCount);
 
         if (adminCheck.rows.length === 0) {
-            console.log("--- Admins table is empty. Seeding default administrator... ---");
+            console.log("[runMigrations] --- Admins table is empty. Seeding default administrator... ---");
             const defaultAdminName = 'José Angel Iván Rubianes Silva';
             const defaultAdminEmail = 'angelivan34@gmail.com';
             const defaultAdminPassword = 'adminivan123';
@@ -179,36 +178,34 @@ async function runMigrations(p: Pool) {
                 'INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, $4) RETURNING id',
                 [defaultAdminName, defaultAdminEmail, passwordHash, true]
             );
-            console.log('Default admin inserted. Response:', adminResult.command, adminResult.rowCount, 'Rows:', adminResult.rows);
-
             const newAdminId = adminResult.rows[0].id;
+            console.log(`[runMigrations] Default admin inserted with ID: ${newAdminId}.`);
 
-            // Seed the corresponding settings for the new admin
             const settingsResult = await client.query(
                 'INSERT INTO admin_settings (admin_id) VALUES ($1)',
                 [newAdminId]
             );
-            console.log('Default admin settings inserted. Response:', settingsResult.command, settingsResult.rowCount);
+            console.log(`[runMigrations] Default admin settings inserted. Response:`, settingsResult.command, settingsResult.rowCount);
 
-            console.log("--- Default administrator created successfully. ---");
+            console.log("[runMigrations] --- Default administrator created successfully. ---");
             console.log(`--- Email: ${defaultAdminEmail} ---`);
             console.log(`--- Password: ${defaultAdminPassword} ---`);
         } else {
-            console.log("Admins table is not empty. Skipping seeding.");
+            console.log("[runMigrations] Admins table is not empty. Skipping seeding.");
         }
 
 
         await client.query('COMMIT');
-        console.log('--- Migration process completed. COMMIT performed. ---');
+        console.log('[runMigrations] --- Migration process completed. COMMIT performed. ---');
 
     } catch(error) {
-         console.error('Error during migration transaction. Attempting ROLLBACK.', error);
+         console.error('[runMigrations] Error during migration transaction. Attempting ROLLBACK.', error);
          await client.query('ROLLBACK');
-         console.log('ROLLBACK performed.');
-         throw error; // Re-throw to be caught by the outer try-catch
+         console.log('[runMigrations] ROLLBACK performed.');
+         throw error;
     } finally {
         client.release();
-        console.log("--- Database client released. Migration process finished. ---")
+        console.log("[runMigrations] --- Database client released. ---")
     }
 }
 
@@ -323,8 +320,6 @@ export async function getSession(sessionToken?: string) {
             algorithms: [JWT_ALG],
         });
         
-        // Now the payload from the token is trusted.
-        // We can use it directly without another DB call in many cases.
         return {
             id: payload.id as string,
             email: payload.email as string,
@@ -333,8 +328,6 @@ export async function getSession(sessionToken?: string) {
             canCreateAdmins: payload.canCreateAdmins as boolean,
         };
     } catch (error: any) {
-        // This will catch expired tokens, invalid signatures, etc.
-        // We don't need to log every invalid token attempt.
         if (error.code !== 'ERR_JWT_EXPIRED' && error.code !== 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED') {
            console.error('Error verifying JWT:', error);
         }
@@ -365,7 +358,6 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
           .setExpirationTime(expirationTime)
           .sign(JWT_SECRET);
         
-        // We still store the session in the DB for server-side revocation (logout)
         await client.query('DELETE FROM sessions WHERE user_id = $1 AND user_type = $2', [userId, userType]);
         await client.query('INSERT INTO sessions (user_id, user_type, token, expires_at) VALUES ($1, $2, $3, $4)', [userId, userType, token, expirationDate]);
 
@@ -415,7 +407,7 @@ export async function authenticateUser(prevState: AuthState | undefined, formDat
             dbUserType = 'resident';
         } else if (userType === 'porteria') {
             tableName = 'gatekeepers';
-            redirectPath = '/gatekeeper/dashboard'; // Or wherever they should go
+            redirectPath = '/gatekeeper/dashboard';
             dbUserType = 'gatekeeper';
         } else {
             return { success: false, message: 'Tipo de usuario inválido.' };
@@ -624,7 +616,6 @@ export async function updateAdmin(prevState: ActionState | undefined, formData: 
         const pool = await getDbPool();
         client = await pool.connect();
 
-        // Check for email conflict
         const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1 AND id != $2', [email, id]);
         if (existingAdmin.rows.length > 0) {
             return { success: false, message: 'Ya existe otro administrador con este correo electrónico.' };
@@ -690,7 +681,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<{su
                 secure: config.secure,
                 auth: {
                     user: config.auth_user,
-                    pass: config.auth_pass, // Note: This should be the decrypted password
+                    pass: config.auth_pass,
                 },
             });
 
@@ -706,18 +697,15 @@ async function sendEmail(to: string, subject: string, html: string): Promise<{su
 
         } catch (error) {
             console.error(`Failed to send email with config "${config.name}". Error: ${error}`);
-            // If it fails, the loop will continue to the next configuration
         }
     }
 
-    // If all configurations fail
     console.error("All SMTP configurations failed.");
     return { success: false, message: 'Error del servidor: Todos los proveedores de correo fallaron.' };
 }
 
 
 function generateTempPassword(): string {
-    // Generate a random 8-character password
     return Math.random().toString(36).slice(-8);
 }
 
@@ -840,14 +828,12 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         const pool = await getDbPool();
         client = await pool.connect();
 
-        // Get current admin data
         const adminResult = await client.query('SELECT * FROM admins WHERE id = $1', [session.id]);
         if (adminResult.rows.length === 0) {
             return { success: false, message: "No se encontró la cuenta de administrador." };
         }
         const currentAdmin = adminResult.rows[0];
 
-        // --- Handle Profile Update ---
         const name = formData.get('name') as string;
         const email = formData.get('email') as string;
         const emailPin = formData.get('email_pin') as string;
@@ -875,7 +861,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
                 return { success: false, message: "PIN inválido o expirado." };
             }
             
-            // Check if new email is already taken by someone else
             const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1 AND id != $2', [email, session.id]);
             if (existingAdmin.rows.length > 0) {
                 return { success: false, message: 'El nuevo correo electrónico ya está en uso.' };
@@ -884,7 +869,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
             updateClauses.push(`email = $${valueIndex++}`);
             values.push(email);
 
-            // Invalidate the PIN after use
             await client.query('DELETE FROM admin_verification_pins WHERE admin_id = $1', [session.id]);
         }
         
@@ -895,7 +879,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
              await client.query(query, values);
         }
         
-        // --- Handle Password Update ---
         const currentPassword = formData.get('current_password') as string;
         const newPassword = formData.get('new_password') as string;
         const confirmPassword = formData.get('confirm_password') as string;
@@ -918,7 +901,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         }
         
         if (updateClauses.length > 0 || (newPassword && newPassword === confirmPassword)) {
-            // If email was changed, we need to re-issue the session token with the new email
             if (email && email !== currentAdmin.email) {
                 await createSession(session.id, 'admin', {
                     email: email,
@@ -939,31 +921,4 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         if (client) client.release();
     }
 }
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-
-
-
-    
-
-      
-
-    
-
     
