@@ -721,11 +721,11 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
     )
 }
 
-function ManageAccountDialog({ session, onUpdate }: { session: Session, onUpdate: () => void }) {
+function ManageAccountDialog({ session, closeDialog }: { session: Session, closeDialog: () => void }) {
     const { t } = useLocale();
     const { toast } = useToast();
     const [state, formAction] = useActionState(updateAdminAccount, undefined);
-    
+
     useEffect(() => {
         if (state?.success === false) {
             toast({ title: t('toast.errorTitle'), description: state.message, variant: 'destructive' });
@@ -735,15 +735,17 @@ function ManageAccountDialog({ session, onUpdate }: { session: Session, onUpdate
             if (state.message.includes('cerrará la sesión')) {
                 setTimeout(() => handleLogoutAction(), 3000);
             } else {
-                onUpdate();
+                closeDialog();
+                // We no longer need router.refresh() as it was causing loops.
+                // The parent component will handle its own state.
             }
         }
-    }, [state, t, toast, onUpdate]);
+    }, [state, t, toast, closeDialog]);
 
     return (
         <DialogContent className="sm:max-w-md">
             <form action={formAction}>
-                 <ManageAccountFields session={session} onCancel={onUpdate} />
+                 <ManageAccountFields session={session} onCancel={closeDialog} />
             </form>
         </DialogContent>
     );
@@ -752,6 +754,7 @@ function ManageAccountDialog({ session, onUpdate }: { session: Session, onUpdate
 function ManageAccountFields({ session, onCancel }: { session: Session, onCancel: () => void }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
+    const { toast } = useToast();
     const [showPassword, setShowPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -780,8 +783,10 @@ function ManageAccountFields({ session, onCancel }: { session: Session, onCancel
             const result = await verifyAdminEmailChangePin(emailValue, pinValue);
              if (result.success) {
                 setPinVerificationState({ status: 'verified', message: t('adminDashboard.account.pinValidation.success') });
+                toast({ title: t('toast.successTitle'), description: result.message });
             } else {
                 setPinVerificationState({ status: 'error', message: result.message });
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
             }
         });
     };
@@ -1435,8 +1440,10 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       fetchCondos();
   };
 
-  const handleAccountUpdate = () => {
+  const handleAccountDialogClose = () => {
     setIsAccountDialogOpen(false);
+    // After closing the dialog, we refresh the router to get the new session data.
+    // This is safer than trying to manage state manually.
     router.refresh();
   };
 
@@ -1675,7 +1682,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
         
         {/* Manage Account Dialog */}
         <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
-            <ManageAccountDialog session={session} onUpdate={handleAccountUpdate} />
+            <ManageAccountDialog session={session} closeDialog={handleAccountDialogClose} />
         </Dialog>
     </div>
   );
