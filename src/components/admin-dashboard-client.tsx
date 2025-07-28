@@ -721,21 +721,10 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
     )
 }
 
-function ManageAccountDialog({ session }: { session: Session }) {
+function ManageAccountDialog({ session, onCancel, onUpdate }: { session: Session, onCancel: () => void, onUpdate: () => void }) {
     const { t } = useLocale();
     const { toast } = useToast();
-    const router = useRouter();
-    const [isOpen, setIsOpen] = useState(true);
     const [state, formAction] = useActionState(updateAdminAccount, undefined);
-
-    useEffect(() => {
-        if (!isOpen) {
-            const parentDialogTrigger = document.querySelector('[data-radix-dialog-trigger][aria-expanded="true"]');
-            if (parentDialogTrigger) {
-                (parentDialogTrigger as HTMLElement).click();
-            }
-        }
-    }, [isOpen]);
 
     useEffect(() => {
         if (state?.success === false) {
@@ -746,35 +735,46 @@ function ManageAccountDialog({ session }: { session: Session }) {
             if (state.message.includes('cerrará la sesión')) {
                 setTimeout(() => handleLogoutAction(), 3000);
             } else {
-                setIsOpen(false);
-                router.refresh(); 
+                onUpdate();
             }
         }
-    }, [state, t, toast, router]);
+    }, [state, t, toast, onUpdate]);
 
     return (
         <DialogContent className="sm:max-w-md">
             <form action={formAction}>
-                 <ManageAccountFields session={session} />
+                 <ManageAccountFields session={session} onCancel={onCancel} />
             </form>
         </DialogContent>
     );
 }
 
-function ManageAccountFields({ session }: { session: Session }) {
+function ManageAccountFields({ session, onCancel }: { session: Session, onCancel: () => void }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
     const { toast } = useToast();
+
+    // State for inputs
+    const [emailValue, setEmailValue] = useState(session.email);
+    const [pinValue, setPinValue] = useState('');
+    
+    // State for UI control
     const [showPassword, setShowPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     
-    const [emailValue, setEmailValue] = useState(session.email);
-    const [pinValue, setPinValue] = useState('');
-    const isEmailChanged = emailValue !== session.email;
-
+    // State for async operations and verification flow
     const [isPinLoading, startPinTransition] = useTransition();
     const [pinVerificationState, setPinVerificationState] = useState<{ status: 'idle' | 'verified' | 'error', message: string }>({ status: 'idle', message: t('adminDashboard.account.pinValidation.initial') });
+
+    const isEmailChanged = emailValue !== session.email;
+
+    useEffect(() => {
+        if (!isEmailChanged) {
+             setPinVerificationState({ status: 'idle', message: t('adminDashboard.account.pinValidation.initial') });
+             setPinValue('');
+        }
+    }, [isEmailChanged, t]);
 
     const handleSendPin = () => {
         startPinTransition(async () => {
@@ -800,13 +800,6 @@ function ManageAccountFields({ session }: { session: Session }) {
             }
         });
     };
-    
-    useEffect(() => {
-        if (!isEmailChanged) {
-             setPinVerificationState({ status: 'idle', message: t('adminDashboard.account.pinValidation.initial') });
-             setPinValue('');
-        }
-    }, [isEmailChanged, t]);
 
     const isSaveChangesDisabled = pending || (isEmailChanged && pinVerificationState.status !== 'verified');
     
@@ -897,9 +890,7 @@ function ManageAccountFields({ session }: { session: Session }) {
             </Tabs>
             
             <DialogFooter className="pt-4 mt-4 border-t">
-                 <DialogClose asChild>
-                    <Button type="button" variant="outline" disabled={pending}>{t('common.cancel')}</Button>
-                 </DialogClose>
+                 <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
                 <Button type="submit" disabled={isSaveChangesDisabled}>{t('common.saveChanges')}</Button>
             </DialogFooter>
         </div>
@@ -1373,6 +1364,11 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     }
     return result;
   };
+
+  const handleAccountUpdate = () => {
+      setIsAccountDialogOpen(false);
+      router.refresh(); // This re-fetches server data, including the session.
+  };
   
   const prepareAndOpenEditDialog = useCallback(async (condo: Condominio) => {
     setIsPreparingEdit(true);
@@ -1484,7 +1480,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                             <span>{t('adminDashboard.account.myAccount')}</span>
                         </DropdownMenuItem>
                     </DialogTrigger>
-                    <ManageAccountDialog session={session} />
+                    <ManageAccountDialog session={session} onCancel={() => setIsAccountDialogOpen(false)} onUpdate={handleAccountUpdate} />
                 </Dialog>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
