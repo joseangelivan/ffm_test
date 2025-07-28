@@ -100,25 +100,20 @@ async function runMigrations(p: Pool) {
         ];
 
         for (const schemaPath of schemasToApply) {
-            const schemaSqlPath = path.join(sqlBaseDir, schemaPath);
+            const fullSchemaPath = path.join(sqlBaseDir, schemaPath);
             try {
-                // Check if base_schema.sql exists before trying to read it
-                await fs.access(schemaSqlPath); 
-                
-                const schemaSql = await fs.readFile(schemaSqlPath, 'utf-8');
+                const schemaSql = await fs.readFile(fullSchemaPath, 'utf-8');
                 if (schemaSql.trim()) {
                     console.log(`- Applying base schema from '${schemaPath}'...`);
                     await client.query(schemaSql);
                 }
             } catch (err: any) {
-                // This will now only catch errors other than file-not-found, 
-                // as we're checking for existence first. We'll log it for debugging.
-                if (err.code !== 'ENOENT') {
-                   console.warn(`Could not process schema in '${schemaPath}'. Error: ${err.message}`);
+                if (err.code === 'ENOENT') {
+                   console.log(`Schema file not found, skipping: ${schemaPath}`);
+                } else {
+                   console.error(`Could not process schema in '${schemaPath}'. Error: ${err.message}`);
                    throw err; // Re-throw critical SQL errors
                 }
-                // If ENOENT, we just skip, which is the intended behavior for optional schemas.
-                console.log(`Schema file not found, skipping: ${schemaPath}`);
             }
         }
         console.log("--- Base schema application complete. ---");
@@ -162,6 +157,29 @@ async function runMigrations(p: Pool) {
             console.log(`--- Migration '${file}' applied and registered successfully. ---`);
         }
         
+        // --- SEEDING STEP ---
+        console.log("Checking if seeding is required...");
+        const adminCheck = await client.query('SELECT id FROM admins LIMIT 1');
+        if (adminCheck.rows.length === 0) {
+            console.log("--- Admins table is empty. Seeding default administrator... ---");
+            const defaultAdminName = 'Default Admin';
+            const defaultAdminEmail = 'admin@followforme.com';
+            const defaultAdminPassword = 'password';
+            
+            const passwordHash = await bcrypt.hash(defaultAdminPassword, 10);
+            
+            await client.query(
+                'INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, $4)',
+                [defaultAdminName, defaultAdminEmail, passwordHash, true]
+            );
+            console.log("--- Default administrator created successfully. ---");
+            console.log(`--- Email: ${defaultAdminEmail} ---`);
+            console.log(`--- Password: ${defaultAdminPassword} ---`);
+        } else {
+            console.log("Admins table is not empty. Skipping seeding.");
+        }
+
+
         await client.query('COMMIT');
         console.log('--- Migration process completed. COMMIT performed. ---');
 
@@ -919,4 +937,5 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
     
 
     
+
 
