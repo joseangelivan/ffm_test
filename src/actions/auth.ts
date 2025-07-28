@@ -30,14 +30,7 @@ async function initializeDatabase(): Promise<Pool> {
     });
 
     try {
-        const client = await newPool.connect();
-        console.log("--- Database connection successful. Starting migration process. ---");
-        
-        await runMigrations(client);
-        
-        client.release();
-        console.log("--- Database client released after migrations. ---");
-
+        await runMigrations(newPool);
         console.log("--- Database migrations completed successfully. ---");
         return newPool;
     } catch (error) {
@@ -53,22 +46,15 @@ export async function getDbPool(): Promise<Pool> {
         return pool;
     }
 
-    if (migrationLock) {
-        await migrationLock;
-        if (!pool) throw new Error("Waited for migration lock, but pool is still not available.");
-        return pool;
-    }
-
-    migrationLock = (async () => {
-        try {
-            const newPool = await initializeDatabase();
+    if (!migrationLock) {
+        migrationLock = initializeDatabase().then(newPool => {
             pool = newPool;
             console.log("--- Database pool has been successfully assigned. ---");
-        } catch (err) {
+        }).catch(err => {
             migrationLock = null; // Clear lock on failure to allow retry
             throw err;
-        }
-    })();
+        });
+    }
 
     await migrationLock;
     
@@ -77,7 +63,8 @@ export async function getDbPool(): Promise<Pool> {
 }
 
 
-async function runMigrations(client: any) {
+async function runMigrations(pool: Pool) {
+    const client = await pool.connect();
     console.log('--- [runMigrations] Starting migration transaction ---');
     try {
         await client.query('BEGIN');
@@ -90,7 +77,8 @@ async function runMigrations(client: any) {
             'condominiums/base_schema.sql',
             'smtp/base_schema.sql',
             'residents/base_schema.sql',
-            'gatekeepers/base_schema.sql'
+            'gatekeepers/base_schema.sql',
+            'entry_control/base_schema.sql'
         ];
         
         console.log("[runMigrations] Applying base schemas...");
@@ -122,7 +110,7 @@ async function runMigrations(client: any) {
         if (adminCheck.rows.length === 0) {
             console.log("[runMigrations] --- Admins table is empty. Seeding default data... ---");
             
-            const seedSqlPath = path.join(sqlBaseDir, 'seed.sql');
+            const seedSqlPath = path.join(sqlBaseDir, 'admins', 'seed.sql');
             try {
                  const seedSqlTemplate = await fs.readFile(seedSqlPath, 'utf-8');
                  
@@ -131,12 +119,12 @@ async function runMigrations(client: any) {
                  // Replace placeholder with the actual hash
                  const finalSeedSql = seedSqlTemplate.replace('{{ADMIN_PASSWORD_HASH}}', passwordHash);
                  
-                 console.log('- [runMigrations] Applying seed from seed.sql...');
+                 console.log('- [runMigrations] Applying seed from admins/seed.sql...');
                  const seedResult = await client.query(finalSeedSql);
                  console.log(`- -> Seed applied. Command: ${seedResult.command}, RowCount: ${seedResult.rowCount}`);
 
             } catch (err: any) {
-                console.error(`[runMigrations] Could not process seed.sql. Error: ${err.message}`);
+                console.error(`[runMigrations] Could not process admins/seed.sql. Error: ${err.message}`);
                 throw err;
             }
             console.log("[runMigrations] --- Default data seeding complete. ---");
@@ -153,6 +141,9 @@ async function runMigrations(client: any) {
          await client.query('ROLLBACK');
          console.log('[runMigrations] ROLLBACK performed.');
          throw error;
+    } finally {
+        client.release();
+        console.log("--- Database client released after migrations. ---");
     }
 }
 
@@ -305,7 +296,12 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
           .setExpirationTime(expirationTime)
           .sign(JWT_SECRET);
         
-        await client.query('DELETE FROM sessions WHERE user_id = $1 AND user_type = $2', [userId, userType]);
+        const sessionsTable = userType === 'admin' ? 'sessions' : 'user_sessions'; // Example logic
+        const userIdCol = userType === 'admin' ? 'user_id' : 'user_id';
+        const userTypeCol = userType === 'admin' ? 'user_type' : 'user_type';
+
+
+        await client.query(`DELETE FROM sessions WHERE user_id = $1 AND user_type = $2`, [userId, userType]);
         await client.query('INSERT INTO sessions (user_id, user_type, token, expires_at) VALUES ($1, $2, $3, $4)', [userId, userType, token, expirationDate]);
 
         if (userType === 'admin') {
@@ -868,4 +864,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         if (client) client.release();
     }
 }
+    
+
     
