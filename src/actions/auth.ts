@@ -92,11 +92,11 @@ async function runMigrations(p: Pool) {
         
         // Define the exact schemas to apply, in order.
         const schemasToApply = [
-            'admins/schema.sql',
-            'condominiums/schema.sql',
-            'smtp/schema.sql',
-            'residents/schema.sql',
-            'gatekeepers/schema.sql'
+            'admins/base_schema.sql',
+            'condominiums/base_schema.sql',
+            'smtp/base_schema.sql',
+            'residents/base_schema.sql',
+            'gatekeepers/base_schema.sql'
         ];
 
         for (const schemaPath of schemasToApply) {
@@ -919,3 +919,4 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
     
 
     
+
