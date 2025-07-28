@@ -85,6 +85,7 @@ async function runMigrations(p: Pool) {
     const client = await p.connect();
     try {
         await client.query('BEGIN');
+        console.log('Transaction started.');
 
         // Step 1: Apply all base schemas from explicit paths.
         console.log("Applying base schemas...");
@@ -105,7 +106,8 @@ async function runMigrations(p: Pool) {
                 const schemaSql = await fs.readFile(fullSchemaPath, 'utf-8');
                 if (schemaSql.trim()) {
                     console.log(`- Applying base schema from '${schemaPath}'...`);
-                    await client.query(schemaSql);
+                    const result = await client.query(schemaSql);
+                    console.log(`- -> Schema '${schemaPath}' applied. Response:`, result.command, result.rowCount);
                 }
             } catch (err: any) {
                 if (err.code === 'ENOENT') {
@@ -119,7 +121,8 @@ async function runMigrations(p: Pool) {
         console.log("--- Base schema application complete. ---");
 
         // Step 2: Ensure the migrations table exists.
-        await client.query(`
+        console.log("Checking for migrations table...");
+        const migrationTableResult = await client.query(`
             CREATE TABLE IF NOT EXISTS schema_migrations (
                 id SERIAL PRIMARY KEY,
                 migration_name VARCHAR(255) NOT NULL UNIQUE,
@@ -127,6 +130,7 @@ async function runMigrations(p: Pool) {
                 sql_script TEXT
             );
         `);
+        console.log('Migrations table checked. Response:', migrationTableResult.command, migrationTableResult.rowCount);
 
         // Step 3: Check for and apply incremental migrations.
         console.log("Checking for incremental migrations...");
@@ -152,14 +156,17 @@ async function runMigrations(p: Pool) {
             if (!fileContent.trim()) continue;
 
             console.log(`--- Applying new incremental migration: ${file} ---`);
-            await client.query(fileContent);
-            await client.query('INSERT INTO schema_migrations (migration_name, sql_script) VALUES ($1, $2)', [file, fileContent]);
-            console.log(`--- Migration '${file}' applied and registered successfully. ---`);
+            const migrationResult = await client.query(fileContent);
+            console.log(`- -> Migration '${file}' applied. Response:`, migrationResult.command, migrationResult.rowCount);
+            const insertResult = await client.query('INSERT INTO schema_migrations (migration_name, sql_script) VALUES ($1, $2)', [file, fileContent]);
+            console.log(`- -> Migration '${file}' registered. Response:`, insertResult.command, insertResult.rowCount);
         }
         
         // --- SEEDING STEP ---
         console.log("Checking if seeding is required...");
         const adminCheck = await client.query('SELECT id FROM admins LIMIT 1');
+        console.log('Admin check response:', adminCheck.command, adminCheck.rowCount);
+
         if (adminCheck.rows.length === 0) {
             console.log("--- Admins table is empty. Seeding default administrator... ---");
             const defaultAdminName = 'José Angel Iván Rubianes Silva';
@@ -172,14 +179,16 @@ async function runMigrations(p: Pool) {
                 'INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, $4) RETURNING id',
                 [defaultAdminName, defaultAdminEmail, passwordHash, true]
             );
+            console.log('Default admin inserted. Response:', adminResult.command, adminResult.rowCount, 'Rows:', adminResult.rows);
 
             const newAdminId = adminResult.rows[0].id;
 
             // Seed the corresponding settings for the new admin
-            await client.query(
+            const settingsResult = await client.query(
                 'INSERT INTO admin_settings (admin_id) VALUES ($1)',
                 [newAdminId]
             );
+            console.log('Default admin settings inserted. Response:', settingsResult.command, settingsResult.rowCount);
 
             console.log("--- Default administrator created successfully. ---");
             console.log(`--- Email: ${defaultAdminEmail} ---`);
@@ -193,12 +202,13 @@ async function runMigrations(p: Pool) {
         console.log('--- Migration process completed. COMMIT performed. ---');
 
     } catch(error) {
+         console.error('Error during migration transaction. Attempting ROLLBACK.', error);
          await client.query('ROLLBACK');
-         console.error('Error during migration transaction. ROLLBACK performed.', error);
+         console.log('ROLLBACK performed.');
          throw error; // Re-throw to be caught by the outer try-catch
     } finally {
         client.release();
-        console.log("--- Database migration process finished. ---")
+        console.log("--- Database client released. Migration process finished. ---")
     }
 }
 
@@ -953,5 +963,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
     
 
       
+
+    
 
     
