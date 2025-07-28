@@ -1414,6 +1414,11 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       fetchCondos();
   }, [fetchCondos]);
 
+  const handleAccountUpdate = () => {
+      setIsAccountDialogOpen(false);
+      router.refresh();
+  };
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
        {isPreparingEdit && <LoadingOverlay text={t('adminDashboard.loadingOverlay.preparingEdit')} />}
@@ -1649,7 +1654,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
         
         {/* Manage Account Dialog */}
         <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
-            <ManageAccountDialog session={session} onUpdate={() => setIsAccountDialogOpen(false)} />
+            <ManageAccountDialog session={session} onUpdate={handleAccountUpdate} />
         </Dialog>
     </div>
   );
