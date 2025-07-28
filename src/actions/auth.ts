@@ -73,7 +73,6 @@ async function runMigrations(pool: Pool) {
         const sqlBaseDir = path.join(process.cwd(), 'src', 'lib', 'sql');
         
         const schemasToApply = [
-            'admins/base_schema.sql',
             'condominiums/base_schema.sql',
             'smtp/base_schema.sql',
             'residents/base_schema.sql',
@@ -102,34 +101,39 @@ async function runMigrations(pool: Pool) {
         }
         console.log("[runMigrations] --- Base schema application complete. ---");
         
-        // --- SEEDING STEP ---
-        console.log("[runMigrations] Checking if seeding is required...");
+        // --- SEEDING STEP for Admins ---
+        console.log("[runMigrations] Checking if admin seeding is required...");
         const adminCheck = await client.query('SELECT id FROM admins LIMIT 1');
         console.log('[runMigrations] Admin check rowCount:', adminCheck.rowCount);
 
         if (adminCheck.rows.length === 0) {
-            console.log("[runMigrations] --- Admins table is empty. Seeding default data... ---");
+            console.log("[runMigrations] --- Admins table is empty. Seeding default admin... ---");
             
-            const seedSqlPath = path.join(sqlBaseDir, 'admins', 'seed.sql');
+            const adminSchemaPath = path.join(sqlBaseDir, 'admins', 'base_schema.sql');
             try {
-                 const seedSqlTemplate = await fs.readFile(seedSqlPath, 'utf-8');
+                 const adminSchemaTemplate = await fs.readFile(adminSchemaPath, 'utf-8');
                  
                  const passwordHash = await bcrypt.hash('adminivan123', 10);
                  
-                 // Replace placeholder with the actual hash
-                 const finalSeedSql = seedSqlTemplate.replace('{{ADMIN_PASSWORD_HASH}}', passwordHash);
+                 const finalAdminSql = adminSchemaTemplate.replace('{{ADMIN_PASSWORD_HASH}}', passwordHash);
                  
-                 console.log('- [runMigrations] Applying seed from admins/seed.sql...');
-                 const seedResult = await client.query(finalSeedSql);
-                 console.log(`- -> Seed applied. Command: ${seedResult.command}, RowCount: ${seedResult.rowCount}`);
+                 console.log('- [runMigrations] Applying schema and seed from admins/base_schema.sql...');
+                 const adminResult = await client.query(finalAdminSql);
+                 console.log(`- -> Admin schema and seed applied. Command: ${adminResult.command}, RowCount: ${adminResult.rowCount}`);
 
             } catch (err: any) {
-                console.error(`[runMigrations] Could not process admins/seed.sql. Error: ${err.message}`);
+                console.error(`[runMigrations] Could not process admins/base_schema.sql. Error: ${err.message}`);
                 throw err;
             }
-            console.log("[runMigrations] --- Default data seeding complete. ---");
+            console.log("[runMigrations] --- Default admin seeding complete. ---");
         } else {
-            console.log("[runMigrations] Admins table is not empty. Skipping seeding.");
+             // If admin exists, still ensure the schema (table structure) is applied without the seeding part.
+            const adminSchemaPath = path.join(sqlBaseDir, 'admins', 'base_schema.sql');
+            const adminSchemaTemplate = await fs.readFile(adminSchemaPath, 'utf-8');
+            // Remove the INSERT part to avoid conflicts
+            const schemaOnlySql = adminSchemaTemplate.split('INSERT INTO')[0];
+            await client.query(schemaOnlySql);
+            console.log("[runMigrations] Admins table is not empty. Ensured schema exists, skipping seeding.");
         }
 
 
