@@ -158,6 +158,25 @@
           "preparingEdit": "Preparando edição...",
           "loading": "Carregando dados...",
           "processing": "Processando..."
+      },
+       "account": {
+        "myAccount": "Minha Conta",
+        "title": "Minha Conta",
+        "description": "Gerencie suas informações pessoais e de segurança.",
+        "profileTab": "Perfil",
+        "securityTab": "Segurança",
+        "profileTitle": "Informações do Perfil",
+        "nameLabel": "Nome",
+        "emailLabel": "Endereço de E-mail",
+        "emailChangeInfo": "Para alterar seu e-mail, será necessário um PIN de verificação.",
+        "pinLabel": "PIN de Verificação",
+        "pinPlaceholder": "PIN de 6 dígitos",
+        "sendPinButton": "Enviar PIN",
+        "pinDescription": "Enviaremos um PIN para o seu novo endereço de e-mail para confirmar a alteração.",
+        "passwordTitle": "Alterar Senha",
+        "currentPasswordLabel": "Senha Atual",
+        "newPasswordLabel": "Nova Senha",
+        "confirmPasswordLabel": "Confirmar Nova Senha"
       }
     },
     "condoDashboard": {
@@ -235,6 +254,8 @@
     },
      "common": {
         "close": "Fechar",
+        "cancel": "Cancelar",
+        "saveChanges": "Salvar Alterações",
         "you": "você"
     },
     "emails": {
@@ -259,3 +280,5 @@
         }
     }
   }
+
+    

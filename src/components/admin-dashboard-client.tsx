@@ -782,39 +782,40 @@ function ManageAccountFields({ session, emailValue, onEmailChange, onSendPin, is
          <div className={cn("relative transition-opacity", pending && "opacity-50")}>
             {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.updating')} />}
             <DialogHeader>
-                <DialogTitle>Mi Cuenta</DialogTitle>
-                <DialogDescription>Gestiona tu información personal y de seguridad.</DialogDescription>
+                <DialogTitle>{t('adminDashboard.account.title')}</DialogTitle>
+                <DialogDescription>{t('adminDashboard.account.description')}</DialogDescription>
             </DialogHeader>
 
             <Tabs defaultValue="profile">
                 <TabsList className="grid w-full grid-cols-2 mt-4">
-                    <TabsTrigger value="profile">Perfil</TabsTrigger>
-                    <TabsTrigger value="security">Seguridad</TabsTrigger>
+                    <TabsTrigger value="profile">{t('adminDashboard.account.profileTab')}</TabsTrigger>
+                    <TabsTrigger value="security">{t('adminDashboard.account.securityTab')}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="profile">
                     <Card>
-                        <CardHeader><CardTitle>Información del Perfil</CardTitle></CardHeader>
+                        <CardHeader><CardTitle>{t('adminDashboard.account.profileTitle')}</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="name">Nombre</Label>
+                                <Label htmlFor="name">{t('adminDashboard.account.nameLabel')}</Label>
                                 <Input id="name" name="name" defaultValue={session.name} required />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="email">Correo Electrónico</Label>
+                                <Label htmlFor="email">{t('adminDashboard.account.emailLabel')}</Label>
                                 <Input id="email" name="email" type="email" value={emailValue} onChange={(e) => onEmailChange(e.target.value)} required />
+                                <p className="text-xs text-muted-foreground">{t('adminDashboard.account.emailChangeInfo')}</p>
                             </div>
                             {isEmailChanged && (
                                 <Card className="p-4 bg-muted/50 border-dashed">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="email_pin">PIN de Verificación</Label>
+                                        <Label htmlFor="email_pin">{t('adminDashboard.account.pinLabel')}</Label>
                                         <div className="flex gap-2">
-                                            <Input id="email_pin" name="email_pin" placeholder="PIN de 6 dígitos" />
+                                            <Input id="email_pin" name="email_pin" placeholder={t('adminDashboard.account.pinPlaceholder')} />
                                             <Button type="button" variant="outline" onClick={onSendPin} disabled={isPinLoading}>
                                                 {isPinLoading ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
-                                                Enviar PIN
+                                                {t('adminDashboard.account.sendPinButton')}
                                             </Button>
                                         </div>
-                                        <p className="text-xs text-muted-foreground">Para cambiar tu correo, enviaremos un PIN a la nueva dirección.</p>
+                                        <p className="text-xs text-muted-foreground">{t('adminDashboard.account.pinDescription')}</p>
                                     </div>
                                 </Card>
                             )}
@@ -823,24 +824,24 @@ function ManageAccountFields({ session, emailValue, onEmailChange, onSendPin, is
                 </TabsContent>
                 <TabsContent value="security">
                      <Card>
-                        <CardHeader><CardTitle>Cambiar Contraseña</CardTitle></CardHeader>
+                        <CardHeader><CardTitle>{t('adminDashboard.account.passwordTitle')}</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
                              <div className="grid gap-2">
-                                <Label htmlFor="current_password">Contraseña Actual</Label>
+                                <Label htmlFor="current_password">{t('adminDashboard.account.currentPasswordLabel')}</Label>
                                 <div className="relative">
                                     <Input id="current_password" name="current_password" type={showPassword ? "text" : "password"} autoComplete="current-password" />
                                     <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(p => !p)}><Eye className="h-4 w-4"/></Button>
                                 </div>
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="new_password">Nueva Contraseña</Label>
+                                <Label htmlFor="new_password">{t('adminDashboard.account.newPasswordLabel')}</Label>
                                  <div className="relative">
                                     <Input id="new_password" name="new_password" type={showNewPassword ? "text" : "password"} autoComplete="new-password"/>
                                     <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowNewPassword(p => !p)}><Eye className="h-4 w-4"/></Button>
                                 </div>
                             </div>
                              <div className="grid gap-2">
-                                <Label htmlFor="confirm_password">Confirmar Nueva Contraseña</Label>
+                                <Label htmlFor="confirm_password">{t('adminDashboard.account.confirmPasswordLabel')}</Label>
                                 <div className="relative">
                                     <Input id="confirm_password" name="confirm_password" type={showConfirmPassword ? "text" : "password"} autoComplete="new-password"/>
                                     <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(p => !p)}><Eye className="h-4 w-4"/></Button>
@@ -860,8 +861,8 @@ function ManageAccountFields({ session, emailValue, onEmailChange, onSendPin, is
             )}
 
             <DialogFooter className="pt-4 mt-4 border-t">
-                <DialogClose asChild><Button type="button" variant="outline" disabled={pending}>Cancelar</Button></DialogClose>
-                <Button type="submit" disabled={pending}>Guardar Cambios</Button>
+                <Button type="button" variant="outline" onClick={onUpdate} disabled={pending}>{t('common.cancel')}</Button>
+                <Button type="submit" disabled={pending}>{t('common.saveChanges')}</Button>
             </DialogFooter>
         </div>
     );
@@ -1068,11 +1069,9 @@ function CondoFormFields({
             </div>
           </div>
           <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" type="button" disabled={isFormPending}>
-                {t('adminDashboard.newCondoDialog.cancel')}
-              </Button>
-            </DialogClose>
+            <Button variant="outline" type="button" onClick={() => (document.querySelector('[data-radix-dialog-close]') as HTMLElement)?.click()} disabled={isFormPending}>
+              {t('adminDashboard.newCondoDialog.cancel')}
+            </Button>
             <Button type="submit" disabled={isFormPending}>
               {isEditMode
                 ? t('adminDashboard.editCondoDialog.save')
@@ -1442,7 +1441,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                 <DropdownMenuSeparator />
                  <DropdownMenuItem onSelect={() => setIsAccountDialogOpen(true)}>
                     <User className="mr-2 h-4 w-4" />
-                    <span>Mi Cuenta</span>
+                    <span>{t('adminDashboard.account.myAccount')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
@@ -1654,3 +1653,5 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
+
+    
