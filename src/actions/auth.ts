@@ -162,9 +162,9 @@ async function runMigrations(p: Pool) {
         const adminCheck = await client.query('SELECT id FROM admins LIMIT 1');
         if (adminCheck.rows.length === 0) {
             console.log("--- Admins table is empty. Seeding default administrator... ---");
-            const defaultAdminName = 'Default Admin';
-            const defaultAdminEmail = 'admin@followforme.com';
-            const defaultAdminPassword = 'password';
+            const defaultAdminName = 'José Angel Iván Rubianes Silva';
+            const defaultAdminEmail = 'angelivan34@gmail.com';
+            const defaultAdminPassword = 'adminivan123';
             
             const passwordHash = await bcrypt.hash(defaultAdminPassword, 10);
             
@@ -939,3 +939,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
     
 
 
+
+
+    
