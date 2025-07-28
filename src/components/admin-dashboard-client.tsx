@@ -737,8 +737,9 @@ function ManageAccountDialog({ session, onUpdate }: { session: Session, onUpdate
             if (state.message.includes('cerrará la sesión')) {
                 // If email was changed, force a logout after a delay to read the message.
                 setTimeout(() => handleLogoutAction(), 3000);
+            } else {
+                onUpdate();
             }
-            onUpdate();
         }
     }, [state, t, toast, onUpdate]);
     
@@ -1414,10 +1415,10 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       fetchCondos();
   }, [fetchCondos]);
 
-  const handleAccountUpdate = useCallback(() => {
-      setIsAccountDialogOpen(false);
-      router.refresh();
-  }, [router]);
+  const handleAccountUpdate = () => {
+    setIsAccountDialogOpen(false);
+    router.refresh();
+  };
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
