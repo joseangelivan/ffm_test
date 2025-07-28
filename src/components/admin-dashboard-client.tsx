@@ -92,7 +92,7 @@ import { useLocale } from '@/lib/i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { handleLogoutAction, getSettings, updateSettings, createAdmin, getAdmins, updateAdmin, deleteAdmin, sendAdminCredentialsEmail, sendEmailChangePin, updateAdminAccount, type Admin } from '@/actions/auth';
+import { handleLogoutAction, getSettings, updateSettings, createAdmin, getAdmins, updateAdmin, deleteAdmin, sendAdminCredentialsEmail, sendEmailChangePin, updateAdminAccount, verifyAdminEmailChangePin, type Admin } from '@/actions/auth';
 import { createCondominio, getCondominios, updateCondominio, deleteCondominio, type Condominio } from '@/actions/condos';
 import { createSmtpConfiguration, getSmtpConfigurations, updateSmtpConfiguration, deleteSmtpConfiguration, updateSmtpOrder, testSmtpConfiguration, type SmtpConfiguration } from '@/actions/smtp';
 import { geocodeAddress, type GeocodeResult } from '@/actions/geocoding';
@@ -725,8 +725,6 @@ function ManageAccountDialog({ session, onUpdate }: { session: Session, onUpdate
     const { t } = useLocale();
     const { toast } = useToast();
     const [state, formAction] = useActionState(updateAdminAccount, undefined);
-    const [isPinLoading, startPinTransition] = useTransition();
-    const [emailValue, setEmailValue] = useState(session.email);
     
     useEffect(() => {
         if (state?.success === false) {
@@ -735,50 +733,68 @@ function ManageAccountDialog({ session, onUpdate }: { session: Session, onUpdate
         if (state?.success === true) {
             toast({ title: t('toast.successTitle'), description: state.message });
             if (state.message.includes('cerrará la sesión')) {
-                // If email was changed, force a logout after a delay to read the message.
                 setTimeout(() => handleLogoutAction(), 3000);
             } else {
                 onUpdate();
             }
         }
     }, [state, t, toast, onUpdate]);
-    
-    const handleSendPin = () => {
-        startPinTransition(async () => {
-            const result = await sendEmailChangePin(emailValue);
-            if (result.success) {
-                toast({ title: t('toast.successTitle'), description: result.message });
-            } else {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
-            }
-        });
-    };
 
     return (
         <DialogContent className="sm:max-w-md">
             <form action={formAction}>
-                 <ManageAccountFields
-                    session={session}
-                    emailValue={emailValue}
-                    onEmailChange={setEmailValue}
-                    onSendPin={handleSendPin}
-                    isPinLoading={isPinLoading}
-                    formState={state}
-                    onCancel={onUpdate}
-                />
+                 <ManageAccountFields session={session} onCancel={onUpdate} />
             </form>
         </DialogContent>
     );
 }
 
-function ManageAccountFields({ session, emailValue, onEmailChange, onSendPin, isPinLoading, formState, onCancel }: { session: Session, emailValue: string, onEmailChange: (v:string) => void, onSendPin: () => void, isPinLoading: boolean, formState: any, onCancel: () => void }) {
+function ManageAccountFields({ session, onCancel }: { session: Session, onCancel: () => void }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
     const [showPassword, setShowPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     
+    const [emailValue, setEmailValue] = useState(session.email);
+    const [pinValue, setPinValue] = useState('');
     const isEmailChanged = emailValue !== session.email;
+
+    const [isPinLoading, startPinTransition] = useTransition();
+    const [pinVerificationState, setPinVerificationState] = useState<{ status: 'idle' | 'verified' | 'error', message: string }>({ status: 'idle', message: t('adminDashboard.account.pinValidation.initial') });
+
+    const handleSendPin = () => {
+        startPinTransition(async () => {
+            const result = await sendEmailChangePin(emailValue);
+            if (result.success) {
+                toast({ title: t('toast.successTitle'), description: result.message });
+                setPinVerificationState({ status: 'idle', message: t('adminDashboard.account.pinValidation.sent') });
+            } else {
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            }
+        });
+    };
+    
+    const handleVerifyPin = () => {
+        startPinTransition(async () => {
+            const result = await verifyAdminEmailChangePin(emailValue, pinValue);
+             if (result.success) {
+                setPinVerificationState({ status: 'verified', message: t('adminDashboard.account.pinValidation.success') });
+            } else {
+                setPinVerificationState({ status: 'error', message: result.message });
+            }
+        });
+    };
+    
+    useEffect(() => {
+        // Reset PIN verification state if the email is changed back to original
+        if (!isEmailChanged) {
+             setPinVerificationState({ status: 'idle', message: t('adminDashboard.account.pinValidation.initial') });
+             setPinValue('');
+        }
+    }, [isEmailChanged, t]);
+
+    const isSaveChangesDisabled = pending || (isEmailChanged && pinVerificationState.status !== 'verified');
     
     return (
          <div className={cn("relative transition-opacity", pending && "opacity-50")}>
@@ -793,7 +809,7 @@ function ManageAccountFields({ session, emailValue, onEmailChange, onSendPin, is
                     <TabsTrigger value="profile">{t('adminDashboard.account.profileTab')}</TabsTrigger>
                     <TabsTrigger value="security">{t('adminDashboard.account.securityTab')}</TabsTrigger>
                 </TabsList>
-                <TabsContent value="profile">
+                <TabsContent value="profile" className="space-y-4">
                     <Card>
                         <CardHeader><CardTitle>{t('adminDashboard.account.profileTitle')}</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
@@ -803,26 +819,38 @@ function ManageAccountFields({ session, emailValue, onEmailChange, onSendPin, is
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="email">{t('adminDashboard.account.emailLabel')}</Label>
-                                <Input id="email" name="email" type="email" value={emailValue} onChange={(e) => onEmailChange(e.target.value)} required />
-                                <p className="text-xs text-muted-foreground">{t('adminDashboard.account.emailChangeInfo')}</p>
+                                <Input id="email" name="email" type="email" value={emailValue} onChange={(e) => setEmailValue(e.target.value)} required />
                             </div>
-                            {isEmailChanged && (
-                                <Card className="p-4 bg-muted/50 border-dashed">
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="email_pin">{t('adminDashboard.account.pinLabel')}</Label>
-                                        <div className="flex gap-2">
-                                            <Input id="email_pin" name="email_pin" placeholder={t('adminDashboard.account.pinPlaceholder')} />
-                                            <Button type="button" variant="outline" onClick={onSendPin} disabled={isPinLoading}>
-                                                {isPinLoading ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
-                                                {t('adminDashboard.account.sendPinButton')}
-                                            </Button>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">{t('adminDashboard.account.pinDescription')}</p>
-                                    </div>
-                                </Card>
-                            )}
                         </CardContent>
                     </Card>
+                    {isEmailChanged && (
+                        <Card className="p-4 bg-muted/50 border-dashed">
+                            <CardHeader className="p-0 pb-4">
+                                <CardTitle className="text-base">{t('adminDashboard.account.pinVerificationTitle')}</CardTitle>
+                                <CardDescription className="text-xs">{t('adminDashboard.account.pinVerificationDescription')}</CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-0 space-y-4">
+                                <div className="flex gap-2">
+                                    <Input id="email_pin" name="email_pin" placeholder={t('adminDashboard.account.pinPlaceholder')} value={pinValue} onChange={e => setPinValue(e.target.value)} />
+                                    <Button type="button" variant="outline" onClick={handleSendPin} disabled={isPinLoading}>
+                                        {isPinLoading && pinVerificationState.status === 'idle' ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
+                                        {t('adminDashboard.account.sendPinButton')}
+                                    </Button>
+                                </div>
+                                <Button type="button" className="w-full" onClick={handleVerifyPin} disabled={!pinValue || isPinLoading}>
+                                    {isPinLoading && pinVerificationState.status !== 'idle' ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <KeyRound className="mr-2 h-4 w-4"/>}
+                                    {t('adminDashboard.account.verifyPinButton')}
+                                </Button>
+                                <div className={cn("text-sm text-center p-2 rounded-md", 
+                                    pinVerificationState.status === 'idle' && 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200',
+                                    pinVerificationState.status === 'verified' && 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200',
+                                    pinVerificationState.status === 'error' && 'bg-destructive/10 text-destructive'
+                                )}>
+                                    {pinVerificationState.message}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
                 </TabsContent>
                 <TabsContent value="security">
                      <Card>
@@ -854,17 +882,9 @@ function ManageAccountFields({ session, emailValue, onEmailChange, onSendPin, is
                 </TabsContent>
             </Tabs>
             
-            {formState?.success === false && (
-                <Alert variant="destructive" className="mt-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-                    <AlertDescription isCopyable={true}>{formState.message}</AlertDescription>
-                </Alert>
-            )}
-
             <DialogFooter className="pt-4 mt-4 border-t">
                 <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
-                <Button type="submit" disabled={pending}>{t('common.saveChanges')}</Button>
+                <Button type="submit" disabled={isSaveChangesDisabled}>{t('common.saveChanges')}</Button>
             </DialogFooter>
         </div>
     );
@@ -1299,8 +1319,8 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
         toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
     }
     setLoading(false);
-  }, [t, toast]);
-
+  }, [toast, t]);
+  
   useEffect(() => {
     fetchCondos();
   }, [fetchCondos]);
@@ -1408,12 +1428,12 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     router.push(`/admin/condominio/${condoId}`);
   };
 
-  const handleCondoFormSuccess = useCallback(() => {
+  const handleCondoFormSuccess = () => {
       setIsNewCondoDialogOpen(false);
       setIsEditCondoDialogOpen(false);
       setEditingCondoData(null);
       fetchCondos();
-  }, [fetchCondos]);
+  };
 
   const handleAccountUpdate = () => {
     setIsAccountDialogOpen(false);

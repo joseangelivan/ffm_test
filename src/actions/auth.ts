@@ -20,54 +20,11 @@ import pt from '@/locales/pt.json';
 let pool: Pool | undefined;
 let migrationLock: Promise<void> | null = null;
 
-async function initializeDatabase(): Promise<Pool> {
-    console.log("--- Attempting to initialize database pool and run migrations ---");
-    const newPool = new Pool({
-        connectionString: 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway',
-        ssl: {
-            rejectUnauthorized: false,
-        },
-    });
-
-    try {
-        await runMigrations(newPool);
-        console.log("--- Database migrations completed successfully. ---");
-        return newPool;
-    } catch (error) {
-        console.error("CRITICAL: Failed during database initialization or migration.", error);
-        await newPool.end();
-        throw new Error("Database initialization failed.");
-    }
-}
-
-
-export async function getDbPool(): Promise<Pool> {
-    if (pool) {
-        return pool;
-    }
-
-    if (!migrationLock) {
-        migrationLock = initializeDatabase().then(newPool => {
-            pool = newPool;
-            console.log("--- Database pool has been successfully assigned. ---");
-        }).catch(err => {
-            migrationLock = null; // Clear lock on failure to allow retry
-            throw err;
-        });
-    }
-
-    await migrationLock;
-    
-    if (!pool) throw new Error("Database pool initialization did not complete as expected.");
-    return pool;
-}
-
-
-async function runMigrations(pool: Pool) {
-    const client = await pool.connect();
+async function runMigrations(client: Pool) {
     console.log('--- [runMigrations] Starting migration transaction ---');
+    const dbClient = await client.connect();
     try {
-        await client.query('BEGIN');
+        await dbClient.query('BEGIN');
         console.log('[runMigrations] Transaction started.');
 
         const sqlBaseDir = path.join(process.cwd(), 'src', 'lib', 'sql');
@@ -86,13 +43,35 @@ async function runMigrations(pool: Pool) {
         for (const schemaPath of schemasToApply) {
             const fullSchemaPath = path.join(sqlBaseDir, schemaPath);
             try {
-                const schemaSql = await fs.readFile(fullSchemaPath, 'utf-8');
+                let schemaSql = await fs.readFile(fullSchemaPath, 'utf-8');
                 if (schemaSql.trim()) {
                     console.log(`- [runMigrations] Applying schema from '${schemaPath}'...`);
-                    // We don't execute the admin schema directly here because it might contain the seed placeholder
-                    if (schemaPath !== 'admins/base_schema.sql') {
-                       const result = await client.query(schemaSql);
-                       console.log(`- -> Schema '${schemaPath}' applied. Command: ${result.command}, RowCount: ${result.rowCount}`);
+                    
+                    if (schemaPath === 'admins/base_schema.sql') {
+                         // Check if admin exists before attempting to seed to avoid errors on conflict
+                        const adminCheck = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
+                        if (adminCheck.rows.length === 0) {
+                            console.log("[runMigrations] --- Default admin not found. Seeding... ---");
+                            const passwordHash = await bcrypt.hash('adminivan123', 10);
+                            schemaSql = schemaSql.replace('{{ADMIN_PASSWORD_HASH}}', passwordHash);
+                        } else {
+                            console.log("[runMigrations] Default admin already exists. Skipping seed part of the query.");
+                            // If admin exists, remove the INSERT statement to avoid errors
+                            schemaSql = schemaSql.split('INSERT INTO')[0];
+                        }
+                    }
+
+                    const result = await dbClient.query(schemaSql);
+                    console.log(`- -> Schema '${schemaPath}' applied. Command: ${result.command}, RowCount: ${result.rowCount}`);
+
+                    // After seeding admin, ensure their settings are created
+                    if (schemaPath === 'admins/base_schema.sql') {
+                         const newAdmin = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
+                         if (newAdmin.rows.length > 0) {
+                             const adminId = newAdmin.rows[0].id;
+                             await dbClient.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING', [adminId]);
+                             console.log(`- -> Settings checked/created for default admin.`);
+                         }
                     }
                 }
             } catch (err: any) {
@@ -105,66 +84,53 @@ async function runMigrations(pool: Pool) {
             }
         }
         console.log("[runMigrations] --- Base schema application complete. ---");
-        
-        // --- SEEDING STEP for Admins ---
-        // This process is now idempotent and safe to run every time.
-        // It handles creation of table, seeding the first user, and ensuring settings exist.
-        console.log("[runMigrations] Checking and applying admin schema and seed...");
-        const adminSchemaPath = path.join(sqlBaseDir, 'admins', 'base_schema.sql');
-        try {
-             const adminSchemaTemplate = await fs.readFile(adminSchemaPath, 'utf-8');
-             
-             // First, apply the schema part only (without the INSERT) to ensure the table exists.
-             // This is safe to run even if the table is already there.
-             const schemaOnlySql = adminSchemaTemplate.split('INSERT INTO')[0];
-             const schemaResult = await client.query(schemaOnlySql);
-             console.log(`- [runMigrations] Admin table schema ensured. Command: ${schemaResult.command}`);
 
-             // Now, check if an admin needs to be seeded.
-             const adminCheck = await client.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
-             if (adminCheck.rows.length === 0) {
-                 console.log("[runMigrations] --- Default admin not found. Seeding... ---");
-                 
-                 // Generate the password hash using bcrypt
-                 const passwordHash = await bcrypt.hash('adminivan123', 10);
-                 
-                 // Replace the placeholder in the template with the real hash
-                 const finalAdminSql = adminSchemaTemplate.replace('{{ADMIN_PASSWORD_HASH}}', passwordHash);
-                 
-                 // Extract only the INSERT statement
-                 const insertStatement = finalAdminSql.substring(finalAdminSql.indexOf('INSERT INTO'));
-
-                 const adminResult = await client.query(insertStatement);
-                 console.log(`- -> Default admin seeded. Command: ${adminResult.command}, RowCount: ${adminResult.rowCount}`);
-
-                 // IMPORTANT: Create settings for the newly created admin
-                 const newAdmin = await client.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
-                 if (newAdmin.rows.length > 0) {
-                     const adminId = newAdmin.rows[0].id;
-                     await client.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING', [adminId]);
-                     console.log(`- -> Settings created for default admin.`);
-                 }
-             } else {
-                 console.log("[runMigrations] Default admin already exists. Skipping seed.");
-             }
-
-        } catch (err: any) {
-            console.error(`[runMigrations] Could not process admins/base_schema.sql. Error: ${err.message}`);
-            throw err;
-        }
-
-        await client.query('COMMIT');
+        await dbClient.query('COMMIT');
         console.log('[runMigrations] --- Migration process completed. COMMIT performed. ---');
 
     } catch(error) {
          console.error('[runMigrations] Error during migration transaction. Attempting ROLLBACK.', error);
-         await client.query('ROLLBACK');
+         await dbClient.query('ROLLBACK');
          console.log('[runMigrations] ROLLBACK performed.');
          throw error;
     } finally {
-        client.release();
+        dbClient.release();
         console.log("--- Database client released after migrations. ---");
     }
+}
+
+export async function getDbPool(): Promise<Pool> {
+    if (pool) {
+        return pool;
+    }
+
+    if (!migrationLock) {
+        migrationLock = (async () => {
+            try {
+                console.log("--- Attempting to initialize database pool and run migrations ---");
+                const newPool = new Pool({
+                    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway',
+                });
+
+                await newPool.query('SELECT NOW()');
+                console.log("--- Database connection successful. Running migrations... ---");
+
+                await runMigrations(newPool);
+                
+                pool = newPool;
+                console.log("--- Database pool has been successfully assigned. ---");
+            } catch (error) {
+                console.error("CRITICAL: Failed during database initialization or migration.", error);
+                migrationLock = null; // Clear lock on failure to allow retry
+                throw new Error("Database initialization failed.");
+            }
+        })();
+    }
+
+    await migrationLock;
+    
+    if (!pool) throw new Error("Database pool initialization did not complete as expected.");
+    return pool;
 }
 
 
@@ -743,7 +709,7 @@ export async function sendEmailChangePin(newEmail: string): Promise<ActionState>
         const pool = await getDbPool();
         client = await pool.connect();
 
-        const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1', [newEmail]);
+        const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1 AND id != $2', [newEmail, session.id]);
         if (existingAdmin.rows.length > 0) {
             return { success: false, message: 'Este correo electrónico ya está en uso.' };
         }
@@ -780,6 +746,43 @@ export async function sendEmailChangePin(newEmail: string): Promise<ActionState>
     }
 }
 
+export async function verifyAdminEmailChangePin(newEmail: string, pin: string): Promise<ActionState> {
+    const session = await getCurrentSession();
+    if (!session || session.type !== 'admin') {
+        return { success: false, message: "No autorizado." };
+    }
+
+    if (!newEmail || !pin) {
+        return { success: false, message: "Faltan el correo electrónico o el PIN." };
+    }
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        
+        const pinResult = await client.query(
+            'SELECT * FROM admin_verification_pins WHERE admin_id = $1 AND email = $2 AND pin = $3 AND expires_at > NOW()',
+            [session.id, newEmail, pin]
+        );
+
+        if (pinResult.rows.length === 0) {
+            return { success: false, message: "PIN inválido o expirado." };
+        }
+        
+        // The PIN is valid, but we don't change the email here. We just confirm validity.
+        // We can, however, delete the pin now to prevent reuse.
+        await client.query('DELETE FROM admin_verification_pins WHERE admin_id = $1', [session.id]);
+
+        return { success: true, message: "PIN verificado con éxito." };
+    } catch (error) {
+        console.error("Error verifying email change PIN:", error);
+        return { success: false, message: "Error del servidor." };
+    } finally {
+        if (client) client.release();
+    }
+}
+
 export async function updateAdminAccount(prevState: any, formData: FormData): Promise<ActionState> {
     const session = await getCurrentSession();
     if (!session || session.type !== 'admin') {
@@ -799,7 +802,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
 
         const name = formData.get('name') as string;
         const email = formData.get('email') as string;
-        const emailPin = formData.get('email_pin') as string;
         
         const updateClauses = [];
         const values = [];
@@ -811,19 +813,8 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         }
 
         if (email && email !== currentAdmin.email) {
-            if (!emailPin) {
-                return { success: false, message: "Se requiere un PIN para cambiar el correo electrónico." };
-            }
-
-            const pinResult = await client.query(
-                'SELECT * FROM admin_verification_pins WHERE admin_id = $1 AND email = $2 AND pin = $3 AND expires_at > NOW()',
-                [session.id, email, emailPin]
-            );
-
-            if (pinResult.rows.length === 0) {
-                return { success: false, message: "PIN inválido o expirado." };
-            }
-            
+            // The verification of the PIN should have happened on the client side before this action is called.
+            // We just check if another user already has the new email.
             const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1 AND id != $2', [email, session.id]);
             if (existingAdmin.rows.length > 0) {
                 return { success: false, message: 'El nuevo correo electrónico ya está en uso.' };
@@ -831,8 +822,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
 
             updateClauses.push(`email = $${valueIndex++}`);
             values.push(email);
-
-            await client.query('DELETE FROM admin_verification_pins WHERE admin_id = $1', [session.id]);
         }
         
         if (updateClauses.length > 0) {
@@ -891,4 +880,3 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
     
 
     
-
