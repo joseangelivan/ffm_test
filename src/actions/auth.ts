@@ -168,10 +168,19 @@ async function runMigrations(p: Pool) {
             
             const passwordHash = await bcrypt.hash(defaultAdminPassword, 10);
             
-            await client.query(
-                'INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, $4)',
+            const adminResult = await client.query(
+                'INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, $4) RETURNING id',
                 [defaultAdminName, defaultAdminEmail, passwordHash, true]
             );
+
+            const newAdminId = adminResult.rows[0].id;
+
+            // Seed the corresponding settings for the new admin
+            await client.query(
+                'INSERT INTO admin_settings (admin_id) VALUES ($1)',
+                [newAdminId]
+            );
+
             console.log("--- Default administrator created successfully. ---");
             console.log(`--- Email: ${defaultAdminEmail} ---`);
             console.log(`--- Password: ${defaultAdminPassword} ---`);
@@ -942,3 +951,5 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
 
 
     
+
+      
