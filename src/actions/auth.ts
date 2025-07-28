@@ -153,21 +153,6 @@ async function runMigrations(pool: Pool) {
             throw err;
         }
 
-        // --- SEEDING STEP for Condominiums (Test Data) ---
-        console.log("[runMigrations] Checking and seeding test condominium...");
-        const condoCheck = await client.query("SELECT id FROM condominiums WHERE name = 'Residencial Jardins'");
-        if (condoCheck.rows.length === 0) {
-            console.log("[runMigrations] --- Test condo not found. Seeding... ---");
-            const condoResult = await client.query(
-                `INSERT INTO condominiums (name, continent, country, state, city, street, number) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                ['Residencial Jardins', 'Americas', 'Brazil', 'Sao Paulo', 'Sao Paulo', 'Av. Paulista', '1000']
-            );
-            console.log(`- -> Test condo seeded. Command: ${condoResult.command}, RowCount: ${condoResult.rowCount}`);
-        } else {
-            console.log("[runMigrations] Test condo already exists. Skipping seed.");
-        }
-
-
         await client.query('COMMIT');
         console.log('[runMigrations] --- Migration process completed. COMMIT performed. ---');
 
@@ -906,3 +891,4 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
     
 
     
+
