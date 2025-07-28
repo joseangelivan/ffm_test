@@ -92,11 +92,11 @@ async function runMigrations(p: Pool) {
         
         // Define the exact schemas to apply, in order.
         const schemasToApply = [
-            'admins/base_schema.sql',
-            'condominiums/base_schema.sql',
-            'smtp/base_schema.sql',
-            'residents/base_schema.sql',
-            'gatekeepers/base_schema.sql'
+            'admins/schema.sql',
+            'condominiums/schema.sql',
+            'smtp/schema.sql',
+            'residents/schema.sql',
+            'gatekeepers/schema.sql'
         ];
 
         for (const schemaPath of schemasToApply) {
@@ -767,17 +767,22 @@ export async function sendEmailChangePin(newEmail: string): Promise<ActionState>
             'INSERT INTO admin_verification_pins (admin_id, pin, email, expires_at) VALUES ($1, $2, $3, $4) ON CONFLICT (admin_id) DO UPDATE SET pin = $2, email = $3, expires_at = $4',
             [session.id, pin, newEmail, expiresAt]
         );
-
+        
+        const settingsResult = await client.query('SELECT language FROM admin_settings WHERE admin_id = $1', [session.id]);
+        const locale = settingsResult.rows[0]?.language === 'es' ? 'es' : 'pt';
+        const t = locale === 'es' ? es : pt;
+        
         const emailHtml = `
-            <h1>Verifica tu nuevo correo electrónico</h1>
-            <p>Hola ${session.name},</p>
-            <p>Has solicitado cambiar tu correo electrónico en Follow For Me a esta dirección.</p>
-            <p>Para confirmar el cambio, usa el siguiente PIN de verificación:</p>
+            <h1>${t.emails.verifyNewEmail.title}</h1>
+            <p>${t.emails.verifyNewEmail.hello}, ${session.name},</p>
+            <p>${t.emails.verifyNewEmail.intro}</p>
+            <p>${t.emails.verifyNewEmail.pinPrompt}</p>
             <h2>${pin}</h2>
-            <p>Este PIN expirará en 10 minutos.</p>
+            <p>${t.emails.verifyNewEmail.expiration}</p>
+            <p>${t.emails.verifyNewEmail.thanks}</p>
         `;
 
-        return await sendEmail(newEmail, 'Tu PIN de Verificación de Follow For Me', emailHtml);
+        return await sendEmail(newEmail, t.emails.verifyNewEmail.subject, emailHtml);
 
     } catch (error) {
         console.error("Error sending verification PIN:", error);

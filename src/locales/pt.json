@@ -247,6 +247,15 @@
             "changePasswordPrompt": "Será solicitado que você altere esta senha no primeiro login.",
             "thanks": "Obrigado,",
             "teamName": "A Equipe Follow For Me"
+        },
+        "verifyNewEmail": {
+            "subject": "Seu PIN de Verificação da Follow For Me",
+            "title": "Verifique seu novo e-mail",
+            "hello": "Olá",
+            "intro": "Você solicitou a alteração do seu e-mail na Follow For Me para este endereço.",
+            "pinPrompt": "Para confirmar a alteração, use o seguinte PIN de verificação:",
+            "expiration": "Este PIN expirará em 10 minutos.",
+            "thanks": "A Equipe Follow For Me"
         }
     }
   }
