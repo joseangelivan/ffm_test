@@ -36,7 +36,8 @@ async function runMigrations(client: Pool) {
             'smtp/base_schema.sql',
             'residents/base_schema.sql',
             'gatekeepers/base_schema.sql',
-            'entry_control/base_schema.sql'
+            'entry_control/base_schema.sql',
+            'admin_verification_pins/base_schema.sql'
         ];
         
         console.log("[runMigrations] Applying base schemas...");
@@ -880,3 +881,4 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
     
 
     
+
