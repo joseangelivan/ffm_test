@@ -72,7 +72,9 @@ async function runMigrations(pool: Pool) {
 
         const sqlBaseDir = path.join(process.cwd(), 'src', 'lib', 'sql');
         
+        // --- Apply all base table schemas ---
         const schemasToApply = [
+            'admins/base_schema.sql',
             'condominiums/base_schema.sql',
             'smtp/base_schema.sql',
             'residents/base_schema.sql',
@@ -87,8 +89,11 @@ async function runMigrations(pool: Pool) {
                 const schemaSql = await fs.readFile(fullSchemaPath, 'utf-8');
                 if (schemaSql.trim()) {
                     console.log(`- [runMigrations] Applying schema from '${schemaPath}'...`);
-                    const result = await client.query(schemaSql);
-                    console.log(`- -> Schema '${schemaPath}' applied. Command: ${result.command}, RowCount: ${result.rowCount}`);
+                    // We don't execute the admin schema directly here because it might contain the seed placeholder
+                    if (schemaPath !== 'admins/base_schema.sql') {
+                       const result = await client.query(schemaSql);
+                       console.log(`- -> Schema '${schemaPath}' applied. Command: ${result.command}, RowCount: ${result.rowCount}`);
+                    }
                 }
             } catch (err: any) {
                 if (err.code === 'ENOENT') {
@@ -102,38 +107,50 @@ async function runMigrations(pool: Pool) {
         console.log("[runMigrations] --- Base schema application complete. ---");
         
         // --- SEEDING STEP for Admins ---
-        console.log("[runMigrations] Checking if admin seeding is required...");
-        const adminCheck = await client.query('SELECT id FROM admins LIMIT 1');
-        console.log('[runMigrations] Admin check rowCount:', adminCheck.rowCount);
+        // This process is now idempotent and safe to run every time.
+        // It handles creation of table, seeding the first user, and ensuring settings exist.
+        console.log("[runMigrations] Checking and applying admin schema and seed...");
+        const adminSchemaPath = path.join(sqlBaseDir, 'admins', 'base_schema.sql');
+        try {
+             const adminSchemaTemplate = await fs.readFile(adminSchemaPath, 'utf-8');
+             
+             // First, apply the schema part only (without the INSERT) to ensure the table exists.
+             // This is safe to run even if the table is already there.
+             const schemaOnlySql = adminSchemaTemplate.split('INSERT INTO')[0];
+             const schemaResult = await client.query(schemaOnlySql);
+             console.log(`- [runMigrations] Admin table schema ensured. Command: ${schemaResult.command}`);
 
-        if (adminCheck.rows.length === 0) {
-            console.log("[runMigrations] --- Admins table is empty. Seeding default admin... ---");
-            
-            const adminSchemaPath = path.join(sqlBaseDir, 'admins', 'base_schema.sql');
-            try {
-                 const adminSchemaTemplate = await fs.readFile(adminSchemaPath, 'utf-8');
+             // Now, check if an admin needs to be seeded.
+             const adminCheck = await client.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
+             if (adminCheck.rows.length === 0) {
+                 console.log("[runMigrations] --- Default admin not found. Seeding... ---");
                  
+                 // Generate the password hash using bcrypt
                  const passwordHash = await bcrypt.hash('adminivan123', 10);
                  
+                 // Replace the placeholder in the template with the real hash
                  const finalAdminSql = adminSchemaTemplate.replace('{{ADMIN_PASSWORD_HASH}}', passwordHash);
                  
-                 console.log('- [runMigrations] Applying schema and seed from admins/base_schema.sql...');
-                 const adminResult = await client.query(finalAdminSql);
-                 console.log(`- -> Admin schema and seed applied. Command: ${adminResult.command}, RowCount: ${adminResult.rowCount}`);
+                 // Extract only the INSERT statement
+                 const insertStatement = finalAdminSql.substring(finalAdminSql.indexOf('INSERT INTO'));
 
-            } catch (err: any) {
-                console.error(`[runMigrations] Could not process admins/base_schema.sql. Error: ${err.message}`);
-                throw err;
-            }
-            console.log("[runMigrations] --- Default admin seeding complete. ---");
-        } else {
-             // If admin exists, still ensure the schema (table structure) is applied without the seeding part.
-            const adminSchemaPath = path.join(sqlBaseDir, 'admins', 'base_schema.sql');
-            const adminSchemaTemplate = await fs.readFile(adminSchemaPath, 'utf-8');
-            // Remove the INSERT part to avoid conflicts
-            const schemaOnlySql = adminSchemaTemplate.split('INSERT INTO')[0];
-            await client.query(schemaOnlySql);
-            console.log("[runMigrations] Admins table is not empty. Ensured schema exists, skipping seeding.");
+                 const adminResult = await client.query(insertStatement);
+                 console.log(`- -> Default admin seeded. Command: ${adminResult.command}, RowCount: ${adminResult.rowCount}`);
+
+                 // IMPORTANT: Create settings for the newly created admin
+                 const newAdmin = await client.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
+                 if (newAdmin.rows.length > 0) {
+                     const adminId = newAdmin.rows[0].id;
+                     await client.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING', [adminId]);
+                     console.log(`- -> Settings created for default admin.`);
+                 }
+             } else {
+                 console.log("[runMigrations] Default admin already exists. Skipping seed.");
+             }
+
+        } catch (err: any) {
+            console.error(`[runMigrations] Could not process admins/base_schema.sql. Error: ${err.message}`);
+            throw err;
         }
 
 
@@ -868,6 +885,8 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         if (client) client.release();
     }
 }
+    
+
     
 
     
