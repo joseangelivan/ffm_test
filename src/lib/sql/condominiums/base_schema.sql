@@ -16,5 +16,5 @@ CREATE TABLE IF NOT EXISTS condominiums (
 
 -- Seed a test condominium if it doesn't exist
 INSERT INTO condominiums (name, continent, country, state, city, street, number)
-VALUES ('Residencial Jardins', 'Americas', 'Brazil', 'Sao Paulo', 'Sao Paulo', 'Av. Paulista', '1000')
+VALUES ('Residencial Jardins', 'Americas', 'Brazil', 'São Paulo', 'São Paulo', 'Av. Paulista', '1000')
 ON CONFLICT (name) DO NOTHING;

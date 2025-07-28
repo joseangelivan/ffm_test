@@ -763,13 +763,14 @@ function ManageAccountDialog({ session, onUpdate }: { session: Session, onUpdate
                     onSendPin={handleSendPin}
                     isPinLoading={isPinLoading}
                     formState={state}
+                    onCancel={onUpdate}
                 />
             </form>
         </DialogContent>
     );
 }
 
-function ManageAccountFields({ session, emailValue, onEmailChange, onSendPin, isPinLoading, formState }: { session: Session, emailValue: string, onEmailChange: (v:string) => void, onSendPin: () => void, isPinLoading: boolean, formState: any }) {
+function ManageAccountFields({ session, emailValue, onEmailChange, onSendPin, isPinLoading, formState, onCancel }: { session: Session, emailValue: string, onEmailChange: (v:string) => void, onSendPin: () => void, isPinLoading: boolean, formState: any, onCancel: () => void }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
     const [showPassword, setShowPassword] = useState(false);
@@ -861,7 +862,7 @@ function ManageAccountFields({ session, emailValue, onEmailChange, onSendPin, is
             )}
 
             <DialogFooter className="pt-4 mt-4 border-t">
-                <Button type="button" variant="outline" onClick={onUpdate} disabled={pending}>{t('common.cancel')}</Button>
+                <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
                 <Button type="submit" disabled={pending}>{t('common.saveChanges')}</Button>
             </DialogFooter>
         </div>
@@ -1653,5 +1654,3 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
-
-    
