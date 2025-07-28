@@ -1,80 +1,64 @@
--- Function to automatically update the updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Admins Table
 CREATE TABLE IF NOT EXISTS admins (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     can_create_admins BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Trigger for admins table
-DROP TRIGGER IF EXISTS update_admins_updated_at ON admins;
-CREATE TRIGGER update_admins_updated_at
-BEFORE UPDATE ON admins
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
-
--- Sessions Table
-CREATE TABLE IF NOT EXISTS sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
-    user_type VARCHAR(50) NOT NULL, -- 'admin', 'resident', 'gatekeeper'
-    token TEXT NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Trigger for sessions table
-DROP TRIGGER IF EXISTS update_sessions_updated_at ON sessions;
-CREATE TRIGGER update_sessions_updated_at
-BEFORE UPDATE ON sessions
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
-
-
--- Admin Settings Table
 CREATE TABLE IF NOT EXISTS admin_settings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     admin_id UUID UNIQUE NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
-    theme VARCHAR(10) DEFAULT 'light',
-    language VARCHAR(5) DEFAULT 'pt',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    theme VARCHAR(50) DEFAULT 'light',
+    language VARCHAR(10) DEFAULT 'pt',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Trigger for admin_settings table
-DROP TRIGGER IF EXISTS update_admin_settings_updated_at ON admin_settings;
-CREATE TRIGGER update_admin_settings_updated_at
-BEFORE UPDATE ON admin_settings
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
-
--- Admin Verification PINs Table
 CREATE TABLE IF NOT EXISTS admin_verification_pins (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     admin_id UUID UNIQUE NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
-    pin VARCHAR(6) NOT NULL,
+    pin VARCHAR(10) NOT NULL,
     email VARCHAR(255) NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Trigger for admin_verification_pins table
-DROP TRIGGER IF EXISTS update_admin_verification_pins_updated_at ON admin_verification_pins;
-CREATE TRIGGER update_admin_verification_pins_updated_at
-BEFORE UPDATE ON admin_verification_pins
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+-- Trigger to update 'updated_at' timestamp on row update
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = NOW();
+   RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_trigger
+        WHERE tgname = 'update_admins_updated_at' AND tgrelid = 'admins'::regclass
+    ) THEN
+        CREATE TRIGGER update_admins_updated_at
+        BEFORE UPDATE ON admins
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_trigger
+        WHERE tgname = 'update_admin_settings_updated_at' AND tgrelid = 'admin_settings'::regclass
+    ) THEN
+        CREATE TRIGGER update_admin_settings_updated_at
+        BEFORE UPDATE ON admin_settings
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END $$;

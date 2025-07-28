@@ -1,47 +1,29 @@
--- Condominiums Table
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 CREATE TABLE IF NOT EXISTS condominiums (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL UNIQUE,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) UNIQUE NOT NULL,
     continent VARCHAR(255),
     country VARCHAR(255),
     state VARCHAR(255),
     city VARCHAR(255),
     street VARCHAR(255),
     number VARCHAR(50),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Trigger for condominiums table
-DROP TRIGGER IF EXISTS update_condominiums_updated_at ON condominiums;
-CREATE TRIGGER update_condominiums_updated_at
-BEFORE UPDATE ON condominiums
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
-
-
--- Residents Table
-CREATE TABLE IF NOT EXISTS residents (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    location_info TEXT, -- e.g., "Tower A, Section 2"
-    housing_info TEXT, -- e.g., "Apt 101"
-    phone VARCHAR(50),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Gatekeepers Table
-CREATE TABLE IF NOT EXISTS gatekeepers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    location_info TEXT, -- e.g., "Main Gatehouse"
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_trigger
+        WHERE tgname = 'update_condominiums_updated_at' AND tgrelid = 'condominiums'::regclass
+    ) THEN
+        CREATE TRIGGER update_condominiums_updated_at
+        BEFORE UPDATE ON condominiums
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END $$;
