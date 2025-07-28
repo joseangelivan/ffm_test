@@ -721,7 +721,7 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
     )
 }
 
-function ManageAccountDialog({ session, closeDialog }: { session: Session, closeDialog: () => void }) {
+function ManageAccountDialog({ session, onUpdate }: { session: Session, onUpdate: () => void }) {
     const { t } = useLocale();
     const { toast } = useToast();
     const [state, formAction] = useActionState(updateAdminAccount, undefined);
@@ -735,17 +735,15 @@ function ManageAccountDialog({ session, closeDialog }: { session: Session, close
             if (state.message.includes('cerrará la sesión')) {
                 setTimeout(() => handleLogoutAction(), 3000);
             } else {
-                closeDialog();
-                // We no longer need router.refresh() as it was causing loops.
-                // The parent component will handle its own state.
+                onUpdate();
             }
         }
-    }, [state, t, toast, closeDialog]);
+    }, [state, t, toast, onUpdate]);
 
     return (
         <DialogContent className="sm:max-w-md">
             <form action={formAction}>
-                 <ManageAccountFields session={session} onCancel={closeDialog} />
+                 <ManageAccountFields session={session} onCancel={onUpdate} />
             </form>
         </DialogContent>
     );
@@ -792,7 +790,6 @@ function ManageAccountFields({ session, onCancel }: { session: Session, onCancel
     };
     
     useEffect(() => {
-        // Reset PIN verification state if the email is changed back to original
         if (!isEmailChanged) {
              setPinVerificationState({ status: 'idle', message: t('adminDashboard.account.pinValidation.initial') });
              setPinValue('');
@@ -814,7 +811,7 @@ function ManageAccountFields({ session, onCancel }: { session: Session, onCancel
                     <TabsTrigger value="profile">{t('adminDashboard.account.profileTab')}</TabsTrigger>
                     <TabsTrigger value="security">{t('adminDashboard.account.securityTab')}</TabsTrigger>
                 </TabsList>
-                <TabsContent value="profile" className="space-y-4">
+                <TabsContent value="profile" className="space-y-4 pt-4">
                     <Card>
                         <CardHeader><CardTitle>{t('adminDashboard.account.profileTitle')}</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
@@ -836,14 +833,14 @@ function ManageAccountFields({ session, onCancel }: { session: Session, onCancel
                             </CardHeader>
                             <CardContent className="p-0 space-y-4">
                                 <div className="flex gap-2">
-                                    <Input id="email_pin" name="email_pin" placeholder={t('adminDashboard.account.pinPlaceholder')} value={pinValue} onChange={e => setPinValue(e.target.value)} />
+                                    <Input id="email_pin" name="email_pin" placeholder={t('adminDashboard.account.pinPlaceholder')} value={pinValue} onChange={e => setPinValue(e.target.value)} disabled={isPinLoading || pinVerificationState.status === 'verified'}/>
                                     <Button type="button" variant="outline" onClick={handleSendPin} disabled={isPinLoading}>
                                         {isPinLoading && pinVerificationState.status === 'idle' ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
                                         {t('adminDashboard.account.sendPinButton')}
                                     </Button>
                                 </div>
-                                <Button type="button" className="w-full" onClick={handleVerifyPin} disabled={!pinValue || isPinLoading}>
-                                    {isPinLoading && pinVerificationState.status !== 'idle' ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <KeyRound className="mr-2 h-4 w-4"/>}
+                                <Button type="button" className="w-full" onClick={handleVerifyPin} disabled={!pinValue || isPinLoading || pinVerificationState.status === 'verified'}>
+                                    {isPinLoading && pinVerificationState.status !== 'verified' ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <KeyRound className="mr-2 h-4 w-4"/>}
                                     {t('adminDashboard.account.verifyPinButton')}
                                 </Button>
                                 <div className={cn("text-sm text-center p-2 rounded-md", 
@@ -857,7 +854,7 @@ function ManageAccountFields({ session, onCancel }: { session: Session, onCancel
                         </Card>
                     )}
                 </TabsContent>
-                <TabsContent value="security">
+                <TabsContent value="security" className="pt-4">
                      <Card>
                         <CardHeader><CardTitle>{t('adminDashboard.account.passwordTitle')}</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
@@ -1440,12 +1437,10 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       fetchCondos();
   };
 
-  const handleAccountDialogClose = () => {
+  const handleAccountUpdate = useCallback(() => {
     setIsAccountDialogOpen(false);
-    // After closing the dialog, we refresh the router to get the new session data.
-    // This is safer than trying to manage state manually.
     router.refresh();
-  };
+  }, [router]);
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
@@ -1682,7 +1677,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
         
         {/* Manage Account Dialog */}
         <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
-            <ManageAccountDialog session={session} closeDialog={handleAccountDialogClose} />
+            <ManageAccountDialog session={session} onUpdate={handleAccountUpdate} />
         </Dialog>
     </div>
   );
