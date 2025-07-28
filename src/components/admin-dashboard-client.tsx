@@ -1290,14 +1290,14 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   }, []);
 
   const fetchCondos = useCallback(async () => {
-      setLoading(true);
-      const result = await getCondominios();
-      if(result.success && result.data) {
-          setCondominios(result.data);
-      } else {
-          toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
-      }
-      setLoading(false);
+    setLoading(true);
+    const result = await getCondominios();
+    if(result.success && result.data) {
+        setCondominios(result.data);
+    } else {
+        toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+    }
+    setLoading(false);
   }, [t, toast]);
 
   useEffect(() => {
@@ -1414,10 +1414,10 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       fetchCondos();
   }, [fetchCondos]);
 
-  const handleAccountUpdate = () => {
+  const handleAccountUpdate = useCallback(() => {
       setIsAccountDialogOpen(false);
       router.refresh();
-  };
+  }, [router]);
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
