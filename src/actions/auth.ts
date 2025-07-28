@@ -23,32 +23,30 @@ let migrationLock: Promise<void> | null = null;
 async function initializeDatabase(): Promise<Pool> {
     console.log("--- Attempting to initialize database pool and run migrations ---");
     const newPool = new Pool({
-        host: 'mainline.proxy.rlwy.net',
-        port: 38539,
-        user: 'postgres',
-        password: 'vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT',
-        database: 'railway',
+        connectionString: 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway',
         ssl: {
             rejectUnauthorized: false,
         },
     });
 
     try {
-        // Test connection before running migrations
         const client = await newPool.connect();
         console.log("--- Database connection successful. Starting migration process. ---");
+        
+        await runMigrations(client);
+        
         client.release();
+        console.log("--- Database client released after migrations. ---");
 
-        await runMigrations(newPool);
         console.log("--- Database migrations completed successfully. ---");
         return newPool;
     } catch (error) {
         console.error("CRITICAL: Failed during database initialization or migration.", error);
-        // Ensure the pool is closed if initialization fails to prevent leaks
         await newPool.end();
         throw new Error("Database initialization failed.");
     }
 }
+
 
 export async function getDbPool(): Promise<Pool> {
     if (pool) {
@@ -57,23 +55,20 @@ export async function getDbPool(): Promise<Pool> {
 
     if (migrationLock) {
         await migrationLock;
-        // After waiting, the pool should be initialized.
-        // If it's still not there, something went very wrong.
         if (!pool) throw new Error("Waited for migration lock, but pool is still not available.");
         return pool;
     }
 
-    // Set the lock *before* starting the initialization.
-    // This makes all subsequent calls wait for this one to finish.
-    migrationLock = initializeDatabase().then(newPool => {
-        pool = newPool; // Assign to the global variable on success
-        console.log("--- Database pool has been successfully assigned. ---");
-    }).catch(err => {
-        // If initialization fails, we clear the lock so the next request can try again.
-        migrationLock = null;
-        // Re-throw the error to ensure calling functions know about the failure.
-        throw err;
-    });
+    migrationLock = (async () => {
+        try {
+            const newPool = await initializeDatabase();
+            pool = newPool;
+            console.log("--- Database pool has been successfully assigned. ---");
+        } catch (err) {
+            migrationLock = null; // Clear lock on failure to allow retry
+            throw err;
+        }
+    })();
 
     await migrationLock;
     
@@ -82,15 +77,12 @@ export async function getDbPool(): Promise<Pool> {
 }
 
 
-async function runMigrations(p: Pool) {
+async function runMigrations(client: any) {
     console.log('--- [runMigrations] Starting migration transaction ---');
-    const client = await p.connect();
     try {
         await client.query('BEGIN');
         console.log('[runMigrations] Transaction started.');
 
-        // Step 1: Apply all base schemas from explicit paths.
-        console.log("[runMigrations] Applying base schemas...");
         const sqlBaseDir = path.join(process.cwd(), 'src', 'lib', 'sql');
         
         const schemasToApply = [
@@ -100,7 +92,8 @@ async function runMigrations(p: Pool) {
             'residents/base_schema.sql',
             'gatekeepers/base_schema.sql'
         ];
-
+        
+        console.log("[runMigrations] Applying base schemas...");
         for (const schemaPath of schemasToApply) {
             const fullSchemaPath = path.join(sqlBaseDir, schemaPath);
             try {
@@ -108,7 +101,7 @@ async function runMigrations(p: Pool) {
                 if (schemaSql.trim()) {
                     console.log(`- [runMigrations] Applying schema from '${schemaPath}'...`);
                     const result = await client.query(schemaSql);
-                    console.log(`- -> Schema '${schemaPath}' applied. Response:`, result.command, result.rowCount);
+                    console.log(`- -> Schema '${schemaPath}' applied. Command: ${result.command}, RowCount: ${result.rowCount}`);
                 }
             } catch (err: any) {
                 if (err.code === 'ENOENT') {
@@ -120,46 +113,6 @@ async function runMigrations(p: Pool) {
             }
         }
         console.log("[runMigrations] --- Base schema application complete. ---");
-
-        // Step 2: Ensure the migrations table exists.
-        console.log("[runMigrations] Checking for migrations table...");
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS schema_migrations (
-                id SERIAL PRIMARY KEY,
-                migration_name VARCHAR(255) NOT NULL UNIQUE,
-                applied_at TIMESTAMPTZ DEFAULT NOW(),
-                sql_script TEXT
-            );
-        `);
-        console.log('[runMigrations] Migrations table checked.');
-
-        // Step 3: Check for and apply incremental migrations.
-        console.log("[runMigrations] Checking for incremental migrations...");
-        const migrationsDir = path.join(process.cwd(), 'src', 'lib', 'migrations');
-        try {
-            await fs.access(migrationsDir);
-        } catch (error) {
-            console.log("[runMigrations] No 'migrations' directory found. Creating it.");
-            await fs.mkdir(migrationsDir);
-        }
-
-        const migrationFiles = (await fs.readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
-
-        const appliedMigrationsResult = await client.query('SELECT migration_name FROM schema_migrations');
-        const appliedMigrations = new Set(appliedMigrationsResult.rows.map(r => r.migration_name));
-        console.log('[runMigrations] Already applied migrations:', Array.from(appliedMigrations));
-
-        for (const file of migrationFiles) {
-            if (!file.trim() || appliedMigrations.has(file)) continue;
-
-            const fileContent = await fs.readFile(path.join(migrationsDir, file), 'utf-8');
-            if (!fileContent.trim()) continue;
-
-            console.log(`--- [runMigrations] Applying new incremental migration: ${file} ---`);
-            await client.query(fileContent);
-            await client.query('INSERT INTO schema_migrations (migration_name, sql_script) VALUES ($1, $2)', [file, fileContent]);
-            console.log(`- -> [runMigrations] Migration '${file}' applied and registered.`);
-        }
         
         // --- SEEDING STEP ---
         console.log("[runMigrations] Checking if seeding is required...");
@@ -167,29 +120,26 @@ async function runMigrations(p: Pool) {
         console.log('[runMigrations] Admin check rowCount:', adminCheck.rowCount);
 
         if (adminCheck.rows.length === 0) {
-            console.log("[runMigrations] --- Admins table is empty. Seeding default administrator... ---");
-            const defaultAdminName = 'José Angel Iván Rubianes Silva';
-            const defaultAdminEmail = 'angelivan34@gmail.com';
-            const defaultAdminPassword = 'adminivan123';
+            console.log("[runMigrations] --- Admins table is empty. Seeding default data... ---");
             
-            const passwordHash = await bcrypt.hash(defaultAdminPassword, 10);
-            
-            const adminResult = await client.query(
-                'INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, $4) RETURNING id',
-                [defaultAdminName, defaultAdminEmail, passwordHash, true]
-            );
-            const newAdminId = adminResult.rows[0].id;
-            console.log(`[runMigrations] Default admin inserted with ID: ${newAdminId}.`);
+            const seedSqlPath = path.join(sqlBaseDir, 'seed.sql');
+            try {
+                 const seedSqlTemplate = await fs.readFile(seedSqlPath, 'utf-8');
+                 
+                 const passwordHash = await bcrypt.hash('adminivan123', 10);
+                 
+                 // Replace placeholder with the actual hash
+                 const finalSeedSql = seedSqlTemplate.replace('{{ADMIN_PASSWORD_HASH}}', passwordHash);
+                 
+                 console.log('- [runMigrations] Applying seed from seed.sql...');
+                 const seedResult = await client.query(finalSeedSql);
+                 console.log(`- -> Seed applied. Command: ${seedResult.command}, RowCount: ${seedResult.rowCount}`);
 
-            const settingsResult = await client.query(
-                'INSERT INTO admin_settings (admin_id) VALUES ($1)',
-                [newAdminId]
-            );
-            console.log(`[runMigrations] Default admin settings inserted. Response:`, settingsResult.command, settingsResult.rowCount);
-
-            console.log("[runMigrations] --- Default administrator created successfully. ---");
-            console.log(`--- Email: ${defaultAdminEmail} ---`);
-            console.log(`--- Password: ${defaultAdminPassword} ---`);
+            } catch (err: any) {
+                console.error(`[runMigrations] Could not process seed.sql. Error: ${err.message}`);
+                throw err;
+            }
+            console.log("[runMigrations] --- Default data seeding complete. ---");
         } else {
             console.log("[runMigrations] Admins table is not empty. Skipping seeding.");
         }
@@ -203,9 +153,6 @@ async function runMigrations(p: Pool) {
          await client.query('ROLLBACK');
          console.log('[runMigrations] ROLLBACK performed.');
          throw error;
-    } finally {
-        client.release();
-        console.log("[runMigrations] --- Database client released. ---")
     }
 }
 
