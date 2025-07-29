@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import Link from 'next/link';
@@ -24,38 +23,64 @@ import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
 import { useRouter } from 'next/navigation';
 
-interface AdminLoginFormProps {
-    authenticateAdmin: (prevState: any, formData: FormData) => Promise<any>;
+type Translations = {
+    title: string;
+    description: string;
+    emailLabel: string;
+    passwordLabel: string;
+    loginButton: string;
+    returnToMainLogin: string;
+    loggingIn: string;
+    errorTitle: string;
+    showPassword; string;
+    hidePassword; string;
 }
 
-function LoadingOverlay() {
-    const { t } = useLocale();
+type ErrorKeys = {
+    invalidCredentials: string;
+    missingCredentials: string;
+    sessionError: string;
+    serverError: string;
+}
+
+interface AdminLoginFormProps {
+    authenticateAdmin: (prevState: any, formData: FormData) => Promise<any>;
+    t: Translations;
+    tErrorKeys: ErrorKeys;
+}
+
+function LoadingOverlay({ text }: { text: string }) {
     return (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
             <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                 <Loader className="h-12 w-12 animate-spin" />
-                <span>{t('login.loggingIn')}</span>
+                <span>{text}</span>
             </div>
         </div>
     );
 }
 
-function SubmitButton() {
+function SubmitButton({ label }: { label: string }) {
     const { pending } = useFormStatus();
-    const { t } = useLocale();
 
     return (
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={pending}>
-            {t('adminLogin.loginButton')}
+            {label}
         </Button>
     );
 }
 
-function LoginFormContent({ state }: { state: any }) {
+function LoginFormContent({ state, t, tErrorKeys }: { state: any, t: Translations, tErrorKeys: ErrorKeys }) {
     const { pending } = useFormStatus();
-    const { t, locale } = useLocale();
     const [showPassword, setShowPassword] = useState(false);
     const emailInputRef = useRef<HTMLInputElement>(null);
+    const { locale } = useLocale();
+    
+    // Function to get the correct translated error message
+    const getErrorMessage = (messageKey: string) => {
+        const key = messageKey.replace('toast.adminLogin.', '');
+        return tErrorKeys[key as keyof ErrorKeys] || "An unexpected error occurred.";
+    }
 
     useEffect(() => {
         emailInputRef.current?.focus();
@@ -63,21 +88,21 @@ function LoginFormContent({ state }: { state: any }) {
 
     return (
         <div className={cn("relative transition-opacity", pending && "opacity-50")}>
-            {pending && <LoadingOverlay />}
+            {pending && <LoadingOverlay text={t.loggingIn} />}
             <CardHeader className="space-y-4 text-center">
               <div className="flex justify-center">
                 <Logo />
               </div>
-              <CardTitle className="font-headline text-3xl">{t('adminLogin.title')}</CardTitle>
+              <CardTitle className="font-headline text-3xl">{t.title}</CardTitle>
               <CardDescription>
-                {t('adminLogin.description')}
+                {t.description}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
                 <input type="hidden" name="locale" value={locale} />
                 <div className="space-y-2">
-                  <Label htmlFor="email">{t('adminLogin.email')}</Label>
+                  <Label htmlFor="email">{t.emailLabel}</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
@@ -94,7 +119,7 @@ function LoginFormContent({ state }: { state: any }) {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">{t('adminLogin.password')}</Label>
+                  <Label htmlFor="password">{t.passwordLabel}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
@@ -114,7 +139,7 @@ function LoginFormContent({ state }: { state: any }) {
                         className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:bg-transparent"
                         onClick={() => setShowPassword(prev => !prev)}
                         disabled={pending}
-                        aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                        aria-label={showPassword ? t.hidePassword : t.showPassword}
                       >
                         {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                       </Button>
@@ -123,16 +148,16 @@ function LoginFormContent({ state }: { state: any }) {
                 {state?.success === false && state.message && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
+                      <AlertTitle>{t.errorTitle}</AlertTitle>
                       <AlertDescription variant="destructive">
-                        {state.message}
+                        {getErrorMessage(state.message)}
                       </AlertDescription>
                     </Alert>
                 )}
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-4 px-6 pb-6">
-              <SubmitButton />
+              <SubmitButton label={t.loginButton} />
               <div className="text-center text-sm w-full">
                 <Link
                   href="/"
@@ -140,7 +165,7 @@ function LoginFormContent({ state }: { state: any }) {
                   aria-disabled={pending}
                   tabIndex={pending ? -1 : undefined}
                 >
-                  {t('adminLogin.returnToMainLogin')}
+                  {t.returnToMainLogin}
                 </Link>
               </div>
             </CardFooter>
@@ -148,7 +173,7 @@ function LoginFormContent({ state }: { state: any }) {
     )
 }
 
-export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProps) {
+export default function AdminLoginForm({ authenticateAdmin, t, tErrorKeys }: AdminLoginFormProps) {
   const router = useRouter();
   const [state, formAction] = useActionState(authenticateAdmin, undefined);
   
@@ -164,7 +189,7 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
       <LanguageSwitcher />
       <Card className="w-full max-w-md shadow-2xl">
           <form action={formAction}>
-              <LoginFormContent state={state} />
+              <LoginFormContent state={state} t={t} tErrorKeys={tErrorKeys} />
           </form>
       </Card>
     </div>
