@@ -38,6 +38,7 @@ async function runMigrations(client: Pool) {
         const schemasToApply = [
             'admins/base_schema.sql',
             'admins/first_login_schema.sql',
+            'admins/admin_settings_schema.sql',
             'condominiums/base_schema.sql',
             'smtp/base_schema.sql',
             'residents/base_schema.sql',
@@ -59,8 +60,8 @@ async function runMigrations(client: Pool) {
                         const adminCheck = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
                         if (adminCheck.rows.length === 0) {
                             console.log("[runMigrations] --- Default admin not found. Seeding... ---");
-                            const passwordHash = await bcrypt.hash('adminivan123', 10);
-                            schemaSql = schemaSql.replace('{{ADMIN_PASSWORD_HASH}}', passwordHash);
+                            // Admin password is set to NULL to force first login flow
+                            schemaSql = schemaSql.replace('{{ADMIN_PASSWORD_HASH}}', 'NULL');
                         } else {
                             console.log("[runMigrations] Default admin already exists. Skipping seed part of the query.");
                             // If admin exists, remove the INSERT statement to avoid errors
@@ -76,6 +77,7 @@ async function runMigrations(client: Pool) {
                          const newAdmin = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
                          if (newAdmin.rows.length > 0) {
                              const adminId = newAdmin.rows[0].id;
+                             // This part is now handled by admin_settings_schema.sql, but we can ensure it here too.
                              await dbClient.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING', [adminId]);
                              console.log(`- -> Settings checked/created for default admin.`);
                          }
@@ -1064,4 +1066,5 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 
 
     
+
 
