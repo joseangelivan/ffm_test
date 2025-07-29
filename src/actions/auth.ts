@@ -854,6 +854,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         updateClauses.push(`updated_at = NOW()`);
         values.push(session.id);
         const query = `UPDATE admins SET ${updateClauses.join(', ')} WHERE id = $${valueIndex}`;
+        
         await client.query(query, values);
         
         if (emailHasChanged) {
@@ -879,4 +880,5 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
     
 
     
+
 

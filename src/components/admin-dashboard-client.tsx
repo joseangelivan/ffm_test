@@ -721,23 +721,13 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
     )
 }
 
-function ManageAccountDialog({ session }: { session: Session }) {
-    const { t } = useLocale();
-    const router = useRouter();
-    const [isOpen, setIsOpen] = useState(false);
-    
+function ManageAccountDialog({ session, isOpen, onOpenChange }: { session: Session; isOpen: boolean; onOpenChange: (open: boolean) => void; }) {
     const handleClose = useCallback(() => {
-        setIsOpen(false);
-    }, []);
+        onOpenChange(false);
+    }, [onOpenChange]);
 
     return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-             <DialogTrigger asChild>
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>{t('adminDashboard.account.myAccount')}</span>
-                </DropdownMenuItem>
-            </DialogTrigger>
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <ManageAccountForm session={session} onFormSuccess={handleClose} />
             </DialogContent>
@@ -747,7 +737,6 @@ function ManageAccountDialog({ session }: { session: Session }) {
 
 function ManageAccountForm({ session, onFormSuccess }: { session: Session; onFormSuccess: () => void }) {
     const { t } = useLocale();
-    const { toast } = useToast();
     const router = useRouter();
     const [state, formAction] = useActionState(updateAdminAccount, undefined);
 
@@ -755,7 +744,6 @@ function ManageAccountForm({ session, onFormSuccess }: { session: Session; onFor
         if (!state) return;
         
         if (state.success) {
-            toast({ title: t('toast.successTitle'), description: state.message });
             onFormSuccess();
             if (state.data?.needsLogout) {
                 // The server action handles deleting the cookie.
@@ -765,12 +753,11 @@ function ManageAccountForm({ session, onFormSuccess }: { session: Session; onFor
                 router.refresh();
             }
         }
-        // No need for a separate error toast here, as the form state will show an Alert.
-    }, [state, router, onFormSuccess, t, toast]);
+    }, [state, router, onFormSuccess]);
     
     return (
          <form action={formAction}>
-            <ManageAccountFields session={session} formState={state} onCancel={onFormSuccess}/>
+            <ManageAccountFields session={session} onCancel={onFormSuccess} formState={state} />
         </form>
     );
 }
@@ -1323,6 +1310,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
   const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
   
   const [editingCondoData, setEditingCondoData] = useState<Condominio & Partial<LocationData> | null>(null);
   const [isPreparingEdit, setIsPreparingEdit] = useState(false);
@@ -1504,7 +1492,10 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                 </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                 <ManageAccountDialog session={localSession} />
+                 <DropdownMenuItem onSelect={() => setIsAccountDialogOpen(true)}>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>{t('adminDashboard.account.myAccount')}</span>
+                </DropdownMenuItem>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
                     <Settings className="mr-2 h-4 w-4" />
@@ -1707,8 +1698,12 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                 )}
             </DialogContent>
         </Dialog>
+        
+         {/* My Account Dialog */}
+        <ManageAccountDialog session={localSession} isOpen={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}/>
     </div>
   );
 }
+
 
 
