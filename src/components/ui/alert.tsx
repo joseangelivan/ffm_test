@@ -51,45 +51,19 @@ AlertTitle.displayName = "AlertTitle"
 
 const AlertDescription = React.forwardRef<
   HTMLParagraphElement,
-  React.HTMLAttributes<HTMLParagraphElement> & { isCopyable?: boolean }
->(({ className, children, isCopyable = false, ...props }, ref) => {
-    const [isCopied, setIsCopied] = React.useState(false);
-    const { toast } = useToast();
-    const { t } = useLocale();
-    const textToCopy = React.useRef<HTMLDivElement>(null);
-
-    const handleCopy = () => {
-        if (textToCopy.current) {
-            navigator.clipboard.writeText(textToCopy.current.innerText);
-            toast({ title: t('toast.copied.title'), description: t('toast.copied.description') });
-            setIsCopied(true);
-            setTimeout(() => setIsCopied(false), 2000);
-        }
-    };
-    
+  React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, children, ...props }, ref) => {
     return (
-        <div className="flex items-start justify-between gap-4">
-            <div
-                ref={ref}
-                className={cn("text-sm [&_p]:leading-relaxed flex-grow", className)}
-                {...props}
-            >
-             <div ref={textToCopy}>{children}</div>
-            </div>
-            {isCopyable && (
-                 <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={handleCopy}
-                >
-                    {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    <span className="sr-only">Copiar error</span>
-                </Button>
-            )}
+        <div
+            ref={ref}
+            className={cn("text-sm [&_p]:leading-relaxed", className)}
+            {...props}
+        >
+            {children}
         </div>
     );
 });
 AlertDescription.displayName = "AlertDescription"
+
 
 export { Alert, AlertTitle, AlertDescription }

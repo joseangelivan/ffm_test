@@ -115,21 +115,10 @@ function LoginFormContent({ state }: { state: any }) {
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
                       <AlertTitle>Login Failed</AlertTitle>
-                      <AlertDescription isCopyable={true}>
+                      <AlertDescription>
                         {state.message}
                       </AlertDescription>
                     </Alert>
-                )}
-                 {process.env.NODE_ENV === 'development' && state?.debugInfo && (
-                  <div className="space-y-2 pt-4">
-                      <Label htmlFor="debug-info">Debug Information</Label>
-                       <Alert variant="destructive">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertDescription isCopyable={true}>
-                                {state.debugInfo}
-                            </AlertDescription>
-                        </Alert>
-                  </div>
                 )}
               </div>
             </CardContent>

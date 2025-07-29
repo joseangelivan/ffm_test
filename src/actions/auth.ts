@@ -807,10 +807,12 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         const updateClauses = [];
         const values = [];
         let valueIndex = 1;
+        let hasProfileChanges = false;
 
         if (name && name !== currentAdmin.name) {
             updateClauses.push(`name = $${valueIndex++}`);
             values.push(name);
+            hasProfileChanges = true;
         }
 
         if (email && email !== currentAdmin.email) {
@@ -823,6 +825,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
 
             updateClauses.push(`email = $${valueIndex++}`);
             values.push(email);
+            hasProfileChanges = true;
         }
         
         if (updateClauses.length > 0) {
@@ -835,6 +838,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         const currentPassword = formData.get('current_password') as string;
         const newPassword = formData.get('new_password') as string;
         const confirmPassword = formData.get('confirm_password') as string;
+        let hasPasswordChanges = false;
 
         if (currentPassword || newPassword || confirmPassword) {
             if (!currentPassword || !newPassword || !confirmPassword) {
@@ -851,9 +855,10 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
 
             const newPasswordHash = await bcrypt.hash(newPassword, 10);
             await client.query('UPDATE admins SET password_hash = $1, updated_at = NOW() WHERE id = $2', [newPasswordHash, session.id]);
+            hasPasswordChanges = true;
         }
         
-        if (updateClauses.length > 0 || (newPassword && newPassword === confirmPassword)) {
+        if (hasProfileChanges || hasPasswordChanges) {
             if (email && email !== currentAdmin.email) {
                 await createSession(session.id, 'admin', {
                     email: email,
