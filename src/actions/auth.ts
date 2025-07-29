@@ -37,6 +37,7 @@ async function runMigrations(client: Pool) {
         // --- Apply all base table schemas ---
         const schemasToApply = [
             'admins/base_schema.sql',
+            'admins/first_login_schema.sql',
             'condominiums/base_schema.sql',
             'smtp/base_schema.sql',
             'residents/base_schema.sql',
@@ -145,6 +146,7 @@ const JWT_ALG = 'HS256';
 type AuthState = {
   success: boolean;
   message: string;
+  action?: 'redirect_first_login';
 };
 
 type ActionState = {
@@ -305,8 +307,8 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
         }
         
         const isProduction = process.env.NODE_ENV === 'production';
-        const cookieStore = await cookies();
-        cookieStore.set('session', token, {
+        const cookieStore = cookies();
+        await cookieStore.set('session', token, {
             httpOnly: true,
             secure: isProduction,
             maxAge: 60 * 60, // 1 hour
@@ -401,20 +403,20 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
     
     if (result.rows.length === 0) {
-      return { 
-        success: false, 
-        message: "toast.adminLogin.invalidCredentials",
-      };
+      return { success: false, message: "toast.adminLogin.invalidCredentials" };
     }
 
     const admin = result.rows[0];
+
+    // Check for first login (null password)
+    if (admin.password_hash === null) {
+      return { success: false, message: "toast.adminLogin.firstLoginRequired", action: "redirect_first_login" };
+    }
+    
     const passwordMatch = await bcrypt.compare(password, admin.password_hash);
     
     if (!passwordMatch) {
-      return { 
-          success: false, 
-          message: "toast.adminLogin.invalidCredentials",
-      };
+      return { success: false, message: "toast.adminLogin.invalidCredentials" };
     }
     
     const sessionResult = await createSession(admin.id, 'admin', {
@@ -429,10 +431,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     
   } catch (error: any) {
     console.error('Error during authentication:', error);
-    return { 
-      success: false, 
-      message: "toast.adminLogin.serverError",
-    };
+    return { success: false, message: "toast.adminLogin.serverError" };
   } finally {
     if (client) {
         client.release();
@@ -477,11 +476,10 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
     try {
         const name = formData.get('name') as string;
         const email = formData.get('email') as string;
-        const password = formData.get('password') as string;
         const canCreateAdmins = formData.get('can_create_admins') === 'on';
 
-        if (!name || !email || !password) {
-            return { success: false, message: 'Nombre, email y contraseña son obligatorios.' };
+        if (!name || !email) {
+            return { success: false, message: 'Nombre y email son obligatorios.' };
         }
         
         const pool = await getDbPool();
@@ -492,14 +490,34 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
             return { success: false, message: 'Ya existe un administrador con este correo electrónico.' };
         }
 
-        const passwordHash = await bcrypt.hash(password, 10);
-
-        await client.query(
-            'INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, $4)',
-            [name, email, passwordHash, canCreateAdmins]
+        // Insert admin with NULL password
+        const newAdminResult = await client.query(
+            'INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, NULL, $3) RETURNING id',
+            [name, email, canCreateAdmins]
         );
 
-        return { success: true, message: `Administrador "${name}" creado con éxito.` };
+        const newAdminId = newAdminResult.rows[0].id;
+        
+        // Generate and store first-login PIN
+        const pin = generateVerificationPin();
+        const pinHash = await bcrypt.hash(pin, 10);
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+        await client.query(
+          'INSERT INTO admin_first_login_pins (admin_id, pin_hash, expires_at) VALUES ($1, $2, $3)',
+          [newAdminId, pinHash, expiresAt]
+        );
+        
+        // Send email with PIN
+        const emailResult = await sendAdminFirstLoginEmail(newAdminId, pin, formData.get('locale') as 'es' | 'pt');
+        
+        if (!emailResult.success) {
+            // This is tricky. The admin is created but email failed.
+            // For now, we'll return a success message but include the email error.
+            return { success: true, message: `Administrador "${name}" creado, pero falló el envío del correo de bienvenida. Causa: ${emailResult.message}` };
+        }
+
+        return { success: true, message: `Administrador "${name}" creado con éxito. Se ha enviado un correo con el PIN de activación.` };
 
     } catch (error) {
         console.error('Error creating new admin:', error);
@@ -909,7 +927,112 @@ export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
         if (client) client.release();
     }
 }
-    
+
+async function sendAdminFirstLoginEmail(adminId: string, pin: string, locale: 'es' | 'pt'): Promise<ActionState> {
+    const t = locale === 'es' ? es : pt;
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+
+        const adminResult = await client.query('SELECT name, email FROM admins WHERE id = $1', [adminId]);
+        if (adminResult.rows.length === 0) {
+            return { success: false, message: 'Administrador no encontrado.' };
+        }
+        const admin = adminResult.rows[0];
+
+        // The app URL must be known. In a real app, this would come from env variables.
+        // For this context, we assume a base URL.
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9003';
+        const firstLoginUrl = new URL('/admin/first-login', appUrl).toString();
+
+        const emailHtml = `
+            <h1>${t.emails.adminFirstLogin.title}</h1>
+            <p>${t.emails.adminFirstLogin.hello}, ${admin.name},</p>
+            <p>${t.emails.adminFirstLogin.intro}</p>
+            <ul>
+                <li><strong>URL:</strong> <a href="${firstLoginUrl}">${firstLoginUrl}</a></li>
+                <li><strong>Email:</strong> ${admin.email}</li>
+                <li><strong>${t.emails.adminFirstLogin.pinLabel}:</strong> ${pin}</li>
+            </ul>
+            <p>${t.emails.adminFirstLogin.pinInfo}</p>
+            <p>${t.emails.adminFirstLogin.thanks}<br/>${t.emails.adminFirstLogin.teamName}</p>
+        `;
+
+        return await sendEmail(admin.email, t.emails.adminFirstLogin.subject, emailHtml);
+
+    } catch(error) {
+        console.error("Error sending admin first login email:", error);
+        return { success: false, message: "Error del servidor al enviar el correo." }
+    } finally {
+        if(client) client.release();
+    }
+}
+
+export async function handleFirstLogin(prevState: any, formData: FormData): Promise<AuthState> {
+    const email = formData.get('email') as string;
+    const pin = formData.get('pin') as string;
+    const password = formData.get('password') as string;
+    const confirmPassword = formData.get('confirm_password') as string;
+
+    if (!email || !pin || !password || !confirmPassword) {
+        return { success: false, message: "toast.firstLogin.missingFields" };
+    }
+    if (password !== confirmPassword) {
+        return { success: false, message: "toast.firstLogin.passwordMismatch" };
+    }
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        
+        const adminResult = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
+        if (adminResult.rows.length === 0) {
+            return { success: false, message: "toast.firstLogin.invalidUser" };
+        }
+        const admin = adminResult.rows[0];
+
+        if (admin.password_hash !== null) {
+            return { success: false, message: "toast.firstLogin.alreadyActive" };
+        }
+
+        const pinResult = await client.query('SELECT * FROM admin_first_login_pins WHERE admin_id = $1 AND expires_at > NOW()', [admin.id]);
+        if (pinResult.rows.length === 0) {
+            return { success: false, message: "toast.firstLogin.pinExpired" };
+        }
+        const storedPin = pinResult.rows[0];
+
+        const pinMatch = await bcrypt.compare(pin, storedPin.pin_hash);
+        if (!pinMatch) {
+            // Here you could add logic to increment an attempt counter
+            return { success: false, message: "toast.firstLogin.invalidPin" };
+        }
+
+        const newPasswordHash = await bcrypt.hash(password, 10);
+        await client.query('UPDATE admins SET password_hash = $1 WHERE id = $2', [newPasswordHash, admin.id]);
+        
+        // Clean up the pin
+        await client.query('DELETE FROM admin_first_login_pins WHERE admin_id = $1', [admin.id]);
+
+        // Log the user in
+        const sessionResult = await createSession(admin.id, 'admin', {
+            email: admin.email,
+            name: admin.name,
+            canCreateAdmins: admin.can_create_admins,
+        });
+
+        if (!sessionResult.success) {
+            return { success: false, message: "toast.adminLogin.sessionError" };
+        }
+
+    } catch (error) {
+        console.error("Error during first login process:", error);
+        return { success: false, message: "toast.adminLogin.serverError" };
+    }
+
+    redirect('/admin/dashboard');
+}
 
     
 
@@ -919,6 +1042,8 @@ export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
 
     
 
+    
+
 
 
 
@@ -939,3 +1064,4 @@ export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
 
 
     
+

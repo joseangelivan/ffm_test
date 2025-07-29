@@ -89,7 +89,16 @@
           "invalidCredentials": "Credenciales inválidas.",
           "missingCredentials": "El correo y la contraseña son obligatorios.",
           "sessionError": "Ocurrió un error al crear la sesión.",
-          "serverError": "Ocurrió un error en el servidor."
+          "serverError": "Ocurrió un error en el servidor.",
+          "firstLoginRequired": "Esta es tu primera vez iniciando sesión. Por favor, activa tu cuenta."
+        },
+        "firstLogin": {
+            "missingFields": "Por favor, completa todos los campos.",
+            "passwordMismatch": "Las contraseñas no coinciden.",
+            "invalidUser": "No se encontró ningún administrador con ese correo electrónico.",
+            "alreadyActive": "Esta cuenta ya ha sido activada. Por favor, inicia sesión normalmente.",
+            "pinExpired": "Tu PIN ha expirado. Por favor, contacta a quien te creó la cuenta.",
+            "invalidPin": "El PIN es incorrecto."
         }
     },
     "adminLogin": {
@@ -144,10 +153,10 @@
         "listDescription": "Ver, crear, editar y eliminar cuentas de administrador.",
         "createTitle": "Crear Nuevo Administrador",
         "editTitle": "Editar Administrador",
-        "formDescription": "Rellena los detalles para la cuenta de administrador.",
+        "formDescription": "Rellena los detalles para la cuenta de administrador. La contraseña se establecerá en el primer inicio de sesión.",
         "nameLabel": "Nombre Completo",
         "emailLabel": "Correo Electrónico",
-        "passwordLabel": "Contraseña",
+        "passwordLabel": "Contraseña (se establece en el primer login)",
         "canCreateAdminsLabel": "Puede crear administradores",
         "createButton": "Crear Administrador",
         "deleteConfirmation": "Esta acción no se puede deshacer. Esto eliminará permanentemente la cuenta de administrador de {name}.",
@@ -156,7 +165,7 @@
             "email": "Email",
             "permissions": "Permisos"
         },
-        "sendCredentials": "Enviar credenciales"
+        "sendCredentials": "Enviar PIN de activación"
       },
       "loadingOverlay": {
           "creating": "Creando...",
@@ -194,7 +203,7 @@
         "noChangesMade": "No se realizaron cambios.",
         "logoutDialog": {
             "title": "Reinicio de Sesión Requerido",
-            "description": "Tus datos se han actualizado. Para que los cambios sean visibles, es necesario reiniciar la sesión.",
+            "description": "Tus datos se han actualizado. Para que los cambios fiquen visibles, es necesario reiniciar la sesión.",
             "confirm": "OK"
         }
       }
@@ -289,6 +298,16 @@
             "thanks": "Gracias,",
             "teamName": "El Equipo de Follow For Me"
         },
+        "adminFirstLogin": {
+            "subject": "Activa tu cuenta de Administrador de Follow For Me",
+            "title": "Bienvenido a Follow For Me",
+            "hello": "Hola",
+            "intro": "Se ha creado una cuenta de administrador para ti. Para activarla y configurar tu contraseña, usa el siguiente PIN:",
+            "pinLabel": "Tu PIN de Activación",
+            "pinInfo": "Este PIN expirará en 24 horas. Por favor, completa el proceso de primer inicio de sesión antes de que expire.",
+            "thanks": "Gracias,",
+            "teamName": "El Equipo de Follow For Me"
+        },
         "verifyNewEmail": {
             "subject": "Tu PIN de Verificación de Follow For Me",
             "title": "Verifica tu nuevo correo electrónico",
@@ -298,10 +317,22 @@
             "expiration": "Este PIN expirará en 10 minutos.",
             "thanks": "El Equipo de Follow For Me"
         }
+    },
+    "firstLogin": {
+        "title": "Primer Inicio de Sesión",
+        "description": "Bienvenido. Activa tu cuenta estableciendo tu contraseña.",
+        "emailLabel": "Email",
+        "pinLabel": "PIN de Activación",
+        "newPasswordLabel": "Nueva Contraseña",
+        "confirmPasswordLabel": "Confirmar Nueva Contraseña",
+        "activateButton": "Activar Cuenta",
+        "activating": "Activando...",
+        "backToLogin": "Volver al inicio de sesión"
     }
   }
 
     
+
 
 
 

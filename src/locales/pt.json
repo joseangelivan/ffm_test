@@ -89,7 +89,16 @@
           "invalidCredentials": "Credenciais inválidas.",
           "missingCredentials": "E-mail e senha são obrigatórios.",
           "sessionError": "Ocorreu um erro ao criar a sessão.",
-          "serverError": "Ocorreu um erro no servidor."
+          "serverError": "Ocorreu um erro no servidor.",
+           "firstLoginRequired": "Esta é a sua primeira vez fazendo login. Por favor, ative sua conta."
+        },
+        "firstLogin": {
+            "missingFields": "Por favor, preencha todos os campos.",
+            "passwordMismatch": "As senhas não coincidem.",
+            "invalidUser": "Nenhum administrador encontrado com esse e-mail.",
+            "alreadyActive": "Esta conta já foi ativada. Por favor, faça login normalmente.",
+            "pinExpired": "Seu PIN expirou. Por favor, entre em contato com quem criou sua conta.",
+            "invalidPin": "O PIN está incorreto."
         }
     },
     "adminLogin": {
@@ -144,10 +153,10 @@
         "listDescription": "Veja, crie, edite e exclua contas de administrador.",
         "createTitle": "Criar Novo Administrador",
         "editTitle": "Editar Administrador",
-        "formDescription": "Preencha os detalhes para a conta de administrador.",
+        "formDescription": "Preencha os detalhes para a conta de administrador. A senha será definida no primeiro login.",
         "nameLabel": "Nome Completo",
         "emailLabel": "Endereço de E-mail",
-        "passwordLabel": "Senha",
+        "passwordLabel": "Senha (definida no primeiro login)",
         "canCreateAdminsLabel": "Pode criar administradores",
         "createButton": "Criar Administrador",
         "deleteConfirmation": "Esta ação não pode ser desfeita. Isso excluirá permanentemente a conta de administrador de {name}.",
@@ -156,7 +165,7 @@
             "email": "Email",
             "permissions": "Permissões"
         },
-        "sendCredentials": "Enviar credenciais"
+        "sendCredentials": "Enviar PIN de ativação"
       },
       "loadingOverlay": {
           "creating": "Criando...",
@@ -289,6 +298,16 @@
             "thanks": "Obrigado,",
             "teamName": "A Equipe Follow For Me"
         },
+        "adminFirstLogin": {
+            "subject": "Ative sua conta de Administrador da Follow For Me",
+            "title": "Bem-vindo à Follow For Me",
+            "hello": "Olá",
+            "intro": "Uma conta de administrador foi criada para você. Para ativá-la e definir sua senha, use o seguinte PIN:",
+            "pinLabel": "Seu PIN de Ativação",
+            "pinInfo": "Este PIN expirará em 24 horas. Por favor, complete o processo de primeiro login antes que ele expire.",
+            "thanks": "Obrigado,",
+            "teamName": "A Equipe Follow For Me"
+        },
         "verifyNewEmail": {
             "subject": "Seu PIN de Verificação da Follow For Me",
             "title": "Verifique seu novo e-mail",
@@ -298,10 +317,22 @@
             "expiration": "Este PIN expirará em 10 minutos.",
             "thanks": "A Equipe Follow For Me"
         }
+    },
+    "firstLogin": {
+        "title": "Primeiro Login",
+        "description": "Bem-vindo. Ative sua conta definindo sua senha.",
+        "emailLabel": "Email",
+        "pinLabel": "PIN de Ativação",
+        "newPasswordLabel": "Nova Senha",
+        "confirmPasswordLabel": "Confirmar Nova Senha",
+        "activateButton": "Ativar Conta",
+        "activating": "Ativando...",
+        "backToLogin": "Voltar para o login"
     }
   }
 
     
+
 
 
 

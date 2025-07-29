@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import Link from 'next/link';
@@ -14,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mail, Lock, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Loader, Eye, EyeOff, KeyRound } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
 import { useActionState, useState, useEffect, useRef } from 'react';
@@ -22,8 +21,7 @@ import { useFormStatus } from 'react-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
-import { authenticateAdmin } from '@/actions/auth';
-import { useRouter } from 'next/navigation';
+import { handleFirstLogin } from '@/actions/auth';
 
 function LoadingOverlay({ text }: { text: string }) {
     return (
@@ -46,56 +44,72 @@ function SubmitButton({ label }: { label: string }) {
     );
 }
 
-function LoginFormContent({ state }: { state: any }) {
+function FirstLoginFormContent({ state, initialEmail }: { state: any, initialEmail: string }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
     const [showPassword, setShowPassword] = useState(false);
-    const emailInputRef = useRef<HTMLInputElement>(null);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const pinInputRef = useRef<HTMLInputElement>(null);
     const { locale } = useLocale();
     
     const getErrorMessage = (messageKey: string) => {
-        const key = messageKey.replace('toast.adminLogin.', '');
-        return t(`toast.adminLogin.${key}`) || "An unexpected error occurred.";
+        const key = messageKey.replace('toast.firstLogin.', '');
+        return t(`toast.firstLogin.${key}`) || "An unexpected error occurred.";
     }
 
     useEffect(() => {
-        emailInputRef.current?.focus();
+        pinInputRef.current?.focus();
     }, []);
 
     return (
         <div className={cn("relative transition-opacity", pending && "opacity-50")}>
-            {pending && <LoadingOverlay text={t('login.loggingIn')} />}
+            {pending && <LoadingOverlay text={t('firstLogin.activating')} />}
             <CardHeader className="space-y-4 text-center">
               <div className="flex justify-center">
                 <Logo />
               </div>
-              <CardTitle className="font-headline text-3xl">{t('adminLogin.title')}</CardTitle>
+              <CardTitle className="font-headline text-3xl">{t('firstLogin.title')}</CardTitle>
               <CardDescription>
-                {t('adminLogin.description')}
+                {t('firstLogin.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <input type="hidden" name="locale" value={locale} />
                 <div className="space-y-2">
-                  <Label htmlFor="email">{t('adminLogin.email')}</Label>
+                  <Label htmlFor="email">{t('firstLogin.emailLabel')}</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
-                      ref={emailInputRef}
                       id="email"
                       name="email"
                       type="email"
-                      placeholder="admin@ejemplo.com"
                       className="pl-10"
                       required
                       autoComplete="email"
+                      disabled={pending}
+                      defaultValue={initialEmail}
+                    />
+                  </div>
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="pin">{t('firstLogin.pinLabel')}</Label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      ref={pinInputRef}
+                      id="pin"
+                      name="pin"
+                      type="text"
+                      placeholder="••••••"
+                      className="pl-10"
+                      required
                       disabled={pending}
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">{t('adminLogin.password')}</Label>
+                  <Label htmlFor="password">{t('firstLogin.newPasswordLabel')}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
@@ -105,7 +119,7 @@ function LoginFormContent({ state }: { state: any }) {
                       placeholder="••••••••"
                       className="pl-10 pr-10"
                       required
-                      autoComplete="current-password"
+                      autoComplete="new-password"
                       disabled={pending}
                     />
                      <Button
@@ -113,11 +127,38 @@ function LoginFormContent({ state }: { state: any }) {
                         variant="ghost"
                         size="icon"
                         className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:bg-transparent"
-                        onClick={() => setShowPassword(prev => !prev)}
+                        onClick={() => setShowPassword(p => !p)}
                         disabled={pending}
                         aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
                       >
                         {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </Button>
+                  </div>
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="confirm_password">{t('firstLogin.confirmPasswordLabel')}</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      id="confirm_password"
+                      name="confirm_password"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      className="pl-10 pr-10"
+                      required
+                      autoComplete="new-password"
+                      disabled={pending}
+                    />
+                     <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:bg-transparent"
+                        onClick={() => setShowConfirmPassword(p => !p)}
+                        disabled={pending}
+                        aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                       </Button>
                   </div>
                 </div>
@@ -133,15 +174,15 @@ function LoginFormContent({ state }: { state: any }) {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-4 px-6 pb-6">
-              <SubmitButton label={t('adminLogin.loginButton')} />
+              <SubmitButton label={t('firstLogin.activateButton')} />
                <div className="text-center text-sm w-full">
                 <Link
-                  href="/"
+                  href="/admin/login"
                   className={cn("text-muted-foreground hover:text-primary hover:underline", pending && "pointer-events-none")}
                   aria-disabled={pending}
                   tabIndex={pending ? -1 : undefined}
                 >
-                  {t('adminLogin.returnToMainLogin')}
+                  {t('firstLogin.backToLogin')}
                 </Link>
               </div>
             </CardFooter>
@@ -149,23 +190,15 @@ function LoginFormContent({ state }: { state: any }) {
     )
 }
 
-export default function AdminLoginForm() {
-  const [state, formAction] = useActionState(authenticateAdmin, undefined);
-  const router = useRouter();
-
-  useEffect(() => {
-    if (state?.action === 'redirect_first_login') {
-      const email = (document.getElementById('email') as HTMLInputElement)?.value;
-      router.push(`/admin/first-login?email=${encodeURIComponent(email)}`);
-    }
-  }, [state, router]);
+export default function AdminFirstLoginForm({ initialEmail }: { initialEmail: string }) {
+  const [state, formAction] = useActionState(handleFirstLogin, undefined);
   
   return (
     <div className="light relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
       <LanguageSwitcher />
       <Card className="w-full max-w-md shadow-2xl">
           <form action={formAction}>
-              <LoginFormContent state={state} />
+              <FirstLoginFormContent state={state} initialEmail={initialEmail} />
           </form>
       </Card>
     </div>
