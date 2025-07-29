@@ -732,10 +732,8 @@ function ManageAccountDialog({ session, isOpen, onOpenChange }: { session: Sessi
         if (state.success) {
             toast({ title: "Éxito", description: state.message });
             if (state.data?.needsLogout) {
-                // Server action deletes cookie, client just needs to redirect
                 router.push('/admin/login');
             } else {
-                // Refresh server components to get new session data.
                 router.refresh();
             }
             onOpenChange(false);
@@ -1689,6 +1687,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
+
 
 
 

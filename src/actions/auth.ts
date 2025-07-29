@@ -858,7 +858,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         await client.query(query, values);
         
         if (emailHasChanged) {
-            // Log out the user to force re-authentication with new email
             cookies().delete('session');
             return { success: true, message: "Correo actualizado. Se cerrará la sesión para aplicar el cambio.", data: { needsLogout: true } };
         }
@@ -880,5 +879,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
     
 
     
+
 
 
