@@ -21,16 +21,16 @@ let pool: Pool | undefined;
 let migrationLock: Promise<void> | null = null;
 
 async function runMigrations(client: Pool) {
+    console.log('[runMigrations] Starting migration process...');
     const dbClient = await client.connect();
     try {
         await dbClient.query('BEGIN');
         
-        // Ensure migrations log table exists
         await dbClient.query(`
             CREATE TABLE IF NOT EXISTS migrations_log (
                 id SERIAL PRIMARY KEY,
                 file_name VARCHAR(255) UNIQUE NOT NULL,
-                applied_at TIMESTAMPERRANTZ DEFAULT NOW()
+                applied_at TIMESTAMPTZ DEFAULT NOW()
             );
         `);
 
@@ -49,8 +49,10 @@ async function runMigrations(client: Pool) {
             const checkMigration = await dbClient.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [schemaPath]);
             
             if (checkMigration.rows.length > 0) {
-                continue; // Skip already applied migration
+                console.log(`[runMigrations] Migration already applied, skipping: ${schemaPath}`);
+                continue; 
             }
+            console.log(`[runMigrations] Applying migration: ${schemaPath}`);
 
             const fullSchemaPath = path.join(sqlBaseDir, schemaPath);
             try {
@@ -58,9 +60,10 @@ async function runMigrations(client: Pool) {
                 if (schemaSql.trim()) {
                     
                     if (schemaPath === 'admins/base_schema.sql') {
-                         const adminCheck = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'").catch(() => ({rows:[]})); // Catch if table doesn't exist yet
+                         const adminCheck = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'").catch(() => ({rows:[]})); 
                         if (adminCheck.rows.length === 0) {
-                            schemaSql = schemaSql.replace('{{ADMIN_PASSWORD_HASH}}', 'NULL');
+                            const passwordHash = await bcrypt.hash('adminivan123', 10);
+                            schemaSql = schemaSql.replace('{{ADMIN_PASSWORD_HASH}}', `'${passwordHash}'`);
                         } else {
                             schemaSql = schemaSql.split('INSERT INTO admins')[0];
                         }
@@ -68,10 +71,8 @@ async function runMigrations(client: Pool) {
 
                     await dbClient.query(schemaSql);
 
-                    // Log the migration
                     await dbClient.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [schemaPath]);
 
-                    // After seeding admin, ensure their settings are created
                     if (schemaPath === 'admins/base_schema.sql') {
                          const newAdmin = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
                          if (newAdmin.rows.length > 0) {
@@ -91,6 +92,7 @@ async function runMigrations(client: Pool) {
         }
 
         await dbClient.query('COMMIT');
+        console.log('[runMigrations] Migration process completed successfully.');
     } catch(error) {
          console.error('[runMigrations] Error during migration transaction. Attempting ROLLBACK.', error);
          await dbClient.query('ROLLBACK');
@@ -108,13 +110,15 @@ export async function getDbPool(): Promise<Pool> {
     if (!migrationLock) {
         migrationLock = (async () => {
             try {
+                console.log('[getDbPool] Initializing database pool and running migrations...');
                 const newPool = new Pool({
                     connectionString: process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway',
                 });
 
-                await newPool.query('SELECT NOW()');
+                await newPool.query('SELECT NOW()'); // Test connection
                 await runMigrations(newPool);
                 pool = newPool;
+                console.log('[getDbPool] Database pool initialized successfully.');
             } catch (error) {
                 console.error("CRITICAL: Failed during database initialization or migration.", error);
                 migrationLock = null; // Clear lock on failure to allow retry
@@ -178,7 +182,6 @@ export async function getSettings(): Promise<UserSettings | null> {
             return result.rows[0] as UserSettings;
         }
 
-        // This case should ideally not happen if createSession works correctly, but it's a good fallback.
         const defaultSettings: UserSettings = { theme: 'light', language: 'pt' };
         await client.query(`INSERT INTO ${tableName} (${userIdColumn}, theme, language) VALUES ($1, $2, $3) ON CONFLICT (${userIdColumn}) DO NOTHING`, [session.id, defaultSettings.theme, defaultSettings.language]);
         return defaultSettings;
@@ -296,7 +299,7 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
         }
         
         const isProduction = process.env.NODE_ENV === 'production';
-        const cookieStore = await cookies();
+        const cookieStore = cookies();
         cookieStore.set('session', token, {
             httpOnly: true,
             secure: isProduction,
@@ -1053,6 +1056,7 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 
 
     
+
 
 
 
