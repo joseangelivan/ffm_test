@@ -732,11 +732,12 @@ function ManageAccountDialog({ session, isOpen, onOpenChange }: { session: Sessi
         if (state.success) {
             toast({ title: "Éxito", description: state.message });
             if (state.data?.needsLogout) {
+                onOpenChange(false);
                 router.push('/admin/login');
             } else {
                 router.refresh();
+                onOpenChange(false);
             }
-            onOpenChange(false);
         }
     }, [state, router, onOpenChange, toast]);
     
@@ -1687,8 +1688,4 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
-
-
-
-
 
