@@ -7,8 +7,6 @@ import bcrypt from 'bcrypt';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { JWT_SECRET } from '@/lib/config';
-import fs from 'fs/promises';
-import path from 'path';
 import nodemailer from 'nodemailer';
 import { getSmtpConfigsForMailer } from './smtp';
 import es from '@/locales/es.json';
@@ -34,60 +32,224 @@ async function runMigrations(client: Pool) {
             );
         `);
 
-        const sqlBaseDir = path.join(process.cwd(), 'src', 'lib', 'sql');
-        
+        // SQL Schemas are now in-code to prevent Fast Refresh issues with fs.readFile
         const schemasToApply = [
-            'admins/base_schema.sql',
-            'condominiums/base_schema.sql',
-            'smtp/base_schema.sql',
-            'residents/base_schema.sql',
-            'gatekeepers/base_schema.sql',
-            'entry_control/base_schema.sql'
+            {
+                name: 'admins/base_schema.sql',
+                sql: `
+                    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+                    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+                    CREATE TABLE IF NOT EXISTS admins (
+                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                        name VARCHAR(255) NOT NULL,
+                        email VARCHAR(255) UNIQUE NOT NULL,
+                        password_hash VARCHAR(255),
+                        can_create_admins BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                    
+                    CREATE TABLE IF NOT EXISTS sessions (
+                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                        user_id UUID NOT NULL,
+                        user_type VARCHAR(50) NOT NULL,
+                        token TEXT NOT NULL,
+                        expires_at TIMESTAMPTZ NOT NULL,
+                        created_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                    
+                    CREATE TABLE IF NOT EXISTS admin_settings (
+                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                        admin_id UUID UNIQUE NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+                        theme VARCHAR(50) DEFAULT 'light',
+                        language VARCHAR(10) DEFAULT 'pt',
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+
+                    CREATE TABLE IF NOT EXISTS admin_first_login_pins (
+                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                        admin_id UUID UNIQUE NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+                        pin_hash VARCHAR(255) NOT NULL,
+                        expires_at TIMESTAMPTZ NOT NULL,
+                        created_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                    
+                    CREATE TABLE IF NOT EXISTS admin_verification_pins (
+                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                        admin_id UUID UNIQUE NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+                        pin VARCHAR(255) NOT NULL,
+                        email VARCHAR(255) NOT NULL,
+                        expires_at TIMESTAMPTZ NOT NULL,
+                        created_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                    
+                    CREATE OR REPLACE FUNCTION trigger_set_timestamp()
+                    RETURNS TRIGGER AS $$
+                    BEGIN
+                      NEW.updated_at = NOW();
+                      RETURN NEW;
+                    END;
+                    $$ LANGUAGE plpgsql;
+
+                    DROP TRIGGER IF EXISTS set_timestamp_admins ON admins;
+                    CREATE TRIGGER set_timestamp_admins
+                    BEFORE UPDATE ON admins
+                    FOR EACH ROW
+                    EXECUTE FUNCTION trigger_set_timestamp();
+
+                    DROP TRIGGER IF EXISTS set_timestamp_admin_settings ON admin_settings;
+                    CREATE TRIGGER set_timestamp_admin_settings
+                    BEFORE UPDATE ON admin_settings
+                    FOR EACH ROW
+                    EXECUTE FUNCTION trigger_set_timestamp();
+
+                    INSERT INTO admins (name, email, password_hash, can_create_admins)
+                    VALUES ('José Angel Iván Rubianes Silva', 'angelivan34@gmail.com', {{ADMIN_PASSWORD_HASH}}, TRUE)
+                    ON CONFLICT (email) DO NOTHING;
+                `
+            },
+            {
+                name: 'condominiums/base_schema.sql',
+                sql: `
+                    CREATE TABLE IF NOT EXISTS condominiums (
+                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                        name VARCHAR(255) UNIQUE NOT NULL,
+                        continent VARCHAR(255),
+                        country VARCHAR(255),
+                        state VARCHAR(255),
+                        city VARCHAR(255),
+                        street VARCHAR(255),
+                        number VARCHAR(255),
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+
+                    DROP TRIGGER IF EXISTS set_timestamp_condominiums ON condominiums;
+                    CREATE TRIGGER set_timestamp_condominiums
+                    BEFORE UPDATE ON condominiums
+                    FOR EACH ROW
+                    EXECUTE FUNCTION trigger_set_timestamp();
+                `
+            },
+            {
+                name: 'smtp/base_schema.sql',
+                sql: `
+                    CREATE TABLE IF NOT EXISTS smtp_configurations (
+                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                        name VARCHAR(255) NOT NULL,
+                        host VARCHAR(255) NOT NULL,
+                        port INTEGER NOT NULL,
+                        secure BOOLEAN DEFAULT TRUE,
+                        auth_user VARCHAR(255) NOT NULL,
+                        auth_pass TEXT NOT NULL,
+                        priority INTEGER NOT NULL,
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+
+                    DROP TRIGGER IF EXISTS set_timestamp_smtp_configurations ON smtp_configurations;
+                    CREATE TRIGGER set_timestamp_smtp_configurations
+                    BEFORE UPDATE ON smtp_configurations
+                    FOR EACH ROW
+                    EXECUTE FUNCTION trigger_set_timestamp();
+                `
+            },
+            {
+                name: 'residents/base_schema.sql',
+                sql: `
+                     CREATE TABLE IF NOT EXISTS residents (
+                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                        condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
+                        name VARCHAR(255) NOT NULL,
+                        email VARCHAR(255) UNIQUE NOT NULL,
+                        password_hash VARCHAR(255) NOT NULL,
+                        location VARCHAR(255),
+                        housing_unit VARCHAR(255),
+                        phone_number VARCHAR(50),
+                        is_active BOOLEAN DEFAULT TRUE,
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                    
+                    DROP TRIGGER IF EXISTS set_timestamp_residents ON residents;
+                    CREATE TRIGGER set_timestamp_residents
+                    BEFORE UPDATE ON residents
+                    FOR EACH ROW
+                    EXECUTE FUNCTION trigger_set_timestamp();
+                `
+            },
+            {
+                name: 'gatekeepers/base_schema.sql',
+                sql: `
+                    CREATE TABLE IF NOT EXISTS gatekeepers (
+                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                        condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
+                        name VARCHAR(255) NOT NULL,
+                        email VARCHAR(255) UNIQUE NOT NULL,
+                        password_hash VARCHAR(255) NOT NULL,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+
+                    DROP TRIGGER IF EXISTS set_timestamp_gatekeepers ON gatekeepers;
+                    CREATE TRIGGER set_timestamp_gatekeepers
+                    BEFORE UPDATE ON gatekeepers
+                    FOR EACH ROW
+                    EXECUTE FUNCTION trigger_set_timestamp();
+                `
+            },
+            {
+                name: 'entry_control/base_schema.sql',
+                sql: `
+                    CREATE TABLE IF NOT EXISTS entry_control (
+                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                        condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
+                        resident_id UUID REFERENCES residents(id) ON DELETE SET NULL,
+                        gatekeeper_id UUID REFERENCES gatekeepers(id) ON DELETE SET NULL,
+                        device_id UUID, -- Assuming a devices table might exist later
+                        entry_type VARCHAR(50) NOT NULL, -- 'entry' or 'exit'
+                        timestamp TIMESTAMPTZ DEFAULT NOW(),
+                        notes TEXT
+                    );
+                `
+            }
         ];
         
-        for (const schemaPath of schemasToApply) {
-            const checkMigration = await dbClient.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [schemaPath]);
+        for (const schema of schemasToApply) {
+            const checkMigration = await dbClient.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [schema.name]);
             
             if (checkMigration.rows.length > 0) {
-                console.log(`[runMigrations] Migration already applied, skipping: ${schemaPath}`);
+                console.log(`[runMigrations] Migration already applied, skipping: ${schema.name}`);
                 continue; 
             }
-            console.log(`[runMigrations] Applying migration: ${schemaPath}`);
+            console.log(`[runMigrations] Applying migration: ${schema.name}`);
 
-            const fullSchemaPath = path.join(sqlBaseDir, schemaPath);
-            try {
-                let schemaSql = await fs.readFile(fullSchemaPath, 'utf-8');
-                if (schemaSql.trim()) {
-                    
-                    if (schemaPath === 'admins/base_schema.sql') {
-                         const adminCheck = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'").catch(() => ({rows:[]})); 
-                        if (adminCheck.rows.length === 0) {
-                            const passwordHash = await bcrypt.hash('adminivan123', 10);
-                            schemaSql = schemaSql.replace('{{ADMIN_PASSWORD_HASH}}', `'${passwordHash}'`);
-                        } else {
-                            schemaSql = schemaSql.split('INSERT INTO admins')[0];
-                        }
-                    }
-
-                    await dbClient.query(schemaSql);
-
-                    await dbClient.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [schemaPath]);
-
-                    if (schemaPath === 'admins/base_schema.sql') {
-                         const newAdmin = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
-                         if (newAdmin.rows.length > 0) {
-                             const adminId = newAdmin.rows[0].id;
-                             await dbClient.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING', [adminId]);
-                         }
-                    }
-                }
-            } catch (err: any) {
-                if (err.code === 'ENOENT') {
-                   console.log(`[runMigrations] Schema file not found, skipping: ${schemaPath}`);
+            let schemaSql = schema.sql;
+            
+            if (schema.name === 'admins/base_schema.sql') {
+                 const adminCheck = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'").catch(() => ({rows:[]})); 
+                if (adminCheck.rows.length === 0) {
+                    const passwordHash = await bcrypt.hash('adminivan123', 10);
+                    schemaSql = schemaSql.replace('{{ADMIN_PASSWORD_HASH}}', `'${passwordHash}'`);
                 } else {
-                   console.error(`[runMigrations] Could not process schema in '${schemaPath}'. Error: ${err.message}`);
-                   throw err;
+                    schemaSql = schemaSql.split('INSERT INTO admins')[0];
                 }
+            }
+
+            if (schemaSql.trim()) {
+                await dbClient.query(schemaSql);
+                await dbClient.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [schema.name]);
+            }
+            
+            if (schema.name === 'admins/base_schema.sql') {
+                 const newAdmin = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
+                 if (newAdmin.rows.length > 0) {
+                     const adminId = newAdmin.rows[0].id;
+                     await dbClient.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING', [adminId]);
+                 }
             }
         }
 
@@ -1061,3 +1223,6 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 
 
 
+
+
+    
