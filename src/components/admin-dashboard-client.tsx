@@ -723,30 +723,12 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
 
 function ManageAccountDialog({ session }: { session: Session }) {
     const { t } = useLocale();
-    const { toast } = useToast();
     const router = useRouter();
-    const [state, formAction] = useActionState(updateAdminAccount, undefined);
     const [isOpen, setIsOpen] = useState(false);
-
+    
     const handleClose = useCallback(() => {
         setIsOpen(false);
     }, []);
-
-    useEffect(() => {
-        if (!state) return;
-        
-        if (state.success) {
-            toast({ title: t('toast.successTitle'), description: state.message });
-            if (state.data?.needsLogout) {
-                // The server action will handle deleting the cookie, we just redirect.
-                router.push('/admin/login');
-            } else {
-                // If only name/password changed, refresh data and close.
-                router.refresh();
-                handleClose();
-            }
-        }
-    }, [state, router, handleClose, t, toast]);
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -757,15 +739,44 @@ function ManageAccountDialog({ session }: { session: Session }) {
                 </DropdownMenuItem>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
-                <form action={formAction}>
-                    <ManageAccountFields session={session} onCancel={handleClose} formState={state} />
-                </form>
+                <ManageAccountForm session={session} onFormSuccess={handleClose} />
             </DialogContent>
         </Dialog>
     );
 }
 
-function ManageAccountFields({ session, onCancel, formState }: { session: Session, onCancel: () => void, formState: any }) {
+function ManageAccountForm({ session, onFormSuccess }: { session: Session; onFormSuccess: () => void }) {
+    const { t } = useLocale();
+    const { toast } = useToast();
+    const router = useRouter();
+    const [state, formAction] = useActionState(updateAdminAccount, undefined);
+
+    useEffect(() => {
+        if (!state) return;
+        
+        if (state.success) {
+            toast({ title: t('toast.successTitle'), description: state.message });
+            onFormSuccess();
+            if (state.data?.needsLogout) {
+                // The server action handles deleting the cookie.
+                router.push('/admin/login');
+            } else {
+                // Refresh server components to get new session data.
+                router.refresh();
+            }
+        }
+        // No need for a separate error toast here, as the form state will show an Alert.
+    }, [state, router, onFormSuccess, t, toast]);
+    
+    return (
+         <form action={formAction}>
+            <ManageAccountFields session={session} formState={state} onCancel={onFormSuccess}/>
+        </form>
+    );
+}
+
+
+function ManageAccountFields({ session, onCancel, formState }: { session: Session; onCancel: () => void; formState: any }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
     const { toast } = useToast();
@@ -834,7 +845,7 @@ function ManageAccountFields({ session, onCancel, formState }: { session: Sessio
                         <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
                             <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-                            <AlertDescription variant="destructive">{formState.message}</AlertDescription>
+                            <AlertDescription>{formState.message}</AlertDescription>
                         </Alert>
                     )}
                     <Card>
@@ -995,7 +1006,7 @@ function AddressVerificationDialog({
            <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-            <AlertDescription variant="destructive">{error}</AlertDescription>
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : results.length > 0 ? (
           <div className="space-y-2">
@@ -1699,4 +1710,5 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
+
 
