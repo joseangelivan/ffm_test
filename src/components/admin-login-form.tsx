@@ -178,6 +178,7 @@ export default function AdminLoginForm({ authenticateAdmin, t, tErrorKeys }: Adm
   const [state, formAction] = useActionState(authenticateAdmin, undefined);
   
   useEffect(() => {
+    console.log("Admin login form state:", state);
     if (state?.success === true) {
       router.push('/admin/dashboard');
     }
