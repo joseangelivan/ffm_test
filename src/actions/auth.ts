@@ -615,7 +615,7 @@ function generateTempPassword(): string {
 }
 
 
-async function sendAdminFirstLoginEmail(adminId: string, appUrl: string): Promise<ActionState> {
+export async function sendAdminFirstLoginEmail(adminId: string, appUrl: string): Promise<ActionState> {
     const session = await getCurrentSession();
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
