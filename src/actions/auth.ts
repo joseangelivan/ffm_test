@@ -304,12 +304,14 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
             await client.query(`INSERT INTO ${settingsTable} (${userIdColumn}) VALUES ($1) ON CONFLICT (${userIdColumn}) DO NOTHING;`, [userId]);
         }
         
+        const isProduction = process.env.NODE_ENV === 'production';
         const cookieStore = await cookies();
         cookieStore.set('session', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: isProduction,
             maxAge: 60 * 60, // 1 hour
             path: '/',
+            sameSite: isProduction ? 'none' : 'lax',
         });
 
         return { success: true };
@@ -934,3 +936,6 @@ export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
 
     
 
+
+
+    
