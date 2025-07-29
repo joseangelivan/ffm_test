@@ -224,7 +224,55 @@
         "customMap2": "Mapa Personalizado 2",
         "undo": "Deshacer",
         "redo": "Rehacer",
-        "undoLast": "Deshacer última edición"
+        "undoLast": "Deshacer última edición",
+        "modules": {
+          "title": "Módulos del Mapa",
+          "selectPlaceholder": "Seleccionar módulo",
+          "geofence": "Geocerca",
+          "elements": "Elementos del mapa"
+        },
+        "geofence": {
+          "defaultLabel": "Geocerca Estándar",
+          "viewAll": "Ver todas",
+          "none": "Ninguna",
+          "editMode": "Edición",
+          "selectPlaceholder": "Seleccionar geocerca",
+          "setAsDefault": "Establecer como Estándar",
+          "draw": "Dibujar",
+          "defaultName": "Geocerca",
+          "saveButton": "Guardar Geocerca"
+        },
+        "shapes": {
+          "polygon": "Polígono",
+          "rectangle": "Rectángulo",
+          "circle": "Círculo"
+        },
+        "elements": {
+          "title": "Gestión de Elementos",
+          "description": "Añade y gestiona elementos como cámaras, porterías o áreas de vivienda.",
+          "editMode": "Edición de Elementos",
+          "elementTypeLabel": "Tipo de Elemento",
+          "selectTypePlaceholder": "Seleccionar tipo de elemento",
+          "drawArea": "Dibujar Área",
+          "addElement": "Añadir Elemento"
+        },
+        "toast": {
+          "shapeDrawn": {
+            "title": "Forma Dibujada",
+            "description": "Ahora puedes guardar la geocerca para este condominio."
+          },
+          "shapeCloneError": "No se pudo clonar la forma para editar.",
+          "geofenceSaved": {
+            "title": "Geocerca Guardada",
+            "description": "La geocerca \"{name}\" ha sido guardada."
+          },
+          "geofenceUpdated": "Geocerca Actualizada",
+          "geofenceDeleted": "Geocerca Eliminada",
+          "defaultSet": {
+            "title": "Geocerca Estándar",
+            "description": "La geocerca seleccionada ha sido definida como estándar."
+          }
+        }
       },
       "users": {
         "title": "Gestionar Usuarios",
@@ -334,6 +382,7 @@
   }
 
     
+
 
 
 
