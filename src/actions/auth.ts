@@ -134,6 +134,11 @@ export async function getDbPool(): Promise<Pool> {
     return pool;
 }
 
+// Function to ensure DB is initialized before an action
+async function initializeDb() {
+    return await getDbPool();
+}
+
 
 const JWT_ALG = 'HS256';
 
@@ -318,6 +323,7 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
 export async function authenticateUser(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
     let client;
     try {
+        await initializeDb();
         const email = formData.get('email') as string;
         const password = formData.get('password') as string;
         const userType = formData.get('user_type') as 'residente' | 'porteria';
@@ -380,6 +386,7 @@ export async function authenticateUser(prevState: AuthState | undefined, formDat
 export async function authenticateAdmin(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
   let client;
   try {
+    await initializeDb();
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
     const locale = formData.get('locale') as 'es' | 'pt' || 'pt';
@@ -920,3 +927,6 @@ export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
 
 
 
+
+
+    
