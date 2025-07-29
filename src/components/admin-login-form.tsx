@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Mail, Lock, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useEffect, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
@@ -54,6 +54,11 @@ function LoginFormContent({ state }: { state: any }) {
     const { pending } = useFormStatus();
     const { t, locale } = useLocale();
     const [showPassword, setShowPassword] = useState(false);
+    const emailInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        emailInputRef.current?.focus();
+    }, []);
 
     return (
         <div className={cn("relative transition-opacity", pending && "opacity-50")}>
@@ -75,6 +80,7 @@ function LoginFormContent({ state }: { state: any }) {
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
+                      ref={emailInputRef}
                       id="email"
                       name="email"
                       type="email"
@@ -155,4 +161,3 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
     </div>
   );
 }
-
