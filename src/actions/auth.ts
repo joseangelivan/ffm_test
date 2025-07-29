@@ -58,39 +58,6 @@ async function runMigrations(client: Pool) {
                 await dbClient.query(schemaSql);
                 await dbClient.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [schemaFile]);
             }
-            
-            // Seed default admin after its schema is created
-            if (schemaFile === 'admins/base_schema.sql') {
-                const adminCheck = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
-                if (adminCheck.rows.length === 0) {
-                    console.log('[runMigrations] Seeding default admin...');
-                    const passwordHash = await bcrypt.hash('adminivan123', 10);
-                    const insertQuery = `
-                        INSERT INTO admins (name, email, password_hash, can_create_admins)
-                        VALUES ('José Angel Iván Rubianes Silva', 'angelivan34@gmail.com', $1, TRUE)
-                        RETURNING id;
-                    `;
-                    const newAdmin = await dbClient.query(insertQuery, [passwordHash]);
-
-                     if (newAdmin.rows.length > 0) {
-                         const adminId = newAdmin.rows[0].id;
-                         await dbClient.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING', [adminId]);
-                     }
-                }
-            }
-
-            // Seed a test condominium after its schema is created
-            if (schemaFile === 'condominiums/base_schema.sql') {
-                const condoCheck = await dbClient.query("SELECT id FROM condominiums WHERE name = 'Condomínio de Teste'");
-                if (condoCheck.rows.length === 0) {
-                    console.log('[runMigrations] Seeding test condominium...');
-                    const insertQuery = `
-                        INSERT INTO condominiums (name, continent, country, state, city, street, "number")
-                        VALUES ('Condomínio de Teste', 'Americas', 'Brazil', 'São Paulo', 'São Paulo', 'Avenida Paulista', '1000');
-                    `;
-                    await dbClient.query(insertQuery);
-                }
-            }
         }
 
         await dbClient.query('COMMIT');
