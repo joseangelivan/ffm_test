@@ -721,37 +721,43 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
     )
 }
 
-function ManageAccountDialog({ session, onSuccess }: { session: Session, onSuccess: () => void }) {
+function ManageAccountDialog({ session, onCancel }: { session: Session, onCancel: () => void }) {
     const { t } = useLocale();
     const { toast } = useToast();
     const router = useRouter();
     const [state, formAction] = useActionState(updateAdminAccount, undefined);
 
+    const handleClose = useCallback(() => {
+        onCancel();
+    }, [onCancel]);
+
     useEffect(() => {
-        if (state?.success === false) {
+        if (!state) return;
+        
+        if (state.success === false) {
             toast({ title: t('toast.errorTitle'), description: state.message, variant: 'destructive' });
         }
-        if (state?.success === true) {
+        if (state.success === true) {
             toast({ title: t('toast.successTitle'), description: state.message });
             if (state.message.includes('cerrará la sesión')) {
                 setTimeout(() => handleLogoutAction(), 3000);
             } else {
-                router.refresh();
-                onSuccess();
+                router.refresh(); // Refresh server data
+                handleClose(); // Close the dialog
             }
         }
-    }, [state, t, toast, router, onSuccess]);
+    }, [state, t, toast, router, handleClose]);
 
     return (
         <DialogContent className="sm:max-w-md">
             <form action={formAction}>
-                 <ManageAccountFields session={session} />
+                 <ManageAccountFields session={session} onCancel={handleClose} />
             </form>
         </DialogContent>
     );
 }
 
-function ManageAccountFields({ session }: { session: Session }) {
+function ManageAccountFields({ session, onCancel }: { session: Session, onCancel: () => void }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
     const { toast } = useToast();
@@ -889,7 +895,7 @@ function ManageAccountFields({ session }: { session: Session }) {
             </Tabs>
             
             <DialogFooter className="pt-4 mt-4 border-t">
-                 <DialogClose asChild><Button type="button" variant="outline" disabled={pending}>{t('common.cancel')}</Button></DialogClose>
+                 <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
                 <Button type="submit" disabled={isSaveChangesDisabled}>{t('common.saveChanges')}</Button>
             </DialogFooter>
         </div>
@@ -1441,6 +1447,10 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
       fetchCondos();
   };
 
+  const handleAccountDialogClose = useCallback(() => {
+    setIsAccountDialogOpen(false);
+  }, []);
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
        {isPreparingEdit && <LoadingOverlay text={t('adminDashboard.loadingOverlay.preparingEdit')} />}
@@ -1474,7 +1484,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                             <span>{t('adminDashboard.account.myAccount')}</span>
                         </DropdownMenuItem>
                     </DialogTrigger>
-                    <ManageAccountDialog session={session} onSuccess={() => setIsAccountDialogOpen(false)} />
+                    <ManageAccountDialog session={session} onCancel={handleAccountDialogClose} />
                 </Dialog>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
