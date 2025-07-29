@@ -721,30 +721,36 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
     )
 }
 
-function ManageAccountDialog({ onOpenChange, onLogoutRequest }: { onOpenChange: (open: boolean) => void; onLogoutRequest: () => void; }) {
+function ManageAccountDialog({
+    onOpenChange,
+    onLogoutRequest,
+}: {
+    onOpenChange: (open: boolean) => void;
+    onLogoutRequest: () => void;
+}) {
     const { toast } = useToast();
     const { t } = useLocale();
-    const [state, formAction] = useActionState(updateAdminAccount, undefined);
 
-    const handleSuccess = useCallback(() => {
-        if (state?.success && state.data?.needsLogout) {
-            onOpenChange(false);
-            toast({
-                title: t('toast.successTitle'),
-                description: state.message,
-                duration: 3000
-            });
-            onLogoutRequest();
-        }
-    }, [state, onOpenChange, onLogoutRequest, toast, t]);
+    const handleAction = useCallback(
+        async (prevState: any, formData: FormData) => {
+            const result = await updateAdminAccount(prevState, formData);
+            if (result?.success) {
+                toast({
+                    title: t('toast.successTitle'),
+                    description: result.message,
+                });
+                if (result.data?.needsLogout) {
+                    onLogoutRequest();
+                }
+                onOpenChange(false);
+            }
+            return result;
+        },
+        [t, toast, onLogoutRequest, onOpenChange]
+    );
 
-    useEffect(() => {
-        if (!state) return;
-        if (state.success) {
-            handleSuccess();
-        }
-    }, [state, handleSuccess]);
-    
+    const [state, formAction] = useActionState(handleAction, undefined);
+
     return (
         <DialogContent className="sm:max-w-md">
             <form action={formAction}>
@@ -754,12 +760,10 @@ function ManageAccountDialog({ onOpenChange, onLogoutRequest }: { onOpenChange: 
     );
 }
 
-
 function ManageAccountFields({ formState }: { formState: any }) {
     const { pending } = useFormStatus();
     const { t, locale } = useLocale();
     const { toast } = useToast();
-    const router = useRouter();
     const { session } = useAdminDashboard();
 
 
