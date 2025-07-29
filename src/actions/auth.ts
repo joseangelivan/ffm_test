@@ -53,28 +53,30 @@ async function runMigrations(client: Pool) {
             
             const sqlPath = path.join(process.cwd(), 'src', 'lib', 'sql', schemaFile);
             let schemaSql = await fs.readFile(sqlPath, 'utf-8');
-            
-            if (schemaFile === 'admins/base_schema.sql') {
-                 const adminCheck = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'").catch(() => ({rows:[]})); 
-                if (adminCheck.rows.length === 0) {
-                    const passwordHash = await bcrypt.hash('adminivan123', 10);
-                    schemaSql = schemaSql.replace('{{ADMIN_PASSWORD_HASH}}', `'${passwordHash}'`);
-                } else {
-                    schemaSql = schemaSql.split('INSERT INTO admins')[0];
-                }
-            }
 
             if (schemaSql.trim()) {
                 await dbClient.query(schemaSql);
                 await dbClient.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [schemaFile]);
             }
             
+            // Seed default admin after its schema is created
             if (schemaFile === 'admins/base_schema.sql') {
-                 const newAdmin = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
-                 if (newAdmin.rows.length > 0) {
-                     const adminId = newAdmin.rows[0].id;
-                     await dbClient.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING', [adminId]);
-                 }
+                const adminCheck = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
+                if (adminCheck.rows.length === 0) {
+                    console.log('[runMigrations] Seeding default admin...');
+                    const passwordHash = await bcrypt.hash('adminivan123', 10);
+                    const insertQuery = `
+                        INSERT INTO admins (name, email, password_hash, can_create_admins)
+                        VALUES ('José Angel Iván Rubianes Silva', 'angelivan34@gmail.com', $1, TRUE)
+                        RETURNING id;
+                    `;
+                    const newAdmin = await dbClient.query(insertQuery, [passwordHash]);
+
+                     if (newAdmin.rows.length > 0) {
+                         const adminId = newAdmin.rows[0].id;
+                         await dbClient.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING', [adminId]);
+                     }
+                }
             }
         }
 
@@ -1048,3 +1050,6 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 
     
 
+
+
+    
