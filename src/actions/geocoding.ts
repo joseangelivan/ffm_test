@@ -19,6 +19,12 @@ export type GeocodeResult = {
     administrative_area_level_1: string; // State
     country: string;
     formatted_address: string;
+    geometry: {
+        location: {
+            lat: number;
+            lng: number;
+        }
+    }
 };
 
 type ActionState = {
@@ -72,6 +78,7 @@ export async function geocodeAddress(
           administrative_area_level_1: components.administrative_area_level_1 || '',
           country: components.country || '',
           formatted_address: result.formatted_address,
+          geometry: result.geometry,
         };
       }).filter((r: GeocodeResult) => r.route); // Filter out results without a street name
 
@@ -91,3 +98,5 @@ export async function geocodeAddress(
     return { success: false, message: 'Failed to connect to geocoding service.' };
   }
 }
+
+    

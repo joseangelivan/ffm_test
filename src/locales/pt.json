@@ -215,16 +215,60 @@
         "devices": "Dispositivos",
         "map": "Mapa"
       },
-       "map": {
+      "map": {
         "title": "Mapa do Condomínio",
         "description": "Visualize o mapa e a distribuição do condomínio.",
-        "selectMapPlaceholder": "Selecionar mapa",
-        "defaultOSM": "Mapa Padrão (OSM)",
-        "customMap1": "Mapa Personalizado 1",
-        "customMap2": "Mapa Personalizado 2",
+        "loadingMap": "Carregando mapa...",
         "undo": "Desfazer",
         "redo": "Refazer",
-        "undoLast": "Desfazer a última edição"
+        "modules": {
+            "title": "Módulos do Mapa",
+            "selectPlaceholder": "Selecionar módulo",
+            "geofence": "Geocerca",
+            "elements": "Elementos do mapa"
+        },
+        "geofence": {
+            "defaultLabel": "Geocerca Padrão",
+            "viewAll": "Ver Todas",
+            "none": "Nenhuma",
+            "editMode": "Edição",
+            "selectPlaceholder": "Selecionar geocerca",
+            "setAsDefault": "Definir como Padrão",
+            "draw": "Desenhar",
+            "defaultName": "Geocerca",
+            "saveButton": "Salvar Geocerca"
+        },
+        "shapes": {
+            "polygon": "Polígono",
+            "rectangle": "Retângulo",
+            "circle": "Círculo"
+        },
+        "elements": {
+            "title": "Gestão de Elementos",
+            "description": "Adicione e gerencie elementos como câmeras, portarias ou áreas de moradia.",
+            "editMode": "Edição de Elementos",
+            "elementTypeLabel": "Tipo de Elemento",
+            "selectTypePlaceholder": "Selecionar tipo de elemento",
+            "drawArea": "Desenhar Área",
+            "addElement": "Adicionar Elemento"
+        },
+        "toast": {
+            "shapeDrawn": {
+                "title": "Forma Desenhada",
+                "description": "Agora você pode salvar a geocerca para este condomínio."
+            },
+            "shapeCloneError": "Não foi possível clonar a forma para editar.",
+            "geofenceSaved": {
+                "title": "Geocerca Salva",
+                "description": "A geocerca \"{name}\" foi salva."
+            },
+            "geofenceUpdated": "Geocerca Atualizada",
+            "geofenceDeleted": "Geocerca Excluída",
+            "defaultSet": {
+                "title": "Geocerca Padrão",
+                "description": "A geocerca selecionada foi definida como padrão."
+            }
+        }
       },
       "users": {
         "title": "Gerenciar Usuários",
@@ -285,7 +329,9 @@
         "close": "Fechar",
         "cancel": "Cancelar",
         "saveChanges": "Salvar Alterações",
-        "you": "você"
+        "you": "você",
+        "edit": "Editar",
+        "delete": "Excluir"
     },
     "emails": {
         "adminCredentials": {
@@ -332,9 +378,3 @@
   }
 
     
-
-
-
-
-
-

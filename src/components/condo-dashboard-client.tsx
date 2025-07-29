@@ -78,6 +78,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { getCondominioById, type Condominio } from '@/actions/condos';
+import { geocodeAddress } from '@/actions/geocoding';
 
 
 // Mock data
@@ -630,7 +631,7 @@ const ManageElementTypeDialog = () => {
 };
 
 
-function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
+function CondoMapTab({ condo, center }: { condo: Condominio; center: { lat: number; lng: number } }) {
   const { t } = useLocale();
   const { toast } = useToast();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -669,7 +670,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   const isActionActive = isDrawing || isEditing || isCreating;
   const isEditingShape = isEditing || isCreating;
 
-  const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || "Ninguna";
+  const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
 
   // --- History Management ---
   const updateHistory = useCallback((geometry: any) => {
@@ -841,14 +842,15 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     setActiveOverlay(overlay);
     updateHistory(getGeometryFromShape(overlay));
     toast({
-        title: "Forma Dibujada",
-        description: "Ahora puedes guardar la geocerca para este condominio."
+        title: t('condoDashboard.map.toast.shapeDrawn.title'),
+        description: t('condoDashboard.map.toast.shapeDrawn.description')
     });
-  }, [toast, updateHistory]);
+  }, [toast, t, updateHistory]);
 
   const getNextGeofenceName = () => {
+      const baseName = t('condoDashboard.map.geofence.defaultName');
       const existingNumbers = geofences.map(g => {
-          const match = g.name.match(/^Geocerca_(\d+)$/);
+          const match = g.name.match(new RegExp(`^${baseName}_(\\d+)$`));
           return match ? parseInt(match[1], 10) : 0;
       }).filter(n => n > 0).sort((a,b) => a-b);
       
@@ -860,7 +862,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
               break;
           }
       }
-      return `Geocerca_${String(nextNumber).padStart(2, '0')}`;
+      return `${baseName}_${String(nextNumber).padStart(2, '0')}`;
   }
 
   const handleSaveGeofence = () => {
@@ -870,7 +872,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     const shapeToSave = createShapeFromGeometry(geometryToSave);
     
     if (!shapeToSave) {
-        toast({ title: "Error", description: "No se pudo clonar la forma para guardar.", variant: "destructive"});
+        toast({ title: t('toast.errorTitle'), description: t('condoDashboard.map.toast.shapeCloneError'), variant: "destructive"});
         return;
     }
     
@@ -886,7 +888,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
         });
 
         setSelectedGeofenceId(newId);
-        toast({ title: "Geocerca Guardada", description: `La geocerca "${newName}" se ha guardado.`});
+        toast({ title: t('condoDashboard.map.toast.geofenceSaved.title'), description: t('condoDashboard.map.toast.geofenceSaved.description', {name: newName})});
 
     } else if (isEditing && selectedGeofenceId) { // Editing existing
         setGeofences(prev => prev.map(g => 
@@ -894,7 +896,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             ? {...g, shape: shapeToSave} 
             : g
         ));
-        toast({ title: "Geocerca Actualizada" });
+        toast({ title: t('condoDashboard.map.toast.geofenceUpdated') });
     }
 
     resetActionStates();
@@ -909,7 +911,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
     const shape = createShapeFromGeometry(geometry);
     
     if (!shape) {
-        toast({ title: "Error", description: "No se pudo clonar la forma para editar.", variant: "destructive"});
+        toast({ title: t('toast.errorTitle'), description: t('condoDashboard.map.toast.shapeCloneError'), variant: "destructive"});
         return;
     }
     
@@ -951,13 +953,13 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
       });
 
       if (isEditing || isCreating) resetActionStates();
-      toast({ title: "Geocerca Eliminada", variant: "destructive" });
+      toast({ title: t('condoDashboard.map.toast.geofenceDeleted'), variant: "destructive" });
   }
 
   const handleSetAsDefault = () => {
     if (!selectedGeofenceId) return;
     setDefaultGeofenceId(selectedGeofenceId);
-    toast({ title: "Geocerca por Defecto", description: "Se ha establecido la geocerca seleccionada como predeterminada."});
+    toast({ title: t('condoDashboard.map.toast.defaultSet.title'), description: t('condoDashboard.map.toast.defaultSet.description')});
   }
 
   if (!apiKey) {
@@ -1014,16 +1016,16 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
             </div>
             <div className="w-1/3 p-1">
                 <div className="relative border h-full p-4 pt-2 bg-card rounded-md">
-                    <h2 className="text-lg font-semibold tracking-tight px-2 absolute -top-3.5 left-4 bg-card">Módulos del Mapa</h2>
+                    <h2 className="text-lg font-semibold tracking-tight px-2 absolute -top-3.5 left-4 bg-card">{t('condoDashboard.map.modules.title')}</h2>
                      <div className="flex-1 flex flex-col space-y-4 pt-4">
                         <div className="px-1 flex items-center gap-2">
                             <Select value={activeModule} onValueChange={setActiveModule}>
                                 <SelectTrigger id="module-select" className="text-base font-bold text-primary">
-                                    <SelectValue placeholder="Seleccionar módulo" />
+                                    <SelectValue placeholder={t('condoDashboard.map.modules.selectPlaceholder')} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="geofence">Geocerca</SelectItem>
-                                    <SelectItem value="elements">Elementos del mapa</SelectItem>
+                                    <SelectItem value="geofence">{t('condoDashboard.map.modules.geofence')}</SelectItem>
+                                    <SelectItem value="elements">{t('condoDashboard.map.modules.elements')}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -1031,11 +1033,11 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                          <div className="space-y-4 pt-2 border-t">
                              <div className="flex flex-col gap-4">
                                 <div className="flex items-center justify-between">
-                                    <Label htmlFor="default-geofence">Geocerca Predeterminada</Label>
+                                    <Label htmlFor="default-geofence">{t('condoDashboard.map.geofence.defaultLabel')}</Label>
                                     <div className="flex items-center space-x-2">
                                         <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isEditingEnabled}/>
                                         <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                            Ver Todas
+                                            {t('condoDashboard.map.geofence.viewAll')}
                                         </label>
                                     </div>
                                 </div>
@@ -1051,7 +1053,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                  <div className="flex items-center space-x-2">
                                     <Checkbox id="enable-editing" checked={isEditingEnabled} onCheckedChange={(checked) => setIsEditingEnabled(!!checked)}/>
                                     <label htmlFor="enable-editing" className="text-base font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        Edición
+                                        {t('condoDashboard.map.geofence.editMode')}
                                     </label>
                                 </div>
 
@@ -1059,7 +1061,7 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                      <div className="flex items-center gap-2">
                                            <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive}>
                                                 <SelectTrigger className={cn("flex-1", isEditingShape && "text-[#2980b9] border-[#2980b9] font-bold")}>
-                                                    <SelectValue placeholder="Seleccionar geocerca" />
+                                                    <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     {geofences.map(gf => (
@@ -1075,15 +1077,15 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                            <div className="flex items-center">
                                                 <Button variant="ghost" size="icon" onClick={handleSetAsDefault} disabled={isActionActive || !selectedGeofenceId}>
                                                     <Star className={cn("h-4 w-4", defaultGeofenceId === selectedGeofenceId && "fill-orange-400 text-orange-500")} />
-                                                    <span className="sr-only">Establecer como Default</span>
+                                                    <span className="sr-only">{t('condoDashboard.map.geofence.setAsDefault')}</span>
                                                 </Button>
                                                <Button variant="ghost" size="icon" onClick={handleStartEdit} disabled={isActionActive || !selectedGeofenceId}>
                                                    <Edit className="h-4 w-4"/>
-                                                   <span className="sr-only">Editar</span>
+                                                   <span className="sr-only">{t('common.edit')}</span>
                                                </Button>
                                                 <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isActionActive || !selectedGeofenceId}>
                                                    <Trash2 className="h-4 w-4 text-destructive"/>
-                                                   <span className="sr-only">Eliminar</span>
+                                                   <span className="sr-only">{t('common.delete')}</span>
                                                </Button>
                                            </div>
                                        </div>
@@ -1091,30 +1093,30 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                     <div className="flex items-center gap-2">
                                         <Button onClick={handleToggleDrawing} variant={isActionActive ? "destructive" : "outline"} className="flex-1">
                                             <PencilRuler className="mr-2 h-4 w-4"/>
-                                            {isActionActive ? 'Cancelar' : 'Dibujar'}
+                                            {isActionActive ? t('common.cancel') : t('condoDashboard.map.geofence.draw')}
                                         </Button>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="outline" className="w-40 justify-between" disabled={isActionActive}>
                                                     <span>
-                                                        {drawingMode === 'polygon' && 'Polígono'}
-                                                        {drawingMode === 'rectangle' && 'Rectángulo'}
-                                                        {drawingMode === 'circle' && 'Círculo'}
+                                                        {drawingMode === 'polygon' && t('condoDashboard.map.shapes.polygon')}
+                                                        {drawingMode === 'rectangle' && t('condoDashboard.map.shapes.rectangle')}
+                                                        {drawingMode === 'circle' && t('condoDashboard.map.shapes.circle')}
                                                     </span>
                                                     <ChevronDown className="h-4 w-4"/>
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent>
-                                                <DropdownMenuItem onSelect={() => setDrawingMode('polygon')}>Polígono</DropdownMenuItem>
-                                                <DropdownMenuItem onSelect={() => setDrawingMode('rectangle')}>Rectángulo</DropdownMenuItem>
-                                                <DropdownMenuItem onSelect={() => setDrawingMode('circle')}>Círculo</DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={() => setDrawingMode('polygon')}>{t('condoDashboard.map.shapes.polygon')}</DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={() => setDrawingMode('rectangle')}>{t('condoDashboard.map.shapes.rectangle')}</DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={() => setDrawingMode('circle')}>{t('condoDashboard.map.shapes.circle')}</DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </div>
                                     
                                      {isEditingShape && (
                                         <Button onClick={handleSaveGeofence} className="w-full">
-                                            <Save className="mr-2 h-4 w-4" /> {isCreating ? 'Guardar Geocerca' : 'Guardar Cambios'}
+                                            <Save className="mr-2 h-4 w-4" /> {isCreating ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
                                         </Button>
                                     )}
                                 </fieldset>
@@ -1124,9 +1126,9 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                         {activeModule === 'elements' && (
                             <div className="space-y-4 pt-2 border-t">
                                 <div className="space-y-2">
-                                    <h3 className="text-base font-semibold">Gestión de Elementos</h3>
+                                    <h3 className="text-base font-semibold">{t('condoDashboard.map.elements.title')}</h3>
                                     <p className="text-sm text-muted-foreground">
-                                        Agrega y gestiona elementos como cámaras, porterías o áreas de viviendas.
+                                        {t('condoDashboard.map.elements.description')}
                                     </p>
                                 </div>
 
@@ -1141,17 +1143,17 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                             htmlFor="enable-element-editing" 
                                             className="text-base font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                         >
-                                            Edición de Elementos
+                                            {t('condoDashboard.map.elements.editMode')}
                                         </label>
                                     </div>
 
                                     <fieldset disabled={!isElementEditing} className="space-y-4">
                                         <div className="space-y-2">
-                                            <Label htmlFor="element-type">Tipo de Elemento</Label>
+                                            <Label htmlFor="element-type">{t('condoDashboard.map.elements.elementTypeLabel')}</Label>
                                             <div className="flex items-center gap-2">
                                                 <Select value={selectedElementType} onValueChange={(v) => setSelectedElementType(v as MapElementType)}>
                                                     <SelectTrigger className="flex-1">
-                                                        <SelectValue placeholder="Seleccionar tipo de elemento" />
+                                                        <SelectValue placeholder={t('condoDashboard.map.elements.selectTypePlaceholder')} />
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="camera">
@@ -1182,11 +1184,11 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
                                         <div className="grid grid-cols-2 gap-2">
                                             <Button variant="outline">
                                                 <PlusCircle className="h-4 w-4 mr-2" />
-                                                {selectedElementType === 'housing_area' ? 'Dibujar Área' : 'Agregar Elemento'}
+                                                {selectedElementType === 'housing_area' ? t('condoDashboard.map.elements.drawArea') : t('condoDashboard.map.elements.addElement')}
                                             </Button>
                                             <Button variant="secondary">
                                                 <Settings className="h-4 w-4 mr-2" />
-                                                Gestionar
+                                                {t('adminDashboard.table.manage')}
                                             </Button>
                                         </div>
                                     </fieldset>
@@ -1202,25 +1204,42 @@ function CondoMapTab({ center }: { center: { lat: number; lng: number } }) {
   );
 }
 
+type Coords = { lat: number; lng: number };
 
 export default function CondoDashboardClient({ condoId }: { condoId: string }) {
   const { t } = useLocale();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const [condo, setCondo] = useState<Condominio | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mapCenter, setMapCenter] = useState<Coords | null>(null);
 
   useEffect(() => {
-    async function fetchCondo() {
+    async function fetchCondoAndCoords() {
       const result = await getCondominioById(condoId);
       if (result.success && result.data) {
         setCondo(result.data);
+        // Geocode the address to get lat/lng for the map
+        const geoResult = await geocodeAddress({
+          street: result.data.street!,
+          city: result.data.city!,
+          state: result.data.state!,
+          country: result.data.country!,
+        });
+
+        if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
+            const { lat, lng } = geoResult.data[0].geometry.location;
+            setMapCenter({ lat, lng });
+        } else {
+            console.warn("Could not geocode address for map center.");
+            setMapCenter({ lat: -23.5505, lng: -46.6333 }); // Fallback
+        }
+
       } else {
-        // Handle error, maybe show a toast or redirect
         console.error(result.message);
       }
       setLoading(false);
     }
-    fetchCondo();
+    fetchCondoAndCoords();
   }, [condoId]);
 
   if (loading) {
@@ -1248,8 +1267,6 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
         </div>
     );
   }
-
-  const mapCenter = { lat: -23.5505, lng: -46.6333 }; // Default, should be replaced with condo location
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -1282,8 +1299,24 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
             </TabsContent>
              <TabsContent value="map" className="mt-4">
               {apiKey ? (
-                 <APIProvider apiKey={apiKey} libraries={['drawing']}>
-                    <CondoMapTab center={mapCenter} />
+                 <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']}>
+                    {mapCenter ? (
+                        <CondoMapTab condo={condo} center={mapCenter} />
+                    ) : (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Loader className="h-5 w-5 animate-spin" />
+                                        <span>{t('condoDashboard.map.loadingMap')}</span>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
                  </APIProvider>
               ) : (
                 <Card>
@@ -1305,3 +1338,5 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
     </div>
   );
 }
+
+    
