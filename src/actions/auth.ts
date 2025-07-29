@@ -25,9 +25,6 @@ async function runMigrations(client: Pool) {
     try {
         await dbClient.query('BEGIN');
         
-        // Ensure pgcrypto is enabled
-        await dbClient.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
-
         await dbClient.query(`
             CREATE TABLE IF NOT EXISTS migrations_log (
                 id SERIAL PRIMARY KEY,
@@ -637,8 +634,9 @@ function generateTempPassword(): string {
 
 export async function sendAdminFirstLoginEmail(adminId: string, appUrl: string, dbClient?: any): Promise<ActionState> {
     const session = await getCurrentSession();
-    if (!session || !session.canCreateAdmins) {
-        return { success: false, message: "No tienes permiso para realizar esta acción." };
+    // Allow this to be called without a session during admin creation
+    if (!session && !dbClient) {
+        return { success: false, message: "No autorizado." };
     }
 
     let client;
