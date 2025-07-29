@@ -37,8 +37,6 @@ async function runMigrations(client: Pool) {
         // --- Apply all base table schemas ---
         const schemasToApply = [
             'admins/base_schema.sql',
-            'admins/first_login_schema.sql',
-            'admins/admin_settings_schema.sql',
             'condominiums/base_schema.sql',
             'smtp/base_schema.sql',
             'residents/base_schema.sql',
@@ -65,7 +63,7 @@ async function runMigrations(client: Pool) {
                         } else {
                             console.log("[runMigrations] Default admin already exists. Skipping seed part of the query.");
                             // If admin exists, remove the INSERT statement to avoid errors
-                            schemaSql = schemaSql.split('INSERT INTO')[0];
+                            schemaSql = schemaSql.split('INSERT INTO admins')[0];
                         }
                     }
 
@@ -309,8 +307,8 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
         }
         
         const isProduction = process.env.NODE_ENV === 'production';
-        const cookieStore = cookies();
-        await cookieStore.set('session', token, {
+        const cookieStore = await cookies();
+        cookieStore.set('session', token, {
             httpOnly: true,
             secure: isProduction,
             maxAge: 60 * 60, // 1 hour
@@ -1066,5 +1064,6 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 
 
     
+
 
 
