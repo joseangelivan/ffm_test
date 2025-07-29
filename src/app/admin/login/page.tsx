@@ -17,18 +17,16 @@ type Session = {
 
 export default function AdminLoginPage() {
     const router = useRouter();
-    const [session, setSession] = useState<Session | null | undefined>(undefined);
     const [isCheckingSession, setIsCheckingSession] = useState(true);
 
     useEffect(() => {
         getCurrentSession().then(s => {
             const currentSession = s as Session | null;
-            if (currentSession) {
+            if (currentSession && currentSession.type === 'admin') {
                 router.push('/admin/dashboard');
             } else {
                 setIsCheckingSession(false);
             }
-            setSession(currentSession);
         });
     }, [router]);
 
@@ -36,7 +34,5 @@ export default function AdminLoginPage() {
         return <Loading />;
     }
     
-    // If there's no session, show the login form.
-    // The redirection logic is handled by the effect above.
     return <AdminLoginForm authenticateAdmin={authenticateAdmin} />;
 }
