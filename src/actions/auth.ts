@@ -78,6 +78,19 @@ async function runMigrations(client: Pool) {
                      }
                 }
             }
+
+            // Seed a test condominium after its schema is created
+            if (schemaFile === 'condominiums/base_schema.sql') {
+                const condoCheck = await dbClient.query("SELECT id FROM condominiums WHERE name = 'Condomínio de Teste'");
+                if (condoCheck.rows.length === 0) {
+                    console.log('[runMigrations] Seeding test condominium...');
+                    const insertQuery = `
+                        INSERT INTO condominiums (name, continent, country, state, city, street, "number")
+                        VALUES ('Condomínio de Teste', 'Americas', 'Brazil', 'São Paulo', 'São Paulo', 'Avenida Paulista', '1000');
+                    `;
+                    await dbClient.query(insertQuery);
+                }
+            }
         }
 
         await dbClient.query('COMMIT');
@@ -1051,5 +1064,7 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
     
 
 
+
+    
 
     
