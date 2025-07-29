@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLoginForm from '@/components/admin-login-form';
 import { authenticateAdmin, getCurrentSession } from '@/actions/auth';
@@ -34,5 +34,9 @@ export default function AdminLoginPage() {
         return <Loading />;
     }
     
-    return <AdminLoginForm authenticateAdmin={authenticateAdmin} />;
+    return (
+        <Suspense fallback={<Loading />}>
+            <AdminLoginForm authenticateAdmin={authenticateAdmin} />
+        </Suspense>
+    );
 }
