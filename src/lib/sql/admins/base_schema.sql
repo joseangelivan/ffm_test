@@ -1,33 +1,22 @@
--- Esquema base para la tabla de administradores
 
+-- Habilita las extensiones necesarias si no existen.
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- Tabla de Administradores
 CREATE TABLE IF NOT EXISTS admins (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255), -- Puede ser NULL para el primer login
+    password_hash TEXT, -- Puede ser NULL para el primer login
     can_create_admins BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Trigger para actualizar `updated_at`
-CREATE OR REPLACE FUNCTION trigger_set_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS set_timestamp_admins ON admins;
-CREATE TRIGGER set_timestamp_admins
-BEFORE UPDATE ON admins
-FOR EACH ROW
-EXECUTE FUNCTION trigger_set_timestamp();
-
--- Crear la tabla de sesiones de administrador si no existe
+-- Tabla de Sesiones (para todos los tipos de usuario)
 CREATE TABLE IF NOT EXISTS sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL,
     user_type VARCHAR(50) NOT NULL, -- 'admin', 'resident', 'gatekeeper'
     token TEXT NOT NULL,
@@ -35,27 +24,23 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Crear la tabla de configuraciones de administrador
+-- Tabla de Configuraciones de Administrador
 CREATE TABLE IF NOT EXISTS admin_settings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
-    theme VARCHAR(50) DEFAULT 'light',
-    language VARCHAR(10) DEFAULT 'pt',
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    admin_id UUID UNIQUE NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+    theme VARCHAR(10) DEFAULT 'light',
+    language VARCHAR(5) DEFAULT 'pt',
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(admin_id)
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-DROP TRIGGER IF EXISTS set_timestamp_admin_settings ON admin_settings;
-CREATE TRIGGER set_timestamp_admin_settings
-BEFORE UPDATE ON admin_settings
-FOR EACH ROW
-EXECUTE FUNCTION trigger_set_timestamp();
+-- Índices para mejorar el rendimiento
+CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
 
-
--- Insertar el administrador por defecto solo si no existe
+-- Insertar el administrador por defecto si no existe.
+-- La lógica en auth.ts se encargará de reemplazar {{ADMIN_PASSWORD_HASH}} y de evitar duplicados.
 INSERT INTO admins (name, email, password_hash, can_create_admins)
-SELECT 'Admin Ivan', 'angelivan34@gmail.com', NULL, TRUE
-WHERE NOT EXISTS (
-    SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'
-);
+VALUES ('José Angel Iván Rubianes Silva', 'angelivan34@gmail.com', '{{ADMIN_PASSWORD_HASH}}', TRUE)
+ON CONFLICT (email) DO NOTHING;
