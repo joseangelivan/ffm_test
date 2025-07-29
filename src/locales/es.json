@@ -189,7 +189,8 @@
         "currentPasswordLabel": "Contraseña Actual",
         "newPasswordLabel": "Nueva Contraseña",
         "confirmPasswordLabel": "Confirmar Nueva Contraseña",
-        "reloginNeeded": "Datos actualizados. Para ver los cambios, se cerrará la sesión automáticamente."
+        "reloginNeeded": "Datos actualizados. Para ver los cambios, se cerrará la sesión automáticamente.",
+        "noChangesMade": "No se realizaron cambios."
       }
     },
     "condoDashboard": {
@@ -295,5 +296,6 @@
   }
 
     
+
 
 

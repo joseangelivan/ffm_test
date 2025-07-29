@@ -849,7 +849,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         }
 
         if (updateClauses.length === 0) {
-             return { success: false, message: "No se realizaron cambios." };
+             return { success: false, message: t.adminDashboard.account.noChangesMade };
         }
         
         updateClauses.push(`updated_at = NOW()`);
@@ -858,8 +858,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         
         await client.query(query, values);
         
-        // Any successful change requires re-login to ensure data consistency
-        cookies().delete('session');
         return { success: true, message: t.adminDashboard.account.reloginNeeded, data: { needsLogout: true } };
         
     } catch (error) {
@@ -878,6 +876,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
     
 
     
+
 
 
 
