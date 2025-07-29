@@ -189,8 +189,13 @@
         "currentPasswordLabel": "Contraseña Actual",
         "newPasswordLabel": "Nueva Contraseña",
         "confirmPasswordLabel": "Confirmar Nueva Contraseña",
-        "reloginNeeded": "Datos actualizados. Para ver los cambios, se cerrará la sesión automáticamente.",
-        "noChangesMade": "No se realizaron cambios."
+        "updateSuccess": "Datos actualizados con éxito.",
+        "noChangesMade": "No se realizaron cambios.",
+        "logoutDialog": {
+            "title": "Reinicio de Sesión Requerido",
+            "description": "Tus datos se han actualizado. Para que los cambios sean visibles, es necesario reiniciar la sesión.",
+            "confirm": "OK"
+        }
       }
     },
     "condoDashboard": {
@@ -296,6 +301,7 @@
   }
 
     
+
 
 
 

@@ -721,23 +721,20 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
     )
 }
 
-function ManageAccountDialog({ session, isOpen, onOpenChange }: { session: Session; isOpen: boolean; onOpenChange: (open: boolean) => void; }) {
+function ManageAccountDialog({ session, isOpen, onOpenChange, onLogoutRequest }: { session: Session; isOpen: boolean; onOpenChange: (open: boolean) => void; onLogoutRequest: () => void; }) {
     const { toast } = useToast();
+    const { t } = useLocale();
     const [state, formAction] = useActionState(updateAdminAccount, undefined);
 
     useEffect(() => {
         if (!state) return;
-        
+
         if (state.success === true) {
-            toast({ title: "Éxito", description: state.message });
-            if (state.data?.needsLogout) {
-                // Wait for toast to be visible, then log out.
-                setTimeout(() => {
-                    handleLogoutAction();
-                }, 3000);
-            }
+            onOpenChange(false); // Close the main account dialog
+            onLogoutRequest();   // Trigger the force logout dialog in the parent
+            toast({ title: t('toast.successTitle'), description: t('adminDashboard.account.updateSuccess') });
         }
-    }, [state, toast]);
+    }, [state, onOpenChange, onLogoutRequest, toast, t]);
     
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -1287,6 +1284,28 @@ function CondoFormWrapper({
   );
 }
 
+function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: () => void }) {
+    const { t } = useLocale();
+
+    if (!isOpen) return null;
+
+    return (
+        <AlertDialog open={isOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{t('adminDashboard.account.logoutDialog.title')}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {t('adminDashboard.account.logoutDialog.description')}
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogAction onClick={onConfirm}>{t('adminDashboard.account.logoutDialog.confirm')}</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+}
+
 
 export default function AdminDashboardClient({ session }: { session: Session }) {
   const { t, setLocale, locale } = useLocale();
@@ -1299,6 +1318,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
   const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   
   const [editingCondoData, setEditingCondoData] = useState<Condominio & Partial<LocationData> | null>(null);
   const [isPreparingEdit, setIsPreparingEdit] = useState(false);
@@ -1683,9 +1703,19 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
         </Dialog>
         
          {/* My Account Dialog */}
-        <ManageAccountDialog session={session} isOpen={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}/>
+        <ManageAccountDialog
+            session={session}
+            isOpen={isAccountDialogOpen}
+            onOpenChange={setIsAccountDialogOpen}
+            onLogoutRequest={() => setShowLogoutDialog(true)}
+        />
+        
+        {/* Force Logout Dialog */}
+        <ForceLogoutDialog 
+            isOpen={showLogoutDialog}
+            onConfirm={handleLogoutAction}
+        />
+
     </div>
   );
 }
-
-

@@ -189,8 +189,13 @@
         "currentPasswordLabel": "Senha Atual",
         "newPasswordLabel": "Nova Senha",
         "confirmPasswordLabel": "Confirmar Nova Senha",
-        "reloginNeeded": "Dados atualizados. Para ver as alterações, a sessão será encerrada automaticamente.",
-        "noChangesMade": "Nenhuma alteração foi feita."
+        "updateSuccess": "Dados atualizados com sucesso.",
+        "noChangesMade": "Nenhuma alteração foi feita.",
+        "logoutDialog": {
+            "title": "Reinicialização de Sessão Necessária",
+            "description": "Seus dados foram atualizados. Para que as alterações fiquem visíveis, é necessário reiniciar a sessão.",
+            "confirm": "OK"
+        }
       }
     },
     "condoDashboard": {
@@ -296,6 +301,7 @@
   }
 
     
+
 
 
 

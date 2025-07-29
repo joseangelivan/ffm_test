@@ -808,7 +808,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         const name = formData.get('name') as string;
         const email = formData.get('email') as string;
         
-        const updateClauses = [];
+        const updateClauses: string[] = [];
         const values: any[] = [];
         let valueIndex = 1;
 
@@ -858,7 +858,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         
         await client.query(query, values);
         
-        return { success: true, message: t.adminDashboard.account.reloginNeeded, data: { needsLogout: true } };
+        return { success: true, message: t.adminDashboard.account.updateSuccess, data: { needsLogout: true } };
         
     } catch (error) {
         console.error("Error updating admin account:", error);
@@ -876,6 +876,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
     
 
     
+
 
 
 
