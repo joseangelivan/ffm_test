@@ -114,7 +114,7 @@ function LoginFormContent({ state }: { state: any }) {
                 {state?.success === false && state.message && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Login Failed</AlertTitle>
+                      <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
                       <AlertDescription>
                         {state.message}
                       </AlertDescription>
@@ -153,5 +153,3 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
     </div>
   );
 }
-
-    
