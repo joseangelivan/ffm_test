@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useActionState, useRef, useTransition, useCallback } from 'react';
@@ -682,7 +681,7 @@ function AdminForm({ admin, onSuccess, onCancel }: { admin?: Admin, onSuccess: (
 }
 
 function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => void }) {
-    const { t } = useLocale();
+    const { t, locale } = useLocale();
     const { pending } = useFormStatus();
     const isEditMode = !!admin;
 
@@ -694,6 +693,7 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
                 <DialogDescription>{t('adminDashboard.manageAdmins.formDescription')}</DialogDescription>
             </DialogHeader>
             <input type="hidden" name="id" value={admin?.id || ''} />
+            <input type="hidden" name="locale" value={locale} />
              <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                     <Label htmlFor="name">{t('adminDashboard.manageAdmins.nameLabel')}</Label>
@@ -703,10 +703,6 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
                     <Label htmlFor="email">{t('adminDashboard.manageAdmins.emailLabel')}</Label>
                     <Input id="email" name="email" type="email" defaultValue={admin?.email} placeholder="admin@example.com" required autoComplete="email" disabled={pending}/>
                 </div>
-                {!isEditMode && <div className="grid gap-2">
-                    <Label htmlFor="password">{t('adminDashboard.manageAdmins.passwordLabel')}</Label>
-                    <Input id="password" name="password" type="password" required autoComplete="new-password" disabled={pending}/>
-                </div>}
                 <div className="flex items-center space-x-2">
                    <Checkbox id="can_create_admins" name="can_create_admins" defaultChecked={admin?.can_create_admins} disabled={pending}/>
                    <Label htmlFor="can_create_admins" className="text-sm font-normal">

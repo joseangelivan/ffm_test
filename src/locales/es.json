@@ -153,10 +153,9 @@
         "listDescription": "Ver, crear, editar y eliminar cuentas de administrador.",
         "createTitle": "Crear Nuevo Administrador",
         "editTitle": "Editar Administrador",
-        "formDescription": "Rellena los detalles para la cuenta de administrador. La contraseña se establecerá en el primer inicio de sesión.",
+        "formDescription": "Rellena los detalles. Se enviará un correo con un PIN de activación para que el nuevo administrador establezca su contraseña.",
         "nameLabel": "Nombre Completo",
         "emailLabel": "Correo Electrónico",
-        "passwordLabel": "Contraseña (se establece en el primer login)",
         "canCreateAdminsLabel": "Puede crear administradores",
         "createButton": "Crear Administrador",
         "deleteConfirmation": "Esta acción no se puede deshacer. Esto eliminará permanentemente la cuenta de administrador de {name}.",
@@ -218,6 +217,7 @@
       "map": {
         "title": "Mapa del Condominio",
         "description": "Visualiza el mapa y la distribución del condominio.",
+        "loadingMap": "Cargando mapa...",
         "selectMapPlaceholder": "Seleccionar mapa",
         "defaultOSM": "Mapa por Defecto (OSM)",
         "customMap1": "Mapa Personalizado 1",
@@ -285,7 +285,9 @@
         "close": "Cerrar",
         "cancel": "Cancelar",
         "saveChanges": "Guardar Cambios",
-        "you": "tú"
+        "you": "tú",
+        "edit": "Editar",
+        "delete": "Eliminar"
     },
     "emails": {
         "adminCredentials": {
@@ -332,6 +334,7 @@
   }
 
     
+
 
 
 
