@@ -434,9 +434,13 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
         const name = formData.get('name') as string;
         const email = formData.get('email') as string;
         const canCreateAdmins = formData.get('can_create_admins') === 'on';
+        const pin = formData.get('pin') as string;
 
         if (!name || !email) {
             return { success: false, message: 'Nombre y email son obligatorios.' };
+        }
+        if (!pin || !/^\d{6}$/.test(pin)) {
+            return { success: false, message: 'El PIN debe ser un número de 6 dígitos.' };
         }
         
         const pool = await getDbPool();
@@ -452,11 +456,9 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
             'INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, NULL, $3) RETURNING id',
             [name, email, canCreateAdmins]
         );
-
         const newAdminId = newAdminResult.rows[0].id;
         
-        // Generate and store first-login PIN
-        const pin = generateVerificationPin();
+        // Hash and store user-provided PIN
         const pinHash = await bcrypt.hash(pin, 10);
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
@@ -465,16 +467,7 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
           [newAdminId, pinHash, expiresAt]
         );
         
-        // Send email with PIN
-        const emailResult = await sendAdminFirstLoginEmail(newAdminId, pin, formData.get('locale') as 'es' | 'pt');
-        
-        if (!emailResult.success) {
-            // This is tricky. The admin is created but email failed.
-            // For now, we'll return a success message but include the email error.
-            return { success: true, message: `Administrador "${name}" creado, pero falló el envío del correo de bienvenida. Causa: ${emailResult.message}` };
-        }
-
-        return { success: true, message: `Administrador "${name}" creado con éxito. Se ha enviado un correo con el PIN de activación.` };
+        return { success: true, message: `Administrador "${name}" creado con éxito. Por favor, entrégale el PIN para que pueda activar su cuenta.` };
 
     } catch (error) {
         console.error('Error creating new admin:', error);

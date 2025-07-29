@@ -153,9 +153,10 @@
         "listDescription": "Veja, crie, edite e exclua contas de administrador.",
         "createTitle": "Criar Novo Administrador",
         "editTitle": "Editar Administrador",
-        "formDescription": "Preencha os detalhes. Um e-mail com um PIN de ativação será enviado para o novo administrador definir sua senha.",
+        "formDescription": "Defina um PIN de 6 dígitos para o novo administrador. Você deverá compartilhar este PIN pessoalmente para que ele possa ativar sua conta.",
         "nameLabel": "Nome Completo",
         "emailLabel": "Endereço de E-mail",
+        "pinLabel": "PIN de Ativação (6 dígitos)",
         "canCreateAdminsLabel": "Pode criar administradores",
         "createButton": "Criar Administrador",
         "deleteConfirmation": "Esta ação não pode ser desfeita. Isso excluirá permanentemente a conta de administrador de {name}.",
@@ -164,7 +165,7 @@
             "email": "Email",
             "permissions": "Permissões"
         },
-        "sendCredentials": "Enviar PIN de ativação"
+        "sendCredentials": "Enviar Credenciais (email)"
       },
       "loadingOverlay": {
           "creating": "Criando...",
@@ -377,4 +378,5 @@
   }
 
     
+
 

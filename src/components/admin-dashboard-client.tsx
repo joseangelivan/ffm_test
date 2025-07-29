@@ -703,6 +703,12 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
                     <Label htmlFor="email">{t('adminDashboard.manageAdmins.emailLabel')}</Label>
                     <Input id="email" name="email" type="email" defaultValue={admin?.email} placeholder="admin@example.com" required autoComplete="email" disabled={pending}/>
                 </div>
+                {!isEditMode && (
+                    <div className="grid gap-2">
+                        <Label htmlFor="pin">{t('adminDashboard.manageAdmins.pinLabel')}</Label>
+                        <Input id="pin" name="pin" type="text" placeholder="123456" required maxLength={6} pattern="\d{6}" disabled={pending}/>
+                    </div>
+                )}
                 <div className="flex items-center space-x-2">
                    <Checkbox id="can_create_admins" name="can_create_admins" defaultChecked={admin?.can_create_admins} disabled={pending}/>
                    <Label htmlFor="can_create_admins" className="text-sm font-normal">

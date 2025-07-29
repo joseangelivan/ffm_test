@@ -153,9 +153,10 @@
         "listDescription": "Ver, crear, editar y eliminar cuentas de administrador.",
         "createTitle": "Crear Nuevo Administrador",
         "editTitle": "Editar Administrador",
-        "formDescription": "Rellena los detalles. Se enviará un correo con un PIN de activación para que el nuevo administrador establezca su contraseña.",
+        "formDescription": "Define un PIN de 6 dígitos para el nuevo administrador. Deberás compartir este PIN personalmente para que pueda activar su cuenta.",
         "nameLabel": "Nombre Completo",
         "emailLabel": "Correo Electrónico",
+        "pinLabel": "PIN de Activación (6 dígitos)",
         "canCreateAdminsLabel": "Puede crear administradores",
         "createButton": "Crear Administrador",
         "deleteConfirmation": "Esta acción no se puede deshacer. Esto eliminará permanentemente la cuenta de administrador de {name}.",
@@ -164,7 +165,7 @@
             "email": "Email",
             "permissions": "Permisos"
         },
-        "sendCredentials": "Enviar PIN de activación"
+        "sendCredentials": "Enviar Credenciales (email)"
       },
       "loadingOverlay": {
           "creating": "Creando...",
@@ -382,6 +383,7 @@
   }
 
     
+
 
 
 
