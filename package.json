@@ -1,3 +1,4 @@
+
 {
   "name": "nextn",
   "version": "0.1.0",
@@ -10,7 +11,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "db:migrate": "RUN_MIGRATIONS=true tsx -e 'import(\"./src/actions/auth\").then(m => m.getDbPool())'"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.14.1",

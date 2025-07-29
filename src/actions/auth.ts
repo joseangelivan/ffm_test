@@ -21,6 +21,11 @@ let pool: Pool | undefined;
 let migrationLock: Promise<void> | null = null;
 
 async function runMigrations(client: Pool) {
+    if (process.env.RUN_MIGRATIONS !== 'true') {
+        console.log('--- [runMigrations] Skipping migrations. Set RUN_MIGRATIONS=true to execute them. ---');
+        return;
+    }
+
     console.log('--- [runMigrations] Starting migration transaction ---');
     const dbClient = await client.connect();
     try {
@@ -108,13 +113,13 @@ export async function getDbPool(): Promise<Pool> {
     if (!migrationLock) {
         migrationLock = (async () => {
             try {
-                console.log("--- Attempting to initialize database pool and run migrations ---");
+                console.log("--- Attempting to initialize database pool ---");
                 const newPool = new Pool({
                     connectionString: process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway',
                 });
 
                 await newPool.query('SELECT NOW()');
-                console.log("--- Database connection successful. Running migrations... ---");
+                console.log("--- Database connection successful. Checking migrations... ---");
 
                 await runMigrations(newPool);
                 
