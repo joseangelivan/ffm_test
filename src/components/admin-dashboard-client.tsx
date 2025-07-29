@@ -721,7 +721,7 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
     )
 }
 
-function ManageAccountDialog({ session }: { session: Session }) {
+function ManageAccountDialog({ session, onSuccess }: { session: Session, onSuccess: () => void }) {
     const { t } = useLocale();
     const { toast } = useToast();
     const router = useRouter();
@@ -737,9 +737,10 @@ function ManageAccountDialog({ session }: { session: Session }) {
                 setTimeout(() => handleLogoutAction(), 3000);
             } else {
                 router.refresh();
+                onSuccess();
             }
         }
-    }, [state, t, toast, router]);
+    }, [state, t, toast, router, onSuccess]);
 
     return (
         <DialogContent className="sm:max-w-md">
@@ -755,16 +756,13 @@ function ManageAccountFields({ session }: { session: Session }) {
     const { t } = useLocale();
     const { toast } = useToast();
 
-    // State for inputs
     const [emailValue, setEmailValue] = useState(session.email);
     const [pinValue, setPinValue] = useState('');
     
-    // State for UI control
     const [showPassword, setShowPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     
-    // State for async operations and verification flow
     const [isPinLoading, startPinTransition] = useTransition();
     const [pinVerificationState, setPinVerificationState] = useState<{ status: 'idle' | 'verified' | 'error', message: string }>({ status: 'idle', message: t('adminDashboard.account.pinValidation.initial') });
 
@@ -1476,7 +1474,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                             <span>{t('adminDashboard.account.myAccount')}</span>
                         </DropdownMenuItem>
                     </DialogTrigger>
-                    <ManageAccountDialog session={session} />
+                    <ManageAccountDialog session={session} onSuccess={() => setIsAccountDialogOpen(false)} />
                 </Dialog>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
