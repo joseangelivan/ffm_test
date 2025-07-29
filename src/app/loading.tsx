@@ -6,6 +6,7 @@ export default function Loading() {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="flex items-center gap-4 text-2xl text-muted-foreground">
         <Loader className="h-12 w-12 animate-spin" />
+        <span>Cargando...</span>
       </div>
     </div>
   );
