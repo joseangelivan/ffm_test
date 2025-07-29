@@ -28,7 +28,6 @@ import { Logo } from '@/components/logo';
 
 import { cn } from '@/lib/utils';
 import { useLocale } from '@/lib/i18n';
-import { authenticateUser } from '@/actions/auth';
 
 function LoadingOverlay() {
   const { t } = useLocale();
@@ -56,7 +55,7 @@ function SubmitButton() {
   );
 }
 
-function LoginFormFields({ formState }: { formState: any }) {
+function LoginFormContent({ formState }: { formState: any }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
     const [showPassword, setShowPassword] = useState(false);
@@ -183,13 +182,16 @@ function LoginFormFields({ formState }: { formState: any }) {
     );
 }
 
+interface LoginFormProps {
+    action: (prevState: any, formData: FormData) => Promise<any>;
+}
 
-export default function LoginForm() {
-  const [state, formAction] = useActionState(authenticateUser, undefined);
+export default function LoginForm({ action }: LoginFormProps) {
+  const [state, formAction] = useActionState(action, undefined);
   
   return (
     <form action={formAction}>
-        <LoginFormFields formState={state} />
+        <LoginFormContent formState={state} />
     </form>
   );
 }

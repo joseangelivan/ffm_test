@@ -437,23 +437,23 @@ function SmtpFormDialog({ config, onSuccess, onCancel }: { config: SmtpConfigura
     const isEditMode = !!config;
     const formAction = isEditMode ? updateSmtpConfiguration : createSmtpConfiguration;
     
-    // We pass a function to useActionState to handle the success case without causing infinite loops.
-    const [state, dispatch] = useActionState(formAction, undefined);
-    
     const onFormSuccessCallback = useCallback(() => {
         onSuccess();
     }, [onSuccess]);
 
-    useEffect(() => {
-        if (!state) return;
-        if (state.success === false) {
-            toast({ title: t('toast.errorTitle'), description: state.message, variant: 'destructive' });
+    const handleAction = async (prevState: any, formData: FormData) => {
+        const result = await formAction(prevState, formData);
+        if (result?.success === false) {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
         }
-        if (state.success === true) {
-            toast({ title: t('toast.successTitle'), description: state.message });
+        if (result?.success === true) {
+            toast({ title: t('toast.successTitle'), description: result.message });
             onFormSuccessCallback();
         }
-    }, [state, t, toast, onFormSuccessCallback]);
+        return result;
+    }
+    
+    const [state, dispatch] = useActionState(handleAction, undefined);
     
     return (
         <DialogContent className="sm:max-w-lg">
@@ -659,17 +659,20 @@ function AdminForm({ admin, onSuccess, onCancel }: { admin?: Admin, onSuccess: (
     const { toast } = useToast();
     const isEditMode = !!admin;
     const formAction = isEditMode ? updateAdmin : createAdmin;
-    const [state, dispatch] = useActionState(formAction, undefined);
-    
-    useEffect(() => {
-        if (state?.success === false) {
-            toast({ title: t('toast.errorTitle'), description: state.message, variant: 'destructive' });
+
+    const handleAction = async (prevState: any, formData: FormData) => {
+        const result = await formAction(prevState, formData);
+        if (result?.success === false) {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
         }
-        if (state?.success === true) {
-            toast({ title: t('toast.successTitle'), description: state.message });
+        if (result?.success === true) {
+            toast({ title: t('toast.successTitle'), description: result.message });
             onSuccess();
         }
-    }, [state, t, toast, onSuccess]);
+        return result;
+    };
+    
+    const [state, dispatch] = useActionState(handleAction, undefined);
     
     return (
         <form action={dispatch}>
@@ -722,41 +725,42 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
 }
 
 function ManageAccountDialog({
+    isOpen,
     onOpenChange,
     onLogoutRequest,
 }: {
+    isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     onLogoutRequest: () => void;
 }) {
     const { toast } = useToast();
     const { t } = useLocale();
 
-    const handleAction = useCallback(
-        async (prevState: any, formData: FormData) => {
-            const result = await updateAdminAccount(prevState, formData);
-            if (result?.success) {
-                toast({
-                    title: t('toast.successTitle'),
-                    description: result.message,
-                });
-                if (result.data?.needsLogout) {
-                    onLogoutRequest();
-                }
-                onOpenChange(false);
+    const handleAction = useCallback(async (prevState: any, formData: FormData) => {
+        const result = await updateAdminAccount(prevState, formData);
+        if (result?.success) {
+            toast({
+                title: t('toast.successTitle'),
+                description: result.message,
+            });
+            if (result.data?.needsLogout) {
+                onLogoutRequest();
             }
-            return result;
-        },
-        [t, toast, onLogoutRequest, onOpenChange]
-    );
+            onOpenChange(false);
+        }
+        return result;
+    }, [t, toast, onLogoutRequest, onOpenChange]);
 
     const [state, formAction] = useActionState(handleAction, undefined);
 
     return (
-        <DialogContent className="sm:max-w-md">
-            <form action={formAction}>
-                <ManageAccountFields formState={state} />
-            </form>
-        </DialogContent>
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                <form action={formAction}>
+                    <ManageAccountFields formState={state} />
+                </form>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -1147,7 +1151,20 @@ function CondoFormWrapper({
   const { t } = useLocale();
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
-  const [state, dispatchFormAction, isFormPending] = useActionState(formAction, undefined);
+
+  const handleAction = async (prevState: any, formData: FormData) => {
+    const result = await formAction(prevState, formData);
+    if (result?.success === false) {
+      toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+    }
+    if (result?.success === true) {
+      toast({ title: t('toast.successTitle'), description: result.message });
+      closeDialog();
+    }
+    return result;
+  };
+  
+  const [state, dispatchFormAction, isFormPending] = useActionState(handleAction, undefined);
   
   const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData);
   const [isVerifyingAddress, setIsVerifyingAddress] = useState(false);
@@ -1223,24 +1240,6 @@ function CondoFormWrapper({
           });
       }
   }, [locationData.country, locationData.state, locationData.cities, fetchCities]);
-
-
-  useEffect(() => {
-    if (state?.success === false) {
-      toast({
-        title: t('toast.errorTitle'),
-        description: state.message,
-        variant: 'destructive',
-      });
-    }
-    if (state?.success === true) {
-      toast({
-        title: t('toast.successTitle'),
-        description: state.message,
-      });
-      closeDialog();
-    }
-  }, [state, t, toast, closeDialog]);
 
   const handleSelectAddress = (address: Pick<GeocodeResult, 'route' | 'street_number'>) => {
       const streetInput = formRef.current?.elements.namedItem('street') as HTMLInputElement | null;
@@ -1503,6 +1502,10 @@ export default function AdminDashboardClient({ session, isSessionValid }: { sess
     setShowLogoutDialog(true);
   }, []);
 
+  if (!session) {
+    return null; // or a loading skeleton
+  }
+
   return (
     <AdminDashboardContext.Provider value={{ session }}>
         <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
@@ -1538,6 +1541,7 @@ export default function AdminDashboardClient({ session, isSessionValid }: { sess
                             </DropdownMenuItem>
                         </DialogTrigger>
                         <ManageAccountDialog
+                            isOpen={isAccountDialogOpen}
                             onOpenChange={setIsAccountDialogOpen}
                             onLogoutRequest={onLogoutRequest}
                         />
