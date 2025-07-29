@@ -92,7 +92,7 @@ import { useLocale } from '@/lib/i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { handleLogoutAction, getSettings, updateSettings, createAdmin, getAdmins, updateAdmin, deleteAdmin, sendAdminCredentialsEmail, sendEmailChangePin, updateAdminAccount, verifyAdminEmailChangePin, type Admin } from '@/actions/auth';
+import { handleLogoutAction, getSettings, updateSettings, createAdmin, getAdmins, updateAdmin, deleteAdmin, sendAdminCredentialsEmail, sendEmailChangePin, updateAdminAccount, verifyAdminEmailChangePin, verifySessionIntegrity, type Admin } from '@/actions/auth';
 import { createCondominio, getCondominios, updateCondominio, deleteCondominio, type Condominio } from '@/actions/condos';
 import { createSmtpConfiguration, getSmtpConfigurations, updateSmtpConfiguration, deleteSmtpConfiguration, updateSmtpOrder, testSmtpConfiguration, type SmtpConfiguration } from '@/actions/smtp';
 import { geocodeAddress, type GeocodeResult } from '@/actions/geocoding';
@@ -721,43 +721,47 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
     )
 }
 
-function ManageAccountDialog({ session, onOpenChange, onLogoutRequest }: { session: Session; onOpenChange: (open: boolean) => void; onLogoutRequest: () => void; }) {
+function ManageAccountDialog({ onOpenChange, onLogoutRequest }: { onOpenChange: (open: boolean) => void; onLogoutRequest: () => void; }) {
     const { toast } = useToast();
     const { t } = useLocale();
     const [state, formAction] = useActionState(updateAdminAccount, undefined);
 
-    useEffect(() => {
-        if (!state) return;
-
-        if (state.success === false) {
-             // Let the form fields handle showing the error
-        } else if (state.success === true && state.data?.needsLogout) {
+    const handleSuccess = useCallback(() => {
+        if (state?.success && state.data?.needsLogout) {
             onOpenChange(false);
-            toast({ 
-                title: t('toast.successTitle'), 
-                description: t('adminDashboard.account.updateSuccessToast'),
+            toast({
+                title: t('toast.successTitle'),
+                description: state.message,
                 duration: 3000
             });
-            setTimeout(() => {
-                onLogoutRequest();
-            }, 500);
+            onLogoutRequest();
         }
     }, [state, onOpenChange, onLogoutRequest, toast, t]);
+
+    useEffect(() => {
+        if (!state) return;
+        if (state.success) {
+            handleSuccess();
+        }
+    }, [state, handleSuccess]);
     
     return (
         <DialogContent className="sm:max-w-md">
             <form action={formAction}>
-                <ManageAccountFields session={session} onCancel={() => onOpenChange(false)} formState={state} />
+                <ManageAccountFields formState={state} />
             </form>
         </DialogContent>
     );
 }
 
 
-function ManageAccountFields({ session, onCancel, formState }: { session: Session; onCancel: () => void; formState: any }) {
+function ManageAccountFields({ formState }: { formState: any }) {
     const { pending } = useFormStatus();
     const { t, locale } = useLocale();
     const { toast } = useToast();
+    const router = useRouter();
+    const { session } = useAdminDashboard();
+
 
     const [emailValue, setEmailValue] = useState(session.email);
     const [pinValue, setPinValue] = useState('');
@@ -900,7 +904,9 @@ function ManageAccountFields({ session, onCancel, formState }: { session: Sessio
             </Tabs>
             
             <DialogFooter className="pt-4 mt-4 border-t">
-                 <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
+                 <Button type="button" variant="outline" asChild>
+                    <DialogClose disabled={pending}>{t('common.cancel')}</DialogClose>
+                 </Button>
                 <Button type="submit" disabled={isSaveChangesDisabled}>{t('common.saveChanges')}</Button>
             </DialogFooter>
         </div>
@@ -1321,12 +1327,20 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
     );
 }
 
+const AdminDashboardContext = React.createContext<{ session: Session } | null>(null);
+
+const useAdminDashboard = () => {
+    const context = React.useContext(AdminDashboardContext);
+    if (!context) {
+        throw new Error("useAdminDashboard must be used within an AdminDashboardProvider");
+    }
+    return context;
+};
 
 export default function AdminDashboardClient({ session, isSessionValid }: { session: Session, isSessionValid: boolean }) {
   const { t, setLocale, locale } = useLocale();
   const { toast } = useToast();
-  const router = useRouter();
-
+  
   const [condominios, setCondominios] = useState<Condominio[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -1474,10 +1488,6 @@ export default function AdminDashboardClient({ session, isSessionValid }: { sess
     }
   }
   
-  const navigateToCondo = (condoId: string) => {
-    router.push(`/admin/condominio/${condoId}`);
-  };
-
   const handleCondoFormSuccess = () => {
       setIsNewCondoDialogOpen(false);
       setIsEditCondoDialogOpen(false);
@@ -1485,254 +1495,261 @@ export default function AdminDashboardClient({ session, isSessionValid }: { sess
       fetchCondos();
   };
 
+  const onLogoutRequest = useCallback(() => {
+    setShowLogoutDialog(true);
+  }, []);
+
   return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
-       {isPreparingEdit && <LoadingOverlay text={t('adminDashboard.loadingOverlay.preparingEdit')} />}
-       <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-40">
-        <div className="flex items-center gap-2">
-            <Shield className="h-6 w-6 text-primary"/>
-            <h1 className="text-lg font-semibold md:text-2xl font-headline">{t('adminDashboard.title')}</h1>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-            <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                <Avatar className="h-10 w-10">
-                    <AvatarImage src={`https://placehold.co/100x100.png?text=${session.name.charAt(0)}`} alt={session.name} data-ai-hint="avatar" />
-                    <AvatarFallback>{session.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{session.name}</p>
-                    <p className="text-xs leading-none text-muted-foreground">{session.email}</p>
-                </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                 <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
-                    <DialogTrigger asChild>
+    <AdminDashboardContext.Provider value={{ session }}>
+        <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
+        {isPreparingEdit && <LoadingOverlay text={t('adminDashboard.loadingOverlay.preparingEdit')} />}
+        <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-40">
+            <div className="flex items-center gap-2">
+                <Shield className="h-6 w-6 text-primary"/>
+                <h1 className="text-lg font-semibold md:text-2xl font-headline">{t('adminDashboard.title')}</h1>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+                <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                    <Avatar className="h-10 w-10">
+                        <AvatarImage src={`https://placehold.co/100x100.png?text=${session.name.charAt(0)}`} alt={session.name} data-ai-hint="avatar" />
+                        <AvatarFallback>{session.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                    <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">{session.name}</p>
+                        <p className="text-xs leading-none text-muted-foreground">{session.email}</p>
+                    </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
+                        <DialogTrigger asChild>
+                            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                <User className="mr-2 h-4 w-4" />
+                                <span>{t('adminDashboard.account.myAccount')}</span>
+                            </DropdownMenuItem>
+                        </DialogTrigger>
+                        <ManageAccountDialog
+                            onOpenChange={setIsAccountDialogOpen}
+                            onLogoutRequest={onLogoutRequest}
+                        />
+                    </Dialog>
+                    <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>{t('dashboard.settings')}</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                        <DropdownMenuSubContent>
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>
+                                    <Languages className="mr-2 h-4 w-4" />
+                                    <span>{t('dashboard.language')}</span>
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuPortal>
+                                    <DropdownMenuSubContent>
+                                        <DropdownMenuItem onClick={() => handleSetLocale('es')}>
+                                        Español {locale === 'es' && <span className="ml-auto">✓</span>}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleSetLocale('pt')}>
+                                        Português {locale === 'pt' && <span className="ml-auto">✓</span>}
+                                        </DropdownMenuItem>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuPortal>
+                            </DropdownMenuSub>
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>
+                                    <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                                    <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                                    <span>{t('dashboard.theme.title')}</span>
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuPortal>
+                                    <DropdownMenuSubContent>
+                                        <DropdownMenuItem onClick={() => handleSetTheme('light')}>
+                                        {t('dashboard.theme.light')} {theme === 'light' && <span className="ml-auto">✓</span>}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleSetTheme('dark')}>
+                                        {t('dashboard.theme.dark')} {theme === 'dark' && <span className="ml-auto">✓</span>}
+                                        </DropdownMenuItem>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuPortal>
+                            </DropdownMenuSub>
+                                <DropdownMenuSeparator/>
+                                {session.canCreateAdmins && <ManageAdminsDialog currentAdminId={session.id}/>}
+                                <Dialog>
+                                    <DialogTrigger asChild>
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                            <Mailbox className="mr-2 h-4 w-4" />
+                                            <span>Configurar SMTP</span>
+                                        </DropdownMenuItem>
+                                    </DialogTrigger>
+                                    <SmtpConfigDialog />
+                            </Dialog>
+                        </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                    </DropdownMenuSub>
+                    <DropdownMenuSeparator />
+                    <AlertDialog>
+                    <AlertDialogTrigger asChild>
                         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                            <User className="mr-2 h-4 w-4" />
-                            <span>{t('adminDashboard.account.myAccount')}</span>
+                            <LogOut className="mr-2 h-4 w-4" />
+                            <span>{t('dashboard.logout')}</span>
                         </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <form action={handleLogoutAction}>
+                        <LogoutDialogContent />
+                        </form>
+                    </AlertDialogContent>
+                    </AlertDialog>
+                </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+        </header>
+        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
+            <div className="grid gap-4">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>{t('adminDashboard.condoListTitle')}</CardTitle>
+                    <CardDescription>{t('adminDashboard.condoListDescription')}</CardDescription>
+                </div>
+                <Dialog open={isNewCondoDialogOpen} onOpenChange={setIsNewCondoDialogOpen}>
+                    <DialogTrigger asChild>
+                    <Button size="sm" className="gap-1">
+                        <PlusCircle className="h-4 w-4" />
+                        {t('adminDashboard.createCondoButton')}
+                    </Button>
                     </DialogTrigger>
-                    <ManageAccountDialog
-                        session={session}
-                        onOpenChange={setIsAccountDialogOpen}
-                        onLogoutRequest={() => setShowLogoutDialog(true)}
-                    />
+                    <DialogContent>
+                        <CondoFormWrapper
+                            closeDialog={handleCondoFormSuccess}
+                            formAction={createCondominio}
+                            isEditMode={false}
+                            initialData={{}}
+                            getCachedData={getCachedData}
+                        />
+                    </DialogContent>
                 </Dialog>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>{t('dashboard.settings')}</span>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuPortal>
-                      <DropdownMenuSubContent>
-                           <DropdownMenuSub>
-                              <DropdownMenuSubTrigger>
-                                  <Languages className="mr-2 h-4 w-4" />
-                                  <span>{t('dashboard.language')}</span>
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuPortal>
-                                  <DropdownMenuSubContent>
-                                      <DropdownMenuItem onClick={() => handleSetLocale('es')}>
-                                      Español {locale === 'es' && <span className="ml-auto">✓</span>}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleSetLocale('pt')}>
-                                      Português {locale === 'pt' && <span className="ml-auto">✓</span>}
-                                      </DropdownMenuItem>
-                                  </DropdownMenuSubContent>
-                              </DropdownMenuPortal>
-                          </DropdownMenuSub>
-                          <DropdownMenuSub>
-                              <DropdownMenuSubTrigger>
-                                  <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                                  <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                                  <span>{t('dashboard.theme.title')}</span>
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuPortal>
-                                  <DropdownMenuSubContent>
-                                      <DropdownMenuItem onClick={() => handleSetTheme('light')}>
-                                      {t('dashboard.theme.light')} {theme === 'light' && <span className="ml-auto">✓</span>}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleSetTheme('dark')}>
-                                      {t('dashboard.theme.dark')} {theme === 'dark' && <span className="ml-auto">✓</span>}
-                                      </DropdownMenuItem>
-                                  </DropdownMenuSubContent>
-                              </DropdownMenuPortal>
-                          </DropdownMenuSub>
-                            <DropdownMenuSeparator/>
-                            {session.canCreateAdmins && <ManageAdminsDialog currentAdminId={session.id}/>}
-                            <Dialog>
-                                <DialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                        <Mailbox className="mr-2 h-4 w-4" />
-                                        <span>Configurar SMTP</span>
-                                    </DropdownMenuItem>
-                                </DialogTrigger>
-                                <SmtpConfigDialog />
-                           </Dialog>
-                      </DropdownMenuSubContent>
-                  </DropdownMenuPortal>
-                </DropdownMenuSub>
-                <DropdownMenuSeparator />
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                        <LogOut className="mr-2 h-4 w-4" />
-                        <span>{t('dashboard.logout')}</span>
-                    </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <form action={handleLogoutAction}>
-                      <LogoutDialogContent />
-                    </form>
-                  </AlertDialogContent>
-                </AlertDialog>
-            </DropdownMenuContent>
-            </DropdownMenu>
-        </div>
-      </header>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
-        <div className="grid gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>{t('adminDashboard.condoListTitle')}</CardTitle>
-                <CardDescription>{t('adminDashboard.condoListDescription')}</CardDescription>
-              </div>
-              <Dialog open={isNewCondoDialogOpen} onOpenChange={setIsNewCondoDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="gap-1">
-                    <PlusCircle className="h-4 w-4" />
-                    {t('adminDashboard.createCondoButton')}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                    <CondoFormWrapper
-                        closeDialog={handleCondoFormSuccess}
-                        formAction={createCondominio}
-                        isEditMode={false}
-                        initialData={{}}
-                        getCachedData={getCachedData}
-                    />
-                </DialogContent>
-              </Dialog>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('adminDashboard.table.condo')}</TableHead>
-                    <TableHead>{t('adminDashboard.table.devices')}</TableHead>
-                    <TableHead>{t('adminDashboard.table.residents')}</TableHead>
-                    <TableHead>{t('adminDashboard.table.gatekeepers')}</TableHead>
-                    <TableHead>
-                      <span className="sr-only">{t('adminDashboard.table.actions')}</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    Array.from({ length: 3 }).map((_, index) => (
-                        <TableRow key={index}>
-                            <TableCell colSpan={5} className="p-4">
-                                <Skeleton className="h-10 w-full" />
+                </CardHeader>
+                <CardContent>
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>{t('adminDashboard.table.condo')}</TableHead>
+                        <TableHead>{t('adminDashboard.table.devices')}</TableHead>
+                        <TableHead>{t('adminDashboard.table.residents')}</TableHead>
+                        <TableHead>{t('adminDashboard.table.gatekeepers')}</TableHead>
+                        <TableHead>
+                        <span className="sr-only">{t('adminDashboard.table.actions')}</span>
+                        </TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {loading ? (
+                        Array.from({ length: 3 }).map((_, index) => (
+                            <TableRow key={index}>
+                                <TableCell colSpan={5} className="p-4">
+                                    <Skeleton className="h-10 w-full" />
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    ) : condominios.length === 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={5} className="h-24 text-center">
+                                {t('adminDashboard.noCondos')}
                             </TableCell>
                         </TableRow>
-                    ))
-                  ) : condominios.length === 0 ? (
-                    <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
-                            {t('adminDashboard.noCondos')}
+                    ) : condominios.map((condo) => (
+                        <TableRow key={condo.id} >
+                        <TableCell>
+                            <div className="font-medium">{condo.name}</div>
+                            <div className="text-sm text-muted-foreground">{condo.address}</div>
                         </TableCell>
-                    </TableRow>
-                  ) : condominios.map((condo) => (
-                    <TableRow key={condo.id} >
-                      <TableCell>
-                        <div className="font-medium">{condo.name}</div>
-                        <div className="text-sm text-muted-foreground">{condo.address}</div>
-                      </TableCell>
-                      <TableCell>{condo.devices_count || 0}</TableCell>
-                      <TableCell>{condo.residents_count || 0}</TableCell>
-                      <TableCell>{condo.gatekeepers_count || 0}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button aria-haspopup="true" size="icon" variant="ghost">
-                              <MoreVertical className="h-4 w-4" />
-                              <span className="sr-only">{t('adminDashboard.table.toggleMenu')}</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => navigateToCondo(condo.id)}>
-                                <Eye className="h-4 w-4 mr-2"/>{t('adminDashboard.table.manage')}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => prepareAndOpenEditDialog(condo)}>
-                                <Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}
-                            </DropdownMenuItem>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>
-                                        <Trash2 className="h-4 w-4 mr-2"/>{t('adminDashboard.table.delete')}
-                                    </DropdownMenuItem>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>{t('adminDashboard.deleteCondoDialog.title')}</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            {t('adminDashboard.deleteCondoDialog.description', {name: condo.name})}
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>{t('adminDashboard.newCondoDialog.cancel')}</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDeleteCondo(condo.id)} className={buttonVariants({variant: 'destructive'})}>
-                                            {t('adminDashboard.table.delete')}
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                        <TableCell>{condo.devices_count || 0}</TableCell>
+                        <TableCell>{condo.residents_count || 0}</TableCell>
+                        <TableCell>{condo.gatekeepers_count || 0}</TableCell>
+                        <TableCell>
+                            <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button aria-haspopup="true" size="icon" variant="ghost">
+                                <MoreVertical className="h-4 w-4" />
+                                <span className="sr-only">{t('adminDashboard.table.toggleMenu')}</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem asChild>
+                                    <Link href={`/admin/condominio/${condo.id}`}>
+                                        <Eye className="h-4 w-4 mr-2"/>{t('adminDashboard.table.manage')}
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => prepareAndOpenEditDialog(condo)}>
+                                    <Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}
+                                </DropdownMenuItem>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>
+                                            <Trash2 className="h-4 w-4 mr-2"/>{t('adminDashboard.table.delete')}
+                                        </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>{t('adminDashboard.deleteCondoDialog.title')}</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                {t('adminDashboard.deleteCondoDialog.description', {name: condo.name})}
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>{t('adminDashboard.newCondoDialog.cancel')}</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDeleteCondo(condo.id)} className={buttonVariants({variant: 'destructive'})}>
+                                                {t('adminDashboard.table.delete')}
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </DropdownMenuContent>
+                            </DropdownMenu>
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+                </CardContent>
+            </Card>
+            </div>
+        </main>
+
+        {/* Edit Condo Dialog */}
+            <Dialog open={isEditCondoDialogOpen} onOpenChange={(isOpen) => {
+                if (!isOpen) {
+                setEditingCondoData(null);
+                }
+                setIsEditCondoDialogOpen(isOpen);
+            }}>
+                <DialogContent>
+                    {editingCondoData && (
+                        <CondoFormWrapper
+                            closeDialog={handleCondoFormSuccess}
+                            formAction={handleUpdateCondoAction}
+                            initialData={editingCondoData}
+                            isEditMode={true}
+                            getCachedData={getCachedData}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
+            
+            {/* Force Logout Dialog */}
+            <ForceLogoutDialog 
+                isOpen={showLogoutDialog}
+                onConfirm={handleLogoutAction}
+            />
+
         </div>
-      </main>
-
-      {/* Edit Condo Dialog */}
-        <Dialog open={isEditCondoDialogOpen} onOpenChange={(isOpen) => {
-            if (!isOpen) {
-              setEditingCondoData(null);
-            }
-            setIsEditCondoDialogOpen(isOpen);
-        }}>
-            <DialogContent>
-                {editingCondoData && (
-                    <CondoFormWrapper
-                        closeDialog={handleCondoFormSuccess}
-                        formAction={handleUpdateCondoAction}
-                        initialData={editingCondoData}
-                        isEditMode={true}
-                        getCachedData={getCachedData}
-                    />
-                )}
-            </DialogContent>
-        </Dialog>
-        
-        {/* Force Logout Dialog */}
-        <ForceLogoutDialog 
-            isOpen={showLogoutDialog}
-            onConfirm={handleLogoutAction}
-        />
-
-    </div>
+    </AdminDashboardContext.Provider>
   );
 }
