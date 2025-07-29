@@ -723,7 +723,6 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
 
 function ManageAccountDialog({ session, onCancel }: { session: Session, onCancel: () => void }) {
     const { t } = useLocale();
-    const { toast } = useToast();
     const router = useRouter();
     const [state, formAction] = useActionState(updateAdminAccount, undefined);
 
@@ -732,32 +731,28 @@ function ManageAccountDialog({ session, onCancel }: { session: Session, onCancel
     }, [onCancel]);
 
     useEffect(() => {
-        if (!state) return;
+        if (!state || state.success === undefined) return;
         
-        if (state.success === false) {
-            toast({ title: t('toast.errorTitle'), description: state.message, variant: 'destructive' });
-        }
         if (state.success === true) {
-            toast({ title: t('toast.successTitle'), description: state.message });
             if (state.message.includes('cerrará la sesión')) {
-                setTimeout(() => handleLogoutAction(), 3000);
+                setTimeout(() => handleLogoutAction(), 2000);
             } else {
-                router.refresh(); // Refresh server data
-                handleClose(); // Close the dialog
+                router.refresh();
             }
+            handleClose();
         }
-    }, [state, t, toast, router, handleClose]);
+    }, [state, router, handleClose]);
 
     return (
         <DialogContent className="sm:max-w-md">
             <form action={formAction}>
-                 <ManageAccountFields session={session} onCancel={handleClose} />
+                 <ManageAccountFields session={session} onCancel={handleClose} formState={state} />
             </form>
         </DialogContent>
     );
 }
 
-function ManageAccountFields({ session, onCancel }: { session: Session, onCancel: () => void }) {
+function ManageAccountFields({ session, onCancel, formState }: { session: Session, onCancel: () => void, formState: any }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
     const { toast } = useToast();
@@ -822,6 +817,13 @@ function ManageAccountFields({ session, onCancel }: { session: Session, onCancel
                     <TabsTrigger value="security">{t('adminDashboard.account.securityTab')}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="profile" className="space-y-4 pt-4">
+                     {formState?.success === false && (
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
+                            <AlertDescription>{formState.message}</AlertDescription>
+                        </Alert>
+                    )}
                     <Card>
                         <CardHeader><CardTitle>{t('adminDashboard.account.profileTitle')}</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
@@ -980,7 +982,7 @@ function AddressVerificationDialog({
            <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-            <AlertDescription isCopyable={true}>{error}</AlertDescription>
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : results.length > 0 ? (
           <div className="space-y-2">
@@ -1691,3 +1693,5 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
+
+    

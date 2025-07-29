@@ -140,7 +140,6 @@ const JWT_ALG = 'HS256';
 type AuthState = {
   success: boolean;
   message: string;
-  debugInfo?: string;
 };
 
 type ActionState = {
@@ -366,7 +365,6 @@ export async function authenticateUser(prevState: AuthState | undefined, formDat
         return { 
           success: false, 
           message: 'Ocurrió un error en el servidor.',
-          debugInfo: `Error caught: ${error.message}. Stack: ${error.stack}`
         };
     } finally {
         if(client) client.release();
@@ -395,7 +393,6 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       return { 
         success: false, 
         message: 'Invalid credentials.',
-        debugInfo: `No user found with email: ${email}.`
       };
     }
 
@@ -406,7 +403,6 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       return { 
           success: false, 
           message: 'Invalid credentials.',
-          debugInfo: `Password mismatch for user ${email}.`
       };
     }
     
@@ -424,7 +420,6 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     return { 
       success: false, 
       message: 'An internal server error occurred.',
-      debugInfo: `Error caught: ${error.message}. Stack: ${error.stack}`
     };
   } finally {
     if (client) {
@@ -805,41 +800,28 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         const email = formData.get('email') as string;
         
         const updateClauses = [];
-        const values = [];
+        const values: any[] = [];
         let valueIndex = 1;
-        let hasProfileChanges = false;
 
         if (name && name !== currentAdmin.name) {
             updateClauses.push(`name = $${valueIndex++}`);
             values.push(name);
-            hasProfileChanges = true;
         }
 
         if (email && email !== currentAdmin.email) {
-            // The verification of the PIN should have happened on the client side before this action is called.
-            // We just check if another user already has the new email.
             const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1 AND id != $2', [email, session.id]);
             if (existingAdmin.rows.length > 0) {
                 return { success: false, message: 'El nuevo correo electrónico ya está en uso.' };
             }
-
             updateClauses.push(`email = $${valueIndex++}`);
             values.push(email);
-            hasProfileChanges = true;
-        }
-        
-        if (updateClauses.length > 0) {
-             updateClauses.push(`updated_at = NOW()`);
-             values.push(session.id);
-             const query = `UPDATE admins SET ${updateClauses.join(', ')} WHERE id = $${valueIndex}`;
-             await client.query(query, values);
         }
         
         const currentPassword = formData.get('current_password') as string;
         const newPassword = formData.get('new_password') as string;
         const confirmPassword = formData.get('confirm_password') as string;
         let hasPasswordChanges = false;
-
+        
         if (currentPassword || newPassword || confirmPassword) {
             if (!currentPassword || !newPassword || !confirmPassword) {
                 return { success: false, message: "Por favor, completa todos los campos de contraseña." };
@@ -854,23 +836,29 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
             }
 
             const newPasswordHash = await bcrypt.hash(newPassword, 10);
-            await client.query('UPDATE admins SET password_hash = $1, updated_at = NOW() WHERE id = $2', [newPasswordHash, session.id]);
+            updateClauses.push(`password_hash = $${valueIndex++}`);
+            values.push(newPasswordHash);
             hasPasswordChanges = true;
         }
-        
-        if (hasProfileChanges || hasPasswordChanges) {
-            if (email && email !== currentAdmin.email) {
-                await createSession(session.id, 'admin', {
-                    email: email,
-                    name: name || currentAdmin.name,
-                    canCreateAdmins: currentAdmin.can_create_admins,
-                });
-                 return { success: true, message: "Cuenta actualizada. Se cerrará la sesión para aplicar el cambio de correo." };
-            }
-             return { success: true, message: "Cuenta actualizada exitosamente." };
-        }
 
-        return { success: false, message: "No se realizaron cambios." };
+        if (updateClauses.length === 0) {
+             return { success: false, message: "No se realizaron cambios." };
+        }
+        
+        updateClauses.push(`updated_at = NOW()`);
+        values.push(session.id);
+        const query = `UPDATE admins SET ${updateClauses.join(', ')} WHERE id = $${valueIndex}`;
+        await client.query(query, values);
+        
+        if (email && email !== currentAdmin.email) {
+            await createSession(session.id, 'admin', {
+                email: email,
+                name: name || currentAdmin.name,
+                canCreateAdmins: currentAdmin.can_create_admins,
+            });
+             return { success: true, message: "Cuenta actualizada. Se cerrará la sesión para aplicar el cambio de correo." };
+        }
+         return { success: true, message: "Cuenta actualizada exitosamente." };
         
     } catch (error) {
         console.error("Error updating admin account:", error);
@@ -887,3 +875,4 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
 
     
 
+    

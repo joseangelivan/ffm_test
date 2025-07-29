@@ -50,9 +50,25 @@ const AlertTitle = React.forwardRef<
 AlertTitle.displayName = "AlertTitle"
 
 const AlertDescription = React.forwardRef<
-  HTMLParagraphElement,
-  React.HTMLAttributes<HTMLParagraphElement>
->(({ className, children, ...props }, ref) => {
+    HTMLParagraphElement,
+    React.HTMLAttributes<HTMLParagraphElement> & { variant?: VariantProps<typeof alertVariants>["variant"] }
+>(({ className, children, variant, ...props }, ref) => {
+    const { t } = useLocale();
+    const { toast } = useToast();
+    const [hasCopied, setHasCopied] = React.useState(false);
+
+    const onCopy = () => {
+        if (typeof children === 'string') {
+            navigator.clipboard.writeText(children);
+            setHasCopied(true);
+            toast({
+                title: t('toast.copied.title'),
+                description: t('toast.copied.description'),
+            });
+            setTimeout(() => setHasCopied(false), 2000);
+        }
+    };
+
     return (
         <div
             ref={ref}
@@ -60,6 +76,16 @@ const AlertDescription = React.forwardRef<
             {...props}
         >
             {children}
+            {variant === 'destructive' && (
+                <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute top-2 right-2 h-7 w-7 text-destructive hover:bg-destructive/10"
+                    onClick={onCopy}
+                >
+                    {hasCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+            )}
         </div>
     );
 });
@@ -67,3 +93,5 @@ AlertDescription.displayName = "AlertDescription"
 
 
 export { Alert, AlertTitle, AlertDescription }
+
+    
