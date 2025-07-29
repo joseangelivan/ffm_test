@@ -25,6 +25,9 @@ async function runMigrations(client: Pool) {
     try {
         await dbClient.query('BEGIN');
         
+        // Ensure pgcrypto is enabled
+        await dbClient.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
+
         await dbClient.query(`
             CREATE TABLE IF NOT EXISTS migrations_log (
                 id SERIAL PRIMARY KEY,
@@ -445,20 +448,20 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
         
         const pool = await getDbPool();
         client = await pool.connect();
+        
+        await client.query('BEGIN');
 
         const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1', [email]);
         if (existingAdmin.rows.length > 0) {
             return { success: false, message: 'Ya existe un administrador con este correo electrónico.' };
         }
 
-        // Insert admin with NULL password
         const newAdminResult = await client.query(
             'INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, NULL, $3) RETURNING id',
             [name, email, canCreateAdmins]
         );
         const newAdminId = newAdminResult.rows[0].id;
         
-        // Hash and store user-provided PIN
         const pinHash = await bcrypt.hash(pin, 10);
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
@@ -466,10 +469,21 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
           'INSERT INTO admin_first_login_pins (admin_id, pin_hash, expires_at) VALUES ($1, $2, $3)',
           [newAdminId, pinHash, expiresAt]
         );
+
+        const appUrl = 'http://localhost:9003'; // This should ideally come from env vars
+        const emailResult = await sendAdminFirstLoginEmail(newAdminId, appUrl, client);
+
+        if (!emailResult.success) {
+            await client.query('ROLLBACK');
+            return { success: false, message: `No se pudo enviar el correo de activación. ${emailResult.message}` };
+        }
         
-        return { success: true, message: `Administrador "${name}" creado con éxito. Por favor, entrégale el PIN para que pueda activar su cuenta.` };
+        await client.query('COMMIT');
+        
+        return { success: true, message: `Administrador "${name}" creado. Se ha enviado un correo de activación.` };
 
     } catch (error) {
+        if(client) await client.query('ROLLBACK');
         console.error('Error creating new admin:', error);
         return { success: false, message: 'Ocurrió un error en el servidor.' };
     } finally {
@@ -615,18 +629,17 @@ function generateTempPassword(): string {
 }
 
 
-export async function sendAdminFirstLoginEmail(adminId: string, appUrl: string): Promise<ActionState> {
+export async function sendAdminFirstLoginEmail(adminId: string, appUrl: string, dbClient?: any): Promise<ActionState> {
     const session = await getCurrentSession();
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
     }
 
     let client;
+    const pool = dbClient ? null : await getDbPool();
+    client = dbClient || await pool!.connect();
+
     try {
-        const pool = await getDbPool();
-        client = await pool.connect();
-        
-        // 1. Check if admin account is already active
         const adminResult = await client.query(
           'SELECT a.name, a.email, a.password_hash, s.language FROM admins a LEFT JOIN admin_settings s ON a.id = s.admin_id WHERE a.id = $1',
           [adminId]
@@ -640,15 +653,11 @@ export async function sendAdminFirstLoginEmail(adminId: string, appUrl: string):
             return { success: false, message: 'Esta cuenta de administrador ya está activa.' };
         }
 
-        // 2. Retrieve the existing PIN
         const pinResult = await client.query('SELECT * FROM admin_first_login_pins WHERE admin_id = $1 AND expires_at > NOW()', [admin.id]);
         if (pinResult.rows.length === 0) {
             return { success: false, message: "No se encontró un PIN de activación válido o ha expirado. Crea un nuevo administrador para generar un nuevo PIN." };
         }
-        // NOTE: We don't need the actual PIN value here, just that it exists. The PIN is delivered out-of-band.
-        // We will send an email that reminds them to use their PIN.
-
-        // 3. Send email
+        
         const locale = admin.language === 'es' ? 'es' : 'pt';
         const t = locale === 'es' ? es : pt;
         const firstLoginUrl = new URL('/admin/first-login', appUrl).toString();
@@ -657,12 +666,11 @@ export async function sendAdminFirstLoginEmail(adminId: string, appUrl: string):
             <h1>${t.emails.adminFirstLogin.title}</h1>
             <p>${t.emails.adminFirstLogin.hello}, ${admin.name},</p>
             <p>${t.emails.adminFirstLogin.intro}</p>
-            <p>Por favor, usa el PIN que te fue proporcionado personalmente para activar tu cuenta.</p>
+            <p>${t.emails.adminFirstLogin.pinInfo}</p>
             <ul>
                 <li><strong>URL de Activación:</strong> <a href="${firstLoginUrl}">${firstLoginUrl}</a></li>
                 <li><strong>Email:</strong> ${admin.email}</li>
             </ul>
-            <p>${t.emails.adminFirstLogin.pinInfo}</p>
             <p>${t.emails.adminFirstLogin.thanks}<br/>${t.emails.adminFirstLogin.teamName}</p>
         `;
 
@@ -672,7 +680,7 @@ export async function sendAdminFirstLoginEmail(adminId: string, appUrl: string):
         console.error("Error sending admin first login email:", error);
         return { success: false, message: "Error del servidor al enviar el correo." }
     } finally {
-        if(client) client.release();
+        if(pool && client) client.release(); // Only release if we created the connection here
     }
 }
 

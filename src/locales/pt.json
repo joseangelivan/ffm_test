@@ -339,9 +339,8 @@
             "subject": "Ative sua conta de Administrador da Follow For Me",
             "title": "Ative sua Conta de Administrador",
             "hello": "Olá",
-            "intro": "Para ativar sua conta de administrador, navegue até a seguinte URL e use o PIN que lhe foi fornecido pessoalmente.",
-            "pinLabel": "Seu PIN de Ativação",
-            "pinInfo": "Este PIN expirará em 24 horas. Por favor, complete o processo de primeiro login antes que ele expire.",
+            "intro": "Uma conta de administrador foi criada para você. Para ativar sua conta, navegue até a seguinte URL.",
+            "pinInfo": "Por favor, use o PIN que lhe foi fornecido pessoalmente para ativar sua conta.",
             "thanks": "Obrigado,",
             "teamName": "A Equipe Follow For Me"
         },
@@ -369,6 +368,7 @@
   }
 
     
+
 
 
 
