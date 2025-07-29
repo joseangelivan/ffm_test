@@ -725,43 +725,38 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
 }
 
 function ManageAccountDialog({
-    isOpen,
-    onOpenChange,
-    onLogoutRequest,
+  isOpen,
+  onOpenChange,
+  onSuccess,
 }: {
-    isOpen: boolean;
-    onOpenChange: (open: boolean) => void;
-    onLogoutRequest: () => void;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: (data: any) => void;
 }) {
-    const { toast } = useToast();
-    const { t } = useLocale();
+  const { toast } = useToast();
+  const { t } = useLocale();
+  const [state, formAction] = useActionState(updateAdminAccount, undefined);
 
-    const handleAction = useCallback(async (prevState: any, formData: FormData) => {
-        const result = await updateAdminAccount(prevState, formData);
-        if (result?.success) {
-            toast({
-                title: t('toast.successTitle'),
-                description: result.message,
-            });
-            if (result.data?.needsLogout) {
-                onLogoutRequest();
-            }
-            onOpenChange(false);
-        }
-        return result;
-    }, [t, toast, onLogoutRequest, onOpenChange]);
+  useEffect(() => {
+    if (state?.success) {
+      toast({
+        title: t('toast.successTitle'),
+        description: state.message,
+      });
+      onSuccess(state.data);
+      onOpenChange(false);
+    }
+  }, [state, toast, t, onSuccess, onOpenChange]);
 
-    const [state, formAction] = useActionState(handleAction, undefined);
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
-                <form action={formAction}>
-                    <ManageAccountFields formState={state} />
-                </form>
-            </DialogContent>
-        </Dialog>
-    );
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <form action={formAction}>
+          <ManageAccountFields formState={state} />
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function ManageAccountFields({ formState }: { formState: any }) {
@@ -1498,8 +1493,10 @@ export default function AdminDashboardClient({ session, isSessionValid }: { sess
       fetchCondos();
   };
 
-  const onLogoutRequest = useCallback(() => {
-    setShowLogoutDialog(true);
+  const handleAccountUpdateSuccess = useCallback((data: any) => {
+    if (data?.needsLogout) {
+      setShowLogoutDialog(true);
+    }
   }, []);
 
   if (!session) {
@@ -1543,7 +1540,7 @@ export default function AdminDashboardClient({ session, isSessionValid }: { sess
                         <ManageAccountDialog
                             isOpen={isAccountDialogOpen}
                             onOpenChange={setIsAccountDialogOpen}
-                            onLogoutRequest={onLogoutRequest}
+                            onSuccess={handleAccountUpdateSuccess}
                         />
                     </Dialog>
                     <DropdownMenuSub>
