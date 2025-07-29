@@ -165,7 +165,7 @@
             "email": "Email",
             "permissions": "Permisos"
         },
-        "sendCredentials": "Enviar Credenciales (email)",
+        "resendActivation": "Reenviar Email de Activación",
         "generatePinButton": "Generar PIN"
       },
       "loadingOverlay": {
@@ -340,21 +340,11 @@
         "delete": "Eliminar"
     },
     "emails": {
-        "adminCredentials": {
-            "subject": "Tus Credenciales de Administrador de Follow For Me",
-            "title": "Bienvenido a Follow For Me",
-            "hello": "Hola",
-            "intro": "Se ha creado o restablecido una cuenta de administrador para ti.",
-            "passwordLabel": "Contraseña Temporal",
-            "changePasswordPrompt": "Se te pedirá que cambies esta contraseña la primera vez que inicies sesión.",
-            "thanks": "Gracias,",
-            "teamName": "El Equipo de Follow For Me"
-        },
         "adminFirstLogin": {
             "subject": "Activa tu cuenta de Administrador de Follow For Me",
-            "title": "Bienvenido a Follow For Me",
+            "title": "Activa tu Cuenta de Administrador",
             "hello": "Hola",
-            "intro": "Se ha creado una cuenta de administrador para ti. Para activarla y configurar tu contraseña, usa el siguiente PIN:",
+            "intro": "Para activar tu cuenta de administrador, navega a la siguiente URL y usa el PIN que te fue proporcionado personalmente.",
             "pinLabel": "Tu PIN de Activación",
             "pinInfo": "Este PIN expirará en 24 horas. Por favor, completa el proceso de primer inicio de sesión antes de que expire.",
             "thanks": "Gracias,",
@@ -384,6 +374,7 @@
   }
 
     
+
 
 
 

@@ -91,7 +91,7 @@ import { useLocale } from '@/lib/i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { handleLogoutAction, getSettings, updateSettings, createAdmin, getAdmins, updateAdmin, deleteAdmin, sendAdminCredentialsEmail, sendEmailChangePin, updateAdminAccount, verifyAdminEmailChangePin, verifySessionIntegrity, type Admin } from '@/actions/auth';
+import { handleLogoutAction, getSettings, updateSettings, createAdmin, getAdmins, updateAdmin, deleteAdmin, sendAdminFirstLoginEmail, sendEmailChangePin, updateAdminAccount, verifyAdminEmailChangePin, verifySessionIntegrity, type Admin } from '@/actions/auth';
 import { createCondominio, getCondominios, updateCondominio, deleteCondominio, type Condominio } from '@/actions/condos';
 import { createSmtpConfiguration, getSmtpConfigurations, updateSmtpConfiguration, deleteSmtpConfiguration, updateSmtpOrder, testSmtpConfiguration, type SmtpConfiguration } from '@/actions/smtp';
 import { geocodeAddress, type GeocodeResult } from '@/actions/geocoding';
@@ -552,7 +552,7 @@ function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string }) {
     const handleSendEmail = (adminId: string) => {
         startSubmitting(async () => {
             const appUrl = window.location.origin;
-            const result = await sendAdminCredentialsEmail(adminId, appUrl);
+            const result = await sendAdminFirstLoginEmail(adminId, appUrl);
              if (result.success) {
                toast({ title: t('toast.successTitle'), description: result.message });
            } else {
@@ -614,7 +614,7 @@ function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string }) {
                                                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={isSelf}><MoreVertical className="h-4 w-4"/></Button></DropdownMenuTrigger>
                                                     <DropdownMenuContent>
                                                         <DropdownMenuItem onSelect={() => handleEditClick(admin)}><Edit className="mr-2 h-4 w-4"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
-                                                        <DropdownMenuItem onSelect={() => handleSendEmail(admin.id)}><Mail className="mr-2 h-4 w-4"/>{t('adminDashboard.manageAdmins.sendCredentials')}</DropdownMenuItem>
+                                                        <DropdownMenuItem onSelect={() => handleSendEmail(admin.id)}><Mail className="mr-2 h-4 w-4"/>{t('adminDashboard.manageAdmins.resendActivation')}</DropdownMenuItem>
                                                         <AlertDialog>
                                                             <AlertDialogTrigger asChild>
                                                                 <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}><Trash2 className="mr-2 h-4 w-4"/>{t('adminDashboard.table.delete')}</DropdownMenuItem>

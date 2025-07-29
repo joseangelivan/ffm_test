@@ -615,8 +615,8 @@ function generateTempPassword(): string {
 }
 
 
-export async function sendAdminCredentialsEmail(adminId: string, appUrl: string): Promise<ActionState> {
-     const session = await getCurrentSession();
+async function sendAdminFirstLoginEmail(adminId: string, appUrl: string): Promise<ActionState> {
+    const session = await getCurrentSession();
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
     }
@@ -626,42 +626,50 @@ export async function sendAdminCredentialsEmail(adminId: string, appUrl: string)
         const pool = await getDbPool();
         client = await pool.connect();
         
+        // 1. Check if admin account is already active
         const adminResult = await client.query(
-          'SELECT a.name, a.email, s.language FROM admins a LEFT JOIN admin_settings s ON a.id = s.admin_id WHERE a.id = $1',
+          'SELECT a.name, a.email, a.password_hash, s.language FROM admins a LEFT JOIN admin_settings s ON a.id = s.admin_id WHERE a.id = $1',
           [adminId]
         );
         if (adminResult.rows.length === 0) {
             return { success: false, message: 'Administrador no encontrado.' };
         }
         const admin = adminResult.rows[0];
+
+        if (admin.password_hash !== null) {
+            return { success: false, message: 'Esta cuenta de administrador ya está activa.' };
+        }
+
+        // 2. Retrieve the existing PIN
+        const pinResult = await client.query('SELECT * FROM admin_first_login_pins WHERE admin_id = $1 AND expires_at > NOW()', [admin.id]);
+        if (pinResult.rows.length === 0) {
+            return { success: false, message: "No se encontró un PIN de activación válido o ha expirado. Crea un nuevo administrador para generar un nuevo PIN." };
+        }
+        // NOTE: We don't need the actual PIN value here, just that it exists. The PIN is delivered out-of-band.
+        // We will send an email that reminds them to use their PIN.
+
+        // 3. Send email
         const locale = admin.language === 'es' ? 'es' : 'pt';
         const t = locale === 'es' ? es : pt;
-
-        
-        const tempPassword = generateTempPassword();
-        const passwordHash = await bcrypt.hash(tempPassword, 10);
-        
-        await client.query('UPDATE admins SET password_hash = $1, updated_at = NOW() WHERE id = $2', [passwordHash, adminId]);
-        
-        const adminLoginUrl = new URL('/admin/login', appUrl).toString();
+        const firstLoginUrl = new URL('/admin/first-login', appUrl).toString();
         
         const emailHtml = `
-            <h1>${t.emails.adminCredentials.title}</h1>
-            <p>${t.emails.adminCredentials.hello}, ${admin.name},</p>
-            <p>${t.emails.adminCredentials.intro}</p>
+            <h1>${t.emails.adminFirstLogin.title}</h1>
+            <p>${t.emails.adminFirstLogin.hello}, ${admin.name},</p>
+            <p>${t.emails.adminFirstLogin.intro}</p>
+            <p>Por favor, usa el PIN que te fue proporcionado personalmente para activar tu cuenta.</p>
             <ul>
-                <li><strong>URL:</strong> <a href="${adminLoginUrl}">${adminLoginUrl}</a></li>
+                <li><strong>URL de Activación:</strong> <a href="${firstLoginUrl}">${firstLoginUrl}</a></li>
                 <li><strong>Email:</strong> ${admin.email}</li>
-                <li><strong>${t.emails.adminCredentials.passwordLabel}:</strong> ${tempPassword}</li>
             </ul>
-            <p>${t.emails.adminCredentials.changePasswordPrompt}</p>
-            <p>${t.emails.adminCredentials.thanks}<br/>${t.emails.adminCredentials.teamName}</p>
+            <p>${t.emails.adminFirstLogin.pinInfo}</p>
+            <p>${t.emails.adminFirstLogin.thanks}<br/>${t.emails.adminFirstLogin.teamName}</p>
         `;
 
-        return await sendEmail(admin.email, t.emails.adminCredentials.subject, emailHtml);
+        return await sendEmail(admin.email, t.emails.adminFirstLogin.subject, emailHtml);
         
     } catch(error) {
-        console.error("Error sending admin credentials email:", error);
+        console.error("Error sending admin first login email:", error);
         return { success: false, message: "Error del servidor al enviar el correo." }
     } finally {
         if(client) client.release();
@@ -875,47 +883,6 @@ export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
         return { isValid: false };
     } finally {
         if (client) client.release();
-    }
-}
-
-async function sendAdminFirstLoginEmail(adminId: string, pin: string, locale: 'es' | 'pt'): Promise<ActionState> {
-    const t = locale === 'es' ? es : pt;
-    let client;
-    try {
-        const pool = await getDbPool();
-        client = await pool.connect();
-
-        const adminResult = await client.query('SELECT name, email FROM admins WHERE id = $1', [adminId]);
-        if (adminResult.rows.length === 0) {
-            return { success: false, message: 'Administrador no encontrado.' };
-        }
-        const admin = adminResult.rows[0];
-
-        // The app URL must be known. In a real app, this would come from env variables.
-        // For this context, we assume a base URL.
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9003';
-        const firstLoginUrl = new URL('/admin/first-login', appUrl).toString();
-
-        const emailHtml = `
-            <h1>${t.emails.adminFirstLogin.title}</h1>
-            <p>${t.emails.adminFirstLogin.hello}, ${admin.name},</p>
-            <p>${t.emails.adminFirstLogin.intro}</p>
-            <ul>
-                <li><strong>URL:</strong> <a href="${firstLoginUrl}">${firstLoginUrl}</a></li>
-                <li><strong>Email:</strong> ${admin.email}</li>
-                <li><strong>${t.emails.adminFirstLogin.pinLabel}:</strong> ${pin}</li>
-            </ul>
-            <p>${t.emails.adminFirstLogin.pinInfo}</p>
-            <p>${t.emails.adminFirstLogin.thanks}<br/>${t.emails.adminFirstLogin.teamName}</p>
-        `;
-
-        return await sendEmail(admin.email, t.emails.adminFirstLogin.subject, emailHtml);
-
-    } catch(error) {
-        console.error("Error sending admin first login email:", error);
-        return { success: false, message: "Error del servidor al enviar el correo." }
-    } finally {
-        if(client) client.release();
     }
 }
 
