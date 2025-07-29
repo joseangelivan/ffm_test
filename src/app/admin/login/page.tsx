@@ -1,38 +1,25 @@
 
-'use client';
 
 import { Suspense } from 'react';
-import { authenticateAdmin } from '@/actions/auth';
+import { authenticateAdmin, getCurrentSession } from '@/actions/auth';
 import AdminLoginForm from '@/components/admin-login-form';
 import Loading from '@/app/loading';
-import { useLocale } from '@/lib/i18n';
+import { redirect } from 'next/navigation';
 
-export default function AdminLoginPage() {
-    const { t } = useLocale();
-    // The server component now renders a client component responsible for the form and Suspense.
+export default async function AdminLoginPage() {
+    // This server-side logic handles redirection before rendering.
+    // However, to keep it simple and robust against HMR issues,
+    // we'll let the dashboard handle redirection if a user is already logged in.
+    // const session = await getCurrentSession();
+    // if (session?.type === 'admin') {
+    //     redirect('/admin/dashboard');
+    // }
+
+    // Using Suspense is the correct pattern for server actions that redirect.
+    // It allows Next.js to handle the response from the server action gracefully.
     return (
         <Suspense fallback={<Loading />}>
-            <AdminLoginForm 
-                authenticateAdmin={authenticateAdmin} 
-                t={{
-                    title: t('adminLogin.title'),
-                    description: t('adminLogin.description'),
-                    emailLabel: t('adminLogin.email'),
-                    passwordLabel: t('adminLogin.password'),
-                    loginButton: t('adminLogin.loginButton'),
-                    returnToMainLogin: t('adminLogin.returnToMainLogin'),
-                    loggingIn: t('login.loggingIn'),
-                    errorTitle: t('toast.errorTitle'),
-                    showPassword: t('login.showPassword'),
-                    hidePassword: t('login.hidePassword'),
-                }}
-                tErrorKeys={{
-                    invalidCredentials: t('toast.adminLogin.invalidCredentials'),
-                    missingCredentials: t('toast.adminLogin.missingCredentials'),
-                    sessionError: t('toast.adminLogin.sessionError'),
-                    serverError: t('toast.adminLogin.serverError'),
-                }}
-            />
+            <AdminLoginForm authenticateAdmin={authenticateAdmin} />
         </Suspense>
     );
 }

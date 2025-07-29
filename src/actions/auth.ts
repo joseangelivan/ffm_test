@@ -439,7 +439,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     }
   }
   
-  return { success: true, message: 'Login successful' };
+  redirect('/admin/dashboard');
 }
 
 export async function handleLogoutAction() {
