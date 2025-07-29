@@ -3,9 +3,12 @@
 import * as React from "react"
 import * as ToastPrimitives from "@radix-ui/react-toast"
 import { cva, type VariantProps } from "class-variance-authority"
-import { X } from "lucide-react"
+import { X, Copy, Check } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useLocale } from "@/lib/i18n"
+import { Button } from "./button"
+import { useToast as useToastHook } from "@/hooks/use-toast"
 
 const ToastProvider = ToastPrimitives.Provider
 
@@ -102,14 +105,46 @@ ToastTitle.displayName = ToastPrimitives.Title.displayName
 
 const ToastDescription = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Description>,
-  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Description>
->(({ className, ...props }, ref) => (
-  <ToastPrimitives.Description
-    ref={ref}
-    className={cn("text-sm opacity-90", className)}
-    {...props}
-  />
-))
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Description> & { variant?: VariantProps<typeof toastVariants>["variant"] }
+>(({ className, children, variant, ...props }, ref) => {
+  const { t } = useLocale();
+  const { toast } = useToastHook();
+  const [hasCopied, setHasCopied] = React.useState(false);
+
+  const onCopy = () => {
+    if (children) {
+      navigator.clipboard.writeText(children.toString());
+      setHasCopied(true);
+      toast({
+        title: t('toast.copied.title'),
+        description: t('toast.copied.description'),
+      });
+      setTimeout(() => setHasCopied(false), 2000);
+    }
+  };
+
+  return (
+    <div className={cn("relative pr-6", className)}>
+        <ToastPrimitives.Description
+            ref={ref}
+            className={cn("text-sm opacity-90", className)}
+            {...props}
+        >
+            {children}
+        </ToastPrimitives.Description>
+        {variant === 'destructive' && (
+            <Button
+                size="icon"
+                variant="ghost"
+                className="absolute top-1/2 right-[-28px] -translate-y-1/2 h-7 w-7 text-inherit hover:bg-destructive/10"
+                onClick={onCopy}
+            >
+                {hasCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            </Button>
+        )}
+    </div>
+  )
+})
 ToastDescription.displayName = ToastPrimitives.Description.displayName
 
 type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>

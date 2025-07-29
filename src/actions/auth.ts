@@ -116,6 +116,7 @@ type ActionState = {
   message: string;
   data?: {
       needsLogout?: boolean;
+      emailFailed?: boolean;
   }
 };
 
@@ -453,6 +454,7 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
 
         const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1', [email]);
         if (existingAdmin.rows.length > 0) {
+            await client.query('ROLLBACK');
             return { success: false, message: 'Ya existe un administrador con este correo electrónico.' };
         }
 
@@ -474,11 +476,11 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
         const emailResult = await sendAdminFirstLoginEmail(newAdminId, appUrl, client);
 
         if (!emailResult.success) {
-            // Do not rollback, admin is created. The user can resend the email.
-            await client.query('COMMIT');
+            // If email fails, the whole transaction fails.
+            await client.query('ROLLBACK');
             return { 
-                success: true, // The creation itself was successful
-                message: `Administrador "${name}" creado, pero no se pudo enviar el correo de activación. Puede reenviarlo más tarde desde el menú de gestión.` 
+                success: false,
+                message: `Error al enviar el correo de activación: ${emailResult.message} La creación del administrador ha sido cancelada.` 
             };
         }
         
