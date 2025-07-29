@@ -656,11 +656,6 @@ export async function sendAdminFirstLoginEmail(adminId: string, appUrl: string, 
         if (admin.password_hash !== null) {
             return { success: false, message: 'Esta cuenta de administrador ya está activa.' };
         }
-
-        const pinResult = await client.query('SELECT * FROM admin_first_login_pins WHERE admin_id = $1 AND expires_at > NOW()', [admin.id]);
-        if (pinResult.rows.length === 0) {
-            return { success: false, message: "No se encontró un PIN de activación válido o ha expirado. Crea un nuevo administrador para generar un nuevo PIN." };
-        }
         
         const locale = admin.language === 'es' ? 'es' : 'pt';
         const t = locale === 'es' ? es : pt;
