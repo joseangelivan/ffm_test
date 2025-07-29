@@ -84,6 +84,12 @@
         "copied": {
             "title": "Copiado",
             "description": "Mensagem de erro copiada para a área de transferência."
+        },
+        "adminLogin": {
+          "invalidCredentials": "Credenciais inválidas.",
+          "missingCredentials": "E-mail e senha são obrigatórios.",
+          "sessionError": "Ocorreu um erro ao criar a sessão.",
+          "serverError": "Ocorreu um erro no servidor."
         }
     },
     "adminLogin": {
@@ -288,3 +294,4 @@
   }
 
     
+

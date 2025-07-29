@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import Link from 'next/link';
@@ -51,7 +52,7 @@ function SubmitButton() {
 
 function LoginFormContent({ state }: { state: any }) {
     const { pending } = useFormStatus();
-    const { t } = useLocale();
+    const { t, locale } = useLocale();
     const [showPassword, setShowPassword] = useState(false);
 
     return (
@@ -68,6 +69,7 @@ function LoginFormContent({ state }: { state: any }) {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
+                <input type="hidden" name="locale" value={locale} />
                 <div className="space-y-2">
                   <Label htmlFor="email">{t('adminLogin.email')}</Label>
                   <div className="relative">
@@ -115,7 +117,7 @@ function LoginFormContent({ state }: { state: any }) {
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
                       <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-                      <AlertDescription>
+                      <AlertDescription variant="destructive">
                         {state.message}
                       </AlertDescription>
                     </Alert>
@@ -153,3 +155,4 @@ export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProp
     </div>
   );
 }
+

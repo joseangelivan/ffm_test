@@ -733,16 +733,18 @@ function ManageAccountDialog({ session }: { session: Session }) {
     }, []);
 
     useEffect(() => {
-        if (!state || state.success === undefined) return;
+        if (!state) return;
         
-        if (state.success === true) {
+        if (state.success) {
             toast({ title: t('toast.successTitle'), description: state.message });
-            if (state.message.includes('cerrará la sesión')) {
-                setTimeout(() => handleLogoutAction(), 2000);
+            if (state.data?.needsLogout) {
+                // The server action will handle deleting the cookie, we just redirect.
+                router.push('/admin/login');
             } else {
+                // If only name/password changed, refresh data and close.
                 router.refresh();
+                handleClose();
             }
-            handleClose();
         }
     }, [state, router, handleClose, t, toast]);
 
@@ -832,7 +834,7 @@ function ManageAccountFields({ session, onCancel, formState }: { session: Sessio
                         <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
                             <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-                            <AlertDescription>{formState.message}</AlertDescription>
+                            <AlertDescription variant="destructive">{formState.message}</AlertDescription>
                         </Alert>
                     )}
                     <Card>
@@ -993,7 +995,7 @@ function AddressVerificationDialog({
            <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription variant="destructive">{error}</AlertDescription>
           </Alert>
         ) : results.length > 0 ? (
           <div className="space-y-2">
@@ -1316,6 +1318,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
+  // Sync internal session state with props
   useEffect(() => {
     setLocalSession(session);
   }, [session]);
@@ -1696,3 +1699,4 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
+

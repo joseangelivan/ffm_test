@@ -84,6 +84,12 @@
         "copied": {
             "title": "Copiado",
             "description": "Mensaje de error copiado al portapapeles."
+        },
+        "adminLogin": {
+          "invalidCredentials": "Credenciales inválidas.",
+          "missingCredentials": "El correo y la contraseña son obligatorios.",
+          "sessionError": "Ocurrió un error al crear la sesión.",
+          "serverError": "Ocurrió un error en el servidor."
         }
     },
     "adminLogin": {
@@ -288,3 +294,4 @@
   }
 
     
+

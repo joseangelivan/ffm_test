@@ -145,7 +145,10 @@ type AuthState = {
 type ActionState = {
   success: boolean;
   message: string;
-}
+  data?: {
+      needsLogout?: boolean;
+  }
+};
 
 export type Admin = {
     id: string;
@@ -379,9 +382,11 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
   try {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
+    const locale = formData.get('locale') as 'es' | 'pt' || 'pt';
+    const t = locale === 'es' ? es : pt;
 
     if (!email || !password) {
-      return { success: false, message: 'Email and password are required.' };
+      return { success: false, message: t.toast.adminLogin.missingCredentials };
     }
     
     const pool = await getDbPool();
@@ -392,7 +397,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     if (result.rows.length === 0) {
       return { 
         success: false, 
-        message: 'Invalid credentials.',
+        message: t.toast.adminLogin.invalidCredentials,
       };
     }
 
@@ -402,7 +407,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     if (!passwordMatch) {
       return { 
           success: false, 
-          message: 'Invalid credentials.',
+          message: t.toast.adminLogin.invalidCredentials,
       };
     }
     
@@ -412,14 +417,15 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
         canCreateAdmins: admin.can_create_admins,
     });
     if(!sessionResult.success) {
-        return { success: false, message: 'An internal server error occurred during session creation.' };
+        return { success: false, message: t.toast.adminLogin.sessionError };
     }
     
   } catch (error: any) {
     console.error('Error during authentication:', error);
+    const t = formData.get('locale') === 'es' ? es : pt;
     return { 
       success: false, 
-      message: 'An internal server error occurred.',
+      message: t.toast.adminLogin.serverError,
     };
   } finally {
     if (client) {
@@ -802,6 +808,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         const updateClauses = [];
         const values: any[] = [];
         let valueIndex = 1;
+        let emailHasChanged = false;
 
         if (name && name !== currentAdmin.name) {
             updateClauses.push(`name = $${valueIndex++}`);
@@ -815,12 +822,12 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
             }
             updateClauses.push(`email = $${valueIndex++}`);
             values.push(email);
+            emailHasChanged = true;
         }
         
         const currentPassword = formData.get('current_password') as string;
         const newPassword = formData.get('new_password') as string;
         const confirmPassword = formData.get('confirm_password') as string;
-        let hasPasswordChanges = false;
         
         if (currentPassword || newPassword || confirmPassword) {
             if (!currentPassword || !newPassword || !confirmPassword) {
@@ -838,7 +845,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
             const newPasswordHash = await bcrypt.hash(newPassword, 10);
             updateClauses.push(`password_hash = $${valueIndex++}`);
             values.push(newPasswordHash);
-            hasPasswordChanges = true;
         }
 
         if (updateClauses.length === 0) {
@@ -850,13 +856,10 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         const query = `UPDATE admins SET ${updateClauses.join(', ')} WHERE id = $${valueIndex}`;
         await client.query(query, values);
         
-        if (email && email !== currentAdmin.email) {
-            await createSession(session.id, 'admin', {
-                email: email,
-                name: name || currentAdmin.name,
-                canCreateAdmins: currentAdmin.can_create_admins,
-            });
-             return { success: true, message: "Cuenta actualizada. Se cerrará la sesión para aplicar el cambio de correo." };
+        if (emailHasChanged) {
+            // Log out the user to force re-authentication with new email
+            cookies().delete('session');
+            return { success: true, message: "Correo actualizado. Se cerrará la sesión para aplicar el cambio.", data: { needsLogout: true } };
         }
          return { success: true, message: "Cuenta actualizada exitosamente." };
         
