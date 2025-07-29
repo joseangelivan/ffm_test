@@ -721,9 +721,10 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
     )
 }
 
-function ManageAccountDialog({ session, onCancel, onUpdate }: { session: Session, onCancel: () => void, onUpdate: () => void }) {
+function ManageAccountDialog({ session }: { session: Session }) {
     const { t } = useLocale();
     const { toast } = useToast();
+    const router = useRouter();
     const [state, formAction] = useActionState(updateAdminAccount, undefined);
 
     useEffect(() => {
@@ -735,21 +736,21 @@ function ManageAccountDialog({ session, onCancel, onUpdate }: { session: Session
             if (state.message.includes('cerrará la sesión')) {
                 setTimeout(() => handleLogoutAction(), 3000);
             } else {
-                onUpdate();
+                router.refresh();
             }
         }
-    }, [state, t, toast, onUpdate]);
+    }, [state, t, toast, router]);
 
     return (
         <DialogContent className="sm:max-w-md">
             <form action={formAction}>
-                 <ManageAccountFields session={session} onCancel={onCancel} />
+                 <ManageAccountFields session={session} />
             </form>
         </DialogContent>
     );
 }
 
-function ManageAccountFields({ session, onCancel }: { session: Session, onCancel: () => void }) {
+function ManageAccountFields({ session }: { session: Session }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
     const { toast } = useToast();
@@ -822,11 +823,11 @@ function ManageAccountFields({ session, onCancel }: { session: Session, onCancel
                         <CardContent className="space-y-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="name">{t('adminDashboard.account.nameLabel')}</Label>
-                                <Input id="name" name="name" defaultValue={session.name} required />
+                                <Input id="name" name="name" defaultValue={session.name} required disabled={pending}/>
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="email">{t('adminDashboard.account.emailLabel')}</Label>
-                                <Input id="email" name="email" type="email" value={emailValue} onChange={(e) => setEmailValue(e.target.value)} required />
+                                <Input id="email" name="email" type="email" value={emailValue} onChange={(e) => setEmailValue(e.target.value)} required disabled={pending}/>
                             </div>
                         </CardContent>
                     </Card>
@@ -866,22 +867,22 @@ function ManageAccountFields({ session, onCancel }: { session: Session, onCancel
                              <div className="grid gap-2">
                                 <Label htmlFor="current_password">{t('adminDashboard.account.currentPasswordLabel')}</Label>
                                 <div className="relative">
-                                    <Input id="current_password" name="current_password" type={showPassword ? "text" : "password"} autoComplete="current-password" />
-                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(p => !p)}><Eye className="h-4 w-4"/></Button>
+                                    <Input id="current_password" name="current_password" type={showPassword ? "text" : "password"} autoComplete="current-password" disabled={pending}/>
+                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(p => !p)} disabled={pending}><Eye className="h-4 w-4"/></Button>
                                 </div>
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="new_password">{t('adminDashboard.account.newPasswordLabel')}</Label>
                                  <div className="relative">
-                                    <Input id="new_password" name="new_password" type={showNewPassword ? "text" : "password"} autoComplete="new-password"/>
-                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowNewPassword(p => !p)}><Eye className="h-4 w-4"/></Button>
+                                    <Input id="new_password" name="new_password" type={showNewPassword ? "text" : "password"} autoComplete="new-password" disabled={pending}/>
+                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowNewPassword(p => !p)} disabled={pending}><Eye className="h-4 w-4"/></Button>
                                 </div>
                             </div>
                              <div className="grid gap-2">
                                 <Label htmlFor="confirm_password">{t('adminDashboard.account.confirmPasswordLabel')}</Label>
                                 <div className="relative">
-                                    <Input id="confirm_password" name="confirm_password" type={showConfirmPassword ? "text" : "password"} autoComplete="new-password"/>
-                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(p => !p)}><Eye className="h-4 w-4"/></Button>
+                                    <Input id="confirm_password" name="confirm_password" type={showConfirmPassword ? "text" : "password"} autoComplete="new-password" disabled={pending}/>
+                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(p => !p)} disabled={pending}><Eye className="h-4 w-4"/></Button>
                                 </div>
                             </div>
                         </CardContent>
@@ -890,7 +891,7 @@ function ManageAccountFields({ session, onCancel }: { session: Session, onCancel
             </Tabs>
             
             <DialogFooter className="pt-4 mt-4 border-t">
-                 <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
+                 <DialogClose asChild><Button type="button" variant="outline" disabled={pending}>{t('common.cancel')}</Button></DialogClose>
                 <Button type="submit" disabled={isSaveChangesDisabled}>{t('common.saveChanges')}</Button>
             </DialogFooter>
         </div>
@@ -1364,11 +1365,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     }
     return result;
   };
-
-  const handleAccountUpdate = () => {
-      setIsAccountDialogOpen(false);
-      router.refresh(); // This re-fetches server data, including the session.
-  };
   
   const prepareAndOpenEditDialog = useCallback(async (condo: Condominio) => {
     setIsPreparingEdit(true);
@@ -1480,7 +1476,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                             <span>{t('adminDashboard.account.myAccount')}</span>
                         </DropdownMenuItem>
                     </DialogTrigger>
-                    <ManageAccountDialog session={session} onCancel={() => setIsAccountDialogOpen(false)} onUpdate={handleAccountUpdate} />
+                    <ManageAccountDialog session={session} />
                 </Dialog>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
