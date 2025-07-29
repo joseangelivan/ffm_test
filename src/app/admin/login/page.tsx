@@ -5,7 +5,6 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLoginForm from '@/components/admin-login-form';
 import { authenticateAdmin, getCurrentSession } from '@/actions/auth';
-import Loading from './loading';
 
 type Session = {
     id: string;
@@ -31,13 +30,8 @@ function AdminLoginRedirector() {
         }
     }, [session, router]);
     
-    if (session === undefined) {
-        return <Loading />;
-    }
-    
-    if (session) {
-        // This will be briefly shown while router.push() is processing
-        return <Loading />;
+    if (session === undefined || session) {
+        return null;
     }
 
     return <AdminLoginForm authenticateAdmin={authenticateAdmin} />;
