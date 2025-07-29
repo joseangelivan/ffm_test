@@ -722,24 +722,22 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
 }
 
 function ManageAccountDialog({ session, isOpen, onOpenChange }: { session: Session; isOpen: boolean; onOpenChange: (open: boolean) => void; }) {
-    const router = useRouter();
     const { toast } = useToast();
     const [state, formAction] = useActionState(updateAdminAccount, undefined);
 
     useEffect(() => {
         if (!state) return;
         
-        if (state.success) {
+        if (state.success === true) {
             toast({ title: "Éxito", description: state.message });
             if (state.data?.needsLogout) {
-                onOpenChange(false);
-                router.push('/admin/login');
-            } else {
-                router.refresh();
-                onOpenChange(false);
+                // Wait for toast to be visible, then log out.
+                setTimeout(() => {
+                    handleLogoutAction();
+                }, 3000);
             }
         }
-    }, [state, router, onOpenChange, toast]);
+    }, [state, toast]);
     
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -755,7 +753,7 @@ function ManageAccountDialog({ session, isOpen, onOpenChange }: { session: Sessi
 
 function ManageAccountFields({ session, onCancel, formState }: { session: Session; onCancel: () => void; formState: any }) {
     const { pending } = useFormStatus();
-    const { t } = useLocale();
+    const { t, locale } = useLocale();
     const { toast } = useToast();
 
     const [emailValue, setEmailValue] = useState(session.email);
@@ -822,12 +820,13 @@ function ManageAccountFields({ session, onCancel, formState }: { session: Sessio
                         <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
                             <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-                            <AlertDescription>{formState.message}</AlertDescription>
+                            <AlertDescription variant="destructive">{formState.message}</AlertDescription>
                         </Alert>
                     )}
                     <Card>
                         <CardHeader><CardTitle>{t('adminDashboard.account.profileTitle')}</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
+                            <input type="hidden" name="locale" value={locale} />
                             <div className="grid gap-2">
                                 <Label htmlFor="name">{t('adminDashboard.account.nameLabel')}</Label>
                                 <Input id="name" name="name" defaultValue={session.name} required disabled={pending}/>
@@ -1688,4 +1687,5 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
     </div>
   );
 }
+
 

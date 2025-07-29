@@ -791,6 +791,9 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         return { success: false, message: "No autorizado." };
     }
 
+    const locale = formData.get('locale') as 'es' | 'pt' || 'pt';
+    const t = locale === 'es' ? es : pt;
+
     let client;
     try {
         const pool = await getDbPool();
@@ -808,7 +811,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         const updateClauses = [];
         const values: any[] = [];
         let valueIndex = 1;
-        let emailHasChanged = false;
 
         if (name && name !== currentAdmin.name) {
             updateClauses.push(`name = $${valueIndex++}`);
@@ -822,7 +824,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
             }
             updateClauses.push(`email = $${valueIndex++}`);
             values.push(email);
-            emailHasChanged = true;
         }
         
         const currentPassword = formData.get('current_password') as string;
@@ -857,11 +858,9 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         
         await client.query(query, values);
         
-        if (emailHasChanged) {
-            cookies().delete('session');
-            return { success: true, message: "Correo actualizado. Se cerrará la sesión para aplicar el cambio.", data: { needsLogout: true } };
-        }
-         return { success: true, message: "Cuenta actualizada exitosamente." };
+        // Any successful change requires re-login to ensure data consistency
+        cookies().delete('session');
+        return { success: true, message: t.adminDashboard.account.reloginNeeded, data: { needsLogout: true } };
         
     } catch (error) {
         console.error("Error updating admin account:", error);
@@ -879,6 +878,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
     
 
     
+
 
 
 
