@@ -722,43 +722,34 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
 }
 
 function ManageAccountDialog({ session, isOpen, onOpenChange }: { session: Session; isOpen: boolean; onOpenChange: (open: boolean) => void; }) {
-    const handleClose = useCallback(() => {
-        onOpenChange(false);
-    }, [onOpenChange]);
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
-                <ManageAccountForm session={session} onFormSuccess={handleClose} />
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function ManageAccountForm({ session, onFormSuccess }: { session: Session; onFormSuccess: () => void }) {
-    const { t } = useLocale();
     const router = useRouter();
+    const { toast } = useToast();
     const [state, formAction] = useActionState(updateAdminAccount, undefined);
 
     useEffect(() => {
         if (!state) return;
         
         if (state.success) {
-            onFormSuccess();
+            toast({ title: "Éxito", description: state.message });
             if (state.data?.needsLogout) {
-                // The server action handles deleting the cookie.
+                // Server action deletes cookie, client just needs to redirect
                 router.push('/admin/login');
             } else {
                 // Refresh server components to get new session data.
                 router.refresh();
             }
+            onOpenChange(false);
         }
-    }, [state, router, onFormSuccess]);
+    }, [state, router, onOpenChange, toast]);
     
     return (
-         <form action={formAction}>
-            <ManageAccountFields session={session} onCancel={onFormSuccess} formState={state} />
-        </form>
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                 <form action={formAction}>
+                    <ManageAccountFields session={session} onCancel={() => onOpenChange(false)} formState={state} />
+                </form>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -1304,7 +1295,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const { toast } = useToast();
   const router = useRouter();
 
-  const [localSession, setLocalSession] = useState(session);
   const [condominios, setCondominios] = useState<Condominio[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -1316,11 +1306,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const [isPreparingEdit, setIsPreparingEdit] = useState(false);
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-
-  // Sync internal session state with props
-  useEffect(() => {
-    setLocalSession(session);
-  }, [session]);
 
   // --- Caching helpers for location data ---
   const getCachedData = useCallback(async (key: string, fetcher: () => Promise<any>) => {
@@ -1479,16 +1464,16 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10">
-                    <AvatarImage src={`https://placehold.co/100x100.png?text=${localSession.name.charAt(0)}`} alt={localSession.name} data-ai-hint="avatar" />
-                    <AvatarFallback>{localSession.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={`https://placehold.co/100x100.png?text=${session.name.charAt(0)}`} alt={session.name} data-ai-hint="avatar" />
+                    <AvatarFallback>{session.name.charAt(0)}</AvatarFallback>
                 </Avatar>
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{localSession.name}</p>
-                    <p className="text-xs leading-none text-muted-foreground">{localSession.email}</p>
+                    <p className="text-sm font-medium leading-none">{session.name}</p>
+                    <p className="text-xs leading-none text-muted-foreground">{session.email}</p>
                 </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -1537,7 +1522,7 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                               </DropdownMenuPortal>
                           </DropdownMenuSub>
                             <DropdownMenuSeparator/>
-                            {localSession.canCreateAdmins && <ManageAdminsDialog currentAdminId={localSession.id}/>}
+                            {session.canCreateAdmins && <ManageAdminsDialog currentAdminId={session.id}/>}
                             <Dialog>
                                 <DialogTrigger asChild>
                                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
@@ -1700,10 +1685,11 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
         </Dialog>
         
          {/* My Account Dialog */}
-        <ManageAccountDialog session={localSession} isOpen={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}/>
+        <ManageAccountDialog session={session} isOpen={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}/>
     </div>
   );
 }
+
 
 
 
