@@ -22,6 +22,7 @@ import { useFormStatus } from 'react-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
+import { useRouter } from 'next/navigation';
 
 interface AdminLoginFormProps {
     authenticateAdmin: (prevState: any, formData: FormData) => Promise<any>;
@@ -148,7 +149,15 @@ function LoginFormContent({ state }: { state: any }) {
 }
 
 export default function AdminLoginForm({ authenticateAdmin }: AdminLoginFormProps) {
+  const router = useRouter();
   const [state, formAction] = useActionState(authenticateAdmin, undefined);
+  
+  useEffect(() => {
+    if (state?.success === true) {
+      router.push('/admin/dashboard');
+    }
+  }, [state, router]);
+
 
   return (
     <div className="light relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
