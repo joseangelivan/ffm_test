@@ -304,7 +304,7 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
             await client.query(`INSERT INTO ${settingsTable} (${userIdColumn}) VALUES ($1) ON CONFLICT (${userIdColumn}) DO NOTHING;`, [userId]);
         }
         
-        cookies().set('session', token, {
+        await cookies().set('session', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: 60 * 60, // 1 hour
