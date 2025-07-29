@@ -139,11 +139,6 @@ export async function getDbPool(): Promise<Pool> {
     return pool;
 }
 
-// Function to ensure DB is initialized before an action
-async function initializeDb() {
-    return await getDbPool();
-}
-
 
 const JWT_ALG = 'HS256';
 
@@ -328,7 +323,7 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
 export async function authenticateUser(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
     let client;
     try {
-        await initializeDb();
+        const pool = await getDbPool();
         const email = formData.get('email') as string;
         const password = formData.get('password') as string;
         const userType = formData.get('user_type') as 'residente' | 'porteria';
@@ -337,7 +332,6 @@ export async function authenticateUser(prevState: AuthState | undefined, formDat
             return { success: false, message: 'Email, contraseña y tipo de usuario son requeridos.' };
         }
 
-        const pool = await getDbPool();
         client = await pool.connect();
         
         let tableName: string;
@@ -391,7 +385,7 @@ export async function authenticateUser(prevState: AuthState | undefined, formDat
 export async function authenticateAdmin(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
   let client;
   try {
-    await initializeDb();
+    const pool = await getDbPool();
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
@@ -399,7 +393,6 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
       return { success: false, message: "toast.adminLogin.missingCredentials" };
     }
     
-    const pool = await getDbPool();
     client = await pool.connect();
 
     const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
@@ -933,4 +926,5 @@ export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
 
 
     
+
 
