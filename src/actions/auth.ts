@@ -867,6 +867,42 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         if (client) client.release();
     }
 }
+
+export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
+    const session = await getCurrentSession();
+    if (!session) {
+        // No session, so nothing to verify. Considered valid for this check's purpose.
+        return { isValid: true };
+    }
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        
+        const result = await client.query('SELECT name, email FROM admins WHERE id = $1', [session.id]);
+        if (result.rows.length === 0) {
+            // Admin not found in DB, session is invalid.
+            return { isValid: false };
+        }
+
+        const dbAdmin = result.rows[0];
+        
+        // Compare session data with DB data
+        if (session.name !== dbAdmin.name || session.email !== dbAdmin.email) {
+            return { isValid: false };
+        }
+
+        return { isValid: true };
+
+    } catch (error) {
+        console.error("Error verifying session integrity:", error);
+        // In case of DB error, assume invalid to be safe.
+        return { isValid: false };
+    } finally {
+        if (client) client.release();
+    }
+}
     
 
     
@@ -876,6 +912,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
     
 
     
+
 
 
 

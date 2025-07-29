@@ -721,7 +721,7 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
     )
 }
 
-function ManageAccountDialog({ session, isOpen, onOpenChange, onLogoutRequest }: { session: Session; isOpen: boolean; onOpenChange: (open: boolean) => void; onLogoutRequest: () => void; }) {
+function ManageAccountDialog({ session, onOpenChange, onLogoutRequest }: { session: Session; onOpenChange: (open: boolean) => void; onLogoutRequest: () => void; }) {
     const { toast } = useToast();
     const { t } = useLocale();
     const [state, formAction] = useActionState(updateAdminAccount, undefined);
@@ -729,21 +729,27 @@ function ManageAccountDialog({ session, isOpen, onOpenChange, onLogoutRequest }:
     useEffect(() => {
         if (!state) return;
 
-        if (state.success === true) {
-            onOpenChange(false); // Close the main account dialog
-            onLogoutRequest();   // Trigger the force logout dialog in the parent
-            toast({ title: t('toast.successTitle'), description: t('adminDashboard.account.updateSuccess') });
+        if (state.success === false) {
+             // Let the form fields handle showing the error
+        } else if (state.success === true && state.data?.needsLogout) {
+            onOpenChange(false);
+            toast({ 
+                title: t('toast.successTitle'), 
+                description: t('adminDashboard.account.updateSuccessToast'),
+                duration: 3000
+            });
+            setTimeout(() => {
+                onLogoutRequest();
+            }, 500);
         }
     }, [state, onOpenChange, onLogoutRequest, toast, t]);
     
     return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
-                 <form action={formAction}>
-                    <ManageAccountFields session={session} onCancel={() => onOpenChange(false)} formState={state} />
-                </form>
-            </DialogContent>
-        </Dialog>
+        <DialogContent className="sm:max-w-md">
+            <form action={formAction}>
+                <ManageAccountFields session={session} onCancel={() => onOpenChange(false)} formState={state} />
+            </form>
+        </DialogContent>
     );
 }
 
@@ -1286,6 +1292,12 @@ function CondoFormWrapper({
 
 function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: () => void }) {
     const { t } = useLocale();
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const handleConfirm = () => {
+        setIsLoggingOut(true);
+        onConfirm();
+    };
 
     if (!isOpen) return null;
 
@@ -1299,7 +1311,10 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogAction onClick={onConfirm}>{t('adminDashboard.account.logoutDialog.confirm')}</AlertDialogAction>
+                    <Button onClick={handleConfirm} disabled={isLoggingOut}>
+                        {isLoggingOut && <Loader className="mr-2 h-4 w-4 animate-spin" />}
+                        {t('adminDashboard.account.logoutDialog.confirm')}
+                    </Button>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
@@ -1307,7 +1322,7 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
 }
 
 
-export default function AdminDashboardClient({ session }: { session: Session }) {
+export default function AdminDashboardClient({ session, isSessionValid }: { session: Session, isSessionValid: boolean }) {
   const { t, setLocale, locale } = useLocale();
   const { toast } = useToast();
   const router = useRouter();
@@ -1318,7 +1333,8 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
   const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
   const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
-  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  
+  const [showLogoutDialog, setShowLogoutDialog] = useState(!isSessionValid);
   
   const [editingCondoData, setEditingCondoData] = useState<Condominio & Partial<LocationData> | null>(null);
   const [isPreparingEdit, setIsPreparingEdit] = useState(false);
@@ -1495,10 +1511,19 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                 </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                 <DropdownMenuItem onSelect={() => setIsAccountDialogOpen(true)}>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>{t('adminDashboard.account.myAccount')}</span>
-                </DropdownMenuItem>
+                 <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
+                    <DialogTrigger asChild>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                            <User className="mr-2 h-4 w-4" />
+                            <span>{t('adminDashboard.account.myAccount')}</span>
+                        </DropdownMenuItem>
+                    </DialogTrigger>
+                    <ManageAccountDialog
+                        session={session}
+                        onOpenChange={setIsAccountDialogOpen}
+                        onLogoutRequest={() => setShowLogoutDialog(true)}
+                    />
+                </Dialog>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
                     <Settings className="mr-2 h-4 w-4" />
@@ -1701,14 +1726,6 @@ export default function AdminDashboardClient({ session }: { session: Session }) 
                 )}
             </DialogContent>
         </Dialog>
-        
-         {/* My Account Dialog */}
-        <ManageAccountDialog
-            session={session}
-            isOpen={isAccountDialogOpen}
-            onOpenChange={setIsAccountDialogOpen}
-            onLogoutRequest={() => setShowLogoutDialog(true)}
-        />
         
         {/* Force Logout Dialog */}
         <ForceLogoutDialog 

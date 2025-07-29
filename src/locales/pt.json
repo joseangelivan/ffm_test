@@ -189,7 +189,8 @@
         "currentPasswordLabel": "Senha Atual",
         "newPasswordLabel": "Nova Senha",
         "confirmPasswordLabel": "Confirmar Nova Senha",
-        "updateSuccess": "Dados atualizados com sucesso.",
+        "updateSuccess": "Dados atualizados. Para ver as alterações, a sessão será encerrada automaticamente.",
+        "updateSuccessToast": "Dados atualizados com sucesso!",
         "noChangesMade": "Nenhuma alteração foi feita.",
         "logoutDialog": {
             "title": "Reinicialização de Sessão Necessária",
@@ -301,6 +302,7 @@
   }
 
     
+
 
 
 
