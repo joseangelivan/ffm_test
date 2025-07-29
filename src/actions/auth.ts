@@ -304,7 +304,8 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
             await client.query(`INSERT INTO ${settingsTable} (${userIdColumn}) VALUES ($1) ON CONFLICT (${userIdColumn}) DO NOTHING;`, [userId]);
         }
         
-        await cookies().set('session', token, {
+        const cookieStore = await cookies();
+        cookieStore.set('session', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: 60 * 60, // 1 hour
@@ -932,3 +933,4 @@ export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
 
 
     
+
