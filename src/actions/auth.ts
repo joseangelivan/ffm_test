@@ -58,21 +58,6 @@ async function runMigrations(client: Pool) {
                 await dbClient.query(schemaSql);
                 await dbClient.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [schemaFile]);
             }
-
-            // Seed default data after specific migrations
-            if (schemaFile === 'admins/base_schema.sql') {
-                const adminCheck = await dbClient.query('SELECT id FROM admins WHERE email = $1', ['angelivan34@gmail.com']);
-                if (adminCheck.rows.length === 0) {
-                    console.log('[runMigrations] Seeding default admin...');
-                    const defaultPassword = 'adminivan123';
-                    const passwordHash = await bcrypt.hash(defaultPassword, 10);
-                    await dbClient.query(
-                        `INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, $4)`,
-                        ['José Angel Iván Rubianes Silva', 'angelivan34@gmail.com', passwordHash, true]
-                    );
-                    console.log('[runMigrations] Default admin seeded successfully.');
-                }
-            }
         }
 
         await dbClient.query('COMMIT');
