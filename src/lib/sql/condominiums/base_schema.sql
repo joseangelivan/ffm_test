@@ -1,6 +1,3 @@
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
 CREATE TABLE IF NOT EXISTS condominiums (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL UNIQUE,
@@ -9,12 +6,14 @@ CREATE TABLE IF NOT EXISTS condominiums (
     state VARCHAR(255),
     city VARCHAR(255),
     street VARCHAR(255),
-    number VARCHAR(255),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    number VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Seed a test condominium if it doesn't exist
-INSERT INTO condominiums (name, continent, country, state, city, street, number)
-VALUES ('Residencial Jardins', 'Americas', 'Brazil', 'São Paulo', 'São Paulo', 'Av. Paulista', '1000')
-ON CONFLICT (name) DO NOTHING;
+-- Trigger para la tabla condominiums
+DROP TRIGGER IF EXISTS set_timestamp_condominiums ON condominiums;
+CREATE TRIGGER set_timestamp_condominiums
+BEFORE UPDATE ON condominiums
+FOR EACH ROW
+EXECUTE FUNCTION trigger_set_timestamp();
