@@ -21,63 +21,62 @@ let pool: Pool | undefined;
 let migrationLock: Promise<void> | null = null;
 
 async function runMigrations(client: Pool) {
-    if (process.env.RUN_MIGRATIONS !== 'true') {
-        console.log('--- [runMigrations] Skipping migrations. Set RUN_MIGRATIONS=true to execute them. ---');
-        return;
-    }
-
-    console.log('--- [runMigrations] Starting migration transaction ---');
     const dbClient = await client.connect();
     try {
         await dbClient.query('BEGIN');
-        console.log('[runMigrations] Transaction started.');
+        
+        // Ensure migrations log table exists
+        await dbClient.query(`
+            CREATE TABLE IF NOT EXISTS migrations_log (
+                id SERIAL PRIMARY KEY,
+                file_name VARCHAR(255) UNIQUE NOT NULL,
+                applied_at TIMESTAMPERRANTZ DEFAULT NOW()
+            );
+        `);
 
         const sqlBaseDir = path.join(process.cwd(), 'src', 'lib', 'sql');
         
-        // --- Apply all base table schemas ---
         const schemasToApply = [
             'admins/base_schema.sql',
             'condominiums/base_schema.sql',
             'smtp/base_schema.sql',
             'residents/base_schema.sql',
             'gatekeepers/base_schema.sql',
-            'entry_control/base_schema.sql',
-            'admin_verification_pins/base_schema.sql'
+            'entry_control/base_schema.sql'
         ];
         
-        console.log("[runMigrations] Applying base schemas...");
         for (const schemaPath of schemasToApply) {
+            const checkMigration = await dbClient.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [schemaPath]);
+            
+            if (checkMigration.rows.length > 0) {
+                continue; // Skip already applied migration
+            }
+
             const fullSchemaPath = path.join(sqlBaseDir, schemaPath);
             try {
                 let schemaSql = await fs.readFile(fullSchemaPath, 'utf-8');
                 if (schemaSql.trim()) {
-                    console.log(`- [runMigrations] Applying schema from '${schemaPath}'...`);
                     
                     if (schemaPath === 'admins/base_schema.sql') {
-                         // Check if admin exists before attempting to seed to avoid errors on conflict
-                        const adminCheck = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
+                         const adminCheck = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'").catch(() => ({rows:[]})); // Catch if table doesn't exist yet
                         if (adminCheck.rows.length === 0) {
-                            console.log("[runMigrations] --- Default admin not found. Seeding... ---");
-                            // Admin password is set to NULL to force first login flow
                             schemaSql = schemaSql.replace('{{ADMIN_PASSWORD_HASH}}', 'NULL');
                         } else {
-                            console.log("[runMigrations] Default admin already exists. Skipping seed part of the query.");
-                            // If admin exists, remove the INSERT statement to avoid errors
                             schemaSql = schemaSql.split('INSERT INTO admins')[0];
                         }
                     }
 
-                    const result = await dbClient.query(schemaSql);
-                    console.log(`- -> Schema '${schemaPath}' applied. Command: ${result.command}, RowCount: ${result.rowCount}`);
+                    await dbClient.query(schemaSql);
+
+                    // Log the migration
+                    await dbClient.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [schemaPath]);
 
                     // After seeding admin, ensure their settings are created
                     if (schemaPath === 'admins/base_schema.sql') {
                          const newAdmin = await dbClient.query("SELECT id FROM admins WHERE email = 'angelivan34@gmail.com'");
                          if (newAdmin.rows.length > 0) {
                              const adminId = newAdmin.rows[0].id;
-                             // This part is now handled by admin_settings_schema.sql, but we can ensure it here too.
                              await dbClient.query('INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING', [adminId]);
-                             console.log(`- -> Settings checked/created for default admin.`);
                          }
                     }
                 }
@@ -90,19 +89,14 @@ async function runMigrations(client: Pool) {
                 }
             }
         }
-        console.log("[runMigrations] --- Base schema application complete. ---");
 
         await dbClient.query('COMMIT');
-        console.log('[runMigrations] --- Migration process completed. COMMIT performed. ---');
-
     } catch(error) {
          console.error('[runMigrations] Error during migration transaction. Attempting ROLLBACK.', error);
          await dbClient.query('ROLLBACK');
-         console.log('[runMigrations] ROLLBACK performed.');
          throw error;
     } finally {
         dbClient.release();
-        console.log("--- Database client released after migrations. ---");
     }
 }
 
@@ -114,18 +108,13 @@ export async function getDbPool(): Promise<Pool> {
     if (!migrationLock) {
         migrationLock = (async () => {
             try {
-                console.log("--- Attempting to initialize database pool ---");
                 const newPool = new Pool({
                     connectionString: process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway',
                 });
 
                 await newPool.query('SELECT NOW()');
-                console.log("--- Database connection successful. Checking migrations... ---");
-
                 await runMigrations(newPool);
-                
                 pool = newPool;
-                console.log("--- Database pool has been successfully assigned. ---");
             } catch (error) {
                 console.error("CRITICAL: Failed during database initialization or migration.", error);
                 migrationLock = null; // Clear lock on failure to allow retry
@@ -1064,6 +1053,7 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 
 
     
+
 
 
 
