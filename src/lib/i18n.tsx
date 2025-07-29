@@ -1,8 +1,7 @@
 
 "use client";
 
-import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
-import { Loader } from 'lucide-react';
+import React, { createContext, useState, useContext, useCallback } from 'react';
 import es from '../locales/es.json';
 import pt from '../locales/pt.json';
 
@@ -26,22 +25,20 @@ function getNestedValue(obj: any, path: string): string | undefined {
   return path.split('.').reduce((acc, part) => acc && acc[part], obj);
 }
 
-export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [locale, setLocale] = useState<Locale>('pt');
-  const [isLocaleDetermined, setIsLocaleDetermined] = useState(false);
-
-  useEffect(() => {
-    // This effect should only run once on the client.
-    if (typeof window !== 'undefined') {
-      const userLanguage = navigator.language.toLowerCase();
-      if (userLanguage.startsWith('es')) {
-        setLocale('es');
-      } else {
-        setLocale('pt');
-      }
-      setIsLocaleDetermined(true);
+// Function to get the initial locale, safe for SSR
+const getInitialLocale = (): Locale => {
+  if (typeof window !== 'undefined' && navigator.language) {
+    const userLanguage = navigator.language.toLowerCase();
+    if (userLanguage.startsWith('es')) {
+      return 'es';
     }
-  }, []);
+  }
+  // Default to 'pt' on the server or if language is not 'es'
+  return 'pt';
+};
+
+export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [locale, setLocale] = useState<Locale>(getInitialLocale);
 
   const t = useCallback((key: string, replacements?: Record<string, string>) => {
     const translation = getNestedValue(translations[locale], key) || getNestedValue(translations['pt'], key) || key;
@@ -54,14 +51,6 @@ export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     return translation;
   }, [locale]);
-
-  if (!isLocaleDetermined) {
-    return (
-        <div className="flex min-h-screen items-center justify-center bg-background">
-            <Loader className="h-12 w-12 animate-spin text-muted-foreground" />
-        </div>
-    );
-  }
 
   return (
     <LocaleContext.Provider value={{ locale, setLocale, t }}>

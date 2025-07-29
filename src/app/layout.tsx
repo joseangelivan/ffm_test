@@ -24,8 +24,10 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased h-full">
-        <LocaleProvider>{children}</LocaleProvider>
-        <Toaster />
+        <LocaleProvider>
+          {children}
+          <Toaster />
+        </LocaleProvider>
       </body>
     </html>
   );
