@@ -56,10 +56,13 @@ const AlertDescription = React.forwardRef<
     const { t } = useLocale();
     const { toast } = useToast();
     const [hasCopied, setHasCopied] = React.useState(false);
+    const descriptionRef = React.useRef<HTMLDivElement>(null);
+
 
     const onCopy = () => {
-        if (typeof children === 'string') {
-            navigator.clipboard.writeText(children);
+        const textToCopy = descriptionRef.current?.textContent;
+        if (textToCopy) {
+            navigator.clipboard.writeText(textToCopy);
             setHasCopied(true);
             toast({
                 title: t('toast.copied.title'),
@@ -72,15 +75,15 @@ const AlertDescription = React.forwardRef<
     return (
         <div
             ref={ref}
-            className={cn("text-sm [&_p]:leading-relaxed", className)}
+            className={cn("text-sm [&_p]:leading-relaxed relative", className)}
             {...props}
         >
-            {children}
+            <div ref={descriptionRef}>{children}</div>
             {variant === 'destructive' && (
                 <Button
                     size="icon"
                     variant="ghost"
-                    className="absolute top-2 right-2 h-7 w-7 text-destructive hover:bg-destructive/10"
+                    className="absolute top-[-8px] right-[-8px] h-7 w-7 text-destructive hover:bg-destructive/10"
                     onClick={onCopy}
                 >
                     {hasCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}

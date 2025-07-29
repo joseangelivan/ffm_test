@@ -474,8 +474,12 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
         const emailResult = await sendAdminFirstLoginEmail(newAdminId, appUrl, client);
 
         if (!emailResult.success) {
-            await client.query('ROLLBACK');
-            return { success: false, message: `No se pudo enviar el correo de activación. ${emailResult.message}` };
+            // Do not rollback, admin is created. The user can resend the email.
+            await client.query('COMMIT');
+            return { 
+                success: true, // The creation itself was successful
+                message: `Administrador "${name}" creado, pero no se pudo enviar el correo de activación. Puede reenviarlo más tarde desde el menú de gestión.` 
+            };
         }
         
         await client.query('COMMIT');
