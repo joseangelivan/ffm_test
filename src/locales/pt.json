@@ -165,7 +165,8 @@
             "email": "Email",
             "permissions": "Permissões"
         },
-        "sendCredentials": "Enviar Credenciais (email)"
+        "sendCredentials": "Enviar Credenciais (email)",
+        "generatePinButton": "Gerar PIN"
       },
       "loadingOverlay": {
           "creating": "Criando...",
@@ -378,5 +379,6 @@
   }
 
     
+
 
 

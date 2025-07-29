@@ -684,6 +684,20 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
     const { t, locale } = useLocale();
     const { pending } = useFormStatus();
     const isEditMode = !!admin;
+    const [pin, setPin] = useState('');
+
+    const generatePin = () => {
+        const randomPin = Math.floor(100000 + Math.random() * 900000).toString();
+        setPin(randomPin);
+    };
+
+    const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        // Allow only numbers
+        if (/^[0-9]*$/.test(value)) {
+            setPin(value);
+        }
+    };
 
     return (
          <div className={cn("relative transition-opacity", pending && "opacity-50")}>
@@ -706,7 +720,13 @@ function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => v
                 {!isEditMode && (
                     <div className="grid gap-2">
                         <Label htmlFor="pin">{t('adminDashboard.manageAdmins.pinLabel')}</Label>
-                        <Input id="pin" name="pin" type="text" placeholder="123456" required maxLength={6} pattern="\d{6}" disabled={pending}/>
+                        <div className="flex items-center gap-2">
+                            <Input id="pin" name="pin" type="text" placeholder="123456" required maxLength={6} pattern="\d{6}" disabled={pending} value={pin} onChange={handlePinChange}/>
+                            <Button type="button" variant="outline" onClick={generatePin} disabled={pending}>
+                                <RefreshCw className="mr-2 h-4 w-4"/>
+                                {t('adminDashboard.manageAdmins.generatePinButton')}
+                            </Button>
+                        </div>
                     </div>
                 )}
                 <div className="flex items-center space-x-2">
