@@ -18,7 +18,6 @@ import path from 'path';
 // --- Database Pool and Migration Logic ---
 
 let pool: Pool | undefined;
-let migrationLock: Promise<void> | null = null;
 
 async function runMigrations(client: Pool) {
     console.log('[runMigrations] Starting migration process...');
@@ -95,35 +94,27 @@ export async function getDbPool(runMigrationHook = false): Promise<Pool> {
         return pool;
     }
 
-    if (!migrationLock) {
-        migrationLock = (async () => {
-            try {
-                console.log('[getDbPool] Initializing database pool...');
-                const newPool = new Pool({
-                    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway',
-                });
+    try {
+        console.log('[getDbPool] Initializing database pool...');
+        const newPool = new Pool({
+            connectionString: process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway',
+        });
 
-                await newPool.query('SELECT NOW()'); // Test connection
-                pool = newPool;
-                console.log('[getDbPool] Database pool initialized successfully.');
+        await newPool.query('SELECT NOW()'); // Test connection
+        
+        if (runMigrationHook) {
+            await runMigrations(newPool);
+        }
 
-                if (runMigrationHook) {
-                    await runMigrations(pool);
-                }
+        pool = newPool;
+        console.log('[getDbPool] Database pool initialized and assigned successfully.');
+        return pool;
 
-            } catch (error) {
-                console.error("CRITICAL: Failed during database initialization or migration.", error);
-                migrationLock = null; // Clear lock on failure to allow retry
-                pool = undefined; // Ensure pool is not left in a bad state
-                throw new Error("Database initialization failed.");
-            }
-        })();
+    } catch (error) {
+        console.error("CRITICAL: Failed during database initialization or migration.", error);
+        pool = undefined; // Ensure pool is not left in a bad state
+        throw new Error("Database initialization failed.");
     }
-
-    await migrationLock;
-    
-    if (!pool) throw new Error("Database pool initialization did not complete as expected.");
-    return pool;
 }
 
 
@@ -291,7 +282,7 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
             await client.query(`INSERT INTO ${settingsTable} (${userIdColumn}) VALUES ($1) ON CONFLICT (${userIdColumn}) DO NOTHING;`, [userId]);
         }
         
-        const cookieStore = await cookies();
+        const cookieStore = cookies();
         cookieStore.set('session', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -1056,3 +1047,4 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 
 
     
+
