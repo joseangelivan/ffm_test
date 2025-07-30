@@ -473,7 +473,6 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
         const emailResult = await sendAdminFirstLoginEmail(newAdminId, appUrl, client);
 
         if (!emailResult.success) {
-            // If email fails, the whole transaction fails.
             await client.query('ROLLBACK');
             return { 
                 success: false,
