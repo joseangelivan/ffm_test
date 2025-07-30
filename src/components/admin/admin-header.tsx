@@ -42,6 +42,7 @@ import {
   Loader,
   KeyRound,
   Mailbox,
+  Globe,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -51,6 +52,8 @@ import { handleLogoutAction } from '@/actions/auth';
 import { ManageAdminsDialog } from './manage-admins-dialog';
 import { SmtpConfigDialog } from './smtp-config-dialog';
 import { ManageAccountDialog } from './manage-account-dialog';
+import { ManageDomainDialog } from './manage-domain-dialog';
+
 
 export function LoadingOverlay({ text }: { text: string }) {
     return (
@@ -179,6 +182,7 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                                 <DropdownMenuSeparator/>
                                 {session.canCreateAdmins && <ManageAdminsDialog currentAdminId={session.id}/>}
                                 <SmtpConfigDialog />
+                                <ManageDomainDialog />
                         </DropdownMenuSubContent>
                     </DropdownMenuPortal>
                     </DropdownMenuSub>

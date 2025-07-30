@@ -36,7 +36,7 @@ async function runMigrations(client: Pool) {
         const schemasToApply = [
             'admins/base_schema.sql',
             'condominiums/base_schema.sql',
-            'smtp/base_schema.sql',
+            'settings/base_schema.sql', // Updated path
             'residents/base_schema.sql',
             'gatekeepers/base_schema.sql',
             'entry_control/base_schema.sql',
@@ -644,17 +644,13 @@ export async function sendAdminFirstLoginEmail(adminId: string, appUrl: string, 
 
     try {
         const adminResult = await client.query(
-          'SELECT a.name, a.email, a.password_hash, s.language FROM admins a LEFT JOIN admin_settings s ON a.id = s.admin_id WHERE a.id = $1',
+          'SELECT a.name, a.email, s.language FROM admins a LEFT JOIN admin_settings s ON a.id = s.admin_id WHERE a.id = $1',
           [adminId]
         );
         if (adminResult.rows.length === 0) {
             return { success: false, message: 'Administrador no encontrado.' };
         }
         const admin = adminResult.rows[0];
-
-        if (admin.password_hash !== null) {
-            return { success: false, message: 'Esta cuenta de administrador ya está activa.' };
-        }
         
         const locale = admin.language === 'es' ? 'es' : 'pt';
         const t = locale === 'es' ? es : pt;

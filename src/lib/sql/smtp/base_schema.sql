@@ -1,18 +1,4 @@
-CREATE TABLE IF NOT EXISTS smtp_configurations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    host VARCHAR(255) NOT NULL,
-    port INTEGER NOT NULL,
-    secure BOOLEAN DEFAULT TRUE,
-    auth_user VARCHAR(255) NOT NULL,
-    auth_pass TEXT NOT NULL,
-    priority INTEGER NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
 
-DROP TRIGGER IF EXISTS set_timestamp_smtp_configurations ON smtp_configurations;
-CREATE TRIGGER set_timestamp_smtp_configurations
-BEFORE UPDATE ON smtp_configurations
-FOR EACH ROW
-EXECUTE FUNCTION trigger_set_timestamp();
+-- This file is now deprecated. The SMTP configuration schema has been moved to /src/lib/sql/settings/base_schema.sql
+-- to centralize all application settings. This file is kept to avoid breaking old migration logic but can be removed
+-- in the future if the migration log is cleared.
