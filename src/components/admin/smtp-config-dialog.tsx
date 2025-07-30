@@ -22,6 +22,7 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
+    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -300,3 +301,5 @@ export function SmtpConfigDialog() {
     </>
   );
 }
+
+    
