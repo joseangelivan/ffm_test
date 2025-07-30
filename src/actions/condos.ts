@@ -3,7 +3,7 @@
 
 import { Pool } from 'pg';
 import { z } from 'zod';
-import { getCurrentSession, getDbPool } from './auth';
+import { getDbPool } from './auth';
 
 
 export type Condominio = {
@@ -41,11 +41,6 @@ const CondominioSchema = z.object({
 
 
 export async function getCondominios(): Promise<ActionState<Condominio[]>> {
-    const session = await getCurrentSession();
-    if (!session || session.type !== 'admin') {
-        return { success: false, message: 'No autorizado.' };
-    }
-
     let client;
     try {
         const pool = await getDbPool();
@@ -75,10 +70,6 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
 }
 
 export async function getCondominioById(id: string): Promise<ActionState<Condominio>> {
-    const session = await getCurrentSession();
-    if (!session || session.type !== 'admin') {
-        return { success: false, message: 'No autorizado.' };
-    }
     if (!id) {
          return { success: false, message: 'ID de condominio no proporcionado.' };
     }
@@ -118,11 +109,6 @@ export async function getCondominioById(id: string): Promise<ActionState<Condomi
 
 
 export async function createCondominio(prevState: any, formData: FormData): Promise<ActionState<null>> {
-     const session = await getCurrentSession();
-    if (!session || session.type !== 'admin') {
-        return { success: false, message: 'No autorizado.' };
-    }
-
     const validatedFields = CondominioSchema.safeParse({
         name: formData.get('name'),
         continent: formData.get('continent'),
@@ -165,11 +151,6 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
 }
 
 export async function updateCondominio(prevState: any, formData: FormData): Promise<ActionState<null>> {
-    const session = await getCurrentSession();
-    if (!session || session.type !== 'admin') {
-        return { success: false, message: 'No autorizado.' };
-    }
-
     const id = formData.get('id') as string;
     if (!id) {
         return { success: false, message: 'ID no proporcionado.' };
@@ -219,11 +200,6 @@ export async function updateCondominio(prevState: any, formData: FormData): Prom
 }
 
 export async function deleteCondominio(id: string): Promise<ActionState<null>> {
-    const session = await getCurrentSession();
-    if (!session || session.type !== 'admin') {
-        return { success: false, message: 'No autorizado.' };
-    }
-    
     if (!id) {
         return { success: false, message: 'ID no proporcionado.' };
     }
