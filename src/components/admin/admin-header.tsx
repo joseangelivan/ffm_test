@@ -127,7 +127,12 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                         onOpenChange={setIsAccountDialogOpen}
                         onSuccess={onAccountUpdateSuccess}
                     />
-                    <DropdownMenuItem onSelect={() => setIsAccountDialogOpen(true)}>
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        setIsAccountDialogOpen(true);
+                      }}
+                    >
                         <User className="mr-2 h-4 w-4" />
                         <span>{t('adminDashboard.account.myAccount')}</span>
                     </DropdownMenuItem>
