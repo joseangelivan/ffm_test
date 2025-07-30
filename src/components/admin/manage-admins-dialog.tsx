@@ -294,5 +294,3 @@ export function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string 
         </Dialog>
     )
 }
-
-    
