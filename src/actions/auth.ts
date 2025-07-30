@@ -13,6 +13,7 @@ import es from '@/locales/es.json';
 import pt from '@/locales/pt.json';
 import fs from 'fs/promises';
 import path from 'path';
+import { getAppSetting } from './settings';
 
 
 // --- Database Pool and Migration Logic ---
@@ -486,8 +487,7 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
           [newAdminId, pinHash, expiresAt]
         );
 
-        const appUrl = 'http://localhost:9003'; // This should ideally come from env vars
-        const emailResult = await sendAdminFirstLoginEmail(newAdminId, appUrl, client);
+        const emailResult = await sendAdminFirstLoginEmail(newAdminId);
 
         if (!emailResult.success) {
             await client.query('ROLLBACK');
@@ -648,18 +648,17 @@ function generateTempPassword(): string {
 }
 
 
-export async function sendAdminFirstLoginEmail(adminId: string, appUrl: string, dbClient?: any): Promise<ActionState> {
+export async function sendAdminFirstLoginEmail(adminId: string): Promise<ActionState> {
     const session = await getCurrentSession();
-    // Allow this to be called without a session during admin creation
-    if (!session && !dbClient) {
+    if (!session) {
         return { success: false, message: "No autorizado." };
     }
 
     let client;
-    const pool = dbClient ? null : await getDbPool();
-    client = dbClient || await pool!.connect();
-
     try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+
         const adminResult = await client.query(
           'SELECT a.name, a.email, s.language FROM admins a LEFT JOIN admin_settings s ON a.id = s.admin_id WHERE a.id = $1',
           [adminId]
@@ -668,6 +667,9 @@ export async function sendAdminFirstLoginEmail(adminId: string, appUrl: string, 
             return { success: false, message: 'Administrador no encontrado.' };
         }
         const admin = adminResult.rows[0];
+        
+        const appDomain = await getAppSetting('app_domain');
+        const appUrl = appDomain || 'http://localhost:9003';
         
         const locale = admin.language === 'es' ? 'es' : 'pt';
         const t = locale === 'es' ? es : pt;
@@ -691,7 +693,7 @@ export async function sendAdminFirstLoginEmail(adminId: string, appUrl: string, 
         console.error("Error sending admin first login email:", error);
         return { success: false, message: "Error del servidor al enviar el correo." }
     } finally {
-        if(pool && client) client.release(); // Only release if we created the connection here
+        if(client) client.release();
     }
 }
 

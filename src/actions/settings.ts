@@ -40,11 +40,11 @@ export async function getAppSetting(key: string): Promise<string | null> {
     }
 }
 
-export async function updateAppSetting(key: string, value: string): Promise<ActionState> {
+export async function updateAppSetting(key: string, value: string | null): Promise<ActionState> {
     try {
         await checkAdmin();
-        if (!key || value === undefined || value === null) {
-            return { success: false, message: "La clave y el valor son obligatorios." };
+        if (!key) {
+            return { success: false, message: "La clave es obligatoria." };
         }
 
         let client;
