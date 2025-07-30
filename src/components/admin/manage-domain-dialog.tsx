@@ -54,7 +54,10 @@ export function ManageDomainDialog() {
     
     const handleExtractDomain = () => {
         if (typeof window !== 'undefined') {
-            setDomain(window.location.origin);
+            const currentOrigin = window.location.origin;
+            // Specific fix for Firebase Studio/Cloud Workstations environment
+            const publicOrigin = currentOrigin.replace('6000-', '9000-');
+            setDomain(publicOrigin);
         }
     };
 
