@@ -36,7 +36,7 @@ async function runMigrations(client: Pool) {
         const schemasToApply = [
             'admins/base_schema.sql',
             'condominiums/base_schema.sql',
-            'settings/base_schema.sql', // Updated path
+            'settings/base_schema.sql',
             'residents/base_schema.sql',
             'gatekeepers/base_schema.sql',
             'entry_control/base_schema.sql',
@@ -55,6 +55,23 @@ async function runMigrations(client: Pool) {
             let schemaSql = await fs.readFile(sqlPath, 'utf-8');
 
             if (schemaSql.trim()) {
+                // Check for CREATE TYPE statements and wrap them to be idempotent
+                const createTypeRegex = /(CREATE TYPE "([^"]+)" AS ENUM \([^)]+\);)/gi;
+                let match;
+                while ((match = createTypeRegex.exec(schemaSql)) !== null) {
+                    const fullMatch = match[1];
+                    const typeName = match[2];
+                    const safeBlock = `
+                        DO $$
+                        BEGIN
+                            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeName}') THEN
+                                ${fullMatch}
+                            END IF;
+                        END$$;
+                    `;
+                    schemaSql = schemaSql.replace(fullMatch, safeBlock);
+                }
+                
                 await dbClient.query(schemaSql);
                 await dbClient.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [schemaFile]);
             }
