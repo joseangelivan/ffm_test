@@ -487,7 +487,7 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
           [newAdminId, pinHash, expiresAt]
         );
 
-        const emailResult = await sendAdminFirstLoginEmail(newAdminId);
+        const emailResult = await sendAdminFirstLoginEmail({ name, email });
 
         if (!emailResult.success) {
             await client.query('ROLLBACK');
@@ -648,7 +648,7 @@ function generateTempPassword(): string {
 }
 
 
-export async function sendAdminFirstLoginEmail(adminId: string): Promise<ActionState> {
+export async function sendAdminFirstLoginEmail(admin: {name: string, email: string, language?: 'es' | 'pt'}): Promise<ActionState> {
     const session = await getCurrentSession();
     if (!session) {
         return { success: false, message: "No autorizado." };
@@ -656,22 +656,10 @@ export async function sendAdminFirstLoginEmail(adminId: string): Promise<ActionS
 
     let client;
     try {
-        const pool = await getDbPool();
-        client = await pool.connect();
-
-        const adminResult = await client.query(
-          'SELECT a.name, a.email, s.language FROM admins a LEFT JOIN admin_settings s ON a.id = s.admin_id WHERE a.id = $1',
-          [adminId]
-        );
-        if (adminResult.rows.length === 0) {
-            return { success: false, message: 'Administrador no encontrado.' };
-        }
-        const admin = adminResult.rows[0];
-        
         const appDomain = await getAppSetting('app_domain');
         const appUrl = appDomain || 'http://localhost:9003';
         
-        const locale = admin.language === 'es' ? 'es' : 'pt';
+        const locale = admin.language || 'pt';
         const t = locale === 'es' ? es : pt;
         const firstLoginUrl = new URL('/admin/first-login', appUrl).toString();
         

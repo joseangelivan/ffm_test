@@ -192,10 +192,9 @@ export function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string 
        });
     };
 
-    const handleSendEmail = (adminId: string) => {
+    const handleSendEmail = (admin: Admin) => {
         startSubmitting(async () => {
-            const appUrl = window.location.origin;
-            const result = await sendAdminFirstLoginEmail(adminId, appUrl);
+            const result = await sendAdminFirstLoginEmail(admin);
              if (result.success) {
                toast({ title: t('toast.successTitle'), description: result.message });
            } else {
@@ -257,7 +256,7 @@ export function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string 
                                                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={isSelf}><MoreVertical className="h-4 w-4"/></Button></DropdownMenuTrigger>
                                                     <DropdownMenuContent>
                                                         <DropdownMenuItem onSelect={() => handleEditClick(admin)}><Edit className="mr-2 h-4 w-4"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
-                                                        <DropdownMenuItem onSelect={() => handleSendEmail(admin.id)}><Mail className="mr-2 h-4 w-4"/>{t('adminDashboard.manageAdmins.resendActivation')}</DropdownMenuItem>
+                                                        <DropdownMenuItem onSelect={() => handleSendEmail(admin)}><Mail className="mr-2 h-4 w-4"/>{t('adminDashboard.manageAdmins.resendActivation')}</DropdownMenuItem>
                                                         <AlertDialog>
                                                             <AlertDialogTrigger asChild>
                                                                 <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}><Trash2 className="mr-2 h-4 w-4"/>{t('adminDashboard.table.delete')}</DropdownMenuItem>
@@ -295,3 +294,5 @@ export function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string 
         </Dialog>
     )
 }
+
+    
