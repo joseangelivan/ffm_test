@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -110,28 +111,32 @@ const ToastDescription = React.forwardRef<
   const { t } = useLocale();
   const { toast } = useToastHook();
   const [hasCopied, setHasCopied] = React.useState(false);
+  const descriptionRef = React.useRef<HTMLDivElement>(null);
 
   const onCopy = () => {
-    if (children) {
-      navigator.clipboard.writeText(children.toString());
-      setHasCopied(true);
-      toast({
-        title: t('toast.copied.title'),
-        description: t('toast.copied.description'),
-      });
-      setTimeout(() => setHasCopied(false), 2000);
+    const textToCopy = descriptionRef.current?.textContent;
+    if (textToCopy) {
+        navigator.clipboard.writeText(textToCopy);
+        setHasCopied(true);
+        toast({
+            title: t('toast.copied.title'),
+            description: t('toast.copied.description'),
+        });
+        setTimeout(() => setHasCopied(false), 2000);
     }
   };
 
   return (
     <div className={cn("relative pr-6", className)}>
-        <ToastPrimitives.Description
-            ref={ref}
-            className={cn("text-sm opacity-90", className)}
-            {...props}
-        >
-            {children}
-        </ToastPrimitives.Description>
+        <div ref={descriptionRef}>
+          <ToastPrimitives.Description
+              ref={ref}
+              className={cn("text-sm opacity-90", className)}
+              {...props}
+          >
+              {children}
+          </ToastPrimitives.Description>
+        </div>
         {variant === 'destructive' && (
             <Button
                 size="icon"
