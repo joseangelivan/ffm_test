@@ -454,6 +454,7 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
         const email = formData.get('email') as string;
         const canCreateAdmins = formData.get('can_create_admins') === 'on';
         const pin = formData.get('pin') as string;
+        const locale = formData.get('locale') as 'es' | 'pt' || 'pt';
 
         if (!name || !email) {
             return { success: false, message: 'Nombre y email son obligatorios.' };
@@ -486,18 +487,20 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
           'INSERT INTO admin_first_login_pins (admin_id, pin_hash, expires_at) VALUES ($1, $2, $3)',
           [newAdminId, pinHash, expiresAt]
         );
-
-        const emailResult = await sendAdminFirstLoginEmail({ name, email });
-
-        if (!emailResult.success) {
-            await client.query('ROLLBACK');
-            return { 
-                success: false,
-                message: `Error al enviar el correo de activación: ${emailResult.message} La creación del administrador ha sido cancelada.` 
-            };
-        }
         
         await client.query('COMMIT');
+        
+        // The transaction is committed. Now, try to send the email.
+        const emailResult = await sendAdminFirstLoginEmail({ name, email, language: locale });
+
+        if (!emailResult.success) {
+            // The admin was created, but the email failed. Return a specific message.
+            return { 
+                success: true, // The core action (creation) succeeded
+                message: `Administrador "${name}" creado, pero falló el envío del correo de activación. Por favor, reenvíelo manualmente.`,
+                data: { emailFailed: true }
+            };
+        }
         
         return { success: true, message: `Administrador "${name}" creado. Se ha enviado un correo de activación.` };
 
@@ -648,40 +651,36 @@ function generateTempPassword(): string {
 }
 
 
-export async function sendAdminFirstLoginEmail(admin: {name: string, email: string, language?: 'es' | 'pt'}): Promise<ActionState> {
+export async function sendAdminFirstLoginEmail({ name, email, language = 'pt' }: { name: string, email: string, language?: 'es' | 'pt'}): Promise<ActionState> {
     const session = await getCurrentSession();
     if (!session) {
         return { success: false, message: "No autorizado." };
     }
 
-    let client;
     try {
         const appDomain = await getAppSetting('app_domain');
         const appUrl = appDomain || 'http://localhost:9003';
         
-        const locale = admin.language || 'pt';
-        const t = locale === 'es' ? es : pt;
+        const t = language === 'es' ? es : pt;
         const firstLoginUrl = new URL('/admin/first-login', appUrl).toString();
         
         const emailHtml = `
             <h1>${t.emails.adminFirstLogin.title}</h1>
-            <p>${t.emails.adminFirstLogin.hello}, ${admin.name},</p>
+            <p>${t.emails.adminFirstLogin.hello}, ${name},</p>
             <p>${t.emails.adminFirstLogin.intro}</p>
             <p>${t.emails.adminFirstLogin.pinInfo}</p>
             <ul>
                 <li><strong>URL de Activación:</strong> <a href="${firstLoginUrl}">${firstLoginUrl}</a></li>
-                <li><strong>Email:</strong> ${admin.email}</li>
+                <li><strong>Email:</strong> ${email}</li>
             </ul>
             <p>${t.emails.adminFirstLogin.thanks}<br/>${t.emails.adminFirstLogin.teamName}</p>
         `;
 
-        return await sendEmail(admin.email, t.emails.adminFirstLogin.subject, emailHtml);
+        return await sendEmail(email, t.emails.adminFirstLogin.subject, emailHtml);
         
     } catch(error) {
         console.error("Error sending admin first login email:", error);
         return { success: false, message: "Error del servidor al enviar el correo." }
-    } finally {
-        if(client) client.release();
     }
 }
 
