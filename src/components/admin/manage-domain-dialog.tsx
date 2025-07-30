@@ -20,7 +20,7 @@ import { Label } from '@/components/ui/label';
 import { useLocale } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Globe, Link, Loader } from 'lucide-react';
+import { Globe, Link as LinkIcon, Loader } from 'lucide-react';
 import { getAppSetting, updateAppSetting } from '@/actions/settings';
 import { LoadingOverlay } from './admin-header';
 
@@ -54,10 +54,7 @@ export function ManageDomainDialog() {
     
     const handleExtractDomain = () => {
         if (typeof window !== 'undefined') {
-            const currentOrigin = window.location.origin;
-            // Specific fix for Firebase Studio/Cloud Workstations environment
-            const publicOrigin = currentOrigin.replace('6000-', '9000-');
-            setDomain(publicOrigin);
+            setDomain(window.location.origin);
         }
     };
 
@@ -90,7 +87,7 @@ export function ManageDomainDialog() {
                                     disabled={isLoading}
                                 />
                                 <Button type="button" variant="outline" onClick={handleExtractDomain} disabled={isLoading}>
-                                    <Link className="mr-2 h-4 w-4" />
+                                    <LinkIcon className="mr-2 h-4 w-4" />
                                     Extraer
                                 </Button>
                             </div>
