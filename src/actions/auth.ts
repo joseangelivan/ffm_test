@@ -43,7 +43,6 @@ async function runMigrations(client: Pool) {
             'settings/base_schema.sql',
             'residents/base_schema.sql',
             'gatekeepers/base_schema.sql',
-            'entry_control/base_schema.sql',
         ];
         
         for (const schemaFile of schemasToApply) {
@@ -1082,3 +1081,4 @@ export async function disableTotp(): Promise<ActionState> {
     
 
     
+
