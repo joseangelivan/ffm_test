@@ -52,6 +52,7 @@ import {
     KeyRound,
     Send,
     Eye,
+    EyeOff,
     Shield,
     Copy,
 } from 'lucide-react';
