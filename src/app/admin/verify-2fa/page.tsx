@@ -1,11 +1,11 @@
 
 import { Suspense } from 'react';
 import { getCurrentSession } from '@/actions/auth';
-import AdminFirstLoginForm from '@/components/admin-first-login-form';
+import { AdminVerify2faForm } from '@/components/admin-verify-2fa-form';
 import Loading from '@/app/loading';
 import { redirect } from 'next/navigation';
 
-export default async function AdminFirstLoginPage({
+export default async function AdminVerify2faPage({
   searchParams,
 }: {
   searchParams?: { [key: string]: string | string[] | undefined };
@@ -16,14 +16,13 @@ export default async function AdminFirstLoginPage({
     }
 
     const email = (searchParams?.email as string) || '';
-
     if (!email) {
         redirect('/admin/login');
     }
-
+    
     return (
         <Suspense fallback={<Loading />}>
-            <AdminFirstLoginForm initialEmail={email} />
+            <AdminVerify2faForm email={email} />
         </Suspense>
     );
 }

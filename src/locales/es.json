@@ -90,7 +90,8 @@
           "missingCredentials": "El correo y la contraseña son obligatorios.",
           "sessionError": "Ocurrió un error al crear la sesión.",
           "serverError": "Ocurrió un error en el servidor.",
-          "firstLoginRequired": "Esta es tu primera vez iniciando sesión. Por favor, activa tu cuenta."
+          "firstLoginRequired": "Esta es tu primera vez iniciando sesión. Por favor, activa tu cuenta.",
+          "invalidUser": "No se encontró ningún administrador con ese correo electrónico."
         },
         "firstLogin": {
             "missingFields": "Por favor, completa todos los campos.",
@@ -103,12 +104,22 @@
     },
     "adminLogin": {
       "title": "Portal del Administrador",
-      "description": "Acceso exclusivo para la gestión de condominios.",
+      "description": "Introduce tu correo electrónico para continuar.",
       "email": "Email de Administrador",
       "password": "Contraseña",
       "loginButton": "Iniciar Sesión como Admin",
+      "continueButton": "Continuar",
       "returnToMainLogin": "Volver al inicio de sesión principal",
-      "firstLoginLink": "Primer inicio de sesión / Activar cuenta"
+      "firstLoginLink": "Primer inicio de sesión / Activar cuenta",
+      "verifying": "Verificando...",
+      "wrongEmail": "¿Correo incorrecto? Volver",
+      "enterPasswordDescription": "Bienvenido de nuevo. Introduce tu contraseña para {email}.",
+      "twoFactorAuth": {
+        "title": "Verificación en dos pasos",
+        "description": "Abre tu aplicación de autenticación e introduce el código para continuar.",
+        "codeLabel": "Código de 6 dígitos",
+        "verifyButton": "Verificar"
+      }
     },
     "adminDashboard": {
       "title": "Panel de Administración",
@@ -207,7 +218,25 @@
             "title": "Reinicio de Sesión Requerido",
             "description": "Tus datos se han actualizado. Para que los cambios fiquen visibles, es necesario reiniciar la sesión.",
             "confirm": "OK"
-        }
+        },
+        "twoFactorAuth": {
+            "tab": "2FA",
+            "title": "Autenticación de dos factores",
+            "setupPrompt": "Añade una capa extra de seguridad a tu cuenta usando un autenticador.",
+            "activateButton": "Activar 2FA",
+            "setupTitle": "Configurar Autenticación de Dos Factores",
+            "setupDescription": "Escanea este código QR con tu aplicación de autenticación (ej. Google Authenticator, Authy).",
+            "secretKeyLabel": "O introduce esta clave manualmente",
+            "verificationCodeLabel": "Introduce el código de verificación",
+            "enableButton": "Activar y Verificar",
+            "manageDescription": "La autenticación de dos factores está activa.",
+            "activeTitle": "2FA Está Activo",
+            "activeDescription": "Se requerirá un código de tu aplicación de autenticación para iniciar sesión.",
+            "disableButton": "Desactivar 2FA",
+            "disableConfirmTitle": "¿Desactivar 2FA?",
+            "disableConfirmDescription": "Esto reducirá la seguridad de tu cuenta. ¿Estás seguro de que quieres continuar?"
+        },
+        "secretCopied": "Clave secreta copiada al portapapeles."
       }
     },
     "condoDashboard": {
@@ -372,18 +401,3 @@
         "backToLogin": "Volver al inicio de sesión"
     }
   }
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-

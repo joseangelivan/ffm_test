@@ -1,11 +1,11 @@
 
 import { Suspense } from 'react';
 import { getCurrentSession } from '@/actions/auth';
-import AdminFirstLoginForm from '@/components/admin-first-login-form';
+import { AdminEnterPasswordForm } from '@/components/admin-enter-password-form';
 import Loading from '@/app/loading';
 import { redirect } from 'next/navigation';
 
-export default async function AdminFirstLoginPage({
+export default async function AdminEnterPasswordPage({
   searchParams,
 }: {
   searchParams?: { [key: string]: string | string[] | undefined };
@@ -16,14 +16,13 @@ export default async function AdminFirstLoginPage({
     }
 
     const email = (searchParams?.email as string) || '';
-
     if (!email) {
         redirect('/admin/login');
     }
-
+    
     return (
         <Suspense fallback={<Loading />}>
-            <AdminFirstLoginForm initialEmail={email} />
+            <AdminEnterPasswordForm email={email} />
         </Suspense>
     );
 }

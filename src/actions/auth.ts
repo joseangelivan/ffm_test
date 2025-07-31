@@ -14,6 +14,7 @@ import pt from '@/locales/pt.json';
 import fs from 'fs/promises';
 import path from 'path';
 import { getAppSetting } from './settings';
+import { authenticator } from 'otplib';
 
 
 // --- Database Pool and Migration Logic ---
@@ -36,6 +37,7 @@ async function runMigrations(client: Pool) {
         
         const schemasToApply = [
             'admins/base_schema.sql',
+            'admins/totp_schema.sql',
             'condominiums/base_schema.sql',
             'settings/base_schema.sql',
             'residents/base_schema.sql',
@@ -123,7 +125,10 @@ const JWT_ALG = 'HS256';
 type AuthState = {
   success: boolean;
   message: string;
-  action?: 'redirect_first_login';
+  action?: 'redirect_first_login' | 'redirect_enter_password' | 'redirect_2fa';
+  data?: {
+    email?: string;
+  }
 };
 
 type ActionState = {
@@ -132,6 +137,8 @@ type ActionState = {
   data?: {
       needsLogout?: boolean;
       emailFailed?: boolean;
+      qrCodeUrl?: string;
+      secret?: string;
   }
 };
 
@@ -301,7 +308,7 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
     }
 }
 
-export async function authenticateUser(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
+export async function authenticateUser(prevState: any, formData: FormData): Promise<AuthState> {
     let client;
     try {
         const pool = await getDbPool();
@@ -363,7 +370,43 @@ export async function authenticateUser(prevState: AuthState | undefined, formDat
 }
 
 
-export async function authenticateAdmin(prevState: AuthState | undefined, formData: FormData): Promise<AuthState> {
+export async function checkAdminEmail(prevState: any, formData: FormData): Promise<AuthState> {
+    const email = formData.get('email') as string;
+    if (!email) {
+        return { success: false, message: "toast.adminLogin.missingCredentials" };
+    }
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        const result = await client.query('SELECT a.*, s.secret IS NOT NULL as has_totp FROM admins a LEFT JOIN admin_totp_secrets s ON a.id = s.admin_id WHERE a.email = $1', [email]);
+        
+        if (result.rows.length === 0) {
+            return { success: false, message: "toast.adminLogin.invalidUser" };
+        }
+        const admin = result.rows[0];
+
+        if (admin.password_hash === null) {
+            return { success: true, message: "Redireccionando a primer login", action: 'redirect_first_login', data: { email } };
+        }
+
+        if (admin.has_totp) {
+            return { success: true, message: "Redireccionando a 2FA", action: 'redirect_2fa', data: { email } };
+        }
+
+        return { success: true, message: "Redireccionando a contraseña", action: 'redirect_enter_password', data: { email } };
+
+    } catch (error) {
+        console.error('Error checking admin email:', error);
+        return { success: false, message: "toast.adminLogin.serverError" };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+
+export async function authenticateAdmin(prevState: any, formData: FormData): Promise<ActionState> {
   let client;
   try {
     const pool = await getDbPool();
@@ -375,22 +418,13 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     }
     
     client = await pool.connect();
-
     const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
-    
     if (result.rows.length === 0) {
       return { success: false, message: "toast.adminLogin.invalidCredentials" };
     }
-
     const admin = result.rows[0];
-
-    // Check for first login (null password)
-    if (admin.password_hash === null) {
-      return { success: false, message: "toast.adminLogin.firstLoginRequired", action: "redirect_first_login" };
-    }
     
     const passwordMatch = await bcrypt.compare(password, admin.password_hash);
-    
     if (!passwordMatch) {
       return { success: false, message: "toast.adminLogin.invalidCredentials" };
     }
@@ -409,9 +443,7 @@ export async function authenticateAdmin(prevState: AuthState | undefined, formDa
     console.error('Error during authentication:', error);
     return { success: false, message: "toast.adminLogin.serverError" };
   } finally {
-    if (client) {
-        client.release();
-    }
+    if (client) client.release();
   }
   
   redirect('/admin/dashboard');
@@ -894,7 +926,7 @@ export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
     }
 }
 
-export async function handleFirstLogin(prevState: any, formData: FormData): Promise<AuthState> {
+export async function handleFirstLogin(prevState: any, formData: FormData): Promise<ActionState> {
     const email = formData.get('email') as string;
     const pin = formData.get('pin') as string;
     const password = formData.get('password') as string;
@@ -930,17 +962,14 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 
         const pinMatch = await bcrypt.compare(pin, storedPin.pin_hash);
         if (!pinMatch) {
-            // Here you could add logic to increment an attempt counter
             return { success: false, message: "toast.firstLogin.invalidPin" };
         }
 
         const newPasswordHash = await bcrypt.hash(password, 10);
         await client.query('UPDATE admins SET password_hash = $1 WHERE id = $2', [newPasswordHash, admin.id]);
         
-        // Clean up the pin
         await client.query('DELETE FROM admin_first_login_pins WHERE admin_id = $1', [admin.id]);
 
-        // Log the user in
         const sessionResult = await createSession(admin.id, 'admin', {
             email: admin.email,
             name: admin.name,
@@ -959,4 +988,122 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
     redirect('/admin/dashboard');
 }
 
+// --- 2FA (TOTP) Functions ---
+export async function generateTotpSecret(email: string): Promise<ActionState> {
+    const session = await getCurrentSession();
+    if (!session || session.type !== 'admin') {
+        return { success: false, message: "No autorizado." };
+    }
+    const secret = authenticator.generateSecret();
+    const otpauth = authenticator.keyuri(email, 'Follow For Me', secret);
+    
+    return { success: true, message: 'Secreto generado.', data: { qrCodeUrl: otpauth, secret: secret } };
+}
+
+export async function enableTotp(secret: string, token: string): Promise<ActionState> {
+    const session = await getCurrentSession();
+    if (!session || session.type !== 'admin') {
+        return { success: false, message: "No autorizado." };
+    }
+
+    const isValid = authenticator.verify({ token, secret });
+    if (!isValid) {
+        return { success: false, message: "Código de verificación inválido." };
+    }
+    
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        await client.query(
+            'INSERT INTO admin_totp_secrets (admin_id, secret) VALUES ($1, $2) ON CONFLICT (admin_id) DO UPDATE SET secret = $2',
+            [session.id, secret]
+        );
+        return { success: true, message: "2FA activado con éxito." };
+    } catch (error) {
+        console.error("Error enabling TOTP:", error);
+        return { success: false, message: "Error del servidor." };
+    } finally {
+        if(client) client.release();
+    }
+}
+
+export async function verifyTotp(prevState: any, formData: FormData): Promise<ActionState> {
+    const email = formData.get('email') as string;
+    const token = formData.get('token') as string;
+    
+    if (!email || !token) {
+        return { success: false, message: 'Email y código son requeridos.' };
+    }
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        const result = await client.query('SELECT a.*, s.secret as totp_secret FROM admins a JOIN admin_totp_secrets s ON a.id = s.admin_id WHERE a.email = $1', [email]);
+        
+        if (result.rows.length === 0 || !result.rows[0].totp_secret) {
+            return { success: false, message: 'Usuario no encontrado o 2FA no está activo.' };
+        }
+        
+        const admin = result.rows[0];
+        const isValid = authenticator.verify({ token, secret: admin.totp_secret });
+
+        if (!isValid) {
+            return { success: false, message: 'Código 2FA inválido.' };
+        }
+
+        const sessionResult = await createSession(admin.id, 'admin', {
+            email: admin.email,
+            name: admin.name,
+            canCreateAdmins: admin.can_create_admins,
+        });
+
+        if (!sessionResult.success) {
+            return { success: false, message: "toast.adminLogin.sessionError" };
+        }
+
+    } catch (error) {
+        console.error("Error verifying TOTP:", error);
+        return { success: false, message: "Error del servidor." };
+    }
+
+    redirect('/admin/dashboard');
+}
+
+export async function hasTotpEnabled(): Promise<{enabled: boolean}> {
+    const session = await getCurrentSession();
+    if (!session) return { enabled: false };
+    
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        const result = await client.query('SELECT 1 FROM admin_totp_secrets WHERE admin_id = $1', [session.id]);
+        return { enabled: result.rows.length > 0 };
+    } catch (error) {
+        console.error("Error checking TOTP status:", error);
+        return { enabled: false };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+export async function disableTotp(): Promise<ActionState> {
+    const session = await getCurrentSession();
+    if (!session) return { success: false, message: "No autorizado." };
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        await client.query('DELETE FROM admin_totp_secrets WHERE admin_id = $1', [session.id]);
+        return { success: true, message: "2FA desactivado con éxito." };
+    } catch (error) {
+        console.error("Error disabling TOTP:", error);
+        return { success: false, message: "Error del servidor." };
+    } finally {
+        if (client) client.release();
+    }
+}
     

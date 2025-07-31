@@ -5,7 +5,7 @@
 
 // For example, if you were using a library that didn't have types, you could
 // declare the module here.
-// declare module 'some-library'
+declare module 'otplib';
 
 // If you need to extend a type from a library, you can do so here.
 // For example, to add a property to the Request object in Express, you could

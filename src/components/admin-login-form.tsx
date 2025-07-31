@@ -14,15 +14,15 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mail, Lock, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
+import { Mail, AlertCircle, Loader } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useLocale } from '@/lib/i18n';
-import { useActionState, useState, useEffect, useRef } from 'react';
+import { useActionState, useEffect, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
-import { authenticateAdmin } from '@/actions/auth';
+import { checkAdminEmail } from '@/actions/auth';
 import { useRouter } from 'next/navigation';
 
 function LoadingOverlay({ text }: { text: string }) {
@@ -49,7 +49,6 @@ function SubmitButton({ label }: { label: string }) {
 function LoginFormContent({ state }: { state: any }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
-    const [showPassword, setShowPassword] = useState(false);
     const emailInputRef = useRef<HTMLInputElement>(null);
     const { locale } = useLocale();
     
@@ -64,7 +63,7 @@ function LoginFormContent({ state }: { state: any }) {
 
     return (
         <div className={cn("relative transition-opacity", pending && "opacity-50")}>
-            {pending && <LoadingOverlay text={t('login.loggingIn')} />}
+            {pending && <LoadingOverlay text={t('adminLogin.verifying')} />}
             <CardHeader className="space-y-4 text-center">
               <div className="flex justify-center">
                 <Logo />
@@ -94,33 +93,7 @@ function LoginFormContent({ state }: { state: any }) {
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">{t('adminLogin.password')}</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      name="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      className="pl-10 pr-10"
-                      required
-                      autoComplete="current-password"
-                      disabled={pending}
-                    />
-                     <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:bg-transparent"
-                        onClick={() => setShowPassword(prev => !prev)}
-                        disabled={pending}
-                        aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
-                      >
-                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                      </Button>
-                  </div>
-                </div>
+                
                 {state?.success === false && state.message && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
@@ -133,16 +106,8 @@ function LoginFormContent({ state }: { state: any }) {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-4 px-6 pb-6">
-              <SubmitButton label={t('adminLogin.loginButton')} />
-               <div className="flex flex-col items-center gap-2 text-center text-sm w-full">
-                 <Link
-                  href="/admin/first-login"
-                  className={cn("text-muted-foreground hover:text-primary hover:underline", pending && "pointer-events-none")}
-                  aria-disabled={pending}
-                  tabIndex={pending ? -1 : undefined}
-                >
-                  {t('adminLogin.firstLoginLink')}
-                </Link>
+              <SubmitButton label={t('adminLogin.continueButton')} />
+               <div className="text-center text-sm w-full">
                 <Link
                   href="/"
                   className={cn("text-muted-foreground hover:text-primary hover:underline", pending && "pointer-events-none")}
@@ -158,17 +123,22 @@ function LoginFormContent({ state }: { state: any }) {
 }
 
 export default function AdminLoginForm() {
-  const [state, formAction] = useActionState(authenticateAdmin, undefined);
   const router = useRouter();
-
+  const [state, formAction] = useActionState(checkAdminEmail, undefined);
+  
   useEffect(() => {
-    if (state?.action === 'redirect_first_login') {
-      const emailInput = document.getElementById('email') as HTMLInputElement | null;
-      const email = emailInput ? emailInput.value : '';
-      router.push(`/admin/first-login?email=${encodeURIComponent(email)}`);
+    if (state?.success && state.data?.email) {
+      const emailParam = encodeURIComponent(state.data.email);
+      if (state.action === 'redirect_first_login') {
+        router.push(`/admin/first-login?email=${emailParam}`);
+      } else if (state.action === 'redirect_enter_password') {
+        router.push(`/admin/enter-password?email=${emailParam}`);
+      } else if (state.action === 'redirect_2fa') {
+        router.push(`/admin/verify-2fa?email=${emailParam}`);
+      }
     }
   }, [state, router]);
-  
+
   return (
     <div className="light relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
       <LanguageSwitcher />
