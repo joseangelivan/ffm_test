@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { handleLogoutAction, getSettings, updateSettings, verifySessionIntegrity } from '@/actions/auth';
+import { handleLogoutAction, updateSettings, verifySessionIntegrity } from '@/actions/admin';
 import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
 
@@ -29,6 +29,12 @@ type Session = {
     canCreateAdmins: boolean;
     type: 'admin' | 'resident' | 'gatekeeper';
 }
+
+type UserSettings = {
+    theme: 'light' | 'dark';
+    language: 'es' | 'pt';
+} | null;
+
 
 function LoadingOverlay({ text }: { text: string }) {
     return (
@@ -87,23 +93,28 @@ export const useAdminDashboard = () => {
     return context;
 };
 
-export default function AdminDashboardClient({ session, isSessionValid: initialIsSessionValid }: { session: Session, isSessionValid: boolean }) {
+export default function AdminDashboardClient({ 
+    session, 
+    isSessionValid: initialIsSessionValid,
+    initialSettings 
+}: { 
+    session: Session, 
+    isSessionValid: boolean,
+    initialSettings: UserSettings
+}) {
   const { setLocale } = useLocale();
   const [isSessionValid, setIsSessionValid] = useState(initialIsSessionValid);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<'light' | 'dark'>(initialSettings?.theme || 'light');
 
+  // Set initial theme and language from server-provided props
   useEffect(() => {
-    async function loadSettings() {
-      const settings = await getSettings();
-      if (settings) {
-          setTheme(settings.theme);
-          setLocale(settings.language);
-          document.documentElement.classList.toggle('dark', settings.theme === 'dark');
-      }
+    if (initialSettings) {
+      setTheme(initialSettings.theme);
+      setLocale(initialSettings.language);
+      document.documentElement.classList.toggle('dark', initialSettings.theme === 'dark');
     }
-    loadSettings();
-  }, [setLocale]);
+  }, [initialSettings, setLocale]);
 
   const handleSetTheme = async (newTheme: 'light' | 'dark') => {
     setTheme(newTheme);
