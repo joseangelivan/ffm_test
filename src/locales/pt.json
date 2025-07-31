@@ -107,7 +107,8 @@
       "email": "Email de Administrador",
       "password": "Senha",
       "loginButton": "Entrar como Admin",
-      "returnToMainLogin": "Voltar para o login principal"
+      "returnToMainLogin": "Voltar para o login principal",
+      "firstLoginLink": "Primeiro login / Ativar conta"
     },
     "adminDashboard": {
       "title": "Painel de Administração",
@@ -368,6 +369,7 @@
   }
 
     
+
 
 
 

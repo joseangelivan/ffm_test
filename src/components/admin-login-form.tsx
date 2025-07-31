@@ -134,7 +134,15 @@ function LoginFormContent({ state }: { state: any }) {
             </CardContent>
             <CardFooter className="flex flex-col gap-4 px-6 pb-6">
               <SubmitButton label={t('adminLogin.loginButton')} />
-               <div className="text-center text-sm w-full">
+               <div className="flex flex-col items-center gap-2 text-center text-sm w-full">
+                 <Link
+                  href="/admin/first-login"
+                  className={cn("text-muted-foreground hover:text-primary hover:underline", pending && "pointer-events-none")}
+                  aria-disabled={pending}
+                  tabIndex={pending ? -1 : undefined}
+                >
+                  {t('adminLogin.firstLoginLink')}
+                </Link>
                 <Link
                   href="/"
                   className={cn("text-muted-foreground hover:text-primary hover:underline", pending && "pointer-events-none")}
@@ -155,7 +163,8 @@ export default function AdminLoginForm() {
 
   useEffect(() => {
     if (state?.action === 'redirect_first_login') {
-      const email = (document.getElementById('email') as HTMLInputElement)?.value;
+      const emailInput = document.getElementById('email') as HTMLInputElement | null;
+      const email = emailInput ? emailInput.value : '';
       router.push(`/admin/first-login?email=${encodeURIComponent(email)}`);
     }
   }, [state, router]);
