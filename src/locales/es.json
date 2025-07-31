@@ -178,7 +178,7 @@
             "permissions": "Permisos"
         },
         "resendActivation": "Reenviar Email de Activación",
-        "generatePinButton": "Generar PIN"
+        "generatePinButton": "Gerar PIN"
       },
       "loadingOverlay": {
           "creating": "Creando...",
@@ -228,7 +228,7 @@
             "setupDescription": "Escanea este código QR con tu aplicación de autenticación (ej. Google Authenticator, Authy).",
             "secretKeyLabel": "O introduce esta clave manualmente",
             "verificationCodeLabel": "Introduce el código de verificación",
-            "enableButton": "Activar y Verificar",
+            "enableButton": "Verificar y Activar",
             "manageDescription": "La autenticación de dos factores está activa.",
             "activeTitle": "2FA Está Activo",
             "activeDescription": "Se requerirá un código de tu aplicación de autenticación para iniciar sesión.",
@@ -401,3 +401,4 @@
         "backToLogin": "Volver al inicio de sesión"
     }
   }
+

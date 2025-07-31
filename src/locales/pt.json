@@ -228,7 +228,7 @@
             "setupDescription": "Escaneie este código QR com seu aplicativo de autenticação (ex. Google Authenticator, Authy).",
             "secretKeyLabel": "Ou insira esta chave manualmente",
             "verificationCodeLabel": "Insira o código de verificação",
-            "enableButton": "Ativar e Verificar",
+            "enableButton": "Verificar e Ativar",
             "manageDescription": "A autenticação de dois fatores está ativa.",
             "activeTitle": "2FA Está Ativo",
             "activeDescription": "Será necessário um código do seu aplicativo de autenticação para fazer login.",
@@ -396,3 +396,4 @@
         "backToLogin": "Voltar para o login"
     }
   }
+
