@@ -533,10 +533,6 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
 }
 
 export async function getAdmins(): Promise<{admins?: Admin[], error?: string}> {
-    const session = await getCurrentSession();
-    if (!session || session.type !== 'admin') {
-      return { error: "No autorizado." };
-    }
     let client;
     try {
         const pool = await getDbPool();
@@ -866,7 +862,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
 export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
     const session = await getCurrentSession();
     if (!session) {
-        return { isValid: true };
+        return { isValid: false };
     }
 
     let client;

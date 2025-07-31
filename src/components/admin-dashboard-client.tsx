@@ -90,7 +90,7 @@ export const useAdminDashboard = () => {
 export default function AdminDashboardClient({ session, isSessionValid: initialIsSessionValid }: { session: Session, isSessionValid: boolean }) {
   const { setLocale } = useLocale();
   const [isSessionValid, setIsSessionValid] = useState(initialIsSessionValid);
-  const [showLogoutDialog, setShowLogoutDialog] = useState(!initialIsSessionValid);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
@@ -122,12 +122,18 @@ export default function AdminDashboardClient({ session, isSessionValid: initialI
     }
   }, []);
 
+  useEffect(() => {
+    if (!initialIsSessionValid) {
+        setShowLogoutDialog(true);
+    }
+  }, [initialIsSessionValid]);
+
   if (!isSessionValid) {
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
              <LoadingOverlay text="Verificando sesión..." />
              <ForceLogoutDialog 
-                isOpen={!isSessionValid}
+                isOpen={true}
                 onConfirm={handleLogoutAction}
             />
         </div>
