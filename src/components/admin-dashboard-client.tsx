@@ -122,16 +122,12 @@ export default function AdminDashboardClient({ session, isSessionValid: initialI
     }
   }, []);
 
-  if (!session) {
-    return null; // or a loading skeleton
-  }
-  
   if (!isSessionValid) {
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
              <LoadingOverlay text="Verificando sesión..." />
              <ForceLogoutDialog 
-                isOpen={showLogoutDialog}
+                isOpen={!isSessionValid}
                 onConfirm={handleLogoutAction}
             />
         </div>
@@ -147,7 +143,6 @@ export default function AdminDashboardClient({ session, isSessionValid: initialI
             <CondoManagement />
         </main>
             
-        {/* Force Logout Dialog */}
         <ForceLogoutDialog 
             isOpen={showLogoutDialog}
             onConfirm={handleLogoutAction}

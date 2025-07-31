@@ -20,8 +20,10 @@ import { authenticator } from 'otplib';
 // --- Database Pool and Migration Logic ---
 
 let pool: Pool | undefined;
+let migrationsRan = false;
 
 async function runMigrations(client: Pool) {
+    if (migrationsRan) return;
     console.log('[runMigrations] Starting migration process...');
     const dbClient = await client.connect();
     try {
@@ -58,7 +60,6 @@ async function runMigrations(client: Pool) {
             let schemaSql = await fs.readFile(sqlPath, 'utf-8');
 
             if (schemaSql.trim()) {
-                // Check for CREATE TYPE statements and wrap them to be idempotent
                 const createTypeRegex = /(CREATE TYPE "([^"]+)" AS ENUM \([^)]+\);)/gi;
                 let match;
                 while ((match = createTypeRegex.exec(schemaSql)) !== null) {
@@ -81,6 +82,7 @@ async function runMigrations(client: Pool) {
         }
 
         await dbClient.query('COMMIT');
+        migrationsRan = true;
         console.log('[runMigrations] Migration process completed successfully.');
     } catch(error) {
          console.error('[runMigrations] Error during migration transaction. Attempting ROLLBACK.', error);
@@ -91,32 +93,28 @@ async function runMigrations(client: Pool) {
     }
 }
 
-export async function getDbPool(runMigrationHook = false): Promise<Pool> {
-    if (pool && !runMigrationHook) {
-        return pool;
-    }
-
-    try {
-        console.log('[getDbPool] Initializing database pool...');
-        const newPool = new Pool({
-            connectionString: process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway',
-        });
-
-        await newPool.query('SELECT NOW()'); // Test connection
-        
-        if (runMigrationHook) {
-            await runMigrations(newPool);
+export async function getDbPool(forceMigration = false): Promise<Pool> {
+    if (!pool) {
+        try {
+            console.log('[getDbPool] Initializing database pool...');
+            pool = new Pool({
+                connectionString: process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway',
+            });
+            await pool.query('SELECT NOW()'); // Test connection
+            console.log('[getDbPool] Database pool initialized successfully.');
+        } catch (error) {
+            console.error("CRITICAL: Failed during database pool initialization.", error);
+            pool = undefined; // Ensure pool is not left in a bad state
+            throw new Error("Database initialization failed.");
         }
-
-        pool = newPool;
-        console.log('[getDbPool] Database pool initialized and assigned successfully.');
-        return pool;
-
-    } catch (error) {
-        console.error("CRITICAL: Failed during database initialization or migration.", error);
-        pool = undefined; // Ensure pool is not left in a bad state
-        throw new Error("Database initialization failed.");
     }
+    
+    // Run migrations if they haven't run in this lifecycle or if forced
+    if (!migrationsRan || forceMigration) {
+        await runMigrations(pool);
+    }
+    
+    return pool;
 }
 
 
@@ -276,11 +274,6 @@ async function createSession(userId: string, userType: 'admin' | 'resident' | 'g
           .setExpirationTime(expirationTime)
           .sign(JWT_SECRET);
         
-        const sessionsTable = userType === 'admin' ? 'sessions' : 'user_sessions'; // Example logic
-        const userIdCol = userType === 'admin' ? 'user_id' : 'user_id';
-        const userTypeCol = userType === 'admin' ? 'user_type' : 'user_type';
-
-
         await client.query(`DELETE FROM sessions WHERE user_id = $1 AND user_type = $2`, [userId, userType]);
         await client.query('INSERT INTO sessions (user_id, user_type, token, expires_at) VALUES ($1, $2, $3, $4)', [userId, userType, token, expirationDate]);
 
@@ -522,13 +515,11 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
         
         await client.query('COMMIT');
         
-        // The transaction is committed. Now, try to send the email.
         const emailResult = await sendAdminFirstLoginEmail({ name, email, language: locale });
 
         if (!emailResult.success) {
-            // The admin was created, but the email failed. Return a specific message.
             return { 
-                success: true, // The core action (creation) succeeded
+                success: true,
                 message: `Administrador "${name}" creado, pero falló el envío del correo de activación. Por favor, reenvíelo manualmente.`,
                 data: { emailFailed: true }
             };
@@ -546,11 +537,6 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
 }
 
 export async function getAdmins(): Promise<{admins?: Admin[], error?: string}> {
-    const session = await getCurrentSession();
-    if (!session || session.type !== 'admin') {
-        return { error: 'No autorizado.' };
-    }
-
     let client;
     try {
         const pool = await getDbPool();
@@ -677,18 +663,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<{su
     return { success: false, message: 'Error del servidor: Todos los proveedores de correo fallaron.' };
 }
 
-
-function generateTempPassword(): string {
-    return Math.random().toString(36).slice(-8);
-}
-
-
 export async function sendAdminFirstLoginEmail({ name, email, language = 'pt' }: { name: string, email: string, language?: 'es' | 'pt'}): Promise<ActionState> {
-    const session = await getCurrentSession();
-    if (!session) {
-        return { success: false, message: "No autorizado." };
-    }
-
     try {
         const appDomain = await getAppSetting('app_domain');
         const appUrl = appDomain || 'http://localhost:9003';
@@ -794,8 +769,6 @@ export async function verifyAdminEmailChangePin(newEmail: string, pin: string): 
             return { success: false, message: "PIN inválido o expirado." };
         }
         
-        // The PIN is valid, but we don't change the email here. We just confirm validity.
-        // We can, however, delete the pin now to prevent reuse.
         await client.query('DELETE FROM admin_verification_pins WHERE admin_id = $1', [session.id]);
 
         return { success: true, message: "PIN verificado con éxito." };
@@ -893,7 +866,6 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
 export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
     const session = await getCurrentSession();
     if (!session) {
-        // No session, so nothing to verify. Considered valid for this check's purpose.
         return { isValid: true };
     }
 
@@ -904,13 +876,11 @@ export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
         
         const result = await client.query('SELECT name, email FROM admins WHERE id = $1', [session.id]);
         if (result.rows.length === 0) {
-            // Admin not found in DB, session is invalid.
             return { isValid: false };
         }
 
         const dbAdmin = result.rows[0];
         
-        // Compare session data with DB data
         if (session.name !== dbAdmin.name || session.email !== dbAdmin.email) {
             return { isValid: false };
         }
@@ -919,7 +889,6 @@ export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
 
     } catch (error) {
         console.error("Error verifying session integrity:", error);
-        // In case of DB error, assume invalid to be safe.
         return { isValid: false };
     } finally {
         if (client) client.release();
