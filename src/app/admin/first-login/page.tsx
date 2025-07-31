@@ -15,7 +15,7 @@ export default async function AdminFirstLoginPage({
         redirect('/admin/dashboard');
     }
 
-    const email = typeof searchParams?.email === 'string' ? searchParams.email : '';
+    const email = (searchParams?.email as string) || '';
 
     return (
         <Suspense fallback={<Loading />}>
