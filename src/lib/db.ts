@@ -81,9 +81,15 @@ export async function getDbPool(forceMigration = false): Promise<Pool> {
     if (!pool) {
         try {
             console.log('[getDbPool] Initializing database pool...');
-            pool = new Pool({
-                connectionString: process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway',
-            });
+            // The connection string is now primarily read from the DATABASE_URL environment variable.
+            // A fallback is provided for convenience, but using a .env.local file is recommended.
+            const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway';
+            
+            if (!connectionString) {
+                throw new Error("DATABASE_URL environment variable is not set. Please provide a database connection string.");
+            }
+
+            pool = new Pool({ connectionString });
             await pool.query('SELECT NOW()'); // Test connection
             console.log('[getDbPool] Database pool initialized successfully.');
         } catch (error) {
