@@ -128,6 +128,7 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
     }
 
     let client;
+    let admin;
     try {
         const pool = await getDbPool();
         client = await pool.connect();
@@ -136,18 +137,7 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
         if (result.rows.length === 0) {
             return { success: false, message: "toast.adminLogin.invalidUser" };
         }
-        const admin = result.rows[0];
-        const emailParam = encodeURIComponent(email);
-
-        if (admin.password_hash === null) {
-            redirect(`/admin/first-login?email=${emailParam}`);
-        }
-
-        if (admin.has_totp) {
-            redirect(`/admin/verify-2fa?email=${emailParam}`);
-        }
-
-        redirect(`/admin/enter-password?email=${emailParam}`);
+        admin = result.rows[0];
 
     } catch (error) {
         console.error('Error checking admin email:', error);
@@ -155,6 +145,17 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
     } finally {
         if (client) client.release();
     }
+
+    const emailParam = encodeURIComponent(email);
+    if (admin.password_hash === null) {
+        redirect(`/admin/first-login?email=${emailParam}`);
+    }
+
+    if (admin.has_totp) {
+        redirect(`/admin/verify-2fa?email=${emailParam}`);
+    }
+
+    redirect(`/admin/enter-password?email=${emailParam}`);
 }
 
 export async function authenticateAdmin(prevState: any, formData: FormData): Promise<AuthState> {
