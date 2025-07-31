@@ -18,7 +18,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { handleLogoutAction, updateSettings, verifySessionIntegrity } from '@/actions/admin';
+import { updateSettings, verifySessionIntegrity } from '@/actions/admin';
+import { handleLogoutAction } from '@/lib/session';
 import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
 

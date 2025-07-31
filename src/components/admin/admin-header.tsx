@@ -48,7 +48,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { useAdminDashboard } from '../admin-dashboard-client';
-import { handleLogoutAction } from '@/actions/auth';
+import { handleLogoutAction } from '@/lib/session';
 import { ManageAdminsDialog } from './manage-admins-dialog';
 import { SmtpConfigDialog } from './smtp-config-dialog';
 import { ManageAccountDialog } from './manage-account-dialog';
