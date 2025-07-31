@@ -1,4 +1,6 @@
-import { getCurrentSession, verifySessionIntegrity } from '@/actions/auth';
+
+import { verifySessionIntegrity } from '@/actions/admin';
+import { getCurrentSession } from '@/lib/session';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
 import { redirect } from 'next/navigation';
 

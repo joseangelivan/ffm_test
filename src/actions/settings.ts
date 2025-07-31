@@ -2,7 +2,7 @@
 'use server';
 
 import { z } from 'zod';
-import { getDbPool } from './auth';
+import { getDbPool } from '@/lib/db';
 
 type ActionState<T = null> = {
     success: boolean;

@@ -1,7 +1,8 @@
 
 
 import { Suspense } from 'react';
-import { getCurrentSession, getDbPool } from '@/actions/auth';
+import { getCurrentSession } from '@/lib/session';
+import { getDbPool } from '@/lib/db';
 import AdminLoginForm from '@/components/admin-login-form';
 import Loading from '@/app/loading';
 import { redirect } from 'next/navigation';

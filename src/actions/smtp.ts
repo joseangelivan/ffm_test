@@ -2,7 +2,7 @@
 'use server';
 
 import { z } from 'zod';
-import { getDbPool } from './auth';
+import { getDbPool } from '@/lib/db';
 import nodemailer from 'nodemailer';
 
 // For this example, we'll store the password in plaintext in the DB.

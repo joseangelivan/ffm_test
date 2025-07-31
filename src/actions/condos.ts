@@ -3,7 +3,7 @@
 
 import { Pool } from 'pg';
 import { z } from 'zod';
-import { getDbPool } from './auth';
+import { getDbPool } from '@/lib/db';
 
 
 export type Condominio = {

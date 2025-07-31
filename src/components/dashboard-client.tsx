@@ -83,7 +83,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import MapComponent, { Marker } from '@/components/map';
-import { getCurrentSession, getSettings, updateSettings } from '@/actions/auth';
+import { getCurrentSession } from '@/lib/session';
+import { getSettings, updateSettings } from '@/actions/admin';
+import { SessionPayload } from '@/lib/session';
 
 type Device = {
   id: string;
@@ -92,13 +94,6 @@ type Device = {
   status: 'Online' | 'Offline';
   lastLocation: string;
   battery: number | null;
-};
-
-type Session = {
-    id: string;
-    email: string;
-    name: string;
-    type: 'admin' | 'resident' | 'gatekeeper';
 };
 
 const deviceIcons = {
@@ -263,7 +258,7 @@ export default function DashboardClient({
   user: { name: string; email: string; avatarUrl: string };
   devices: Device[];
 }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<SessionPayload | null>(null);
   const [devices, setDevices] = useState<Device[]>(initialDevices);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(
     initialDevices.find(d => d.status === 'Online') || initialDevices[0] || null
@@ -282,7 +277,7 @@ export default function DashboardClient({
       if (!currentSession) {
         router.push('/');
       } else {
-        setSession(currentSession as Session);
+        setSession(currentSession);
         const settings = await getSettings();
         if (settings) {
             setTheme(settings.theme);

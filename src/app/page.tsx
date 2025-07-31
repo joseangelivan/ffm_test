@@ -4,7 +4,7 @@
 import { Card } from '@/components/ui/card';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import LoginForm from '@/components/login-form';
-import { authenticateUser } from '@/actions/auth';
+import { authenticateUser } from '@/actions/user';
 
 export default function LoginPage() {
   return (

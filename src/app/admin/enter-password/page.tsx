@@ -1,6 +1,6 @@
 
 import { Suspense } from 'react';
-import { getCurrentSession } from '@/actions/auth';
+import { getCurrentSession } from '@/lib/session';
 import { AdminEnterPasswordForm } from '@/components/admin-enter-password-form';
 import Loading from '@/app/loading';
 import { redirect } from 'next/navigation';

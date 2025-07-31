@@ -1,5 +1,5 @@
 
-import { getCurrentSession } from '@/actions/auth';
+import { getCurrentSession } from '@/lib/session';
 import CondoDashboardClient from '@/components/condo-dashboard-client';
 import { redirect } from 'next/navigation';
 
