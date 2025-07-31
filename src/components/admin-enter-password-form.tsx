@@ -56,7 +56,7 @@ function EnterPasswordFormContent({ email, state }: { email: string, state: any 
     }
 
     useEffect(() => {
-        passwordInput.current?.focus();
+        passwordInputRef.current?.focus();
     }, []);
 
     return (
