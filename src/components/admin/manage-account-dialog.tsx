@@ -38,7 +38,7 @@ import { useLocale } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
-    sendEmailChangePin,
+    requestEmailChange,
     updateAdminAccount,
     verifyAdminEmailChangePin,
     generateTotpSecret,
@@ -214,7 +214,7 @@ function ManageAccountFields({ formState }: { formState: any }) {
 
     const handleSendPin = () => {
         startPinTransition(async () => {
-            const result = await sendEmailChangePin(emailValue);
+            const result = await requestEmailChange(emailValue);
             if (result.success) {
                 toast({ title: t('toast.successTitle'), description: result.message });
                 setPinVerificationState({ status: 'idle', message: t('adminDashboard.account.pinValidation.sent') });
@@ -278,13 +278,6 @@ function ManageAccountFields({ formState }: { formState: any }) {
                     <TabsTrigger value="2fa">{t('adminDashboard.account.twoFactorAuth.tab')}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="profile" className="space-y-4 pt-4">
-                     {formState?.success === false && (
-                        <Alert variant="destructive">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-                            <AlertDescription variant="destructive">{formState.message}</AlertDescription>
-                        </Alert>
-                    )}
                     <Card>
                         <CardHeader><CardTitle>{t('adminDashboard.account.profileTitle')}</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
@@ -375,12 +368,22 @@ function ManageAccountFields({ formState }: { formState: any }) {
                 </TabsContent>
             </Tabs>
             
-            <DialogFooter className="pt-4 mt-4 border-t">
-                 <Button type="button" variant="outline" asChild>
-                    <DialogClose disabled={pending}>{t('common.cancel')}</DialogClose>
-                 </Button>
-                <Button type="submit" disabled={isSaveChangesDisabled}>{t('common.saveChanges')}</Button>
-            </DialogFooter>
+            <div className="pt-4 mt-4 space-y-2">
+                {formState?.message && (
+                    <Alert variant={formState.success === false ? "destructive" : "default"}>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>{formState.success === false ? t('toast.errorTitle') : t('toast.successTitle')}</AlertTitle>
+                        <AlertDescription variant={formState.success === false ? "destructive" : "default"}>{formState.message}</AlertDescription>
+                    </Alert>
+                )}
+                <DialogFooter>
+                    <Button type="button" variant="outline" asChild>
+                        <DialogClose disabled={pending}>{t('common.cancel')}</DialogClose>
+                    </Button>
+                    <Button type="submit" disabled={isSaveChangesDisabled}>{t('common.saveChanges')}</Button>
+                </DialogFooter>
+            </div>
+
 
             <Dialog open={isSetup2faOpen} onOpenChange={setIsSetup2faOpen}>
                 <TwoFactorAuthSetup onSetupComplete={on2faStatusChanged} />
