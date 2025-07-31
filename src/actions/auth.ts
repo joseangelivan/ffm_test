@@ -537,6 +537,10 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
 }
 
 export async function getAdmins(): Promise<{admins?: Admin[], error?: string}> {
+    const session = await getCurrentSession();
+    if (!session || session.type !== 'admin') {
+      return { error: "No autorizado." };
+    }
     let client;
     try {
         const pool = await getDbPool();
