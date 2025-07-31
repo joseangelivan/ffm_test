@@ -18,9 +18,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  env: {
-    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: 'AIzaSyDLtJknkZhGcRuQ1TmcoOHPGJqd5yTGDfE',
-  }
 };
 
 export default nextConfig;
