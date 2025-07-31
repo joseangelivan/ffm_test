@@ -20,8 +20,10 @@ import { authenticator } from 'otplib';
 // --- Database Pool and Migration Logic ---
 
 let pool: Pool | undefined;
+let migrationsRan = false;
 
 async function runMigrations(client: Pool) {
+    if (migrationsRan) return;
     console.log('[runMigrations] Starting migration process...');
     const dbClient = await client.connect();
     try {
@@ -37,7 +39,6 @@ async function runMigrations(client: Pool) {
         
         const schemasToApply = [
             'admins/base_schema.sql',
-            'admins/totp_schema.sql',
             'condominiums/base_schema.sql',
             'settings/base_schema.sql',
             'residents/base_schema.sql',
@@ -80,6 +81,7 @@ async function runMigrations(client: Pool) {
         }
 
         await dbClient.query('COMMIT');
+        migrationsRan = true;
         console.log('[runMigrations] Migration process completed successfully.');
     } catch(error) {
          console.error('[runMigrations] Error during migration transaction. Attempting ROLLBACK.', error);
@@ -533,6 +535,10 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
 }
 
 export async function getAdmins(): Promise<{admins?: Admin[], error?: string}> {
+    const session = await getCurrentSession();
+    if (!session || session.type !== 'admin') {
+        return { error: "No autorizado." };
+    }
     let client;
     try {
         const pool = await getDbPool();
@@ -1071,6 +1077,8 @@ export async function disableTotp(): Promise<ActionState> {
         if (client) client.release();
     }
 }
+    
+
     
 
     
