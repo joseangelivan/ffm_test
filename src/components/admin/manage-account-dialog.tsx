@@ -57,6 +57,7 @@ import {
 import { LoadingOverlay } from './admin-header';
 import { useAdminDashboard } from '../admin-dashboard-client';
 import QRCode from 'qrcode';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // --- 2FA Components ---
 
