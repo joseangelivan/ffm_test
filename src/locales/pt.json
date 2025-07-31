@@ -294,7 +294,7 @@
                 "description": "A geocerca \"{name}\" foi salva."
             },
             "geofenceUpdated": "Geocerca Atualizada",
-            "geofenceDeleted": "Geocerca Excluída",
+            "geocenceDeleted": "Geocerca Excluída",
             "defaultSet": {
                 "title": "Geocerca Padrão",
                 "description": "A geocerca selecionada foi definida como padrão."
