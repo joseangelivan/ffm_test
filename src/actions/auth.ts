@@ -20,10 +20,8 @@ import { authenticator } from 'otplib';
 // --- Database Pool and Migration Logic ---
 
 let pool: Pool | undefined;
-let migrationsRan = false;
 
 async function runMigrations(client: Pool) {
-    if (migrationsRan) return;
     console.log('[runMigrations] Starting migration process...');
     const dbClient = await client.connect();
     try {
@@ -82,7 +80,6 @@ async function runMigrations(client: Pool) {
         }
 
         await dbClient.query('COMMIT');
-        migrationsRan = true;
         console.log('[runMigrations] Migration process completed successfully.');
     } catch(error) {
          console.error('[runMigrations] Error during migration transaction. Attempting ROLLBACK.', error);
@@ -109,8 +106,7 @@ export async function getDbPool(forceMigration = false): Promise<Pool> {
         }
     }
     
-    // Run migrations if they haven't run in this lifecycle or if forced
-    if (!migrationsRan || forceMigration) {
+    if (forceMigration) {
         await runMigrations(pool);
     }
     
@@ -1079,4 +1075,6 @@ export async function disableTotp(): Promise<ActionState> {
         if (client) client.release();
     }
 }
+    
+
     
