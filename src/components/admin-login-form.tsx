@@ -123,22 +123,8 @@ function LoginFormContent({ state }: { state: any }) {
 }
 
 export default function AdminLoginForm() {
-  const router = useRouter();
   const [state, formAction] = useActionState(checkAdminEmail, undefined);
   
-  useEffect(() => {
-    if (state?.success && state.data?.email) {
-      const emailParam = encodeURIComponent(state.data.email);
-      if (state.action === 'redirect_first_login') {
-        router.push(`/admin/first-login?email=${emailParam}`);
-      } else if (state.action === 'redirect_enter_password') {
-        router.push(`/admin/enter-password?email=${emailParam}`);
-      } else if (state.action === 'redirect_2fa') {
-        router.push(`/admin/verify-2fa?email=${emailParam}`);
-      }
-    }
-  }, [state, router]);
-
   return (
     <div className="light relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
       <LanguageSwitcher />

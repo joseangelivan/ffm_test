@@ -41,10 +41,6 @@ type ActionState = {
 type AuthState = {
   success: boolean;
   message: string;
-  action?: 'redirect_first_login' | 'redirect_enter_password' | 'redirect_2fa';
-  data?: {
-    email?: string;
-  }
 };
 
 // --- Settings ---
@@ -141,16 +137,17 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
             return { success: false, message: "toast.adminLogin.invalidUser" };
         }
         const admin = result.rows[0];
+        const emailParam = encodeURIComponent(email);
 
         if (admin.password_hash === null) {
-            return { success: true, message: "Redireccionando a primer login", action: 'redirect_first_login', data: { email } };
+            redirect(`/admin/first-login?email=${emailParam}`);
         }
 
         if (admin.has_totp) {
-            return { success: true, message: "Redireccionando a 2FA", action: 'redirect_2fa', data: { email } };
+            redirect(`/admin/verify-2fa?email=${emailParam}`);
         }
 
-        return { success: true, message: "Redireccionando a contraseña", action: 'redirect_enter_password', data: { email } };
+        redirect(`/admin/enter-password?email=${emailParam}`);
 
     } catch (error) {
         console.error('Error checking admin email:', error);
@@ -160,7 +157,7 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
     }
 }
 
-export async function authenticateAdmin(prevState: any, formData: FormData): Promise<ActionState> {
+export async function authenticateAdmin(prevState: any, formData: FormData): Promise<AuthState> {
   let client;
   try {
     const pool = await getDbPool();
@@ -203,7 +200,7 @@ export async function authenticateAdmin(prevState: any, formData: FormData): Pro
   redirect('/admin/dashboard');
 }
 
-export async function handleFirstLogin(prevState: any, formData: FormData): Promise<ActionState> {
+export async function handleFirstLogin(prevState: any, formData: FormData): Promise<AuthState> {
     const email = formData.get('email') as string;
     const pin = formData.get('pin') as string;
     const password = formData.get('password') as string;
@@ -665,7 +662,7 @@ export async function enableTotp(secret: string, token: string): Promise<ActionS
     }
 }
 
-export async function verifyTotp(prevState: any, formData: FormData): Promise<ActionState> {
+export async function verifyTotp(prevState: any, formData: FormData): Promise<AuthState> {
     const email = formData.get('email') as string;
     const token = formData.get('token') as string;
     
