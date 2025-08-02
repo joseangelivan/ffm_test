@@ -263,6 +263,8 @@ function ManageAccountFields({ formState }: { formState: any }) {
         });
     }
     
+    const noChangesMessage = t('adminDashboard.account.noChangesMade');
+    
     return (
          <div className={cn("relative transition-opacity", pending && "opacity-50")}>
             {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.updating')} />}
@@ -369,14 +371,14 @@ function ManageAccountFields({ formState }: { formState: any }) {
             </Tabs>
             
             <div className="pt-4 mt-4 space-y-2">
-                {formState?.message && !formState.success && (
+                {formState?.message && formState.success === false && formState.message !== noChangesMessage && (
                     <Alert variant="destructive">
                         <AlertCircle className="h-4 w-4" />
                         <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
                         <AlertDescription variant="destructive">{formState.message}</AlertDescription>
                     </Alert>
                 )}
-                 {formState?.message && formState.success === false && formState.message === t('adminDashboard.account.noChangesMade') && (
+                 {formState?.message && formState.success === false && formState.message === noChangesMessage && (
                     <Alert variant="default">
                         <AlertCircle className="h-4 w-4" />
                         <AlertTitle>{t('toast.successTitle')}</AlertTitle>
@@ -411,35 +413,29 @@ export function ManageAccountDialog({
   const { toast } = useToast();
   const { t } = useLocale();
 
-  // The state returned from useActionState. We'll use it to update our local state.
   const [actionState, formAction] = useActionState(updateAdminAccount, undefined);
   
-  // Local state to hold the form's message, which we can reset.
   const [formState, setFormState] = useState(actionState);
 
-  // When the action is executed, update the local state.
   useEffect(() => {
     setFormState(actionState);
   }, [actionState]);
 
-  // When the dialog is opened, reset the local state.
   useEffect(() => {
     if (isOpen) {
       setFormState(undefined);
     }
   }, [isOpen]);
 
-  // Handle successful form submission (e.g., show toast, close dialog).
   useEffect(() => {
     if (formState?.success) {
       toast({
         title: t('toast.successTitle'),
-        description: formState.message,
+        description: t('adminDashboard.account.updateSuccessToast'),
       });
       onSuccess(formState.data);
       onOpenChange(false);
     } else if (formState?.success === false && formState.message !== t('adminDashboard.account.noChangesMade')) {
-        // Show destructive toast for actual errors
         toast({
             title: t('toast.errorTitle'),
             description: formState.message,
