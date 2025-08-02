@@ -123,7 +123,14 @@ function LoginFormContent({ state }: { state: any }) {
 }
 
 export default function AdminLoginForm() {
+  const router = useRouter();
   const [state, formAction] = useActionState(checkAdminEmail, undefined);
+
+  useEffect(() => {
+    if (state?.success && state.redirectTo) {
+        router.push(state.redirectTo);
+    }
+  }, [state, router]);
   
   return (
     <div className="light relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
