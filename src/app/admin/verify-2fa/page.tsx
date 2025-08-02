@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { getCurrentSession } from '@/lib/session';
 import { AdminVerify2faForm } from '@/components/admin-verify-2fa-form';
 import Loading from '@/app/loading';
@@ -16,16 +16,22 @@ export default function AdminVerify2faPage({
 }) {
     const email = (searchParams?.email as string) || '';
     
-    const checkSession = async () => {
-        const session = await getCurrentSession();
-        if (session?.type === 'admin') {
-            redirect('/admin/dashboard');
-        }
-         if (!email) {
-            redirect('/admin/login');
-        }
-    };
-    checkSession();
+    useEffect(() => {
+      const checkSession = async () => {
+          const session = await getCurrentSession();
+          if (session?.type === 'admin') {
+              redirect('/admin/dashboard');
+          }
+          if (!email) {
+              redirect('/admin/login');
+          }
+      };
+      checkSession();
+    }, [email]);
+
+    if (!email) {
+        return <Loading />;
+    }
     
     return (
         <Suspense fallback={<Loading />}>

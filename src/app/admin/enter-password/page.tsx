@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { getCurrentSession } from '@/lib/session';
 import { AdminEnterPasswordForm } from '@/components/admin-enter-password-form';
 import Loading from '@/app/loading';
@@ -16,18 +16,23 @@ export default function AdminEnterPasswordPage({
 }) {
     const email = (searchParams?.email as string) || '';
     
-    // This check must happen outside of the main return for the redirect to work.
-    const checkSession = async () => {
-        const session = await getCurrentSession();
-        if (session?.type === 'admin') {
-            redirect('/admin/dashboard');
-        }
-        if (!email) {
-            redirect('/admin/login');
-        }
-    };
-    checkSession();
+    useEffect(() => {
+      const checkSession = async () => {
+          const session = await getCurrentSession();
+          if (session?.type === 'admin') {
+              redirect('/admin/dashboard');
+          }
+          if (!email) {
+              redirect('/admin/login');
+          }
+      };
+      checkSession();
+    }, [email]);
     
+    if (!email) {
+        return <Loading />;
+    }
+
     return (
         <Suspense fallback={<Loading />}>
             <div className="absolute top-4 right-4 flex items-center gap-2">
