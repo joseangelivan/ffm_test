@@ -187,6 +187,10 @@
           "loading": "Carregando dados...",
           "processing": "Processando..."
       },
+      "settingsGroups": {
+        "interface": "Interface",
+        "systemConfiguration": "Configuração do Sistema"
+      },
        "account": {
         "myAccount": "Minha Conta",
         "title": "Minha Conta",
@@ -294,7 +298,7 @@
                 "description": "A geocerca \"{name}\" foi salva."
             },
             "geofenceUpdated": "Geocerca Atualizada",
-            "geocenceDeleted": "Geocerca Excluída",
+            "geofenceDeleted": "Geocerca Excluída",
             "defaultSet": {
                 "title": "Geocerca Padrão",
                 "description": "A geocerca selecionada foi definida como padrão."
@@ -396,4 +400,5 @@
         "backToLogin": "Voltar para o login"
     }
   }
+
 

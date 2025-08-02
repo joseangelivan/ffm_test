@@ -187,6 +187,10 @@
           "loading": "Cargando datos...",
           "processing": "Procesando..."
       },
+      "settingsGroups": {
+        "interface": "Interfaz",
+        "systemConfiguration": "Configuración del Sistema"
+      },
       "account": {
         "myAccount": "Mi Cuenta",
         "title": "Mi Cuenta",
@@ -401,4 +405,5 @@
         "backToLogin": "Volver al inicio de sesión"
     }
   }
+
 

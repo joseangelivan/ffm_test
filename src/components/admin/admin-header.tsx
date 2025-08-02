@@ -43,6 +43,8 @@ import {
   Globe,
   Sun,
   Moon,
+  Palette,
+  Server,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -140,52 +142,73 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                         <span>{t('adminDashboard.account.myAccount')}</span>
                     </DropdownMenuItem>
                     <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>{t('dashboard.settings')}</span>
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                        <DropdownMenuSubContent>
-                            <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>
-                                    <Languages className="mr-2 h-4 w-4" />
-                                    <span>{t('dashboard.language')}</span>
-                                </DropdownMenuSubTrigger>
-                                <DropdownMenuPortal>
-                                    <DropdownMenuSubContent>
-                                        <DropdownMenuItem onClick={() => handleSetLocale('es')}>
-                                        Español {locale === 'es' && <span className="ml-auto">✓</span>}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleSetLocale('pt')}>
-                                        Português {locale === 'pt' && <span className="ml-auto">✓</span>}
-                                        </DropdownMenuItem>
-                                    </DropdownMenuSubContent>
-                                </DropdownMenuPortal>
-                            </DropdownMenuSub>
-                             <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>
-                                    <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                                    <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                                    <span>{t('dashboard.theme.title')}</span>
-                                </DropdownMenuSubTrigger>
-                                <DropdownMenuPortal>
-                                    <DropdownMenuSubContent>
-                                        <DropdownMenuItem onClick={() => handleSetTheme('light')}>
-                                        {t('dashboard.theme.light')} {theme === 'light' && <span className="ml-auto">✓</span>}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleSetTheme('dark')}>
-                                        {t('dashboard.theme.dark')} {theme === 'dark' && <span className="ml-auto">✓</span>}
-                                        </DropdownMenuItem>
-                                    </DropdownMenuSubContent>
-                                </DropdownMenuPortal>
-                            </DropdownMenuSub>
-                            
-                            <DropdownMenuSeparator/>
-                            {session.canCreateAdmins && <ManageAdminsDialog currentAdminId={session.id}/>}
-                            <SmtpConfigDialog />
-                            <ManageDomainDialog />
-                        </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
+                        <DropdownMenuSubTrigger>
+                            <Settings className="mr-2 h-4 w-4" />
+                            <span>{t('dashboard.settings')}</span>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                            <DropdownMenuSubContent>
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>
+                                        <Palette className="mr-2 h-4 w-4" />
+                                        <span>{t('adminDashboard.settingsGroups.interface')}</span>
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuPortal>
+                                        <DropdownMenuSubContent>
+                                            <DropdownMenuSub>
+                                                <DropdownMenuSubTrigger>
+                                                    <Languages className="mr-2 h-4 w-4" />
+                                                    <span>{t('dashboard.language')}</span>
+                                                </DropdownMenuSubTrigger>
+                                                <DropdownMenuPortal>
+                                                    <DropdownMenuSubContent>
+                                                        <DropdownMenuItem onClick={() => handleSetLocale('es')}>
+                                                        Español {locale === 'es' && <span className="ml-auto">✓</span>}
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleSetLocale('pt')}>
+                                                        Português {locale === 'pt' && <span className="ml-auto">✓</span>}
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuSubContent>
+                                                </DropdownMenuPortal>
+                                            </DropdownMenuSub>
+                                            <DropdownMenuSub>
+                                                <DropdownMenuSubTrigger>
+                                                    <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                                                    <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                                                    <span>{t('dashboard.theme.title')}</span>
+                                                </DropdownMenuSubTrigger>
+                                                <DropdownMenuPortal>
+                                                    <DropdownMenuSubContent>
+                                                        <DropdownMenuItem onClick={() => handleSetTheme('light')}>
+                                                        {t('dashboard.theme.light')} {theme === 'light' && <span className="ml-auto">✓</span>}
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleSetTheme('dark')}>
+                                                        {t('dashboard.theme.dark')} {theme === 'dark' && <span className="ml-auto">✓</span>}
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuSubContent>
+                                                </DropdownMenuPortal>
+                                            </DropdownMenuSub>
+                                        </DropdownMenuSubContent>
+                                    </DropdownMenuPortal>
+                                </DropdownMenuSub>
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>
+                                        <Server className="mr-2 h-4 w-4" />
+                                        <span>{t('adminDashboard.settingsGroups.systemConfiguration')}</span>
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuPortal>
+                                        <DropdownMenuSubContent>
+                                            <SmtpConfigDialog />
+                                            <ManageDomainDialog />
+                                        </DropdownMenuSubContent>
+                                    </DropdownMenuPortal>
+                                </DropdownMenuSub>
+
+                                <DropdownMenuSeparator/>
+                                {session.canCreateAdmins && <ManageAdminsDialog currentAdminId={session.id}/>}
+
+                            </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
                     </DropdownMenuSub>
                     <DropdownMenuSeparator />
                     <AlertDialog>
