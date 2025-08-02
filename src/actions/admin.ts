@@ -157,7 +157,7 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
         redirectTo = `/admin/enter-password?email=${emailParam}`;
     }
     
-    return { success: true, message: 'Redirecting...', redirectTo };
+    redirect(redirectTo);
 }
 
 export async function authenticateAdmin(prevState: any, formData: FormData): Promise<AuthState> {
