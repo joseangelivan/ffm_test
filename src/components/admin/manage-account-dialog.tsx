@@ -45,7 +45,7 @@ import {
     enableTotp,
     disableTotp,
     hasTotpEnabled,
-} from '@/actions/auth';
+} from '@/actions/admin';
 import {
     Loader,
     AlertCircle,
@@ -262,8 +262,6 @@ function ManageAccountFields({ formState, isFormPending }: { formState: any, isF
         });
     }
     
-    const noChangesMessage = t('adminDashboard.account.noChangesMade');
-    
     return (
          <div className={cn("relative transition-opacity", isFormPending && "opacity-50")}>
             {isFormPending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.updating')} />}
@@ -370,18 +368,11 @@ function ManageAccountFields({ formState, isFormPending }: { formState: any, isF
             </Tabs>
             
             <div className="pt-4 mt-4 space-y-2">
-                 {formState?.message === noChangesMessage && (
-                    <Alert variant="default">
+                 {formState?.message && (
+                    <Alert variant={formState.success === false ? 'destructive' : 'default'}>
                         <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>{t('toast.successTitle')}</AlertTitle>
-                        <AlertDescription>{formState.message}</AlertDescription>
-                    </Alert>
-                )}
-                 {formState?.success === false && (
-                    <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-                        <AlertDescription variant="destructive">{formState.message}</AlertDescription>
+                        <AlertTitle>{formState.success === false ? t('toast.errorTitle') : t('toast.successTitle')}</AlertTitle>
+                        <AlertDescription variant={formState.success === false ? 'destructive' : 'default'}>{formState.message}</AlertDescription>
                     </Alert>
                 )}
                 <DialogFooter>
@@ -411,10 +402,8 @@ export function ManageAccountDialog({
 }) {
   const { toast } = useToast();
   const { t } = useLocale();
-  const noChangesMessage = t('adminDashboard.account.noChangesMade');
 
   const [state, formAction, isPending] = useActionState(updateAdminAccount, undefined);
-  
   const [formState, setFormState] = useState(state);
 
   useEffect(() => {
@@ -422,12 +411,10 @@ export function ManageAccountDialog({
       setFormState(undefined);
     }
   }, [isOpen]);
-
+  
   useEffect(() => {
-    // We only want to react to the state when it's not the initial undefined state
     if (state === undefined) return;
     
-    // Update the local state to show inline messages
     setFormState(state);
 
     if (state.success) {
@@ -437,14 +424,14 @@ export function ManageAccountDialog({
       });
       onSuccess(state.data);
       onOpenChange(false);
-    } else if (state.message !== noChangesMessage) {
+    } else if (state.message !== t('adminDashboard.account.noChangesMade')) {
         toast({
             title: t('toast.errorTitle'),
             description: state.message,
             variant: 'destructive',
         });
     }
-  }, [state, toast, t, onSuccess, onOpenChange, noChangesMessage]);
+  }, [state, toast, t, onSuccess, onOpenChange]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>

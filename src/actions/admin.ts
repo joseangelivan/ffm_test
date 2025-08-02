@@ -521,7 +521,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
 
         const adminResult = await client.query('SELECT * FROM admins WHERE id = $1', [session.id]);
         if (adminResult.rows.length === 0) {
-            return { success: false, message: "No se encontró la cuenta de administrador." };
+            return { success: false, message: t.adminDashboard.account.title };
         }
         const currentAdmin = adminResult.rows[0];
 
