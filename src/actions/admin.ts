@@ -41,6 +41,7 @@ type ActionState = {
 type AuthState = {
   success: boolean;
   message: string;
+  redirectTo?: string;
 };
 
 // --- Settings ---
@@ -147,15 +148,16 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
     }
 
     const emailParam = encodeURIComponent(email);
+    let redirectTo = '';
     if (admin.password_hash === null) {
-        redirect(`/admin/first-login?email=${emailParam}`);
+        redirectTo = `/admin/first-login?email=${emailParam}`;
+    } else if (admin.has_totp) {
+        redirectTo = `/admin/verify-2fa?email=${emailParam}`;
+    } else {
+        redirectTo = `/admin/enter-password?email=${emailParam}`;
     }
-
-    if (admin.has_totp) {
-        redirect(`/admin/verify-2fa?email=${emailParam}`);
-    }
-
-    redirect(`/admin/enter-password?email=${emailParam}`);
+    
+    return { success: true, message: 'Redirecting...', redirectTo };
 }
 
 export async function authenticateAdmin(prevState: any, formData: FormData): Promise<AuthState> {
@@ -741,3 +743,5 @@ export async function disableTotp(): Promise<ActionState> {
         if (client) client.release();
     }
 }
+
+    
