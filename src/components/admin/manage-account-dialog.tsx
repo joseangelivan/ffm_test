@@ -189,8 +189,7 @@ function TwoFactorAuthManagement({ onDisable }: { onDisable: () => void }) {
 }
 
 // --- Main Components ---
-function ManageAccountFields({ formState }: { formState: any }) {
-    const { pending } = useFormStatus();
+function ManageAccountFields({ formState, isFormPending }: { formState: any, isFormPending: boolean }) {
     const { t, locale } = useLocale();
     const { toast } = useToast();
     const { session } = useAdminDashboard();
@@ -237,7 +236,7 @@ function ManageAccountFields({ formState }: { formState: any }) {
         });
     };
 
-    const isSaveChangesDisabled = pending || (isEmailChanged && pinVerificationState.status !== 'verified');
+    const isSaveChangesDisabled = isFormPending || (isEmailChanged && pinVerificationState.status !== 'verified');
     
     // 2FA state
     const [is2faEnabled, setIs2faEnabled] = useState(false);
@@ -266,8 +265,8 @@ function ManageAccountFields({ formState }: { formState: any }) {
     const noChangesMessage = t('adminDashboard.account.noChangesMade');
     
     return (
-         <div className={cn("relative transition-opacity", pending && "opacity-50")}>
-            {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.updating')} />}
+         <div className={cn("relative transition-opacity", isFormPending && "opacity-50")}>
+            {isFormPending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.updating')} />}
             <DialogHeader>
                 <DialogTitle>{t('adminDashboard.account.title')}</DialogTitle>
                 <DialogDescription>{t('adminDashboard.account.description')}</DialogDescription>
@@ -286,11 +285,11 @@ function ManageAccountFields({ formState }: { formState: any }) {
                             <input type="hidden" name="locale" value={locale} />
                             <div className="grid gap-2">
                                 <Label htmlFor="name">{t('adminDashboard.account.nameLabel')}</Label>
-                                <Input id="name" name="name" defaultValue={session.name} required disabled={pending}/>
+                                <Input id="name" name="name" defaultValue={session.name} required disabled={isFormPending}/>
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="email">{t('adminDashboard.account.emailLabel')}</Label>
-                                <Input id="email" name="email" type="email" value={emailValue} onChange={(e) => setEmailValue(e.target.value)} required disabled={pending}/>
+                                <Input id="email" name="email" type="email" value={emailValue} onChange={(e) => setEmailValue(e.target.value)} required disabled={isFormPending}/>
                             </div>
                         </CardContent>
                     </Card>
@@ -330,20 +329,20 @@ function ManageAccountFields({ formState }: { formState: any }) {
                              <div className="grid gap-2">
                                 <Label htmlFor="current_password">{t('adminDashboard.account.currentPasswordLabel')}</Label>
                                 <div className="relative">
-                                    <Input id="current_password" name="current_password" type={showPassword ? "text" : "password"} autoComplete="current-password" disabled={pending}/>
-                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(p => !p)} disabled={pending}><Eye className="h-4 w-4"/></Button>
+                                    <Input id="current_password" name="current_password" type={showPassword ? "text" : "password"} autoComplete="current-password" disabled={isFormPending}/>
+                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(p => !p)} disabled={isFormPending}><Eye className="h-4 w-4"/></Button>
                                 </div>
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="new_password">{t('adminDashboard.account.newPasswordLabel')}</Label>
                                  <div className="relative">
-                                    <Input id="new_password" name="new_password" type="password" autoComplete="new-password" disabled={pending}/>
+                                    <Input id="new_password" name="new_password" type="password" autoComplete="new-password" disabled={isFormPending}/>
                                 </div>
                             </div>
                              <div className="grid gap-2">
                                 <Label htmlFor="confirm_password">{t('adminDashboard.account.confirmPasswordLabel')}</Label>
                                 <div className="relative">
-                                    <Input id="confirm_password" name="confirm_password" type="password" autoComplete="new-password" disabled={pending}/>
+                                    <Input id="confirm_password" name="confirm_password" type="password" autoComplete="new-password" disabled={isFormPending}/>
                                 </div>
                             </div>
                         </CardContent>
@@ -371,23 +370,23 @@ function ManageAccountFields({ formState }: { formState: any }) {
             </Tabs>
             
             <div className="pt-4 mt-4 space-y-2">
-                {formState?.message && formState.success === false && formState.message !== noChangesMessage && (
-                    <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-                        <AlertDescription variant="destructive">{formState.message}</AlertDescription>
-                    </Alert>
-                )}
-                 {formState?.message && formState.success === false && formState.message === noChangesMessage && (
+                 {formState?.message && formState.message === noChangesMessage && (
                     <Alert variant="default">
                         <AlertCircle className="h-4 w-4" />
                         <AlertTitle>{t('toast.successTitle')}</AlertTitle>
                         <AlertDescription>{formState.message}</AlertDescription>
                     </Alert>
                 )}
+                 {formState?.success === false && formState.message !== noChangesMessage && (
+                    <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
+                        <AlertDescription variant="destructive">{formState.message}</AlertDescription>
+                    </Alert>
+                )}
                 <DialogFooter>
                     <Button type="button" variant="outline" asChild>
-                        <DialogClose disabled={pending}>{t('common.cancel')}</DialogClose>
+                        <DialogClose disabled={isFormPending}>{t('common.cancel')}</DialogClose>
                     </Button>
                     <Button type="submit" disabled={isSaveChangesDisabled}>{t('common.saveChanges')}</Button>
                 </DialogFooter>
@@ -412,14 +411,15 @@ export function ManageAccountDialog({
 }) {
   const { toast } = useToast();
   const { t } = useLocale();
+  const noChangesMessage = t('adminDashboard.account.noChangesMade');
 
-  const [actionState, formAction] = useActionState(updateAdminAccount, undefined);
+  const [state, formAction, isPending] = useActionState(updateAdminAccount, undefined);
   
-  const [formState, setFormState] = useState(actionState);
+  const [formState, setFormState] = useState(state);
 
   useEffect(() => {
-    setFormState(actionState);
-  }, [actionState]);
+    setFormState(state);
+  }, [state]);
 
   useEffect(() => {
     if (isOpen) {
@@ -435,22 +435,24 @@ export function ManageAccountDialog({
       });
       onSuccess(formState.data);
       onOpenChange(false);
-    } else if (formState?.success === false && formState.message !== t('adminDashboard.account.noChangesMade')) {
+    } else if (formState?.success === false && formState.message !== noChangesMessage) {
         toast({
             title: t('toast.errorTitle'),
             description: formState.message,
             variant: 'destructive',
         });
     }
-  }, [formState, toast, t, onSuccess, onOpenChange]);
+  }, [formState, toast, t, onSuccess, onOpenChange, noChangesMessage]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <form action={formAction}>
-          <ManageAccountFields formState={formState} />
+          <ManageAccountFields formState={formState} isFormPending={isPending} />
         </form>
       </DialogContent>
     </Dialog>
   );
 }
+
+    
