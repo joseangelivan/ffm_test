@@ -81,8 +81,6 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
 
 const AdminDashboardContext = React.createContext<{ 
     session: Session,
-    theme: 'light' | 'dark',
-    handleSetTheme: (theme: 'light' | 'dark') => void,
     handleSetLocale: (locale: 'es' | 'pt') => void,
 } | null>(null);
 
@@ -106,22 +104,13 @@ export default function AdminDashboardClient({
   const { setLocale } = useLocale();
   const [isSessionValid, setIsSessionValid] = useState(initialIsSessionValid);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>(initialSettings?.theme || 'light');
-
-  // Set initial theme and language from server-provided props
+  
+  // Set initial language from server-provided props
   useEffect(() => {
     if (initialSettings) {
-      setTheme(initialSettings.theme);
       setLocale(initialSettings.language);
-      document.documentElement.classList.toggle('dark', initialSettings.theme === 'dark');
     }
   }, [initialSettings, setLocale]);
-
-  const handleSetTheme = async (newTheme: 'light' | 'dark') => {
-    setTheme(newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
-    await updateSettings({ theme: newTheme });
-  }
 
   const handleSetLocale = async (newLocale: 'es' | 'pt') => {
       setLocale(newLocale);
@@ -153,7 +142,7 @@ export default function AdminDashboardClient({
   }
 
   return (
-    <AdminDashboardContext.Provider value={{ session, theme, handleSetTheme, handleSetLocale }}>
+    <AdminDashboardContext.Provider value={{ session, handleSetLocale }}>
         <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
         <AdminHeader onAccountUpdateSuccess={handleAccountUpdateSuccess} />
         

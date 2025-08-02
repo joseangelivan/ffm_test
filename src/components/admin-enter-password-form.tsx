@@ -21,6 +21,7 @@ import { useFormStatus } from 'react-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
+import { ThemeSwitcher } from './theme-switcher';
 import { authenticateAdmin } from '@/actions/auth';
 
 function LoadingOverlay({ text }: { text: string }) {
@@ -135,8 +136,11 @@ export function AdminEnterPasswordForm({ email }: { email: string }) {
   const [state, formAction] = useActionState(authenticateAdmin, undefined);
   
   return (
-    <div className="light relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
-      <LanguageSwitcher />
+    <div className="relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+            <ThemeSwitcher />
+            <LanguageSwitcher />
+        </div>
       <Card className="w-full max-w-md shadow-2xl">
           <form action={formAction}>
               <EnterPasswordFormContent email={email} state={state} />

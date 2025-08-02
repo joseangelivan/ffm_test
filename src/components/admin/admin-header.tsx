@@ -29,7 +29,6 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
   Shield,
@@ -37,8 +36,6 @@ import {
   Settings,
   User,
   Languages,
-  Moon,
-  Sun,
   Loader,
   KeyRound,
   Mailbox,
@@ -53,6 +50,7 @@ import { ManageAdminsDialog } from './manage-admins-dialog';
 import { SmtpConfigDialog } from './smtp-config-dialog';
 import { ManageAccountDialog } from './manage-account-dialog';
 import { ManageDomainDialog } from './manage-domain-dialog';
+import { ThemeSwitcher } from '../theme-switcher';
 
 
 export function LoadingOverlay({ text }: { text: string }) {
@@ -97,7 +95,7 @@ function LogoutDialogContent() {
 }
 
 export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess: (data: any) => void }) {
-    const { session, theme, handleSetTheme, handleSetLocale } = useAdminDashboard();
+    const { session, handleSetLocale } = useAdminDashboard();
     const { t, locale } = useLocale();
     const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
 
@@ -108,6 +106,7 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                 <h1 className="text-lg font-semibold md:text-2xl font-headline">{t('adminDashboard.title')}</h1>
             </div>
             <div className="ml-auto flex items-center gap-2">
+                 <ThemeSwitcher />
                 <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -162,27 +161,11 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                                     </DropdownMenuSubContent>
                                 </DropdownMenuPortal>
                             </DropdownMenuSub>
-                            <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>
-                                    <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                                    <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                                    <span>{t('dashboard.theme.title')}</span>
-                                </DropdownMenuSubTrigger>
-                                <DropdownMenuPortal>
-                                    <DropdownMenuSubContent>
-                                        <DropdownMenuItem onClick={() => handleSetTheme('light')}>
-                                        {t('dashboard.theme.light')} {theme === 'light' && <span className="ml-auto">✓</span>}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleSetTheme('dark')}>
-                                        {t('dashboard.theme.dark')} {theme === 'dark' && <span className="ml-auto">✓</span>}
-                                        </DropdownMenuItem>
-                                    </DropdownMenuSubContent>
-                                </DropdownMenuPortal>
-                            </DropdownMenuSub>
-                                <DropdownMenuSeparator/>
-                                {session.canCreateAdmins && <ManageAdminsDialog currentAdminId={session.id}/>}
-                                <SmtpConfigDialog />
-                                <ManageDomainDialog />
+                            
+                            <DropdownMenuSeparator/>
+                            {session.canCreateAdmins && <ManageAdminsDialog currentAdminId={session.id}/>}
+                            <SmtpConfigDialog />
+                            <ManageDomainDialog />
                         </DropdownMenuSubContent>
                     </DropdownMenuPortal>
                     </DropdownMenuSub>
