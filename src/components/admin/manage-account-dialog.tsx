@@ -376,7 +376,7 @@ function ManageAccountFields({ formState }: { formState: any }) {
                         <AlertDescription variant="destructive">{formState.message}</AlertDescription>
                     </Alert>
                 )}
-                 {formState?.message && formState.success === false && formState.message === t.adminDashboard.account.noChangesMade && (
+                 {formState?.message && formState.success === false && formState.message === t('adminDashboard.account.noChangesMade') && (
                     <Alert variant="default">
                         <AlertCircle className="h-4 w-4" />
                         <AlertTitle>{t('toast.successTitle')}</AlertTitle>
@@ -438,7 +438,7 @@ export function ManageAccountDialog({
       });
       onSuccess(formState.data);
       onOpenChange(false);
-    } else if (formState?.success === false && formState.message !== t.adminDashboard.account.noChangesMade) {
+    } else if (formState?.success === false && formState.message !== t('adminDashboard.account.noChangesMade')) {
         // Show destructive toast for actual errors
         toast({
             title: t('toast.errorTitle'),
