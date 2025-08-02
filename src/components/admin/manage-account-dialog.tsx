@@ -369,11 +369,18 @@ function ManageAccountFields({ formState }: { formState: any }) {
             </Tabs>
             
             <div className="pt-4 mt-4 space-y-2">
-                {formState?.message && (
-                    <Alert variant={formState.success === false ? "destructive" : "default"}>
+                {formState?.message && !formState.success && (
+                    <Alert variant="destructive">
                         <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>{formState.success === false ? t('toast.errorTitle') : t('toast.successTitle')}</AlertTitle>
-                        <AlertDescription variant={formState.success === false ? "destructive" : "default"}>{formState.message}</AlertDescription>
+                        <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
+                        <AlertDescription variant="destructive">{formState.message}</AlertDescription>
+                    </Alert>
+                )}
+                 {formState?.message && formState.success === false && formState.message === t.adminDashboard.account.noChangesMade && (
+                    <Alert variant="default">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>{t('toast.successTitle')}</AlertTitle>
+                        <AlertDescription>{formState.message}</AlertDescription>
                     </Alert>
                 )}
                 <DialogFooter>
@@ -431,6 +438,13 @@ export function ManageAccountDialog({
       });
       onSuccess(formState.data);
       onOpenChange(false);
+    } else if (formState?.success === false && formState.message !== t.adminDashboard.account.noChangesMade) {
+        // Show destructive toast for actual errors
+        toast({
+            title: t('toast.errorTitle'),
+            description: formState.message,
+            variant: 'destructive',
+        });
     }
   }, [formState, toast, t, onSuccess, onOpenChange]);
 
