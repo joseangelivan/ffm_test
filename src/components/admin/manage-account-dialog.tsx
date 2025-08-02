@@ -370,14 +370,14 @@ function ManageAccountFields({ formState, isFormPending }: { formState: any, isF
             </Tabs>
             
             <div className="pt-4 mt-4 space-y-2">
-                 {formState?.message && formState.message === noChangesMessage && (
+                 {formState?.message === noChangesMessage && (
                     <Alert variant="default">
                         <AlertCircle className="h-4 w-4" />
                         <AlertTitle>{t('toast.successTitle')}</AlertTitle>
                         <AlertDescription>{formState.message}</AlertDescription>
                     </Alert>
                 )}
-                 {formState?.success === false && formState.message !== noChangesMessage && (
+                 {formState?.success === false && (
                     <Alert variant="destructive">
                         <AlertCircle className="h-4 w-4" />
                         <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
@@ -418,31 +418,33 @@ export function ManageAccountDialog({
   const [formState, setFormState] = useState(state);
 
   useEffect(() => {
-    setFormState(state);
-  }, [state]);
-
-  useEffect(() => {
     if (isOpen) {
       setFormState(undefined);
     }
   }, [isOpen]);
 
   useEffect(() => {
-    if (formState?.success) {
+    // We only want to react to the state when it's not the initial undefined state
+    if (state === undefined) return;
+    
+    // Update the local state to show inline messages
+    setFormState(state);
+
+    if (state.success) {
       toast({
         title: t('toast.successTitle'),
         description: t('adminDashboard.account.updateSuccessToast'),
       });
-      onSuccess(formState.data);
+      onSuccess(state.data);
       onOpenChange(false);
-    } else if (formState?.success === false && formState.message !== noChangesMessage) {
+    } else if (state.message !== noChangesMessage) {
         toast({
             title: t('toast.errorTitle'),
-            description: formState.message,
+            description: state.message,
             variant: 'destructive',
         });
     }
-  }, [formState, toast, t, onSuccess, onOpenChange, noChangesMessage]);
+  }, [state, toast, t, onSuccess, onOpenChange, noChangesMessage]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -454,5 +456,3 @@ export function ManageAccountDialog({
     </Dialog>
   );
 }
-
-    
