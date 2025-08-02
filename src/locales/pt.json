@@ -189,7 +189,8 @@
       },
       "settingsGroups": {
         "interface": "Interface",
-        "systemConfiguration": "Configuração do Sistema"
+        "systemConfiguration": "Configuração do Sistema",
+        "interfaceDescription": "Personalize a aparência e o idioma do aplicativo."
       },
        "account": {
         "myAccount": "Minha Conta",
@@ -400,5 +401,6 @@
         "backToLogin": "Voltar para o login"
     }
   }
+
 
 

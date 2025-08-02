@@ -55,6 +55,7 @@ import { ManageAdminsDialog } from './manage-admins-dialog';
 import { SmtpConfigDialog } from './smtp-config-dialog';
 import { ManageAccountDialog } from './manage-account-dialog';
 import { ManageDomainDialog } from './manage-domain-dialog';
+import { ManageInterfaceDialog } from './manage-interface-dialog';
 
 
 export function LoadingOverlay({ text }: { text: string }) {
@@ -99,8 +100,8 @@ function LogoutDialogContent() {
 }
 
 export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess: (data: any) => void }) {
-    const { session, handleSetLocale, handleSetTheme, theme } = useAdminDashboard();
-    const { t, locale } = useLocale();
+    const { session } = useAdminDashboard();
+    const { t } = useLocale();
     const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
 
     return (
@@ -148,49 +149,7 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
                             <DropdownMenuSubContent>
-                                <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger>
-                                        <Palette className="mr-2 h-4 w-4" />
-                                        <span>{t('adminDashboard.settingsGroups.interface')}</span>
-                                    </DropdownMenuSubTrigger>
-                                    <DropdownMenuPortal>
-                                        <DropdownMenuSubContent>
-                                            <DropdownMenuSub>
-                                                <DropdownMenuSubTrigger>
-                                                    <Languages className="mr-2 h-4 w-4" />
-                                                    <span>{t('dashboard.language')}</span>
-                                                </DropdownMenuSubTrigger>
-                                                <DropdownMenuPortal>
-                                                    <DropdownMenuSubContent>
-                                                        <DropdownMenuItem onClick={() => handleSetLocale('es')}>
-                                                        Español {locale === 'es' && <span className="ml-auto">✓</span>}
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleSetLocale('pt')}>
-                                                        Português {locale === 'pt' && <span className="ml-auto">✓</span>}
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuSubContent>
-                                                </DropdownMenuPortal>
-                                            </DropdownMenuSub>
-                                            <DropdownMenuSub>
-                                                <DropdownMenuSubTrigger>
-                                                    <Sun className="mr-2 h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                                                    <Moon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                                                    <span>{t('dashboard.theme.title')}</span>
-                                                </DropdownMenuSubTrigger>
-                                                <DropdownMenuPortal>
-                                                    <DropdownMenuSubContent>
-                                                        <DropdownMenuItem onClick={() => handleSetTheme('light')}>
-                                                        {t('dashboard.theme.light')} {theme === 'light' && <span className="ml-auto">✓</span>}
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleSetTheme('dark')}>
-                                                        {t('dashboard.theme.dark')} {theme === 'dark' && <span className="ml-auto">✓</span>}
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuSubContent>
-                                                </DropdownMenuPortal>
-                                            </DropdownMenuSub>
-                                        </DropdownMenuSubContent>
-                                    </DropdownMenuPortal>
-                                </DropdownMenuSub>
+                                <ManageInterfaceDialog />
                                 <DropdownMenuSub>
                                     <DropdownMenuSubTrigger>
                                         <Server className="mr-2 h-4 w-4" />
