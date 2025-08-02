@@ -403,24 +403,42 @@ export function ManageAccountDialog({
 }) {
   const { toast } = useToast();
   const { t } = useLocale();
-  const [state, formAction] = useActionState(updateAdminAccount, undefined);
 
+  // The state returned from useActionState. We'll use it to update our local state.
+  const [actionState, formAction] = useActionState(updateAdminAccount, undefined);
+  
+  // Local state to hold the form's message, which we can reset.
+  const [formState, setFormState] = useState(actionState);
+
+  // When the action is executed, update the local state.
   useEffect(() => {
-    if (state?.success) {
+    setFormState(actionState);
+  }, [actionState]);
+
+  // When the dialog is opened, reset the local state.
+  useEffect(() => {
+    if (isOpen) {
+      setFormState(undefined);
+    }
+  }, [isOpen]);
+
+  // Handle successful form submission (e.g., show toast, close dialog).
+  useEffect(() => {
+    if (formState?.success) {
       toast({
         title: t('toast.successTitle'),
-        description: state.message,
+        description: formState.message,
       });
-      onSuccess(state.data);
+      onSuccess(formState.data);
       onOpenChange(false);
     }
-  }, [state, toast, t, onSuccess, onOpenChange]);
+  }, [formState, toast, t, onSuccess, onOpenChange]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <form action={formAction}>
-          <ManageAccountFields formState={state} />
+          <ManageAccountFields formState={formState} />
         </form>
       </DialogContent>
     </Dialog>
