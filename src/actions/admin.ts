@@ -6,13 +6,14 @@ import bcrypt from 'bcrypt';
 import { authenticator } from 'otplib';
 
 import { getDbPool } from '@/lib/db';
-import { createSession, getCurrentSession } from '@/lib/session';
+import { createSession, getSession } from '@/lib/session';
 import { sendAdminFirstLoginEmail, sendEmailChangePin } from '@/lib/mailer';
 import { getThemeById, getThemes } from '@/actions/themes';
 import { getAppSetting } from '@/actions/settings';
 
 import es from '@/locales/es.json';
 import pt from '@/locales/pt.json';
+import { cookies } from 'next/headers';
 
 // --- Types ---
 
@@ -64,7 +65,8 @@ async function ensureAdminSettingsExist(adminId: string) {
 
 
 export async function getSettings(): Promise<UserSettings | null> {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session) return null;
     
     let client;
@@ -94,7 +96,8 @@ export async function getSettings(): Promise<UserSettings | null> {
 }
 
 export async function updateSettings(settings: Partial<UserSettings>): Promise<{success: boolean}> {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session) return { success: false };
 
     let client;
@@ -297,7 +300,8 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 // --- Admin CRUD ---
 
 export async function createAdmin(prevState: ActionState | undefined, formData: FormData): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
     }
@@ -368,7 +372,8 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
 }
 
 export async function getAdmins(): Promise<{admins?: Admin[], error?: string}> {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session || session.type !== 'admin') {
         return { error: "No autorizado." };
     }
@@ -387,7 +392,8 @@ export async function getAdmins(): Promise<{admins?: Admin[], error?: string}> {
 }
 
 export async function updateAdmin(prevState: ActionState | undefined, formData: FormData): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
     }
@@ -430,7 +436,8 @@ export async function updateAdmin(prevState: ActionState | undefined, formData: 
 }
 
 export async function deleteAdmin(id: string): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
     }
@@ -466,7 +473,8 @@ function generateVerificationPin(): string {
 }
 
 export async function requestEmailChange(newEmail: string): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -503,7 +511,8 @@ export async function requestEmailChange(newEmail: string): Promise<ActionState>
 }
 
 export async function verifyAdminEmailChangePin(newEmail: string, pin: string): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -538,7 +547,8 @@ export async function verifyAdminEmailChangePin(newEmail: string, pin: string): 
 }
 
 export async function updateAdminAccount(prevState: any, formData: FormData): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -622,7 +632,8 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
 
 
 export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session) {
         return { isValid: false };
     }
@@ -657,7 +668,8 @@ export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
 // --- 2FA (TOTP) Functions ---
 
 export async function generateTotpSecret(email: string): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -668,7 +680,8 @@ export async function generateTotpSecret(email: string): Promise<ActionState> {
 }
 
 export async function enableTotp(secret: string, token: string): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -739,7 +752,8 @@ export async function verifyTotp(prevState: any, formData: FormData): Promise<Au
 }
 
 export async function hasTotpEnabled(): Promise<{enabled: boolean}> {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session) return { enabled: false };
     
     let client;
@@ -757,7 +771,8 @@ export async function hasTotpEnabled(): Promise<{enabled: boolean}> {
 }
 
 export async function disableTotp(): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     if (!session) return { success: false, message: "No autorizado." };
 
     let client;
@@ -776,7 +791,8 @@ export async function disableTotp(): Promise<ActionState> {
 
 
 export async function getActiveTheme() {
-    const session = await getCurrentSession();
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
     const settings = await getSettings();
     let themeId = settings?.theme;
 
