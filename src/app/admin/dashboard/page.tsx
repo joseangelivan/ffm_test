@@ -1,31 +1,22 @@
-
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/session';
-import { verifySessionIntegrity, getSettings } from '@/actions/admin';
+import { getSession, verifySession } from '@/lib/auth';
+import { getSettings } from '@/actions/admin';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session')?.value;
-
-  if (!sessionToken) {
-    redirect('/admin/login');
-  }
-
-  const session = await getSession(sessionToken);
-
-  if (!session || session.type !== 'admin') {
-    redirect('/admin/login');
+  const session = await verifySession(); // This will redirect if no session is found
+  if (!session) {
+    // verifySession will redirect, but for type safety and clarity, we can add this.
+    return null;
   }
 
   const isSessionValid = await verifySessionIntegrity(session);
   if (!isSessionValid) {
     // The session might be stale or tampered with.
     // Purge the invalid cookie and redirect to login.
-    cookies().delete('session');
+    // This logic is now in verifySession, but as a fallback:
     redirect('/admin/login?error=session_invalidated');
   }
 
