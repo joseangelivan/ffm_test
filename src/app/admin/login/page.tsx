@@ -7,8 +7,7 @@ import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
 
 export default async function AdminLoginPage() {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session')?.value;
+  const sessionToken = cookies().get('session')?.value;
   const session = await getSession(sessionToken);
 
   if (session?.type === 'admin') {
