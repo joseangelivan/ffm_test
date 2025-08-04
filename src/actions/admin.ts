@@ -815,14 +815,13 @@ export async function getActiveTheme() {
 export async function getDashboardData() {
     const sessionToken = cookies().get('session')?.value;
     const session = await getSession(sessionToken);
-
     if (!session) {
         redirect('/admin/login');
     }
 
     const isSessionValid = await verifySessionIntegrity(session);
-    
     if (!isSessionValid) {
+        cookies().delete('session'); // Clean up invalid session
         redirect('/admin/login?error=session_invalidated');
     }
 
@@ -830,8 +829,6 @@ export async function getDashboardData() {
     
     return {
         session,
-        isSessionValid,
         initialSettings: settings,
     };
 }
-

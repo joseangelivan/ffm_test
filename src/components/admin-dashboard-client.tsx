@@ -2,11 +2,9 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   Loader,
-  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,7 +16,6 @@ import {
     AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
-import { cn } from '@/lib/utils';
 import { UserSettings, updateSettings, getDashboardData } from '@/actions/admin';
 import { handleLogoutAction, type SessionPayload } from '@/lib/session';
 import { AdminHeader } from './admin/admin-header';
@@ -86,7 +83,6 @@ export const useAdminDashboard = () => {
 
 type DashboardState = {
     session: SessionPayload;
-    isSessionValid: boolean;
     initialSettings: UserSettings | null;
 } | null;
 
@@ -135,6 +131,7 @@ export default function AdminDashboardClient() {
   useEffect(() => {
     async function loadData() {
         try {
+            // The getDashboardData action will handle redirection if the session is invalid.
             const data = await getDashboardData();
             setDashboardState(data);
             if (data.initialSettings) {
@@ -142,21 +139,16 @@ export default function AdminDashboardClient() {
                 handleSetTheme(data.initialSettings.theme);
             }
         } catch (error) {
-            // getDashboardData will redirect on its own if session is invalid
-            console.error("Failed to load dashboard data, a redirect should have occurred.", error);
+            // Errors (like redirection) are handled by Next.js.
+            // If we get here, it might be a legitimate server error,
+            // but the client-side can just stay in its loading state.
+            console.error("Failed to load dashboard data. A redirect should have occurred if the session was invalid.", error);
         } finally {
             setIsLoading(false);
         }
     }
     loadData();
   }, [setLocale, handleSetTheme]);
-
-  useEffect(() => {
-    // This effect handles redirection safely after the component has rendered.
-    if (!isLoading && (!dashboardState || !dashboardState.session)) {
-      router.push('/admin/login');
-    }
-  }, [isLoading, dashboardState, router]);
 
   const handleSetLocale = async (newLocale: 'es' | 'pt') => {
       setLocale(newLocale);
@@ -169,14 +161,8 @@ export default function AdminDashboardClient() {
     }
   }, []);
 
-  if (isLoading) {
+  if (isLoading || !dashboardState) {
       return <LoadingOverlay text="Cargando panel..." />;
-  }
-  
-  if (!dashboardState || !dashboardState.session) {
-      // This fallback is now handled by the useEffect hook.
-      // We render a loading state to prevent the rest of the component from rendering.
-      return <LoadingOverlay text="Redirigiendo..." />;
   }
 
   return (
@@ -196,4 +182,3 @@ export default function AdminDashboardClient() {
     </AdminDashboardContext.Provider>
   );
 }
-
