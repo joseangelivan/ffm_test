@@ -16,7 +16,7 @@ import {
     AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
-import { UserSettings, getActiveTheme, updateSettings } from '@/actions/admin';
+import { UserSettings, getActiveTheme, updateSettings, verifySessionIntegrity } from '@/actions/admin';
 import { handleLogoutAction, type SessionPayload } from '@/lib/session';
 import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
@@ -156,7 +156,6 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
   }, []);
 
   if (!session) {
-      // This part should not be reached if getDashboardData works correctly
       return <LoadingOverlay text="Redirecionando..." />;
   }
 
