@@ -7,8 +7,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
-// This component now runs on the server.
-async function InitDbMessage({ error }: { error?: string }) {
+// Este componente se muestra después de que la inicialización de la BD se completa.
+function InitDbMessage({ error }: { error?: string }) {
     return (
         <div className="flex min-h-screen items-center justify-center bg-background">
             <Card className="p-8 text-center max-w-2xl">
@@ -34,35 +34,28 @@ async function InitDbMessage({ error }: { error?: string }) {
     );
 }
 
-// This new async component will handle the searchParams logic.
-async function AdminLoginContent({
-  searchParams,
-}: {
-  searchParams?: { [key: string]: string | undefined };
-}) {
-  const initDb = searchParams?.init_db === 'true';
-
-  if (initDb) {
+// Este componente maneja la lógica de inicialización de forma asíncrona.
+async function DbInitializer() {
     const result = await initializeDatabase();
     if (result.success) {
       return <InitDbMessage />;
     } else {
       return <InitDbMessage error={result.message} />;
     }
-  }
-
-  return <AdminLoginForm />;
 }
 
-// The main page component now uses Suspense to wrap the async logic.
-export default function AdminLoginPage({
+
+// El componente de la página principal ahora es asíncrono y decide qué renderizar.
+export default async function AdminLoginPage({
   searchParams,
 }: {
   searchParams?: { [key: string]: string | undefined };
 }) {
+  const initDb = searchParams?.init_db === 'true';
+
   return (
     <Suspense fallback={<Loading />}>
-      <AdminLoginContent searchParams={searchParams} />
+      {initDb ? <DbInitializer /> : <AdminLoginForm />}
     </Suspense>
   );
 }
