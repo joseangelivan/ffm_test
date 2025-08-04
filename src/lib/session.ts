@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
 import { JWT_SECRET } from '@/lib/config';
 import { getDbPool } from './db';
+import { randomUUID } from 'crypto';
 
 const JWT_ALG = 'HS256';
 
@@ -63,7 +64,9 @@ export async function createSession(userId: string, userType: 'admin' | 'residen
           .sign(JWT_SECRET);
         
         await client.query(`DELETE FROM sessions WHERE user_id = $1 AND user_type = $2`, [userId, userType]);
-        await client.query('INSERT INTO sessions (user_id, user_type, token, expires_at) VALUES ($1, $2, $3, $4)', [userId, userType, token, expirationDate]);
+        
+        const sessionId = randomUUID();
+        await client.query('INSERT INTO sessions (id, user_id, user_type, token, expires_at) VALUES ($1, $2, $3, $4, $5)', [sessionId, userId, userType, token, expirationDate]);
 
         if (userType === 'admin') {
             const settingsTable = `admin_settings`;
