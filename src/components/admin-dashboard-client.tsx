@@ -18,10 +18,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { updateSettings, verifySessionIntegrity } from '@/actions/admin';
+import { getAppSetting, updateSettings, verifySessionIntegrity } from '@/actions/admin';
 import { handleLogoutAction } from '@/lib/session';
 import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
+import { getThemes } from '@/actions/themes';
 
 type Session = {
     id: string;
@@ -32,7 +33,7 @@ type Session = {
 }
 
 type UserSettings = {
-    theme: 'light' | 'dark';
+    theme: string;
     language: 'es' | 'pt';
 } | null;
 
@@ -82,8 +83,8 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
 const AdminDashboardContext = React.createContext<{ 
     session: Session,
     handleSetLocale: (locale: 'es' | 'pt') => void,
-    handleSetTheme: (theme: 'light' | 'dark') => void,
-    theme: 'light' | 'dark',
+    handleSetTheme: (theme: string) => void,
+    theme: string,
 } | null>(null);
 
 export const useAdminDashboard = () => {
@@ -106,14 +107,13 @@ export default function AdminDashboardClient({
   const { setLocale } = useLocale();
   const [isSessionValid, setIsSessionValid] = useState(initialIsSessionValid);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState('light');
   
   // Set initial language and theme from server-provided props
   useEffect(() => {
     if (initialSettings) {
       setLocale(initialSettings.language);
-      setTheme(initialSettings.theme);
-      document.documentElement.classList.toggle('dark', initialSettings.theme === 'dark');
+      handleSetTheme(initialSettings.theme);
     }
   }, [initialSettings, setLocale]);
 
@@ -122,11 +122,38 @@ export default function AdminDashboardClient({
       await updateSettings({ language: newLocale });
   }
 
-  const handleSetTheme = async (newTheme: 'light' | 'dark') => {
-    setTheme(newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
-    await updateSettings({ theme: newTheme });
-  }
+    const applyTheme = useCallback(async (themeId: string) => {
+        if (themeId === 'light' || themeId === 'dark') {
+            document.documentElement.classList.toggle('dark', themeId === 'dark');
+            // Clear custom properties if any
+            const root = document.documentElement;
+            const customThemeVars = ['--background','--foreground','--card','--card-foreground','--popover','--popover-foreground','--primary','--primary-foreground','--secondary','--secondary-foreground','--muted','--muted-foreground','--accent','--accent-foreground','--destructive','--destructive-foreground','--border','--input','--ring'];
+            for (const v of customThemeVars) {
+                root.style.removeProperty(`${v}-custom`);
+            }
+        } else {
+            const themes = await getThemes();
+            const customTheme = themes.find(t => t.id === themeId);
+            if(customTheme) {
+                const root = document.documentElement;
+                for (const [key, value] of Object.entries(customTheme)) {
+                    if (key.endsWith('_hsl')) {
+                        const cssVar = `--${key.replace('_hsl', '').replace(/_/g, '-')}-custom`;
+                        root.style.setProperty(cssVar, value);
+                    }
+                }
+                document.documentElement.classList.add('dark'); // or light depending on base
+            } else {
+                 document.documentElement.classList.remove('dark');
+            }
+        }
+    }, []);
+
+  const handleSetTheme = useCallback(async (newThemeId: string) => {
+    setTheme(newThemeId);
+    applyTheme(newThemeId);
+    await updateSettings({ theme: newThemeId });
+  }, [applyTheme]);
 
   const handleAccountUpdateSuccess = useCallback((data: any) => {
     if (data?.needsLogout) {

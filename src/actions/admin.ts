@@ -8,6 +8,7 @@ import { authenticator } from 'otplib';
 import { getDbPool } from '@/lib/db';
 import { createSession, getCurrentSession } from '@/lib/session';
 import { sendAdminFirstLoginEmail, sendEmailChangePin } from '@/lib/mailer';
+import { getThemeById, getThemes } from '@/actions/themes';
 
 import es from '@/locales/es.json';
 import pt from '@/locales/pt.json';
@@ -22,8 +23,8 @@ export type Admin = {
     created_at: string;
 };
 
-type UserSettings = {
-    theme: 'light' | 'dark';
+export type UserSettings = {
+    theme: string;
     language: 'es' | 'pt';
 }
 
@@ -742,4 +743,30 @@ export async function disableTotp(): Promise<ActionState> {
     } finally {
         if (client) client.release();
     }
+}
+
+
+export async function getActiveTheme() {
+    const session = await getCurrentSession();
+    const settings = await getSettings();
+    let themeId = settings?.theme;
+
+    if (!themeId) {
+        const defaultThemeId = await getAppSetting('default_theme_id');
+        themeId = defaultThemeId || 'light';
+    }
+
+    const allThemes = await getThemes();
+    const customTheme = allThemes.find(t => t.id === themeId);
+
+    if (customTheme) {
+        return customTheme;
+    }
+
+    const defaultTheme = await getThemeById(themeId);
+    if(defaultTheme) {
+        return defaultTheme;
+    }
+    
+    return getThemeById('light'); 
 }
