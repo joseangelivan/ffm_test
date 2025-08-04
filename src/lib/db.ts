@@ -36,7 +36,6 @@ async function runMigrations(client: Pool): Promise<boolean> {
             'gatekeepers/base_schema.sql',
             'sessions/base_schema.sql',
             'settings/base_schema.sql',
-            'settings/admin_settings_schema.sql', // Added separately to ensure correct order
         ];
         
         for (const schemaFile of schemasToApply) {
