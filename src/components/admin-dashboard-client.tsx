@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -16,11 +15,11 @@ import {
     AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
-import { UserSettings, updateSettings, getDashboardData } from '@/actions/admin';
+import { UserSettings, updateSettings, getDashboardData, getActiveTheme } from '@/actions/admin';
 import { handleLogoutAction, type SessionPayload } from '@/lib/session';
 import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
-import { getThemes } from '@/actions/themes';
+import { type Theme } from '@/actions/themes';
 
 
 function LoadingOverlay({ text }: { text: string }) {
@@ -93,45 +92,56 @@ export default function AdminDashboardClient() {
   const { setLocale, t } = useLocale();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [theme, setTheme] = useState('light');
-  const router = useRouter();
+  
+  const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
+    const root = document.documentElement;
 
-  const applyTheme = useCallback(async (themeId: string) => {
-      if (themeId === 'light' || themeId === 'dark') {
-          document.documentElement.classList.toggle('dark', themeId === 'dark');
-          // Clear custom properties if any
-          const root = document.documentElement;
-          const customThemeVars = ['--background','--foreground','--card','--card-foreground','--popover','--popover-foreground','--primary','--primary-foreground','--secondary','--secondary-foreground','--muted','--muted-foreground','--accent','--accent-foreground','--destructive','--destructive-foreground','--border','--input','--ring'];
-          for (const v of customThemeVars) {
-              root.style.removeProperty(`${v}-custom`);
-          }
-      } else {
-          const themes = await getThemes();
-          const customTheme = themes.find(t => t.id === themeId);
-          if(customTheme) {
-              const root = document.documentElement;
-              for (const [key, value] of Object.entries(customTheme)) {
-                  if (key.endsWith('_hsl')) {
-                      const cssVar = `--${key.replace('_hsl', '').replace(/_/g, '-')}-custom`;
-                      root.style.setProperty(cssVar, value);
-                  }
-              }
-              document.documentElement.classList.add('dark'); // or light depending on base
-          } else {
-               document.documentElement.classList.remove('dark');
-          }
-      }
+    const defaultThemeVars = [
+      'background', 'foreground', 'card', 'card-foreground', 
+      'popover', 'popover-foreground', 'primary', 'primary-foreground', 
+      'secondary', 'secondary-foreground', 'muted', 'muted-foreground', 
+      'accent', 'accent-foreground', 'destructive', 'destructive-foreground', 
+      'border', 'input', 'ring'
+    ];
+
+    // Function to remove custom properties
+    const clearCustomTheme = () => {
+      defaultThemeVars.forEach(v => root.style.removeProperty(`--${v}`));
+    };
+
+    if (newThemeId === 'dark' || newThemeId === 'light') {
+        clearCustomTheme();
+        root.classList.toggle('dark', newThemeId === 'dark');
+    } else if (themeData) {
+        clearCustomTheme();
+        Object.entries(themeData).forEach(([key, value]) => {
+            if (key.endsWith('_hsl') && value) {
+                const cssVar = `--${key.replace('_hsl', '').replace(/_/g, '-')}`;
+                root.style.setProperty(cssVar, value);
+            }
+        });
+        // You might want to decide on a base theme (light/dark) for custom themes
+        // For simplicity, we can assume they are based on the dark theme structure
+        if (!root.classList.contains('dark')) {
+            root.classList.add('dark');
+        }
+    } else {
+        // Fallback to light if theme not found
+        clearCustomTheme();
+        root.classList.remove('dark');
+    }
   }, []);
 
   const handleSetTheme = useCallback(async (newThemeId: string) => {
     setTheme(newThemeId);
-    applyTheme(newThemeId);
+    const themeData = await getActiveTheme();
+    applyTheme(themeData, newThemeId);
     await updateSettings({ theme: newThemeId });
   }, [applyTheme]);
 
   useEffect(() => {
     async function loadData() {
         try {
-            // The getDashboardData action will handle redirection if the session is invalid.
             const data = await getDashboardData();
             setDashboardState(data);
             if (data.initialSettings) {
@@ -139,9 +149,6 @@ export default function AdminDashboardClient() {
                 handleSetTheme(data.initialSettings.theme);
             }
         } catch (error) {
-            // Errors (like redirection) are handled by Next.js.
-            // If we get here, it might be a legitimate server error,
-            // but the client-side can just stay in its loading state.
             console.error("Failed to load dashboard data. A redirect should have occurred if the session was invalid.", error);
         } finally {
             setIsLoading(false);
@@ -182,5 +189,3 @@ export default function AdminDashboardClient() {
     </AdminDashboardContext.Provider>
   );
 }
-
-    

@@ -644,7 +644,6 @@ export async function verifySessionIntegrity(session: SessionPayload): Promise<b
 
         const dbAdmin = result.rows[0];
         
-        // This is the crucial fix: Ensure both values are booleans before comparison.
         const dbCanCreateAdmins = !!dbAdmin.can_create_admins;
         const sessionCanCreateAdmins = !!session.canCreateAdmins;
 
@@ -798,20 +797,15 @@ export async function getActiveTheme() {
         const defaultThemeId = await getAppSetting('default_theme_id');
         themeId = defaultThemeId || 'light';
     }
-
-    const allThemes = await getThemes();
-    const customTheme = allThemes.find(t => t.id === themeId);
-
-    if (customTheme) {
-        return customTheme;
-    }
-
-    const defaultTheme = await getThemeById(themeId);
-    if(defaultTheme) {
-        return defaultTheme;
-    }
     
-    return getThemeById('light'); 
+    // Check built-in themes first
+    if (themeId === 'light' || themeId === 'dark') {
+        return null; // Indicates a built-in theme
+    }
+
+    const customTheme = await getThemeById(themeId);
+    
+    return customTheme;
 }
 
 // --- Dashboard ---
@@ -826,7 +820,7 @@ export async function getDashboardData() {
 
     const isSessionValid = await verifySessionIntegrity(session);
     if (!isSessionValid) {
-        cookies().delete('session'); // Clean up invalid session
+        cookies().delete('session');
         redirect('/admin/login?error=session_invalidated');
     }
 
@@ -837,5 +831,3 @@ export async function getDashboardData() {
         initialSettings: settings,
     };
 }
-
-    

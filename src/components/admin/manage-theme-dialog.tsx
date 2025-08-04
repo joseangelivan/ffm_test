@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogTrigger,
@@ -13,11 +12,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Settings } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ManageThemeListDialog } from './manage-theme-list-dialog';
+import { getThemes, type Theme } from '@/actions/themes';
 
 
 export function ManageThemeDialog() {
     const { t } = useLocale();
     const { theme, handleSetTheme } = useAdminDashboard();
+    const [customThemes, setCustomThemes] = useState<Theme[]>([]);
+
+    useEffect(() => {
+        async function fetchThemes() {
+            const themes = await getThemes();
+            setCustomThemes(themes);
+        }
+        fetchThemes();
+    }, []);
     
     return (
         <Card className="mt-4 border-none shadow-none">
@@ -29,13 +38,16 @@ export function ManageThemeDialog() {
             </CardHeader>
             <CardContent className="p-1 pt-4">
                  <div className="flex items-center gap-2">
-                    <Select value={theme} onValueChange={(value) => handleSetTheme(value as 'light' | 'dark')}>
+                    <Select value={theme} onValueChange={(value) => handleSetTheme(value)}>
                         <SelectTrigger>
                             <SelectValue placeholder="Seleccionar tema" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="light">{t('dashboard.theme.light')}</SelectItem>
                             <SelectItem value="dark">{t('dashboard.theme.dark')}</SelectItem>
+                            {customThemes.map(ct => (
+                                <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                     <Dialog>
