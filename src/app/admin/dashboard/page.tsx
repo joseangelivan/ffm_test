@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getSession, verifySession } from '@/lib/auth';
-import { getSettings } from '@/actions/admin';
+import { getSettings, verifySessionIntegrity } from '@/actions/admin';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
 
 export const dynamic = 'force-dynamic';
