@@ -73,7 +73,7 @@ async function runMigrations(client: Pool): Promise<boolean> {
             }
         }
 
-        // Seed default admin after all tables are created
+        // Seed default admin user
         console.log('[runMigrations] Seeding default admin user...');
         const adminEmail = 'angelivan34@gmail.com';
         const adminExists = await dbClient.query('SELECT 1 FROM admins WHERE email = $1', [adminEmail]);
@@ -88,6 +88,21 @@ async function runMigrations(client: Pool): Promise<boolean> {
         } else {
             console.log('[runMigrations] Default admin user already exists.');
         }
+
+        // Seed a test condominium
+        console.log('[runMigrations] Seeding test condominium...');
+        const condoName = 'Condomínio de Teste';
+        const condoExists = await dbClient.query('SELECT 1 FROM condominiums WHERE name = $1', [condoName]);
+        if (condoExists.rows.length === 0) {
+            await dbClient.query(
+                'INSERT INTO condominiums (name, continent, country, state, city, street, "number") VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (name) DO NOTHING',
+                [condoName, 'Americas', 'Brazil', 'São Paulo', 'São Paulo', 'Avenida Paulista', '1000']
+            );
+            console.log('[runMigrations] Test condominium seeded successfully.');
+        } else {
+            console.log('[runMigrations] Test condominium already exists.');
+        }
+
 
         await dbClient.query('COMMIT');
         migrationsRan = true;
