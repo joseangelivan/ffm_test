@@ -46,6 +46,22 @@ type AuthState = {
 };
 
 // --- Settings ---
+async function ensureAdminSettingsExist(adminId: string) {
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        await client.query(
+            'INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING',
+            [adminId]
+        );
+    } catch (error) {
+        console.error(`Failed to ensure settings exist for admin ${adminId}:`, error);
+    } finally {
+        if (client) client.release();
+    }
+}
+
 
 export async function getSettings(): Promise<UserSettings | null> {
     const session = await getCurrentSession();
@@ -66,7 +82,7 @@ export async function getSettings(): Promise<UserSettings | null> {
         }
 
         const defaultSettings: UserSettings = { theme: 'light', language: 'pt' };
-        await client.query(`INSERT INTO ${tableName} (${userIdColumn}, theme, language) VALUES ($1, $2, $3) ON CONFLICT (${userIdColumn}) DO NOTHING`, [session.id, defaultSettings.theme, defaultSettings.language]);
+        await client.query(`INSERT INTO ${tableName} (${userIdColumn}, theme, language) VALUES ($1, $2, $3) ON CONFLICT (${userIdColumn}) DO UPDATE SET theme = EXCLUDED.theme, language = EXCLUDED.language`, [session.id, defaultSettings.theme, defaultSettings.language]);
         return defaultSettings;
 
     } catch (error) {
@@ -196,6 +212,8 @@ export async function authenticateAdmin(prevState: any, formData: FormData): Pro
         if (!passwordMatch) {
             return { success: false, message: "toast.adminLogin.invalidCredentials" };
         }
+
+        await ensureAdminSettingsExist(admin.id);
         
         const sessionResult = await createSession(admin.id, 'admin', {
             email: admin.email,
@@ -260,6 +278,8 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
         await client.query('UPDATE admins SET password_hash = $1 WHERE id = $2', [newPasswordHash, admin.id]);
         
         await client.query('DELETE FROM admin_first_login_pins WHERE admin_id = $1', [admin.id]);
+        
+        await ensureAdminSettingsExist(admin.id);
 
         const sessionResult = await createSession(admin.id, 'admin', {
             email: admin.email,
@@ -327,6 +347,8 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
           'INSERT INTO admin_first_login_pins (admin_id, pin_hash, expires_at) VALUES ($1, $2, $3)',
           [newAdminId, pinHash, expiresAt]
         );
+        
+        await ensureAdminSettingsExist(newAdminId);
         
         await client.query('COMMIT');
         
@@ -783,5 +805,7 @@ export async function getActiveTheme() {
     
     return getThemeById('light'); 
 }
+
+    
 
     

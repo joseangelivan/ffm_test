@@ -73,12 +73,6 @@ export async function createSession(userId: string, userType: 'admin' | 'residen
             'INSERT INTO sessions (id, user_id, user_type, token, expires_at) VALUES ($1, $2, $3, $4, $5)', 
             [sessionId, userId, userType, token, expirationDate]
         );
-
-        if (userType === 'admin') {
-            const settingsTable = 'admin_settings';
-            const userIdColumn = 'admin_id';
-            await client.query(`INSERT INTO ${settingsTable} (${userIdColumn}) VALUES ($1) ON CONFLICT (${userIdColumn}) DO NOTHING;`, [userId]);
-        }
         
         await client.query('COMMIT');
         
@@ -94,7 +88,13 @@ export async function createSession(userId: string, userType: 'admin' | 'residen
         return { success: true };
 
     } catch(error) {
-        if(client) await client.query('ROLLBACK');
+        if(client) {
+            try {
+                await client.query('ROLLBACK');
+            } catch (rbError) {
+                console.error('[createSession] Error rolling back transaction:', rbError);
+            }
+        }
         console.error(`[createSession] CRITICAL: Error creating session for ${userType} ${userId}:`, error);
         return { success: false, message: 'Failed to create session in database.' };
     } finally {
@@ -127,3 +127,6 @@ export async function handleLogoutAction() {
     }
     cookies().delete('session');
 }
+
+
+    
