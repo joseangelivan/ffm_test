@@ -644,10 +644,11 @@ export async function verifySessionIntegrity(session: SessionPayload): Promise<b
 
         const dbAdmin = result.rows[0];
         
-        // Ensure consistent boolean comparison
+        // This is the crucial fix: Ensure both values are booleans before comparison.
         const dbCanCreateAdmins = !!dbAdmin.can_create_admins;
+        const sessionCanCreateAdmins = !!session.canCreateAdmins;
 
-        if (session.name !== dbAdmin.name || session.email !== dbAdmin.email || session.canCreateAdmins !== dbCanCreateAdmins) {
+        if (session.name !== dbAdmin.name || session.email !== dbAdmin.email || sessionCanCreateAdmins !== dbCanCreateAdmins) {
             return false;
         }
 
@@ -836,3 +837,5 @@ export async function getDashboardData() {
         initialSettings: settings,
     };
 }
+
+    
