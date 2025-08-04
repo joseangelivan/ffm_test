@@ -75,6 +75,8 @@ function EnterPasswordFormContent({ email, state }: { email: string, state: any 
             </CardHeader>
             <CardContent>
                 <div className="space-y-6">
+                    {/* Accessibility fix: Add an invisible username field for password managers */}
+                    <input type="text" name="username" defaultValue={email} autoComplete="username" className="hidden" />
                     <input type="hidden" name="email" value={email} />
                     <input type="hidden" name="locale" value={locale} />
                     <div className="space-y-2">
