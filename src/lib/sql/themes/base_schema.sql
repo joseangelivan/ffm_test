@@ -1,2 +1,0 @@
--- This file is intentionally left blank.
--- The 'themes' table schema has been consolidated into /sql/settings/base_schema.sql
