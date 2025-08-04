@@ -8,7 +8,13 @@ import AdminDashboardClient from '@/components/admin-dashboard-client';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
-  const sessionToken = cookies().get('session')?.value;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session')?.value;
+
+  if (!sessionToken) {
+    redirect('/admin/login');
+  }
+
   const session = await getSession(sessionToken);
 
   if (!session || session.type !== 'admin') {
@@ -17,8 +23,6 @@ export default async function AdminDashboardPage() {
 
   const isSessionValid = await verifySessionIntegrity(session);
   if (!isSessionValid) {
-    // We can't delete the cookie here as it's a server component after a redirect might have started
-    // The redirect alone is sufficient for now. Better session invalidation can be handled in middleware.
     redirect('/admin/login?error=session_invalidated');
   }
 
