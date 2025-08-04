@@ -23,13 +23,21 @@ async function runMigrations(client: Pool) {
             );
         `);
         
+        // Correct order of migrations based on table dependencies (foreign keys)
         const schemasToApply = [
+            // No dependencies
             'admins/base_schema.sql',
-            'settings/base_schema.sql',
             'condominiums/base_schema.sql',
+            
+            // Depend on condominiums
             'residents/base_schema.sql',
             'gatekeepers/base_schema.sql',
-            'sessions/base_schema.sql'
+            
+            // Depends on user tables (admins, residents, gatekeepers)
+            'sessions/base_schema.sql',
+            
+            // Depends on admins
+            'settings/base_schema.sql'
         ];
         
         for (const schemaFile of schemasToApply) {
