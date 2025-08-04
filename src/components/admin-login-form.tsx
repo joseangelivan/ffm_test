@@ -24,7 +24,8 @@ import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
 import { ThemeSwitcher } from './theme-switcher';
 import { checkAdminEmail } from '@/actions/auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, redirect } from 'next/navigation';
+import { getCurrentSession } from '@/lib/session';
 
 function LoadingOverlay({ text }: { text: string }) {
     return (
@@ -126,6 +127,16 @@ function LoginFormContent({ state }: { state: any }) {
 export default function AdminLoginForm() {
   const router = useRouter();
   const [state, formAction] = useActionState(checkAdminEmail, undefined);
+  
+    useEffect(() => {
+        const checkSession = async () => {
+            const session = await getCurrentSession();
+            if (session?.type === 'admin') {
+                redirect('/admin/dashboard');
+            }
+        };
+        checkSession();
+    }, []);
 
   useEffect(() => {
     if (state?.success && state.redirectTo) {
