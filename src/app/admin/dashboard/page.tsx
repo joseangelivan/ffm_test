@@ -17,7 +17,8 @@ export default async function AdminDashboardPage() {
 
   const isSessionValid = await verifySessionIntegrity(session);
   if (!isSessionValid) {
-    cookies().delete('session');
+    // We can't delete the cookie here as it's a server component after a redirect might have started
+    // The redirect alone is sufficient for now. Better session invalidation can be handled in middleware.
     redirect('/admin/login?error=session_invalidated');
   }
 

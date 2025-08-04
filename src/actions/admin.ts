@@ -788,11 +788,7 @@ export async function disableTotp(): Promise<ActionState> {
 }
 
 
-export async function getActiveTheme() {
-    const cookieStore = cookies();
-    const sessionToken = cookieStore.get('session')?.value;
-    const session = await getSession(sessionToken);
-    const settings = await getSettings(session);
+export async function getActiveTheme(settings: UserSettings | null) {
     let themeId = settings?.theme;
 
     if (!themeId) {

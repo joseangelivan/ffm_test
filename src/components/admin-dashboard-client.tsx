@@ -90,6 +90,7 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
   const { setLocale, t } = useLocale();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [theme, setTheme] = useState('light');
+  const router = useRouter();
   
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
     const root = document.documentElement;
@@ -132,17 +133,36 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
 
   const handleSetTheme = useCallback(async (newThemeId: string) => {
     setTheme(newThemeId);
-    const themeData = await getActiveTheme();
+    const updatedSettings = { ...initialSettings, theme: newThemeId };
+    // We cast to any because initialSettings can be null, but at this point we know we have settings.
+    const themeData = await getActiveTheme(updatedSettings as any);
     applyTheme(themeData, newThemeId);
     await updateSettings({ theme: newThemeId });
-  }, [applyTheme]);
+  }, [applyTheme, initialSettings]);
 
   useEffect(() => {
-    if (initialSettings) {
-      setLocale(initialSettings.language);
-      handleSetTheme(initialSettings.theme);
+    async function validateAndApplySettings() {
+        if (!session) {
+            router.push('/admin/login');
+            return;
+        }
+
+        const isValid = await verifySessionIntegrity(session);
+        if (!isValid) {
+            await handleLogoutAction();
+            router.push('/admin/login?error=session_invalidated');
+            return;
+        }
+
+        if (initialSettings) {
+            setLocale(initialSettings.language);
+            setTheme(initialSettings.theme);
+            const themeData = await getActiveTheme(initialSettings);
+            applyTheme(themeData, initialSettings.theme);
+        }
     }
-  }, [initialSettings, setLocale, handleSetTheme]);
+    validateAndApplySettings();
+  }, [session, initialSettings, setLocale, applyTheme, router]);
 
   const handleSetLocale = async (newLocale: 'es' | 'pt') => {
       setLocale(newLocale);
@@ -155,8 +175,8 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
     }
   }, []);
 
-  if (!session) {
-      return <LoadingOverlay text="Redirecionando..." />;
+  if (!session || !initialSettings) {
+      return <LoadingOverlay text={t('dashboard.title')} />;
   }
 
   return (
