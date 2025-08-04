@@ -808,26 +808,3 @@ export async function getActiveTheme() {
     
     return customTheme;
 }
-
-// --- Dashboard ---
-
-export async function getDashboardData(sessionToken?: string) {
-    const session = await getSession(sessionToken);
-  
-    if (!session || session.type !== 'admin') {
-      redirect('/admin/login');
-    }
-  
-    const isSessionValid = await verifySessionIntegrity(session);
-    if (!isSessionValid) {
-      cookies().delete('session');
-      redirect('/admin/login');
-    }
-  
-    const settings = await getSettings(session);
-  
-    return {
-      session,
-      initialSettings: settings,
-    };
-  }
