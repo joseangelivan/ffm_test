@@ -12,8 +12,8 @@ import { ThemeSwitcher } from '@/components/theme-switcher';
 
 export default async function AdminFirstLoginPage({ searchParams }: { searchParams: { email?: string }}) {
     const cookieStore = cookies();
-    const sessionToken = cookieStore.get('session')?.value;
-    const session = await getSession(sessionToken);
+    const sessionToken = cookieStore.get('session');
+    const session = await getSession(sessionToken?.value);
 
     if (session?.type === 'admin') {
         redirect('/admin/dashboard');
@@ -34,3 +34,4 @@ export default async function AdminFirstLoginPage({ searchParams }: { searchPara
         </Suspense>
     );
 }
+
