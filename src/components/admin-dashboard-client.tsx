@@ -23,7 +23,6 @@ import { handleLogoutAction, getSession } from '@/lib/session';
 import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
 import { getThemes } from '@/actions/themes';
-import { cookies } from 'next/headers';
 
 type Session = {
     id: string;
