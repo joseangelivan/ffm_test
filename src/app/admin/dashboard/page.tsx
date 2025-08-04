@@ -19,5 +19,9 @@ export default async function AdminDashboardPage() {
     getSettings()
   ]);
   
+  if (!isSessionValid) {
+      redirect('/admin/login?error=session_invalidated');
+  }
+  
   return <AdminDashboardClient session={session} isSessionValid={isSessionValid} initialSettings={settings} />;
 }
