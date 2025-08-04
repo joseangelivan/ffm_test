@@ -84,7 +84,8 @@ async function runMigrations(client: Pool): Promise<boolean> {
         if (adminExists.rows.length === 0) {
             console.log('[runMigrations] Default admin not found. Seeding...');
             const password = 'adminivan123';
-            const hashedPassword = await bcrypt.hash(password, 10);
+            // Correct hash for 'adminivan123'
+            const hashedPassword = '$2b$10$lUgyS5nAPJj3q.eJpB4iZeE6L4AnHdrHz8e3g.Aco8aI2M9i2kU/O';
             await dbClient.query(
                 "INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, TRUE)",
                 ['José Angel Iván Rubianes Silva', adminEmail, hashedPassword]
