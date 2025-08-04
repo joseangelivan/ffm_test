@@ -104,9 +104,9 @@ export async function createSession(userId: string, userType: 'admin' | 'residen
 
 
 export async function getCurrentSession(): Promise<SessionPayload | null> {
-  const sessionToken = cookies().get('session');
+  const sessionToken = cookies().get('session')?.value;
   if (!sessionToken) return null;
-  return await getSession(sessionToken.value);
+  return await getSession(sessionToken);
 }
 
 export async function handleLogoutAction() {
