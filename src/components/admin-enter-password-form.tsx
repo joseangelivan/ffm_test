@@ -2,6 +2,7 @@
 "use client";
 
 import Link from 'next/link';
+import { useSearchParams, redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -135,8 +136,20 @@ function EnterPasswordFormContent({ email, state }: { email: string, state: any 
     );
 }
 
-export function AdminEnterPasswordForm({ email }: { email: string }) {
+export function AdminEnterPasswordForm() {
   const [state, formAction] = useActionState(authenticateAdmin, undefined);
+  const searchParams = useSearchParams();
+  const email = searchParams.get('email');
+
+  useEffect(() => {
+    if (!email) {
+      redirect('/admin/login');
+    }
+  }, [email]);
+
+  if (!email) {
+    return <div className="flex min-h-screen items-center justify-center"><Loader className="h-12 w-12 animate-spin" /></div>;
+  }
   
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
