@@ -6,9 +6,8 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 
 export default async function AdminDashboardPage() {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-  const session = await getSession(sessionToken?.value);
+  const sessionToken = cookies().get('session')?.value;
+  const session = await getSession(sessionToken);
 
   if (!session) {
     redirect('/admin/login');

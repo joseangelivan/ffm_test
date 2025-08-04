@@ -12,9 +12,8 @@ import { ThemeSwitcher } from '@/components/theme-switcher';
 
 // This is now a Server Component to handle session logic
 export default async function AdminEnterPasswordPage({ searchParams }: { searchParams: { email?: string } }) {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-  const session = await getSession(sessionToken?.value);
+  const sessionToken = cookies().get('session')?.value;
+  const session = await getSession(sessionToken);
 
   if (session?.type === 'admin') {
     redirect('/admin/dashboard');
@@ -36,4 +35,3 @@ export default async function AdminEnterPasswordPage({ searchParams }: { searchP
     </Suspense>
   );
 }
-
