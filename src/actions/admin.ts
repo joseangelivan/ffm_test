@@ -644,6 +644,7 @@ export async function verifySessionIntegrity(session: SessionPayload): Promise<b
 
         const dbAdmin = result.rows[0];
         
+        // Explicitly cast both to booleans for a safe comparison
         const dbCanCreateAdmins = !!dbAdmin.can_create_admins;
         const sessionCanCreateAdmins = !!session.canCreateAdmins;
 

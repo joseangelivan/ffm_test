@@ -13,6 +13,8 @@ export default async function AdminDashboardPage() {
     redirect('/admin/login');
   }
 
+  // Se realiza una validación de sesión en el servidor para una capa extra de seguridad.
+  // Si falla, redirige inmediatamente.
   const isSessionValid = await verifySessionIntegrity(session);
   if (!isSessionValid) {
     cookies().delete('session');
