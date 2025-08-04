@@ -27,7 +27,7 @@ export {
 export { authenticateUser } from './user';
 
 export { getDbPool } from '@/lib/db';
-export { handleLogoutAction, getSession } from '@/lib/session';
+export { handleLogoutAction, getSession, type SessionPayload } from '@/lib/session';
 export { sendAdminFirstLoginEmail } from '@/lib/mailer';
 
-export type { Admin } from './admin';
+export type { Admin, UserSettings } from './admin';

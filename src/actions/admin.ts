@@ -7,7 +7,7 @@ import { authenticator } from 'otplib';
 import { cookies } from 'next/headers';
 
 import { getDbPool } from '@/lib/db';
-import { createSession, getSession } from '@/lib/session';
+import { createSession, getSession, type SessionPayload } from '@/lib/session';
 import { sendAdminFirstLoginEmail, sendEmailChangePin } from '@/lib/mailer';
 import { getThemeById, getThemes } from '@/actions/themes';
 import { getAppSetting } from '@/actions/settings';
@@ -66,9 +66,7 @@ async function ensureAdminSettingsExist(adminId: string) {
 }
 
 
-export async function getSettings(): Promise<UserSettings | null> {
-    const sessionToken = cookies().get('session')?.value;
-    const session = await getSession(sessionToken);
+export async function getSettings(session: SessionPayload | null): Promise<UserSettings | null> {
     if (!session) return null;
     
     let client;
@@ -633,9 +631,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
 }
 
 
-export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
-    const sessionToken = cookies().get('session')?.value;
-    const session = await getSession(sessionToken);
+export async function verifySessionIntegrity(session: SessionPayload | null): Promise<{isValid: boolean}> {
     if (!session) {
         return { isValid: false };
     }
@@ -795,7 +791,7 @@ export async function disableTotp(): Promise<ActionState> {
 export async function getActiveTheme() {
     const sessionToken = cookies().get('session')?.value;
     const session = await getSession(sessionToken);
-    const settings = await getSettings();
+    const settings = await getSettings(session);
     let themeId = settings?.theme;
 
     if (!themeId) {

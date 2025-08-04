@@ -15,8 +15,8 @@ export default async function AdminDashboardPage() {
 
   // Fetch all necessary data on the server before rendering the client component
   const [{ isValid: isSessionValid }, settings] = await Promise.all([
-    verifySessionIntegrity(),
-    getSettings()
+    verifySessionIntegrity(session),
+    getSettings(session)
   ]);
   
   if (!isSessionValid) {

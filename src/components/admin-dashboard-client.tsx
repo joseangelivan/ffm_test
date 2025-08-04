@@ -18,24 +18,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { getAppSetting, updateSettings, verifySessionIntegrity } from '@/actions/admin';
-import { handleLogoutAction, getSession } from '@/lib/session';
+import { UserSettings, getSettings, verifySessionIntegrity, updateSettings } from '@/actions/admin';
+import { handleLogoutAction, getSession, type SessionPayload } from '@/lib/session';
 import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
 import { getThemes } from '@/actions/themes';
-
-type Session = {
-    id: string;
-    email: string;
-    name: string;
-    canCreateAdmins: boolean;
-    type: 'admin' | 'resident' | 'gatekeeper';
-}
-
-type UserSettings = {
-    theme: string;
-    language: 'es' | 'pt';
-} | null;
 
 
 function LoadingOverlay({ text }: { text: string }) {
@@ -81,7 +68,7 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
 }
 
 const AdminDashboardContext = React.createContext<{ 
-    session: Session,
+    session: SessionPayload,
     handleSetLocale: (locale: 'es' | 'pt') => void,
     handleSetTheme: (theme: string) => void,
     theme: string,
@@ -100,9 +87,9 @@ export default function AdminDashboardClient({
     isSessionValid: initialIsSessionValid,
     initialSettings 
 }: { 
-    session: Session, 
+    session: SessionPayload, 
     isSessionValid: boolean,
-    initialSettings: UserSettings
+    initialSettings: UserSettings | null
 }) {
   const { setLocale } = useLocale();
   const [isSessionValid, setIsSessionValid] = useState(initialIsSessionValid);
