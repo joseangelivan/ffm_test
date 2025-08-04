@@ -4,6 +4,7 @@
 import { Pool } from 'pg';
 import fs from 'fs/promises';
 import path from 'path';
+import bcrypt from 'bcrypt';
 
 let pool: Pool | undefined;
 let migrationsRan = false;
@@ -24,20 +25,12 @@ async function runMigrations(client: Pool) {
             );
         `);
         
-        // Correct order of migrations based on table dependencies (foreign keys)
         const schemasToApply = [
-            // No dependencies
             'admins/base_schema.sql',
             'condominiums/base_schema.sql',
-            
-            // Depend on condominiums
             'residents/base_schema.sql',
             'gatekeepers/base_schema.sql',
-            
-            // Depends on user tables (admins, residents, gatekeepers)
             'sessions/base_schema.sql',
-            
-            // Depends on admins
             'settings/base_schema.sql'
         ];
         
@@ -76,13 +69,28 @@ async function runMigrations(client: Pool) {
             }
         }
 
+        // Seed default admin after all tables are created
+        console.log('[runMigrations] Seeding default admin user...');
+        const adminEmail = 'angelivan34@gmail.com';
+        const adminExists = await dbClient.query('SELECT 1 FROM admins WHERE email = $1', [adminEmail]);
+        if (adminExists.rows.length === 0) {
+            const password = 'adminivan123';
+            const hashedPassword = await bcrypt.hash(password, 10);
+            await dbClient.query(
+                "INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, TRUE)",
+                ['José Angel Iván Rubianes Silva', adminEmail, hashedPassword]
+            );
+            console.log('[runMigrations] Default admin user seeded successfully.');
+        } else {
+            console.log('[runMigrations] Default admin user already exists.');
+        }
+
         await dbClient.query('COMMIT');
         migrationsRan = true;
         console.log('[runMigrations] Migration process completed successfully.');
     } catch(error: any) {
          console.error(`[runMigrations] Error during migration of file "${currentMigrationFile}". Attempting ROLLBACK.`, error);
          await dbClient.query('ROLLBACK');
-         // Re-throw a more informative error
          throw new Error(`Migration failed on file: ${currentMigrationFile}. DB-Error: ${error.message}`);
     } finally {
         dbClient.release();
@@ -93,8 +101,6 @@ export async function getDbPool(forceMigration = false): Promise<Pool> {
     if (!pool) {
         try {
             console.log('[getDbPool] Initializing database pool...');
-            // The connection string is now primarily read from the DATABASE_URL environment variable.
-            // A fallback is provided for convenience, but using a .env.local file is recommended.
             const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway';
             
             if (!connectionString) {
@@ -102,16 +108,15 @@ export async function getDbPool(forceMigration = false): Promise<Pool> {
             }
 
             pool = new Pool({ connectionString });
-            await pool.query('SELECT NOW()'); // Test connection
+            await pool.query('SELECT NOW()');
             console.log('[getDbPool] Database pool initialized successfully.');
         } catch (error) {
             console.error("CRITICAL: Failed during database pool initialization.", error);
-            pool = undefined; // Ensure pool is not left in a bad state
+            pool = undefined; 
             throw new Error("Database initialization failed.");
         }
     }
     
-    // Only run migrations if explicitly forced
     if (forceMigration) {
         await runMigrations(pool);
     }
