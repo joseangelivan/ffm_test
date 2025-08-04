@@ -182,11 +182,16 @@ export async function authenticateAdmin(prevState: any, formData: FormData): Pro
         const admin = result.rows[0];
         
         if (!admin.password_hash) {
-            // This case should ideally redirect to first-login, but as a fallback:
-            return { success: false, message: "toast.firstLogin.alreadyActive" }; // A generic message
+            return { success: false, message: "toast.firstLogin.alreadyActive" };
         }
-
+        
+        console.log("--- DEBUGGING AUTHENTICATION ---");
+        console.log("Password from form:", `"${password}"`);
+        console.log("Hash from DB:", `"${admin.password_hash}"`);
+        
         const passwordMatch = await bcrypt.compare(password, admin.password_hash);
+        console.log("bcrypt.compare result:", passwordMatch);
+        console.log("---------------------------------");
         
         if (!passwordMatch) {
             return { success: false, message: "toast.adminLogin.invalidCredentials" };
