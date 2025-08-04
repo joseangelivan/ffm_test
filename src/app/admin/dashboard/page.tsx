@@ -22,8 +22,9 @@ export default async function AdminDashboardPage() {
 
   const isSessionValid = await verifySessionIntegrity(session);
   if (!isSessionValid) {
-    // Purge the invalid cookie and redirect
-    cookieStore.delete('session');
+    // The session might be stale or tampered with.
+    // Purge the invalid cookie and redirect to login.
+    cookies().delete('session');
     redirect('/admin/login?error=session_invalidated');
   }
 
