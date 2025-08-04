@@ -21,6 +21,7 @@ async function runMigrations(client: Pool): Promise<boolean> {
     try {
         await dbClient.query('BEGIN');
         
+        // Ensure migrations log table exists
         await dbClient.query(`
             CREATE TABLE IF NOT EXISTS migrations_log (
                 id SERIAL PRIMARY KEY,
@@ -29,6 +30,7 @@ async function runMigrations(client: Pool): Promise<boolean> {
             );
         `);
         
+        // --- Schema Migrations ---
         const schemasToApply = [
             'admins/base_schema.sql',
             'condominiums/base_schema.sql',
@@ -52,7 +54,7 @@ async function runMigrations(client: Pool): Promise<boolean> {
             let schemaSql = await fs.readFile(sqlPath, 'utf-8');
 
             if (schemaSql.trim()) {
-                 const createTypeRegex = /(CREATE TYPE "([^"]+)" AS ENUM \([^)]+\);)/gi;
+                const createTypeRegex = /(CREATE TYPE "([^"]+)" AS ENUM \([^)]+\);)/gi;
                 let match;
                 while ((match = createTypeRegex.exec(schemaSql)) !== null) {
                     const fullMatch = match[1];
@@ -72,12 +74,15 @@ async function runMigrations(client: Pool): Promise<boolean> {
                 await dbClient.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [schemaFile]);
             }
         }
+        
+        // --- Data Seeding (Always check, only insert if missing) ---
 
         // Seed default admin user
-        console.log('[runMigrations] Seeding default admin user...');
+        console.log('[runMigrations] Checking for default admin user...');
         const adminEmail = 'angelivan34@gmail.com';
         const adminExists = await dbClient.query('SELECT 1 FROM admins WHERE email = $1', [adminEmail]);
         if (adminExists.rows.length === 0) {
+            console.log('[runMigrations] Default admin not found. Seeding...');
             const password = 'adminivan123';
             const hashedPassword = await bcrypt.hash(password, 10);
             await dbClient.query(
@@ -90,10 +95,11 @@ async function runMigrations(client: Pool): Promise<boolean> {
         }
 
         // Seed a test condominium
-        console.log('[runMigrations] Seeding test condominium...');
+        console.log('[runMigrations] Checking for test condominium...');
         const condoName = 'Condomínio de Teste';
         const condoExists = await dbClient.query('SELECT 1 FROM condominiums WHERE name = $1', [condoName]);
         if (condoExists.rows.length === 0) {
+            console.log('[runMigrations] Test condominium not found. Seeding...');
             await dbClient.query(
                 'INSERT INTO condominiums (name, continent, country, state, city, street, "number") VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (name) DO NOTHING',
                 [condoName, 'Americas', 'Brazil', 'São Paulo', 'São Paulo', 'Avenida Paulista', '1000']
@@ -102,7 +108,6 @@ async function runMigrations(client: Pool): Promise<boolean> {
         } else {
             console.log('[runMigrations] Test condominium already exists.');
         }
-
 
         await dbClient.query('COMMIT');
         migrationsRan = true;
