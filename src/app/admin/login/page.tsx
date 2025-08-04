@@ -34,29 +34,35 @@ async function InitDbMessage({ error }: { error?: string }) {
     );
 }
 
-
-// The main page component is now a Server Component.
-export default async function AdminLoginPage({
+// This new async component will handle the searchParams logic.
+async function AdminLoginContent({
   searchParams,
 }: {
   searchParams?: { [key: string]: string | undefined };
 }) {
-    const initDb = searchParams?.init_db === 'true';
+  const initDb = searchParams?.init_db === 'true';
 
-    // If init_db is true, we handle it on the server.
-    if (initDb) {
-        const result = await initializeDatabase();
-        if (result.success) {
-            return <InitDbMessage />;
-        } else {
-            return <InitDbMessage error={result.message} />;
-        }
+  if (initDb) {
+    const result = await initializeDatabase();
+    if (result.success) {
+      return <InitDbMessage />;
+    } else {
+      return <InitDbMessage error={result.message} />;
     }
+  }
 
-    // Otherwise, we render the client-side login form.
-    return (
-        <Suspense fallback={<Loading />}>
-            <AdminLoginForm />
-        </Suspense>
-    );
+  return <AdminLoginForm />;
+}
+
+// The main page component now uses Suspense to wrap the async logic.
+export default function AdminLoginPage({
+  searchParams,
+}: {
+  searchParams?: { [key: string]: string | undefined };
+}) {
+  return (
+    <Suspense fallback={<Loading />}>
+      <AdminLoginContent searchParams={searchParams} />
+    </Suspense>
+  );
 }
