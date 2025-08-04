@@ -201,13 +201,7 @@ export async function authenticateAdmin(prevState: any, formData: FormData): Pro
             return { success: false, message: "toast.firstLogin.alreadyActive" };
         }
         
-        console.log("--- DEBUGGING AUTHENTICATION ---");
-        console.log("Password from form:", `"${password}"`);
-        console.log("Hash from DB:", `"${admin.password_hash}"`);
-        
         const passwordMatch = await bcrypt.compare(password, admin.password_hash);
-        console.log("bcrypt.compare result:", passwordMatch);
-        console.log("---------------------------------");
         
         if (!passwordMatch) {
             return { success: false, message: "toast.adminLogin.invalidCredentials" };
@@ -805,7 +799,3 @@ export async function getActiveTheme() {
     
     return getThemeById('light'); 
 }
-
-    
-
-    
