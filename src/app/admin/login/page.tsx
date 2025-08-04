@@ -1,3 +1,4 @@
+
 import { Suspense } from 'react';
 import { initializeDatabase } from '@/lib/db';
 import AdminLoginForm from '@/components/admin-login-form';
