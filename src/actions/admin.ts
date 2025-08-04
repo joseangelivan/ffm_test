@@ -814,14 +814,14 @@ export async function getDashboardData() {
     const sessionToken = cookies().get('session')?.value;
     const session = await getSession(sessionToken);
 
-    if (!session) {
-        return { session: null, initialSettings: null };
+    if (!session || session.type !== 'admin') {
+      redirect('/admin/login');
     }
 
     const isSessionValid = await verifySessionIntegrity(session);
     if (!isSessionValid) {
         cookies().delete('session');
-        return { session: null, initialSettings: null };
+        redirect('/admin/login');
     }
 
     const settings = await getSettings(session);

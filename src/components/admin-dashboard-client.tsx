@@ -16,7 +16,7 @@ import {
     AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
-import { UserSettings, getDashboardData, getActiveTheme } from '@/actions/admin';
+import { UserSettings, getActiveTheme, updateSettings } from '@/actions/admin';
 import { handleLogoutAction, type SessionPayload } from '@/lib/session';
 import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
@@ -80,20 +80,16 @@ export const useAdminDashboard = () => {
     return context;
 };
 
-
 type DashboardState = {
     session: SessionPayload;
     initialSettings: UserSettings | null;
-} | null;
+};
 
 
-export default function AdminDashboardClient() {
-  const [dashboardState, setDashboardState] = useState<DashboardState>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export default function AdminDashboardClient({ session, initialSettings }: DashboardState) {
   const { setLocale, t } = useLocale();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [theme, setTheme] = useState('light');
-  const router = useRouter();
   
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
     const root = document.documentElement;
@@ -142,27 +138,11 @@ export default function AdminDashboardClient() {
   }, [applyTheme]);
 
   useEffect(() => {
-    async function loadData() {
-        try {
-            const data = await getDashboardData();
-            if (data && data.session) {
-                setDashboardState(data);
-                if (data.initialSettings) {
-                    setLocale(data.initialSettings.language);
-                    handleSetTheme(data.initialSettings.theme);
-                }
-            } else {
-                router.push('/admin/login');
-            }
-        } catch (error) {
-            console.error("Failed to load dashboard data.", error);
-            router.push('/admin/login');
-        } finally {
-            setIsLoading(false);
-        }
+    if (initialSettings) {
+      setLocale(initialSettings.language);
+      handleSetTheme(initialSettings.theme);
     }
-    loadData();
-  }, [setLocale, handleSetTheme, router]);
+  }, [initialSettings, setLocale, handleSetTheme]);
 
   const handleSetLocale = async (newLocale: 'es' | 'pt') => {
       setLocale(newLocale);
@@ -175,16 +155,13 @@ export default function AdminDashboardClient() {
     }
   }, []);
 
-  if (isLoading) {
-      return <LoadingOverlay text={t('adminDashboard.loadingOverlay.loading')} />;
-  }
-  
-  if (!dashboardState?.session) {
+  if (!session) {
+      // This part should not be reached if getDashboardData works correctly
       return <LoadingOverlay text="Redirecionando..." />;
   }
 
   return (
-    <AdminDashboardContext.Provider value={{ session: dashboardState.session, handleSetLocale, handleSetTheme, theme }}>
+    <AdminDashboardContext.Provider value={{ session, handleSetLocale, handleSetTheme, theme }}>
         <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
         <AdminHeader onAccountUpdateSuccess={handleAccountUpdateSuccess} />
         

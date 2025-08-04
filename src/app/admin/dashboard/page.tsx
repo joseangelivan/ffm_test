@@ -1,12 +1,9 @@
 
+import { getDashboardData } from '@/actions/admin';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
 
-export default function AdminDashboardPage() {
-  // This page is now a simple wrapper. 
-  // All data fetching and logic is handled in the client component
-  // via a Server Action to avoid dynamic rendering issues on this route.
-  return <AdminDashboardClient />;
+export default async function AdminDashboardPage() {
+  const { session, initialSettings } = await getDashboardData();
+  
+  return <AdminDashboardClient session={session} initialSettings={initialSettings} />;
 }
-
-
-    
