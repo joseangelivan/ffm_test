@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import Link from 'next/link';
@@ -24,7 +23,6 @@ import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
 import { ThemeSwitcher } from './theme-switcher';
 import { checkAdminEmail } from '@/actions/auth';
-import { useRouter } from 'next/navigation';
 
 function LoadingOverlay({ text }: { text: string }) {
     return (
@@ -125,14 +123,7 @@ function LoginFormContent({ state }: { state: any }) {
 }
 
 export default function AdminLoginForm() {
-  const router = useRouter();
   const [state, formAction] = useActionState(checkAdminEmail, undefined);
-
-  useEffect(() => {
-    if (state?.success && state.redirect) {
-      router.push(state.redirect);
-    }
-  }, [state, router]);
   
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
