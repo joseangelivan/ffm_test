@@ -92,6 +92,7 @@ export default function AdminDashboardClient() {
   const { setLocale, t } = useLocale();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [theme, setTheme] = useState('light');
+  const router = useRouter();
   
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
     const root = document.documentElement;
@@ -143,13 +144,18 @@ export default function AdminDashboardClient() {
     async function loadData() {
         try {
             const data = await getDashboardData();
-            setDashboardState(data);
-            if (data.initialSettings) {
-                setLocale(data.initialSettings.language);
-                handleSetTheme(data.initialSettings.theme);
+            if (data && data.session) {
+                setDashboardState(data);
+                if (data.initialSettings) {
+                    setLocale(data.initialSettings.language);
+                    handleSetTheme(data.initialSettings.theme);
+                }
             }
+            // The server action 'getDashboardData' now handles redirection.
+            // If we get here without data, it means something is wrong,
+            // but we avoid a client-side redirect loop.
         } catch (error) {
-            console.error("Failed to load dashboard data. A redirect should have occurred if the session was invalid.", error);
+            console.error("Failed to load dashboard data.", error);
         } finally {
             setIsLoading(false);
         }
@@ -168,8 +174,14 @@ export default function AdminDashboardClient() {
     }
   }, []);
 
-  if (isLoading || !dashboardState) {
-      return <LoadingOverlay text="Cargando panel..." />;
+  if (isLoading) {
+      return <LoadingOverlay text={t('adminDashboard.loadingOverlay.loading')} />;
+  }
+  
+  if (!dashboardState?.session) {
+      // This part should ideally not be reached if the server-side redirect in getDashboardData works.
+      // It's a fallback.
+      return <LoadingOverlay text="Redirecionando..." />;
   }
 
   return (

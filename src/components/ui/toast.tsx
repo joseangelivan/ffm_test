@@ -103,7 +103,7 @@ ToastTitle.displayName = ToastPrimitives.Title.displayName
 
 const ToastDescription = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Description>,
-  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Description> & { variant?: VariantProps<typeof toastVariants>["variant"] }
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Description>
 >(({ className, ...props }, ref) => (
     <ToastPrimitives.Description
       ref={ref}

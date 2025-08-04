@@ -46,9 +46,9 @@ const AlertTitle = React.forwardRef<
 AlertTitle.displayName = "AlertTitle"
 
 const AlertDescription = React.forwardRef<
-    HTMLParagraphElement,
-    React.HTMLAttributes<HTMLParagraphElement> & { variant?: VariantProps<typeof alertVariants>["variant"] }
->(({ className, ...props }, ref) => {
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement> & { variant?: VariantProps<typeof alertVariants>["variant"] }
+>(({ className, variant, ...props }, ref) => {
     return (
         <div
             ref={ref}
