@@ -525,7 +525,7 @@ function CondoFormWrapper({
                     <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                         <Loader className="h-12 w-12 animate-spin" />
                         <span>
-                            {isLocationLoading ? t('adminDashboard.loadingOverlay.loading') : (isEditMode ? t('adminDashboard.editCondoDialog.save') + '...' : t('adminDashboard.loadingOverlay.creating'))}
+                            {isLocationLoading ? t('adminDashboard.loadingOverlay.loading') : (isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating'))}
                         </span>
                     </div>
                 </div>
@@ -814,7 +814,7 @@ export function CondoManagement() {
                     {editingCondoData && (
                         <CondoFormWrapper
                             closeDialog={handleCondoFormSuccess}
-                            formAction={handleUpdateCondoAction}
+                            formAction={updateCondominio}
                             initialData={editingCondoData}
                             isEditMode={true}
                             getCachedData={getCachedData}
@@ -826,4 +826,3 @@ export function CondoManagement() {
     );
 }
 
-    
