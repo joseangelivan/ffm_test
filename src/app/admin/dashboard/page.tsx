@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getSession as getSessionFromToken } from '@/lib/session';
+import { verifySession } from '@/lib/auth';
 import { getSettings, verifySessionIntegrity } from '@/actions/admin';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
 import { cookies } from 'next/headers';
@@ -7,23 +7,11 @@ import { cookies } from 'next/headers';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session')?.value;
-
-  if (!sessionToken) {
-    redirect('/admin/login');
-  }
-
-  const session = await getSessionFromToken(sessionToken);
-
-  if (!session) {
-    cookieStore.set('session', '', { expires: new Date(0) });
-    redirect('/admin/login?error=session_invalidated');
-  }
+  const session = await verifySession();
 
   const isSessionValid = await verifySessionIntegrity(session);
   if (!isSessionValid) {
-    cookieStore.set('session', '', { expires: new Date(0) });
+    cookies().set('session', '', { expires: new Date(0) });
     redirect('/admin/login?error=session_invalidated');
   }
 

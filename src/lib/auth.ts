@@ -7,6 +7,7 @@ import { getSession as getSessionFromToken, type SessionPayload } from '@/lib/se
 /**
  * Verifies the current user's session from the cookie.
  * If the session is not valid or doesn't exist, it redirects to the login page.
+ * This is the recommended way to protect server-side routes.
  * @returns The session payload if valid.
  */
 export async function verifySession(): Promise<SessionPayload> {
