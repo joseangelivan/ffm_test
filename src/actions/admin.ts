@@ -4,6 +4,7 @@
 import { redirect } from 'next/navigation';
 import bcrypt from 'bcrypt';
 import { authenticator } from 'otplib';
+import { cookies } from 'next/headers';
 
 import { getDbPool } from '@/lib/db';
 import { createSession, getSession } from '@/lib/session';
@@ -13,7 +14,7 @@ import { getAppSetting } from '@/actions/settings';
 
 import es from '@/locales/es.json';
 import pt from '@/locales/pt.json';
-import { cookies } from 'next/headers';
+
 
 // --- Types ---
 
@@ -44,6 +45,7 @@ type ActionState = {
 type AuthState = {
   success: boolean;
   message: string;
+  redirect?: string;
 };
 
 // --- Settings ---
@@ -177,7 +179,7 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
         redirectTo = `/admin/enter-password?email=${emailParam}`;
     }
     
-    redirect(redirectTo);
+    return { success: true, message: 'Redirecting...', redirect: redirectTo };
 }
 
 export async function authenticateAdmin(prevState: any, formData: FormData): Promise<AuthState> {
