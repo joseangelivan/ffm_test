@@ -30,7 +30,7 @@ export async function getSession(sessionToken?: string): Promise<SessionPayload 
             email: payload.email as string,
             name: payload.name as string,
             type: payload.type as 'admin' | 'resident' | 'gatekeeper',
-            canCreateAdmins: payload.canCreateAdmins as boolean,
+            canCreateAdmins: !!payload.canCreateAdmins,
         };
     } catch (error: any) {
         if (error.code !== 'ERR_JWT_EXPIRED' && error.code !== 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED') {

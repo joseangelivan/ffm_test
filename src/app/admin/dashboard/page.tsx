@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { getSettings, verifySessionIntegrity } from '@/actions/admin';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
 import { cookies } from 'next/headers';
-import { getSession as getSessionFromToken } from '@/lib/session';
+import { getSession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +15,7 @@ export default async function AdminDashboardPage() {
     redirect('/admin/login');
   }
 
-  const session = await getSessionFromToken(sessionToken);
+  const session = await getSession(sessionToken);
 
   if (!session) {
     cookies().set('session', '', { expires: new Date(0) });
