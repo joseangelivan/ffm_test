@@ -19,10 +19,11 @@ import {
 import { useLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { getAppSetting, updateSettings, verifySessionIntegrity } from '@/actions/admin';
-import { handleLogoutAction } from '@/lib/session';
+import { handleLogoutAction, getSession } from '@/lib/session';
 import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
 import { getThemes } from '@/actions/themes';
+import { cookies } from 'next/headers';
 
 type Session = {
     id: string;

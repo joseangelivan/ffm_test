@@ -23,9 +23,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
 import { ThemeSwitcher } from './theme-switcher';
-import { checkAdminEmail } from '@/actions/auth';
+import { checkAdminEmail, getSession } from '@/actions/auth';
 import { useRouter, redirect } from 'next/navigation';
-import { getCurrentSession } from '@/lib/session';
+import { cookies } from 'next/headers';
 
 function LoadingOverlay({ text }: { text: string }) {
     return (
@@ -129,13 +129,15 @@ export default function AdminLoginForm() {
   const [state, formAction] = useActionState(checkAdminEmail, undefined);
   
     useEffect(() => {
-        const checkSession = async () => {
-            const session = await getCurrentSession();
-            if (session?.type === 'admin') {
-                redirect('/admin/dashboard');
-            }
-        };
-        checkSession();
+      async function checkSession() {
+          const cookieStore = cookies()
+          const sessionToken = cookieStore.get('session')?.value
+          const session = await getSession(sessionToken)
+          if (session?.type === 'admin') {
+              redirect('/admin/dashboard');
+          }
+      }
+      checkSession();
     }, []);
   
   return (

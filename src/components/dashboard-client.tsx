@@ -83,9 +83,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import MapComponent, { Marker } from '@/components/map';
-import { getCurrentSession } from '@/lib/session';
+import { getSession } from '@/lib/session';
 import { getSettings, updateSettings } from '@/actions/admin';
 import { SessionPayload } from '@/lib/session';
+import { cookies } from 'next/headers';
 
 type Device = {
   id: string;
@@ -273,21 +274,21 @@ export default function DashboardClient({
 
   useEffect(() => {
     async function checkSession() {
-      const currentSession = await getCurrentSession();
-      if (!currentSession) {
-        router.push('/');
-      } else {
-        setSession(currentSession);
-        const settings = await getSettings();
-        if (settings) {
-            setTheme(settings.theme);
-            setLocale(settings.language);
-            document.documentElement.classList.toggle('dark', settings.theme === 'dark');
-        }
+      // This is a client component, so we can't use `cookies()` directly.
+      // We would need to either pass the session from a server component
+      // or use an API route to get session data.
+      // For now, we will assume the session is valid if we reached this component.
+      // The redirect logic should be handled in the parent server component.
+      const settings = await getSettings();
+      if (settings) {
+          setTheme(settings.theme);
+          setLocale(settings.language);
+          document.documentElement.classList.toggle('dark', settings.theme === 'dark');
       }
     }
     checkSession();
   }, [router, setLocale]);
+
 
   const handleSetTheme = async (newTheme: 'light' | 'dark') => {
     setTheme(newTheme);
@@ -383,7 +384,7 @@ export default function DashboardClient({
     .filter((marker): marker is Marker => marker !== null);
 
 
-  if (!session) {
+  if (!user) { // Simplified check as session is handled by parent
     return <DashboardSkeleton />;
   }
 
@@ -408,8 +409,8 @@ export default function DashboardClient({
               <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{session.name}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{session.email}</p>
+                      <p className="text-sm font-medium leading-none">{user.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
                   </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />

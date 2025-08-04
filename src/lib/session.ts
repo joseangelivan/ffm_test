@@ -102,12 +102,15 @@ export async function createSession(userId: string, userType: 'admin' | 'residen
     }
 }
 
-
+// DEPRECATED - This function is problematic with Next.js App Router dynamic rendering.
+// Get the session directly in the page component instead.
 export async function getCurrentSession(): Promise<SessionPayload | null> {
-  const sessionToken = cookies().get('session')?.value;
-  if (!sessionToken) return null;
-  return await getSession(sessionToken);
+    const cookieStore = cookies()
+    const sessionToken = cookieStore.get('session')?.value
+    if (!sessionToken) return null
+    return await getSession(sessionToken)
 }
+
 
 export async function handleLogoutAction() {
     const sessionCookie = cookies().get('session');
@@ -127,6 +130,3 @@ export async function handleLogoutAction() {
     }
     cookies().delete('session');
 }
-
-
-    

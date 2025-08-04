@@ -1,11 +1,14 @@
 
 import { verifySessionIntegrity, getSettings } from '@/actions/admin';
-import { getCurrentSession } from '@/lib/session';
+import { getSession } from '@/lib/session';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 
 export default async function AdminDashboardPage() {
-  const session = await getCurrentSession();
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session')?.value;
+  const session = await getSession(sessionToken);
 
   if (!session) {
     redirect('/admin/login');

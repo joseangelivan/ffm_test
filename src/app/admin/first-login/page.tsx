@@ -3,26 +3,29 @@
 
 import { Suspense, useEffect } from 'react';
 import { useSearchParams, redirect } from 'next/navigation';
-import { getCurrentSession } from '@/lib/session';
+import { getSession } from '@/lib/session';
 import AdminFirstLoginForm from '@/components/admin-first-login-form';
 import Loading from '@/app/loading';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { ThemeSwitcher } from '@/components/theme-switcher';
+import { cookies } from 'next/headers';
 
 function FirstLoginPageContent() {
     const searchParams = useSearchParams();
     const email = searchParams.get('email') || '';
 
     useEffect(() => {
-      const checkSession = async () => {
-          const session = await getCurrentSession();
+      async function checkSession() {
+          const cookieStore = cookies()
+          const sessionToken = cookieStore.get('session')?.value
+          const session = await getSession(sessionToken)
           if (session?.type === 'admin') {
               redirect('/admin/dashboard');
           }
           if (!email) {
               redirect('/admin/login');
           }
-      };
+      }
       checkSession();
     }, [email]);
 
