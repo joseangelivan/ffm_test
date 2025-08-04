@@ -41,8 +41,7 @@ function InitDbMessage({ error }: { error?: string }) {
     );
 }
 
-
-export default function AdminLoginPage() {
+function AdminLoginPageContent() {
     const [initResult, setInitResult] = useState<{inProgress: boolean, error?: string, done: boolean}>({inProgress: true, done: false});
     const searchParams = useSearchParams();
     const initDb = searchParams.get('init_db') === 'true';
@@ -79,9 +78,14 @@ export default function AdminLoginPage() {
         if(initResult.done) return <InitDbMessage error={initResult.error} />;
     }
 
+    return <AdminLoginForm />;
+}
+
+
+export default function AdminLoginPage() {
     return (
         <Suspense fallback={<Loading />}>
-            <AdminLoginForm />
+            <AdminLoginPageContent />
         </Suspense>
     );
 }
