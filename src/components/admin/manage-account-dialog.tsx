@@ -246,16 +246,16 @@ function ManageAccountFields({ formState, isFormPending }: { formState: any, isF
     useEffect(() => {
         async function check2fa() {
             setIsChecking2fa(true);
-            const { enabled } = await hasTotpEnabled();
+            const { enabled } = await hasTotpEnabled(session);
             setIs2faEnabled(enabled);
             setIsChecking2fa(false);
         }
         check2fa();
-    }, []);
+    }, [session]);
 
     const on2faStatusChanged = () => {
         setIsChecking2fa(true);
-        hasTotpEnabled().then(({enabled}) => {
+        hasTotpEnabled(session).then(({enabled}) => {
             setIs2faEnabled(enabled);
             setIsChecking2fa(false);
             setIsSetup2faOpen(false);

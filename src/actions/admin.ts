@@ -747,9 +747,7 @@ export async function verifyTotp(prevState: any, formData: FormData): Promise<Au
     redirect('/admin/dashboard');
 }
 
-export async function hasTotpEnabled(): Promise<{enabled: boolean}> {
-    const sessionToken = cookies().get('session')?.value;
-    const session = await getSessionFromToken(sessionToken);
+export async function hasTotpEnabled(session: SessionPayload | null): Promise<{enabled: boolean}> {
     if (!session) return { enabled: false };
     
     let client;

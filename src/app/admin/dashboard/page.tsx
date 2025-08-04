@@ -18,7 +18,7 @@ export default async function AdminDashboardPage() {
   const session = await getSessionFromToken(sessionToken);
 
   if (!session) {
-    cookieStore.set('session', '', { expires: new Date(0) });
+    cookies().set('session', '', { expires: new Date(0) });
     redirect('/admin/login?error=session_invalidated');
   }
 
