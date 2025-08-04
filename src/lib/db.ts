@@ -12,6 +12,7 @@ async function runMigrations(client: Pool) {
     if (migrationsRan) return;
     console.log('[runMigrations] Starting migration process...');
     const dbClient = await client.connect();
+    let currentMigrationFile = 'N/A';
     try {
         await dbClient.query('BEGIN');
         
@@ -41,6 +42,7 @@ async function runMigrations(client: Pool) {
         ];
         
         for (const schemaFile of schemasToApply) {
+            currentMigrationFile = schemaFile;
             const checkMigration = await dbClient.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [schemaFile]);
             
             if (checkMigration.rows.length > 0) {
@@ -77,10 +79,11 @@ async function runMigrations(client: Pool) {
         await dbClient.query('COMMIT');
         migrationsRan = true;
         console.log('[runMigrations] Migration process completed successfully.');
-    } catch(error) {
-         console.error('[runMigrations] Error during migration transaction. Attempting ROLLBACK.', error);
+    } catch(error: any) {
+         console.error(`[runMigrations] Error during migration of file "${currentMigrationFile}". Attempting ROLLBACK.`, error);
          await dbClient.query('ROLLBACK');
-         throw error;
+         // Re-throw a more informative error
+         throw new Error(`Migration failed on file: ${currentMigrationFile}. DB-Error: ${error.message}`);
     } finally {
         dbClient.release();
     }

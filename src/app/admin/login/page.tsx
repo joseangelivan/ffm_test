@@ -15,10 +15,10 @@ function InitDbMessage({ error }: { error?: string }) {
     if (error) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-background">
-                <Card className="p-8 text-center">
+                <Card className="p-8 text-center max-w-2xl">
                     <h1 className="text-2xl font-bold text-destructive">Error de Inicialización</h1>
                     <p className="mt-2 text-muted-foreground">No se pudo inicializar la base de datos.</p>
-                    <pre className="mt-4 text-left bg-muted p-4 rounded-md text-sm text-destructive overflow-auto">
+                    <pre className="mt-4 text-left bg-muted p-4 rounded-md text-sm text-destructive overflow-auto text-wrap">
                         {error}
                     </pre>
                     <Button asChild className="mt-6">
