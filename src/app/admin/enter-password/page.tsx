@@ -8,7 +8,7 @@ import { redirect } from 'next/navigation';
 
 // This is now a simple Server Component.
 // Session checks are handled by middleware or in the layout/actions.
-export default function AdminEnterPasswordPage({ searchParams }: { searchParams: { email?: string } }) {
+export default async function AdminEnterPasswordPage({ searchParams }: { searchParams: { email?: string } }) {
   const email = searchParams.email || '';
 
   // If email is not in the URL, we can't proceed.
