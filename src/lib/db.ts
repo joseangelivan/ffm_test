@@ -21,7 +21,6 @@ async function runMigrations(client: Pool): Promise<boolean> {
     try {
         await dbClient.query('BEGIN');
         
-        // Ensure migrations log table exists
         await dbClient.query(`
             CREATE TABLE IF NOT EXISTS migrations_log (
                 id SERIAL PRIMARY KEY,
@@ -30,7 +29,6 @@ async function runMigrations(client: Pool): Promise<boolean> {
             );
         `);
         
-        // --- Schema Migrations ---
         const schemasToApply = [
             'admins/base_schema.sql',
             'condominiums/base_schema.sql',
@@ -38,6 +36,7 @@ async function runMigrations(client: Pool): Promise<boolean> {
             'gatekeepers/base_schema.sql',
             'sessions/base_schema.sql',
             'settings/base_schema.sql',
+            'settings/admin_settings_schema.sql', // Added separately to ensure correct order
         ];
         
         for (const schemaFile of schemasToApply) {
@@ -75,19 +74,12 @@ async function runMigrations(client: Pool): Promise<boolean> {
             }
         }
         
-        // --- Data Seeding (Always check, only insert if missing) ---
-
-        // Seed default admin user
         console.log('[runMigrations] Checking for default admin user...');
         const adminEmail = 'angelivan34@gmail.com';
         const correctPassword = 'adminivan123';
         const dynamicallyGeneratedHash = await bcrypt.hash(correctPassword, 10);
-        console.log(`--- DEBUGGING AUTHENTICATION (Migration) ---`);
-        console.log(`Plaintext password being hashed: "${correctPassword}"`);
-        console.log(`Dynamically generated hash for default admin: ${dynamicallyGeneratedHash}`);
-        console.log(`-------------------------------------------`);
 
-        const adminResult = await dbClient.query('SELECT id, password_hash FROM admins WHERE email = $1', [adminEmail]);
+        const adminResult = await dbClient.query('SELECT id FROM admins WHERE email = $1', [adminEmail]);
 
         if (adminResult.rows.length === 0) {
             console.log('[runMigrations] Default admin not found. Seeding with dynamically generated hash...');
@@ -102,7 +94,6 @@ async function runMigrations(client: Pool): Promise<boolean> {
             console.log('[runMigrations] Default admin password hash updated successfully.');
         }
 
-        // Seed a test condominium
         console.log('[runMigrations] Checking for test condominium...');
         const condoName = 'Condomínio de Teste';
         const condoExists = await dbClient.query('SELECT 1 FROM condominiums WHERE name = $1', [condoName]);
@@ -124,7 +115,6 @@ async function runMigrations(client: Pool): Promise<boolean> {
     } catch(error: any) {
          console.error(`[runMigrations] Error during migration of file "${currentMigrationFile}". Attempting ROLLBACK.`, error);
          await dbClient.query('ROLLBACK');
-         // Re-throw the error with additional context
          throw new Error(`Migration failed on file: ${currentMigrationFile}. DB-Error: ${error.message}`);
     } finally {
         dbClient.release();
@@ -146,7 +136,7 @@ export async function initializeDatabase(): Promise<{success: boolean, message?:
         if (!pool) {
             pool = createPool();
         }
-        await pool.query('SELECT NOW()'); // Test connection
+        await pool.query('SELECT NOW()');
         await runMigrations(pool);
         return { success: true };
     } catch (error: any) {
@@ -167,10 +157,8 @@ export async function getDbPool(): Promise<Pool> {
         } catch (error) {
             console.error("CRITICAL: Failed to connect with new pool.", error);
             pool = undefined;
-            throw error; // Re-throw the error to be caught by the caller
+            throw error;
         }
     }
     return pool;
 }
-
-    
