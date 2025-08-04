@@ -24,11 +24,12 @@ async function runMigrations(client: Pool) {
         `);
         
         const schemasToApply = [
-            'settings/base_schema.sql',
             'admins/base_schema.sql',
+            'settings/base_schema.sql',
             'condominiums/base_schema.sql',
             'residents/base_schema.sql',
             'gatekeepers/base_schema.sql',
+            'sessions/base_schema.sql'
         ];
         
         for (const schemaFile of schemasToApply) {
