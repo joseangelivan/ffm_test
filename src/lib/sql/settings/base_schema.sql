@@ -1,4 +1,4 @@
--- Tabla para configuraciones globales de la aplicación
+-- Tabla para configuraciones generales de la aplicación
 CREATE TABLE IF NOT EXISTS app_settings (
     id VARCHAR(255) PRIMARY KEY,
     value TEXT,
@@ -6,22 +6,25 @@ CREATE TABLE IF NOT EXISTS app_settings (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Tabla para configuraciones específicas de cada administrador
-CREATE TABLE IF NOT EXISTS admin_settings (
-    admin_id UUID PRIMARY KEY REFERENCES admins(id) ON DELETE CASCADE,
-    language VARCHAR(5) NOT NULL DEFAULT 'pt',
-    theme VARCHAR(255) NOT NULL DEFAULT 'light',
+-- Tabla para configuraciones de SMTP
+CREATE TABLE IF NOT EXISTS smtp_configurations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    host VARCHAR(255) NOT NULL,
+    port INTEGER NOT NULL,
+    secure BOOLEAN DEFAULT true,
+    auth_user VARCHAR(255) NOT NULL,
+    auth_pass TEXT NOT NULL, -- Should be encrypted in a real app
+    priority INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Tabla para temas personalizados de la interfaz
+-- Tabla para temas de la interfaz
 CREATE TABLE IF NOT EXISTS themes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) UNIQUE NOT NULL,
     is_default BOOLEAN DEFAULT FALSE,
-    
-    -- Colores HSL (Hue, Saturation, Lightness)
     background_hsl VARCHAR(50) NOT NULL,
     foreground_hsl VARCHAR(50) NOT NULL,
     card_hsl VARCHAR(50) NOT NULL,
@@ -41,13 +44,17 @@ CREATE TABLE IF NOT EXISTS themes (
     border_hsl VARCHAR(50) NOT NULL,
     input_hsl VARCHAR(50) NOT NULL,
     ring_hsl VARCHAR(50) NOT NULL,
-
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Insertar valores iniciales si la tabla está vacía, para evitar errores de aplicación
-INSERT INTO app_settings (id, value)
-VALUES 
-    ('default_theme_id', 'light')
-ON CONFLICT (id) DO NOTHING;
+-- Tabla para configuraciones de los administradores
+CREATE TABLE IF NOT EXISTS admin_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+    theme VARCHAR(255) DEFAULT 'light',
+    language VARCHAR(10) DEFAULT 'pt',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(admin_id)
+);
