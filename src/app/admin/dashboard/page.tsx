@@ -8,8 +8,7 @@ import AdminDashboardClient from '@/components/admin-dashboard-client';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session')?.value;
+  const sessionToken = cookies().get('session')?.value;
 
   if (!sessionToken) {
     redirect('/admin/login');
