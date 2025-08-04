@@ -1,6 +1,6 @@
 
 
-"use client";
+'use client';
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -23,9 +23,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
 import { ThemeSwitcher } from './theme-switcher';
-import { checkAdminEmail, getSession } from '@/actions/auth';
-import { useRouter, redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
+import { checkAdminEmail } from '@/actions/auth';
 
 function LoadingOverlay({ text }: { text: string }) {
     return (
@@ -127,18 +125,6 @@ function LoginFormContent({ state }: { state: any }) {
 
 export default function AdminLoginForm() {
   const [state, formAction] = useActionState(checkAdminEmail, undefined);
-  
-    useEffect(() => {
-      async function checkSession() {
-          const cookieStore = cookies()
-          const sessionToken = cookieStore.get('session')?.value
-          const session = await getSession(sessionToken)
-          if (session?.type === 'admin') {
-              redirect('/admin/dashboard');
-          }
-      }
-      checkSession();
-    }, []);
   
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
