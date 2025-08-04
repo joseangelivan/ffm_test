@@ -185,7 +185,33 @@
         "systemConfiguration": "Configuración del Sistema",
         "interfaceDescription": "Personaliza la apariencia y el idioma de la aplicación.",
         "languageDescription": "Selecciona el idioma para la interfaz de administración.",
-        "themeDescription": "Elige entre un tema claro u oscuro para el panel."
+        "themeDescription": "Elige entre un tema claro u oscuro para el panel.",
+        "domainConfig": "Configurar Dominio",
+        "domainConfigTitle": "Configurar Dominio de la Aplicación",
+        "domainConfigDescription": "Define el dominio base que se usará para generar enlaces, como los de activación de cuenta.",
+        "domainConfigLabel": "Dominio de la Aplicación (URL Base)",
+        "extractButton": "Extraer",
+        "manageLanguages": {
+            "title": "Gestionar Idiomas",
+            "description": "Agrega o importa nuevos idiomas para la aplicación. Esta funcionalidad está en desarrollo.",
+            "addTab": "Agregar Idioma",
+            "importTab": "Importar Plantilla",
+            "addDescription": "Define un nuevo idioma y su clave (ej. 'en' para Inglés).",
+            "langName": "Nombre del Idioma",
+            "langKey": "Clave del Idioma",
+            "importDescription": "Sube un archivo JSON con las traducciones.",
+            "templateFile": "Archivo de Plantilla (.json)",
+            "saveButton": "Guardar Idioma"
+        },
+        "manageThemes": {
+            "title": "Gestionar Temas",
+            "description": "Agrega, edita o importa nuevos temas para la aplicación. Esta funcionalidad está en desarrollo.",
+            "availableThemes": "Temas Disponibles",
+            "createButton": "Crear Nuevo Tema",
+            "editorTitle": "Editor de Tema",
+            "editorDescription": "Aquí se mostrará un editor para los colores y estilos del tema seleccionado.",
+            "editorPlaceholder": "Editor de Tema (Próximamente)"
+        }
       },
       "account": {
         "myAccount": "Mi Cuenta",
@@ -237,6 +263,22 @@
             "disableConfirmDescription": "Esto reducirá la seguridad de tu cuenta. ¿Estás seguro de que quieres continuar?"
         },
         "secretCopied": "Clave secreta copiada al portapapeles."
+      },
+      "smtp": {
+        "title": "Configurar SMTP",
+        "description": "Gestiona los servidores de correo para el envío de notificaciones. Arrastra para reordenar la prioridad de envío.",
+        "noConfigs": "No hay configuraciones SMTP.",
+        "addButton": "Agregar Configuración",
+        "editTitle": "Editar Configuración SMTP",
+        "newTitle": "Nueva Configuración SMTP",
+        "nameLabel": "Nombre",
+        "hostLabel": "Host SMTP",
+        "portLabel": "Puerto",
+        "userLabel": "Usuario (Email)",
+        "passwordLabel": "Contraseña",
+        "passwordPlaceholderEdit": "Dejar en blanco para no cambiar",
+        "secureConnectionLabel": "Usar Conexión Segura (TLS)",
+        "deleteConfirmation": "Esto eliminará permanentemente la configuración SMTP \"{name}\"."
       }
     },
     "condoDashboard": {
@@ -286,7 +328,54 @@
           "elementTypeLabel": "Tipo de Elemento",
           "selectTypePlaceholder": "Seleccionar tipo de elemento",
           "drawArea": "Dibujar Área",
-          "addElement": "Añadir Elemento"
+          "addElement": "Añadir Elemento",
+          "addTypeDialog": {
+              "title": "Agregar Nuevo Tipo de Elemento",
+              "description": "Define un nuevo tipo de elemento para usar en el mapa.",
+              "typeNameLabel": "Nombre del Tipo",
+              "typeNamePlaceholder": "Ej: Zona de Juegos",
+              "iconLabel": "Ícono del Elemento",
+              "tabs": {
+                  "collection": "Colección",
+                  "ai": "IA",
+                  "search": "Buscar",
+                  "pc": "PC",
+                  "link": "Link"
+              },
+              "collection": {
+                  "title": "Colección de Íconos",
+                  "description": "Próximamente: Busca en una colección de íconos predefinidos."
+              },
+              "ai": {
+                  "title": "Generar Ícono con IA",
+                  "description": "Describe el ícono que necesitas. La IA generará una imagen minimalista en blanco y negro.",
+                  "placeholder": "Ej: un columpio simple, una cancha de baloncesto...",
+                  "preview": "Vista Previa"
+              },
+              "search": {
+                  "title": "Buscar Ícono en Internet",
+                  "description": "Próximamente: Busca y selecciona íconos de la web."
+              },
+              "pc": {
+                  "title": "Subir desde PC",
+                  "description": "Próximamente: Sube un archivo de ícono (SVG, PNG) desde tu computadora."
+              },
+              "link": {
+                  "title": "Importar desde un Link",
+                  "description": "Próximamente: Pega un enlace directo a una imagen de ícono."
+              }
+          },
+          "manageTypesDialog": {
+              "title": "Gestionar Tipos de Elemento",
+              "description": "Agrega, edita o elimina los tipos de elementos que se pueden colocar en el mapa.",
+              "addButton": "Agregar Nuevo Tipo"
+          }
+        },
+        "elementTypes": {
+            "camera": "Cámara de Vigilancia",
+            "gatehouse": "Portería / Garita",
+            "housing_area": "Área de Vivienda",
+            "other": "Otro"
         },
         "toast": {
           "shapeDrawn": {
@@ -318,8 +407,22 @@
           "resetPassword": "Resetear contraseña",
           "delete": "Eliminar"
         },
+        "editDialog": {
+            "title": "Editar Usuario",
+            "description": "Modifica la información básica del usuario."
+        },
+        "manageDialog": {
+            "title": "Gestionar Usuario",
+            "description": "Administrar detalles y permisos para {name}.",
+            "additionalInfo": "Información Adicional",
+            "location": "Ubicación",
+            "housing": "Vivienda",
+            "phone": "Teléfono"
+        },
         "toast": {
-            "userDeleted": "Usuario eliminado con éxito."
+            "userDeleted": "Usuario eliminado con éxito.",
+            "userUpdated": "Usuario actualizado con éxito.",
+            "passwordReset": "Se ha enviado un enlace para restablecer la contraseña a {name}."
         }
       },
       "devices": {
@@ -364,10 +467,14 @@
     "common": {
         "close": "Cerrar",
         "cancel": "Cancelar",
+        "save": "Guardar",
         "saveChanges": "Guardar Cambios",
         "you": "tú",
         "edit": "Editar",
-        "delete": "Eliminar"
+        "delete": "Eliminar",
+        "create": "Crear",
+        "default": "por defecto",
+        "areYouSure": "¿Estás seguro?"
     },
     "emails": {
         "adminFirstLogin": {

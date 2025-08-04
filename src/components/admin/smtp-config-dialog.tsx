@@ -56,45 +56,46 @@ import { LoadingOverlay } from './admin-header';
 function SmtpFormFields({ config, onCancel }: { config: SmtpConfiguration | null, onCancel: () => void}) {
     const { pending } = useFormStatus();
     const isEditMode = !!config;
+    const { t } = useLocale();
 
     return (
         <div className={cn("relative transition-opacity", pending && "opacity-50")}>
-            {pending && <LoadingOverlay text={isEditMode ? "Actualizando..." : "Creando..."} />}
+            {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating')} />}
             <DialogHeader>
-                <DialogTitle>{isEditMode ? 'Editar Configuración SMTP' : 'Nueva Configuración SMTP'}</DialogTitle>
+                <DialogTitle>{isEditMode ? t('adminDashboard.smtp.editTitle') : t('adminDashboard.smtp.newTitle')}</DialogTitle>
             </DialogHeader>
             <input type="hidden" name="id" value={config?.id || ''} />
             <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                    <Label htmlFor="name">Nombre</Label>
+                    <Label htmlFor="name">{t('adminDashboard.smtp.nameLabel')}</Label>
                     <Input id="name" name="name" defaultValue={config?.name} placeholder="Mi Cuenta de Gmail" required disabled={pending}/>
                 </div>
                     <div className="grid grid-cols-3 gap-4">
                     <div className="grid gap-2 col-span-2">
-                        <Label htmlFor="host">Host SMTP</Label>
+                        <Label htmlFor="host">{t('adminDashboard.smtp.hostLabel')}</Label>
                         <Input id="host" name="host" defaultValue={config?.host} placeholder="smtp.gmail.com" required disabled={pending}/>
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="port">Puerto</Label>
+                        <Label htmlFor="port">{t('adminDashboard.smtp.portLabel')}</Label>
                         <Input id="port" name="port" type="number" defaultValue={config?.port} placeholder="587" required disabled={pending}/>
                     </div>
                 </div>
                 <div className="grid gap-2">
-                    <Label htmlFor="auth_user">Usuario (Email)</Label>
+                    <Label htmlFor="auth_user">{t('adminDashboard.smtp.userLabel')}</Label>
                     <Input id="auth_user" name="auth_user" type="email" defaultValue={config?.auth_user} placeholder="tu@email.com" required disabled={pending}/>
                 </div>
                 <div className="grid gap-2">
-                    <Label htmlFor="auth_pass">Contraseña</Label>
-                    <Input id="auth_pass" name="auth_pass" type="password" placeholder={isEditMode ? 'Dejar en blanco para no cambiar' : '••••••••'} required={!isEditMode} disabled={pending}/>
+                    <Label htmlFor="auth_pass">{t('adminDashboard.smtp.passwordLabel')}</Label>
+                    <Input id="auth_pass" name="auth_pass" type="password" placeholder={isEditMode ? t('adminDashboard.smtp.passwordPlaceholderEdit') : '••••••••'} required={!isEditMode} disabled={pending}/>
                 </div>
                     <div className="flex items-center space-x-2">
                     <Switch id="secure" name="secure" defaultChecked={config?.secure ?? true} disabled={pending}/>
-                    <Label htmlFor="secure">Usar Conexión Segura (TLS)</Label>
+                    <Label htmlFor="secure">{t('adminDashboard.smtp.secureConnectionLabel')}</Label>
                 </div>
             </div>
             <DialogFooter>
-                <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>Cancelar</Button>
-                <Button type="submit" disabled={pending}>{isEditMode ? 'Guardar Cambios' : 'Crear'}</Button>
+                <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
+                <Button type="submit" disabled={pending}>{isEditMode ? t('common.saveChanges') : t('common.create')}</Button>
             </DialogFooter>
         </div>
     )
@@ -227,16 +228,16 @@ export function SmtpConfigDialog() {
         <DialogTrigger asChild>
             <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                 <Mailbox className="mr-2 h-4 w-4" />
-                <span>Configurar SMTP</span>
+                <span>{t('adminDashboard.smtp.title')}</span>
             </DropdownMenuItem>
         </DialogTrigger>
         <DialogContent className="sm:max-w-2xl">
             <div className={cn("relative", (isSubmitting && !testingId) && "opacity-50")}>
                 {isSubmitting && !testingId && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
                 <DialogHeader>
-                    <DialogTitle>Configurar envío de correo (SMTP)</DialogTitle>
+                    <DialogTitle>{t('adminDashboard.smtp.title')}</DialogTitle>
                     <DialogDescription>
-                        Gestiona los servidores de correo para el envío de notificaciones. Arrastra para reordenar la prioridad de envío.
+                        {t('adminDashboard.smtp.description')}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -244,7 +245,7 @@ export function SmtpConfigDialog() {
                     {isLoading ? (
                         Array.from({length: 2}).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
                     ) : configs.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-4">No hay configuraciones SMTP.</p>
+                        <p className="text-center text-muted-foreground py-4">{t('adminDashboard.smtp.noConfigs')}</p>
                     ) : (
                         configs.map((config, index) => (
                             <div 
@@ -271,12 +272,12 @@ export function SmtpConfigDialog() {
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
-                                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                            <AlertDialogDescription>Esto eliminará permanentemente la configuración SMTP "{config.name}".</AlertDialogDescription>
+                                            <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
+                                            <AlertDialogDescription>{t('adminDashboard.smtp.deleteConfirmation', { name: config.name })}</AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDelete(config.id)} className={buttonVariants({variant: 'destructive'})}>Eliminar</AlertDialogAction>
+                                            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDelete(config.id)} className={buttonVariants({variant: 'destructive'})}>{t('common.delete')}</AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
@@ -286,9 +287,9 @@ export function SmtpConfigDialog() {
                 </div>
                 
                 <DialogFooter className="sm:justify-between">
-                    <DialogClose asChild><Button variant="outline">Cerrar</Button></DialogClose>
+                    <DialogClose asChild><Button variant="outline">{t('common.close')}</Button></DialogClose>
                     <Button onClick={() => { setEditingConfig(null); setIsFormOpen(true); }}>
-                        <PlusCircle className="mr-2 h-4 w-4"/>Agregar Configuración
+                        <PlusCircle className="mr-2 h-4 w-4"/>{t('adminDashboard.smtp.addButton')}
                     </Button>
                 </DialogFooter>
             </div>
@@ -301,5 +302,3 @@ export function SmtpConfigDialog() {
     </>
   );
 }
-
-    

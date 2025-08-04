@@ -101,8 +101,8 @@ export default function ManageDevicesTab({ initialDevices }: { initialDevices: D
                         {devices.map(device => (
                              <TableRow key={device.id}>
                                 <TableCell className="font-medium">{device.name}</TableCell>
-                                <TableCell>{device.type}</TableCell>
-                                <TableCell>{device.status}</TableCell>
+                                <TableCell>{t(`deviceTypes.${device.type}`)}</TableCell>
+                                <TableCell>{t(`deviceStatus.${device.status.toLowerCase()}`)}</TableCell>
                                 <TableCell className="text-right">
                                     <Dialog>
                                         <DropdownMenu>

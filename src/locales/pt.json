@@ -185,7 +185,33 @@
         "systemConfiguration": "Configuração do Sistema",
         "interfaceDescription": "Personalize a aparência e o idioma do aplicativo.",
         "languageDescription": "Selecione o idioma para a interface de administração.",
-        "themeDescription": "Escolha entre um tema claro ou escuro para o painel."
+        "themeDescription": "Escolha entre um tema claro ou escuro para o painel.",
+        "domainConfig": "Configurar Domínio",
+        "domainConfigTitle": "Configurar Domínio da Aplicação",
+        "domainConfigDescription": "Define o domínio base que será usado para gerar links, como os de ativação de conta.",
+        "domainConfigLabel": "Domínio da Aplicação (URL Base)",
+        "extractButton": "Extrair",
+        "manageLanguages": {
+            "title": "Gerenciar Idiomas",
+            "description": "Adicione ou importe novos idiomas para o aplicativo. Esta funcionalidade está em desenvolvimento.",
+            "addTab": "Adicionar Idioma",
+            "importTab": "Importar Modelo",
+            "addDescription": "Defina um novo idioma e sua chave (ex. 'en' para Inglês).",
+            "langName": "Nome do Idioma",
+            "langKey": "Chave do Idioma",
+            "importDescription": "Faça o upload de um arquivo JSON com as traduções.",
+            "templateFile": "Arquivo de Modelo (.json)",
+            "saveButton": "Salvar Idioma"
+        },
+        "manageThemes": {
+            "title": "Gerenciar Temas",
+            "description": "Adicione, edite ou importe novos temas para o aplicativo. Esta funcionalidade está em desenvolvimento.",
+            "availableThemes": "Temas Disponíveis",
+            "createButton": "Criar Novo Tema",
+            "editorTitle": "Editor de Tema",
+            "editorDescription": "Aqui será exibido um editor para as cores e estilos do tema selecionado.",
+            "editorPlaceholder": "Editor de Tema (Em breve)"
+        }
       },
        "account": {
         "myAccount": "Minha Conta",
@@ -237,6 +263,22 @@
             "disableConfirmDescription": "Isso reduzirá a segurança da sua conta. Tem certeza de que deseja continuar?"
         },
         "secretCopied": "Chave secreta copiada para a área de transferência."
+      },
+      "smtp": {
+          "title": "Configurar SMTP",
+          "description": "Gerencie os servidores de e-mail para o envio de notificações. Arraste para reordenar a prioridade de envio.",
+          "noConfigs": "Não há configurações SMTP.",
+          "addButton": "Adicionar Configuração",
+          "editTitle": "Editar Configuração SMTP",
+          "newTitle": "Nova Configuração SMTP",
+          "nameLabel": "Nome",
+          "hostLabel": "Host SMTP",
+          "portLabel": "Porta",
+          "userLabel": "Usuário (Email)",
+          "passwordLabel": "Senha",
+          "passwordPlaceholderEdit": "Deixe em branco para não alterar",
+          "secureConnectionLabel": "Usar Conexão Segura (TLS)",
+          "deleteConfirmation": "Isso excluirá permanentemente a configuração SMTP \"{name}\"."
       }
     },
     "condoDashboard": {
@@ -281,7 +323,54 @@
             "elementTypeLabel": "Tipo de Elemento",
             "selectTypePlaceholder": "Selecionar tipo de elemento",
             "drawArea": "Desenhar Área",
-            "addElement": "Adicionar Elemento"
+            "addElement": "Adicionar Elemento",
+            "addTypeDialog": {
+                "title": "Adicionar Novo Tipo de Elemento",
+                "description": "Defina um novo tipo de elemento para usar no mapa.",
+                "typeNameLabel": "Nome do Tipo",
+                "typeNamePlaceholder": "Ex: Playground",
+                "iconLabel": "Ícone do Elemento",
+                "tabs": {
+                    "collection": "Coleção",
+                    "ai": "IA",
+                    "search": "Buscar",
+                    "pc": "PC",
+                    "link": "Link"
+                },
+                "collection": {
+                    "title": "Coleção de Ícones",
+                    "description": "Em breve: Busque em uma coleção de ícones predefinidos."
+                },
+                "ai": {
+                    "title": "Gerar Ícone com IA",
+                    "description": "Descreva o ícone que você precisa. A IA irá gerar uma imagem minimalista em preto e branco.",
+                    "placeholder": "Ex: um balanço simples, uma quadra de basquete...",
+                    "preview": "Pré-visualização"
+                },
+                "search": {
+                    "title": "Buscar Ícone na Internet",
+                    "description": "Em breve: Busque e selecione ícones da web."
+                },
+                "pc": {
+                    "title": "Carregar do PC",
+                    "description": "Em breve: Carregue um arquivo de ícone (SVG, PNG) do seu computador."
+                },
+                "link": {
+                    "title": "Importar de um Link",
+                    "description": "Em breve: Cole um link direto para uma imagem de ícone."
+                }
+            },
+            "manageTypesDialog": {
+                "title": "Gerenciar Tipos de Elemento",
+                "description": "Adicione, edite ou exclua os tipos de elementos que podem ser colocados no mapa.",
+                "addButton": "Adicionar Novo Tipo"
+            }
+        },
+        "elementTypes": {
+            "camera": "Câmera de Vigilância",
+            "gatehouse": "Portaria / Guarita",
+            "housing_area": "Área de Moradia",
+            "other": "Outro"
         },
         "toast": {
             "shapeDrawn": {
@@ -313,8 +402,22 @@
           "resetPassword": "Resetar senha",
           "delete": "Excluir"
         },
+        "editDialog": {
+            "title": "Editar Usuário",
+            "description": "Modifique as informações básicas do usuário."
+        },
+        "manageDialog": {
+            "title": "Gerenciar Usuário",
+            "description": "Gerenciar detalhes e permissões para {name}.",
+            "additionalInfo": "Informações Adicionais",
+            "location": "Localização",
+            "housing": "Moradia",
+            "phone": "Telefone"
+        },
         "toast": {
-            "userDeleted": "Usuário excluído com sucesso."
+            "userDeleted": "Usuário excluído com sucesso.",
+            "userUpdated": "Usuário atualizado com sucesso.",
+            "passwordReset": "Um link para redefinir a senha foi enviado para {name}."
         }
       },
       "devices": {
@@ -359,10 +462,14 @@
      "common": {
         "close": "Fechar",
         "cancel": "Cancelar",
+        "save": "Salvar",
         "saveChanges": "Salvar Alterações",
         "you": "você",
         "edit": "Editar",
-        "delete": "Excluir"
+        "delete": "Excluir",
+        "create": "Criar",
+        "default": "padrão",
+        "areYouSure": "Você tem certeza?"
     },
     "emails": {
         "adminFirstLogin": {

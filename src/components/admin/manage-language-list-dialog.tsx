@@ -15,33 +15,35 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlusCircle } from 'lucide-react';
+import { useLocale } from '@/lib/i18n';
 
 export function ManageLanguageListDialog() {
+    const { t } = useLocale();
     // This is a placeholder for future functionality
     return (
         <DialogContent className="sm:max-w-xl">
             <DialogHeader>
-                <DialogTitle>Gestionar Idiomas</DialogTitle>
+                <DialogTitle>{t('adminDashboard.settingsGroups.manageLanguages.title')}</DialogTitle>
                 <DialogDescription>
-                    Agrega o importa nuevos idiomas para la aplicación. Esta funcionalidad está en desarrollo.
+                    {t('adminDashboard.settingsGroups.manageLanguages.description')}
                 </DialogDescription>
             </DialogHeader>
 
             <Tabs defaultValue="add">
                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="add">Agregar Idioma</TabsTrigger>
-                    <TabsTrigger value="import">Importar Plantilla</TabsTrigger>
+                    <TabsTrigger value="add">{t('adminDashboard.settingsGroups.manageLanguages.addTab')}</TabsTrigger>
+                    <TabsTrigger value="import">{t('adminDashboard.settingsGroups.manageLanguages.importTab')}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="add" className="pt-4">
                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">Define un nuevo idioma y su clave (ej. "en" para Inglés).</p>
+                        <p className="text-sm text-muted-foreground">{t('adminDashboard.settingsGroups.manageLanguages.addDescription')}</p>
                         <div className="grid grid-cols-2 gap-4">
                              <div>
-                                <Label htmlFor="lang-name">Nombre del Idioma</Label>
+                                <Label htmlFor="lang-name">{t('adminDashboard.settingsGroups.manageLanguages.langName')}</Label>
                                 <Input id="lang-name" placeholder="English" disabled />
                             </div>
                             <div>
-                                <Label htmlFor="lang-key">Clave del Idioma</Label>
+                                <Label htmlFor="lang-key">{t('adminDashboard.settingsGroups.manageLanguages.langKey')}</Label>
                                 <Input id="lang-key" placeholder="en" disabled/>
                             </div>
                         </div>
@@ -49,9 +51,9 @@ export function ManageLanguageListDialog() {
                 </TabsContent>
                  <TabsContent value="import" className="pt-4">
                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">Sube un archivo JSON con las traducciones.</p>
+                        <p className="text-sm text-muted-foreground">{t('adminDashboard.settingsGroups.manageLanguages.importDescription')}</p>
                         <div>
-                            <Label htmlFor="import-file">Archivo de Plantilla (.json)</Label>
+                            <Label htmlFor="import-file">{t('adminDashboard.settingsGroups.manageLanguages.templateFile')}</Label>
                             <Input id="import-file" type="file" disabled/>
                         </div>
                     </div>
@@ -60,11 +62,11 @@ export function ManageLanguageListDialog() {
             
             <DialogFooter className="pt-4">
                 <DialogClose asChild>
-                    <Button type="button" variant="outline">Cerrar</Button>
+                    <Button type="button" variant="outline">{t('common.close')}</Button>
                 </DialogClose>
                 <Button type="button" disabled>
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Guardar Idioma
+                    {t('adminDashboard.settingsGroups.manageLanguages.saveButton')}
                 </Button>
             </DialogFooter>
         </DialogContent>

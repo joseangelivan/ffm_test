@@ -90,7 +90,7 @@ export default function ManageUsersTab({ initialUsers }: { initialUsers: User[] 
         setUsers(users.map(u => u.id === selectedUser.id ? { ...u, ...editedUser } as User : u));
         toast({
             title: t('toast.successTitle'),
-            description: "Usuario actualizado con éxito."
+            description: t('condoDashboard.users.toast.userUpdated')
         });
         setIsEditDialogOpen(false);
         setIsManageDialogOpen(false);
@@ -108,7 +108,7 @@ export default function ManageUsersTab({ initialUsers }: { initialUsers: User[] 
     const handleResetPassword = (userName: string) => {
         toast({
             title: t('toast.successTitle'),
-            description: `Se ha enviado un enlace para restablecer la contraseña a ${userName}.`
+            description: t('condoDashboard.users.toast.passwordReset', { name: userName })
         });
     }
 
@@ -152,10 +152,10 @@ export default function ManageUsersTab({ initialUsers }: { initialUsers: User[] 
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
                                             <DropdownMenuItem onSelect={() => handleOpenManageDialog(user)}>
-                                                <Settings className="h-4 w-4 mr-2"/>Gestionar
+                                                <Settings className="h-4 w-4 mr-2"/>{t('adminDashboard.table.manage')}
                                             </DropdownMenuItem>
                                             <DropdownMenuItem onSelect={() => handleOpenEditDialog(user)}>
-                                                <Edit className="h-4 w-4 mr-2"/>Editar
+                                                <Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem onClick={() => handleResetPassword(user.name)}><KeyRound className="h-4 w-4 mr-2"/>{t('condoDashboard.users.table.resetPassword')}</DropdownMenuItem>
@@ -173,25 +173,25 @@ export default function ManageUsersTab({ initialUsers }: { initialUsers: User[] 
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Editar Usuario</DialogTitle>
+                        <DialogTitle>{t('condoDashboard.users.editDialog.title')}</DialogTitle>
                         <DialogDescription>
-                            Modifica la información básica del usuario.
+                            {t('condoDashboard.users.editDialog.description')}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="name">Nombre</Label>
+                            <Label htmlFor="name">{t('condoDashboard.users.table.name')}</Label>
                             <Input id="name" value={editedUser.name || ''} onChange={(e) => setEditedUser({...editedUser, name: e.target.value})} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="email">Email</Label>
+                            <Label htmlFor="email">{t('condoDashboard.users.table.email')}</Label>
                             <Input id="email" type="email" value={editedUser.email || ''} onChange={(e) => setEditedUser({...editedUser, email: e.target.value})} />
                         </div>
                          <div className="grid gap-2">
-                            <Label htmlFor="type">Tipo de Usuario</Label>
+                            <Label htmlFor="type">{t('condoDashboard.users.table.type')}</Label>
                             <Select value={editedUser.type || ''} onValueChange={(value) => setEditedUser({...editedUser, type: value})}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar tipo" />
+                                    <SelectValue placeholder={t('login.selectUserType')} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="Residente">{t('userTypes.residente')}</SelectItem>
@@ -201,8 +201,8 @@ export default function ManageUsersTab({ initialUsers }: { initialUsers: User[] 
                         </div>
                     </div>
                     <DialogFooter>
-                        <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-                        <Button onClick={handleSaveChanges}>Guardar Cambios</Button>
+                        <DialogClose asChild><Button variant="outline">{t('common.cancel')}</Button></DialogClose>
+                        <Button onClick={handleSaveChanges}>{t('common.saveChanges')}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -211,29 +211,29 @@ export default function ManageUsersTab({ initialUsers }: { initialUsers: User[] 
             <Dialog open={isManageDialogOpen} onOpenChange={setIsManageDialogOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Gestionar Usuario</DialogTitle>
+                        <DialogTitle>{t('condoDashboard.users.manageDialog.title')}</DialogTitle>
                         <DialogDescription>
-                            Administrar detalles y permisos para {selectedUser?.name}.
+                            {t('condoDashboard.users.manageDialog.description', { name: selectedUser?.name || '' })}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                          <div className="space-y-4">
-                            <h3 className="font-semibold text-lg">Información Adicional</h3>
+                            <h3 className="font-semibold text-lg">{t('condoDashboard.users.manageDialog.additionalInfo')}</h3>
                             <div className="grid gap-2">
-                                <Label htmlFor="location">Ubicación</Label>
+                                <Label htmlFor="location">{t('condoDashboard.users.manageDialog.location')}</Label>
                                 <Input id="location" value={editedUser.location || ''} onChange={(e) => setEditedUser({...editedUser, location: e.target.value})} placeholder="Torre A, Sección 2" />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="housing">Vivienda</Label>
+                                <Label htmlFor="housing">{t('condoDashboard.users.manageDialog.housing')}</Label>
                                 <Input id="housing" value={editedUser.housing || ''} onChange={(e) => setEditedUser({...editedUser, housing: e.target.value})} placeholder="Apto 101" />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="phone">Teléfono</Label>
+                                <Label htmlFor="phone">{t('condoDashboard.users.manageDialog.phone')}</Label>
                                 <Input id="phone" value={editedUser.phone || ''} onChange={(e) => setEditedUser({...editedUser, phone: e.target.value})} placeholder="+55 11 98765-4321" />
                             </div>
                          </div>
                          <div className="space-y-4 pt-4 mt-4 border-t">
-                            <h3 className="font-semibold text-lg">Acciones</h3>
+                            <h3 className="font-semibold text-lg">{t('condoDashboard.users.table.actions')}</h3>
                              <Button variant="outline" className="w-full justify-start" onClick={() => selectedUser && handleResetPassword(selectedUser.name)}>
                                 <KeyRound className="h-4 w-4 mr-2"/>
                                 {t('condoDashboard.users.table.resetPassword')}
@@ -241,8 +241,8 @@ export default function ManageUsersTab({ initialUsers }: { initialUsers: User[] 
                          </div>
                     </div>
                     <DialogFooter>
-                        <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-                        <Button onClick={handleSaveChanges}>Guardar Cambios</Button>
+                        <DialogClose asChild><Button variant="outline">{t('common.cancel')}</Button></DialogClose>
+                        <Button onClick={handleSaveChanges}>{t('common.saveChanges')}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
