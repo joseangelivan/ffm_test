@@ -6,8 +6,7 @@ import { verifySessionIntegrity, getSettings } from '@/actions/admin';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
 
 export default async function AdminDashboardPage() {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session')?.value;
+  const sessionToken = cookies().get('session')?.value;
   const session = await getSession(sessionToken);
 
   if (!session || session.type !== 'admin') {
