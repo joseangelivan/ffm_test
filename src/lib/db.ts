@@ -37,7 +37,8 @@ async function runMigrations(client: Pool): Promise<boolean> {
             'residents/base_schema.sql',
             'gatekeepers/base_schema.sql',
             'sessions/base_schema.sql',
-            'settings/base_schema.sql'
+            'settings/base_schema.sql',
+            'themes/base_schema.sql',
         ];
         
         for (const schemaFile of schemasToApply) {
@@ -80,19 +81,27 @@ async function runMigrations(client: Pool): Promise<boolean> {
         // Seed default admin user
         console.log('[runMigrations] Checking for default admin user...');
         const adminEmail = 'angelivan34@gmail.com';
-        const adminExists = await dbClient.query('SELECT 1 FROM admins WHERE email = $1', [adminEmail]);
-        if (adminExists.rows.length === 0) {
+        const correctPasswordHash = '$2b$10$lUgyS5nAPJj3q.eJpB4iZeE6L4AnHdrHz8e3g.Aco8aI2M9i2kU/O'; // Hash for 'adminivan123'
+        
+        const adminResult = await dbClient.query('SELECT id, password_hash FROM admins WHERE email = $1', [adminEmail]);
+
+        if (adminResult.rows.length === 0) {
             console.log('[runMigrations] Default admin not found. Seeding...');
-            const password = 'adminivan123';
-            // Correct hash for 'adminivan123'
-            const hashedPassword = '$2b$10$lUgyS5nAPJj3q.eJpB4iZeE6L4AnHdrHz8e3g.Aco8aI2M9i2kU/O';
             await dbClient.query(
                 "INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, TRUE)",
-                ['José Angel Iván Rubianes Silva', adminEmail, hashedPassword]
+                ['José Angel Iván Rubianes Silva', adminEmail, correctPasswordHash]
             );
             console.log('[runMigrations] Default admin user seeded successfully.');
         } else {
-            console.log('[runMigrations] Default admin user already exists.');
+            console.log('[runMigrations] Default admin user found. Verifying password hash...');
+            const currentHash = adminResult.rows[0].password_hash;
+            if (currentHash !== correctPasswordHash) {
+                console.log('[runMigrations] Incorrect password hash detected. Updating...');
+                await dbClient.query('UPDATE admins SET password_hash = $1 WHERE email = $2', [correctPasswordHash, adminEmail]);
+                console.log('[runMigrations] Default admin password hash updated successfully.');
+            } else {
+                console.log('[runMigrations] Password hash is correct. No update needed.');
+            }
         }
 
         // Seed a test condominium
