@@ -7,7 +7,7 @@ import { authenticator } from 'otplib';
 import { cookies } from 'next/headers';
 
 import { getDbPool } from '@/lib/db';
-import { createSession, getSession, type SessionPayload } from '@/lib/session';
+import { createSession, getSession as getSessionFromToken, type SessionPayload } from '@/lib/session';
 import { sendAdminFirstLoginEmail, sendEmailChangePin } from '@/lib/mailer';
 import { getThemeById, getThemes } from '@/actions/themes';
 import { getAppSetting } from '@/actions/settings';
@@ -95,9 +95,7 @@ export async function getSettings(session: SessionPayload | null): Promise<UserS
     }
 }
 
-export async function updateSettings(settings: Partial<UserSettings>): Promise<{success: boolean}> {
-    const sessionToken = cookies().get('session')?.value;
-    const session = await getSession(sessionToken);
+export async function updateSettings(settings: Partial<UserSettings>, session: SessionPayload | null): Promise<{success: boolean}> {
     if (!session) return { success: false };
 
     let client;
@@ -301,7 +299,7 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 
 export async function createAdmin(prevState: ActionState | undefined, formData: FormData): Promise<ActionState> {
     const sessionToken = cookies().get('session')?.value;
-    const session = await getSession(sessionToken);
+    const session = await getSessionFromToken(sessionToken);
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
     }
@@ -373,7 +371,7 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
 
 export async function getAdmins(): Promise<{admins?: Admin[], error?: string}> {
     const sessionToken = cookies().get('session')?.value;
-    const session = await getSession(sessionToken);
+    const session = await getSessionFromToken(sessionToken);
     if (!session || session.type !== 'admin') {
         return { error: "No autorizado." };
     }
@@ -393,7 +391,7 @@ export async function getAdmins(): Promise<{admins?: Admin[], error?: string}> {
 
 export async function updateAdmin(prevState: ActionState | undefined, formData: FormData): Promise<ActionState> {
     const sessionToken = cookies().get('session')?.value;
-    const session = await getSession(sessionToken);
+    const session = await getSessionFromToken(sessionToken);
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
     }
@@ -437,7 +435,7 @@ export async function updateAdmin(prevState: ActionState | undefined, formData: 
 
 export async function deleteAdmin(id: string): Promise<ActionState> {
     const sessionToken = cookies().get('session')?.value;
-    const session = await getSession(sessionToken);
+    const session = await getSessionFromToken(sessionToken);
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
     }
@@ -474,7 +472,7 @@ function generateVerificationPin(): string {
 
 export async function requestEmailChange(newEmail: string): Promise<ActionState> {
     const sessionToken = cookies().get('session')?.value;
-    const session = await getSession(sessionToken);
+    const session = await getSessionFromToken(sessionToken);
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -512,7 +510,7 @@ export async function requestEmailChange(newEmail: string): Promise<ActionState>
 
 export async function verifyAdminEmailChangePin(newEmail: string, pin: string): Promise<ActionState> {
     const sessionToken = cookies().get('session')?.value;
-    const session = await getSession(sessionToken);
+    const session = await getSessionFromToken(sessionToken);
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -548,7 +546,7 @@ export async function verifyAdminEmailChangePin(newEmail: string, pin: string): 
 
 export async function updateAdminAccount(prevState: any, formData: FormData): Promise<ActionState> {
     const sessionToken = cookies().get('session')?.value;
-    const session = await getSession(sessionToken);
+    const session = await getSessionFromToken(sessionToken);
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -667,7 +665,7 @@ export async function verifySessionIntegrity(session: SessionPayload): Promise<b
 
 export async function generateTotpSecret(email: string): Promise<ActionState> {
     const sessionToken = cookies().get('session')?.value;
-    const session = await getSession(sessionToken);
+    const session = await getSessionFromToken(sessionToken);
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -679,7 +677,7 @@ export async function generateTotpSecret(email: string): Promise<ActionState> {
 
 export async function enableTotp(secret: string, token: string): Promise<ActionState> {
     const sessionToken = cookies().get('session')?.value;
-    const session = await getSession(sessionToken);
+    const session = await getSessionFromToken(sessionToken);
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -751,7 +749,7 @@ export async function verifyTotp(prevState: any, formData: FormData): Promise<Au
 
 export async function hasTotpEnabled(): Promise<{enabled: boolean}> {
     const sessionToken = cookies().get('session')?.value;
-    const session = await getSession(sessionToken);
+    const session = await getSessionFromToken(sessionToken);
     if (!session) return { enabled: false };
     
     let client;
@@ -770,7 +768,7 @@ export async function hasTotpEnabled(): Promise<{enabled: boolean}> {
 
 export async function disableTotp(): Promise<ActionState> {
     const sessionToken = cookies().get('session')?.value;
-    const session = await getSession(sessionToken);
+    const session = await getSessionFromToken(sessionToken);
     if (!session) return { success: false, message: "No autorizado." };
 
     let client;

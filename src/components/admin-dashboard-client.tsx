@@ -82,7 +82,7 @@ export const useAdminDashboard = () => {
 
 type DashboardState = {
     session: SessionPayload;
-    initialSettings: UserSettings | null;
+    initialSettings: UserSettings;
 };
 
 
@@ -134,26 +134,13 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
   const handleSetTheme = useCallback(async (newThemeId: string) => {
     setTheme(newThemeId);
     const updatedSettings = { ...initialSettings, theme: newThemeId };
-    // We cast to any because initialSettings can be null, but at this point we know we have settings.
     const themeData = await getActiveTheme(updatedSettings as any);
     applyTheme(themeData, newThemeId);
-    await updateSettings({ theme: newThemeId });
-  }, [applyTheme, initialSettings]);
+    await updateSettings({ theme: newThemeId }, session);
+  }, [applyTheme, initialSettings, session]);
 
   useEffect(() => {
-    async function validateAndApplySettings() {
-        if (!session) {
-            router.push('/admin/login');
-            return;
-        }
-
-        const isValid = await verifySessionIntegrity(session);
-        if (!isValid) {
-            await handleLogoutAction();
-            router.push('/admin/login?error=session_invalidated');
-            return;
-        }
-
+    async function applyInitialSettings() {
         if (initialSettings) {
             setLocale(initialSettings.language);
             setTheme(initialSettings.theme);
@@ -161,12 +148,12 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
             applyTheme(themeData, initialSettings.theme);
         }
     }
-    validateAndApplySettings();
-  }, [session, initialSettings, setLocale, applyTheme, router]);
+    applyInitialSettings();
+  }, [initialSettings, setLocale, applyTheme]);
 
   const handleSetLocale = async (newLocale: 'es' | 'pt') => {
       setLocale(newLocale);
-      await updateSettings({ language: newLocale });
+      await updateSettings({ language: newLocale }, session);
   }
 
   const handleAccountUpdateSuccess = useCallback((data: any) => {
