@@ -504,10 +504,13 @@
     },
     "dbInitializer": {
         "title": "Inicialização do Banco de Dados",
-        "description": "Por favor, aguarde enquanto configuramos o banco de dados para você.",
-        "loading": "Inicializando o banco de dados e executando as migrações...",
-        "successTitle": "Banco de Dados Inicializado com Sucesso!",
-        "successDescription": "Todas as tabelas foram criadas e os dados padrão foram semeados.",
-        "button": "Ir para o Login de Administrador"
+        "description": "Esta é uma ação sensível que irá reiniciar as migrações. Isso pode ser útil se houve um erro, mas também pode causar problemas se não for usado com cuidado.",
+        "loading": "Inicializando...",
+        "successTitle": "Sucesso!",
+        "successDescription": "O processo de inicialização do banco de dados foi concluído.",
+        "button": "Inicializar Banco de Dados",
+        "goBack": "Voltar para o Login de Administrador",
+        "confirmationDescription": "Isso tentará executar novamente todas as migrações do banco de dados. Esta ação geralmente é segura, mas só deve ser feita se houver suspeita de um problema com o esquema do banco de dados. Tem certeza de que deseja continuar?",
+        "confirmButton": "Sim, inicializar"
     }
   }
