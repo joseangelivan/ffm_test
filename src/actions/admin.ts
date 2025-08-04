@@ -9,6 +9,7 @@ import { getDbPool } from '@/lib/db';
 import { createSession, getCurrentSession } from '@/lib/session';
 import { sendAdminFirstLoginEmail, sendEmailChangePin } from '@/lib/mailer';
 import { getThemeById, getThemes } from '@/actions/themes';
+import { getAppSetting } from '@/actions/settings';
 
 import es from '@/locales/es.json';
 import pt from '@/locales/pt.json';
@@ -42,7 +43,6 @@ type ActionState = {
 type AuthState = {
   success: boolean;
   message: string;
-  redirectTo?: string;
 };
 
 // --- Settings ---
@@ -158,7 +158,7 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
         redirectTo = `/admin/enter-password?email=${emailParam}`;
     }
     
-    return { success: true, message: 'Redirecting...', redirectTo };
+    redirect(redirectTo);
 }
 
 export async function authenticateAdmin(prevState: any, formData: FormData): Promise<AuthState> {

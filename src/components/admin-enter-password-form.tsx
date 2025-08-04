@@ -39,6 +39,7 @@ function SubmitButton({ label }: { label: string }) {
     const { pending } = useFormStatus();
     return (
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={pending}>
+            {pending && <Loader className="h-4 w-4 animate-spin" />}
             {label}
         </Button>
     );
@@ -61,7 +62,7 @@ function EnterPasswordFormContent({ email, state }: { email: string, state: any 
     }, []);
 
     return (
-        <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+        <div className={cn("relative transition-opacity", pending && "opacity-50 pointer-events-none")}>
             {pending && <LoadingOverlay text={t('login.loggingIn')} />}
             <CardHeader className="space-y-4 text-center">
                 <div className="flex justify-center">
