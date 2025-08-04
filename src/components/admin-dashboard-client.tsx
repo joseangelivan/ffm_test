@@ -99,6 +99,39 @@ export default function AdminDashboardClient() {
   const [theme, setTheme] = useState('light');
   const router = useRouter();
 
+  const applyTheme = useCallback(async (themeId: string) => {
+      if (themeId === 'light' || themeId === 'dark') {
+          document.documentElement.classList.toggle('dark', themeId === 'dark');
+          // Clear custom properties if any
+          const root = document.documentElement;
+          const customThemeVars = ['--background','--foreground','--card','--card-foreground','--popover','--popover-foreground','--primary','--primary-foreground','--secondary','--secondary-foreground','--muted','--muted-foreground','--accent','--accent-foreground','--destructive','--destructive-foreground','--border','--input','--ring'];
+          for (const v of customThemeVars) {
+              root.style.removeProperty(`${v}-custom`);
+          }
+      } else {
+          const themes = await getThemes();
+          const customTheme = themes.find(t => t.id === themeId);
+          if(customTheme) {
+              const root = document.documentElement;
+              for (const [key, value] of Object.entries(customTheme)) {
+                  if (key.endsWith('_hsl')) {
+                      const cssVar = `--${key.replace('_hsl', '').replace(/_/g, '-')}-custom`;
+                      root.style.setProperty(cssVar, value);
+                  }
+              }
+              document.documentElement.classList.add('dark'); // or light depending on base
+          } else {
+               document.documentElement.classList.remove('dark');
+          }
+      }
+  }, []);
+
+  const handleSetTheme = useCallback(async (newThemeId: string) => {
+    setTheme(newThemeId);
+    applyTheme(newThemeId);
+    await updateSettings({ theme: newThemeId });
+  }, [applyTheme]);
+
   useEffect(() => {
     async function loadData() {
         try {
@@ -116,45 +149,19 @@ export default function AdminDashboardClient() {
         }
     }
     loadData();
-  }, [setLocale]);
+  }, [setLocale, handleSetTheme]);
+
+  useEffect(() => {
+    // This effect handles redirection safely after the component has rendered.
+    if (!isLoading && (!dashboardState || !dashboardState.session)) {
+      router.push('/admin/login');
+    }
+  }, [isLoading, dashboardState, router]);
 
   const handleSetLocale = async (newLocale: 'es' | 'pt') => {
       setLocale(newLocale);
       await updateSettings({ language: newLocale });
   }
-
-    const applyTheme = useCallback(async (themeId: string) => {
-        if (themeId === 'light' || themeId === 'dark') {
-            document.documentElement.classList.toggle('dark', themeId === 'dark');
-            // Clear custom properties if any
-            const root = document.documentElement;
-            const customThemeVars = ['--background','--foreground','--card','--card-foreground','--popover','--popover-foreground','--primary','--primary-foreground','--secondary','--secondary-foreground','--muted','--muted-foreground','--accent','--accent-foreground','--destructive','--destructive-foreground','--border','--input','--ring'];
-            for (const v of customThemeVars) {
-                root.style.removeProperty(`${v}-custom`);
-            }
-        } else {
-            const themes = await getThemes();
-            const customTheme = themes.find(t => t.id === themeId);
-            if(customTheme) {
-                const root = document.documentElement;
-                for (const [key, value] of Object.entries(customTheme)) {
-                    if (key.endsWith('_hsl')) {
-                        const cssVar = `--${key.replace('_hsl', '').replace(/_/g, '-')}-custom`;
-                        root.style.setProperty(cssVar, value);
-                    }
-                }
-                document.documentElement.classList.add('dark'); // or light depending on base
-            } else {
-                 document.documentElement.classList.remove('dark');
-            }
-        }
-    }, []);
-
-  const handleSetTheme = useCallback(async (newThemeId: string) => {
-    setTheme(newThemeId);
-    applyTheme(newThemeId);
-    await updateSettings({ theme: newThemeId });
-  }, [applyTheme]);
 
   const handleAccountUpdateSuccess = useCallback((data: any) => {
     if (data?.needsLogout) {
@@ -167,9 +174,8 @@ export default function AdminDashboardClient() {
   }
   
   if (!dashboardState || !dashboardState.session) {
-      // This should ideally not be reached as getDashboardData redirects.
-      // But as a fallback, we can redirect here as well.
-      router.push('/admin/login');
+      // This fallback is now handled by the useEffect hook.
+      // We render a loading state to prevent the rest of the component from rendering.
       return <LoadingOverlay text="Redirigiendo..." />;
   }
 
