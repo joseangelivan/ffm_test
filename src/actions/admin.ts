@@ -215,7 +215,7 @@ export async function authenticateAdmin(prevState: any, formData: FormData): Pro
         const sessionResult = await createSession(admin.id, 'admin', {
             email: admin.email,
             name: admin.name,
-            canCreateAdmins: admin.can_create_admins,
+            canCreateAdmins: !!admin.can_create_admins, // Ensure it's a boolean
         });
 
         if(!sessionResult.success) {
@@ -644,7 +644,10 @@ export async function verifySessionIntegrity(session: SessionPayload): Promise<b
 
         const dbAdmin = result.rows[0];
         
-        if (session.name !== dbAdmin.name || session.email !== dbAdmin.email || session.canCreateAdmins !== dbAdmin.can_create_admins) {
+        // Ensure consistent boolean comparison
+        const dbCanCreateAdmins = !!dbAdmin.can_create_admins;
+
+        if (session.name !== dbAdmin.name || session.email !== dbAdmin.email || session.canCreateAdmins !== dbCanCreateAdmins) {
             return false;
         }
 
