@@ -637,14 +637,14 @@ export async function verifySessionIntegrity(session: SessionPayload): Promise<b
         const pool = await getDbPool();
         client = await pool.connect();
         
-        const result = await client.query('SELECT name, email FROM admins WHERE id = $1', [session.id]);
+        const result = await client.query('SELECT name, email, can_create_admins FROM admins WHERE id = $1', [session.id]);
         if (result.rows.length === 0) {
             return false;
         }
 
         const dbAdmin = result.rows[0];
         
-        if (session.name !== dbAdmin.name || session.email !== dbAdmin.email) {
+        if (session.name !== dbAdmin.name || session.email !== dbAdmin.email || session.canCreateAdmins !== dbAdmin.can_create_admins) {
             return false;
         }
 
@@ -815,6 +815,7 @@ export async function getActiveTheme() {
 export async function getDashboardData() {
     const sessionToken = cookies().get('session')?.value;
     const session = await getSession(sessionToken);
+
     if (!session) {
         redirect('/admin/login');
     }
