@@ -32,14 +32,7 @@
             "title": "Tema",
             "light": "Claro",
             "dark": "Escuro"
-        },
-        "mapTitle": "Mapa ao Vivo",
-        "noDeviceSelected": "Nenhum dispositivo selecionado",
-        "mapDescription": "Localização em tempo real do seu dispositivo selecionado.",
-        "coords": "Coords",
-        "myDevices": "Meus Dispositivos",
-        "myDevicesDescription": "Gerencie e rastreie seus dispositivos registrados.",
-        "addDevice": "Adicionar Dispositivo"
+        }
     },
     "addDeviceDialog": {
       "title": "Registrar um Novo Dispositivo",
@@ -190,7 +183,9 @@
       "settingsGroups": {
         "interface": "Interface",
         "systemConfiguration": "Configuração do Sistema",
-        "interfaceDescription": "Personalize a aparência e o idioma do aplicativo."
+        "interfaceDescription": "Personalize a aparência e o idioma do aplicativo.",
+        "languageDescription": "Selecione o idioma para a interface de administração.",
+        "themeDescription": "Escolha entre um tema claro ou escuro para o painel."
       },
        "account": {
         "myAccount": "Minha Conta",
@@ -384,7 +379,7 @@
             "title": "Verifique seu novo e-mail",
             "hello": "Olá",
             "intro": "Você solicitou a alteração do seu e-mail na Follow For Me para este endereço.",
-            "pinPrompt": "Para confirmar a alteração, use o seguinte PIN de verificação:",
+            "pinPrompt": "Para confirmar la alteração, use o seguinte PIN de verificação:",
             "expiration": "Este PIN expirará em 10 minutos.",
             "thanks": "A Equipe Follow For Me"
         }
@@ -401,6 +396,3 @@
         "backToLogin": "Voltar para o login"
     }
   }
-
-
-

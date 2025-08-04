@@ -11,7 +11,7 @@ import {
   DialogTrigger,
   DialogClose
 } from '@/components/ui/dialog';
-import { DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useLocale } from '@/lib/i18n';
 import { Palette } from 'lucide-react';
@@ -24,21 +24,12 @@ export function ManageInterfaceDialog() {
 
     return (
         <Dialog>
-            <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
+             <DialogTrigger asChild>
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                     <Palette className="mr-2 h-4 w-4" />
                     <span>{t('adminDashboard.settingsGroups.interface')}</span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                    <DropdownMenuSubContent>
-                         <DialogTrigger asChild>
-                            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                {t('adminDashboard.settingsGroups.interface')}
-                            </DropdownMenuItem>
-                        </DialogTrigger>
-                    </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-            </DropdownMenuSub>
+                </DropdownMenuItem>
+            </DialogTrigger>
 
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>

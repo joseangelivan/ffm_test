@@ -32,14 +32,7 @@
             "title": "Tema",
             "light": "Claro",
             "dark": "Oscuro"
-        },
-        "mapTitle": "Mapa en Vivo",
-        "noDeviceSelected": "Ningún dispositivo seleccionado",
-        "mapDescription": "Ubicación en tiempo real de tu dispositivo seleccionado.",
-        "coords": "Coords",
-        "myDevices": "Mis Dispositivos",
-        "myDevicesDescription": "Gestiona y rastrea tus dispositivos registrados.",
-        "addDevice": "Añadir Dispositivo"
+        }
     },
     "addDeviceDialog": {
       "title": "Registrar un Nuevo Dispositivo",
@@ -190,7 +183,9 @@
       "settingsGroups": {
         "interface": "Interfaz",
         "systemConfiguration": "Configuración del Sistema",
-        "interfaceDescription": "Personaliza la apariencia y el idioma de la aplicación."
+        "interfaceDescription": "Personaliza la apariencia y el idioma de la aplicación.",
+        "languageDescription": "Selecciona el idioma para la interfaz de administración.",
+        "themeDescription": "Elige entre un tema claro u oscuro para el panel."
       },
       "account": {
         "myAccount": "Mi Cuenta",
@@ -406,6 +401,3 @@
         "backToLogin": "Volver al inicio de sesión"
     }
   }
-
-
-

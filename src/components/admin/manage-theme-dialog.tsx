@@ -1,12 +1,19 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
+import {
+    Dialog,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { useLocale } from '@/lib/i18n';
 import { useAdminDashboard } from '../admin-dashboard-client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Moon, Sun } from 'lucide-react';
+import { Settings } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ManageThemeListDialog } from './manage-theme-list-dialog';
+
 
 export function ManageThemeDialog() {
     const { t } = useLocale();
@@ -17,25 +24,28 @@ export function ManageThemeDialog() {
             <CardHeader className="p-1">
                 <CardTitle className="text-base">{t('dashboard.theme.title')}</CardTitle>
                 <CardDescription>
-                    Elige entre un tema claro u oscuro para el panel.
+                    {t('adminDashboard.settingsGroups.themeDescription')}
                 </CardDescription>
             </CardHeader>
             <CardContent className="p-1 pt-4">
-                <div className="grid grid-cols-2 gap-2">
-                    <Button 
-                        variant={theme === 'light' ? 'default' : 'outline'}
-                        onClick={() => handleSetTheme('light')}
-                    >
-                        <Sun className="mr-2 h-4 w-4" />
-                        {t('dashboard.theme.light')}
-                    </Button>
-                    <Button 
-                        variant={theme === 'dark' ? 'default' : 'outline'}
-                        onClick={() => handleSetTheme('dark')}
-                    >
-                        <Moon className="mr-2 h-4 w-4" />
-                        {t('dashboard.theme.dark')}
-                    </Button>
+                 <div className="flex items-center gap-2">
+                    <Select value={theme} onValueChange={(value) => handleSetTheme(value as 'light' | 'dark')}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar tema" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="light">{t('dashboard.theme.light')}</SelectItem>
+                            <SelectItem value="dark">{t('dashboard.theme.dark')}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Dialog>
+                        <DialogTrigger asChild>
+                             <Button variant="outline" size="icon">
+                                <Settings className="h-4 w-4"/>
+                            </Button>
+                        </DialogTrigger>
+                        <ManageThemeListDialog />
+                    </Dialog>
                 </div>
             </CardContent>
         </Card>
