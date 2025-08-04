@@ -38,7 +38,6 @@ async function runMigrations(client: Pool): Promise<boolean> {
             'gatekeepers/base_schema.sql',
             'sessions/base_schema.sql',
             'settings/base_schema.sql',
-            'themes/base_schema.sql',
         ];
         
         for (const schemaFile of schemasToApply) {
@@ -81,13 +80,14 @@ async function runMigrations(client: Pool): Promise<boolean> {
         // Seed default admin user
         console.log('[runMigrations] Checking for default admin user...');
         const adminEmail = 'angelivan34@gmail.com';
-        
-        // Generate hash dynamically instead of hardcoding
         const correctPassword = 'adminivan123';
         const dynamicallyGeneratedHash = await bcrypt.hash(correctPassword, 10);
-        console.log(`[runMigrations] Dynamically generated hash for default admin: ${dynamicallyGeneratedHash}`);
+        console.log(`--- DEBUGGING AUTHENTICATION (Migration) ---`);
+        console.log(`Plaintext password being hashed: "${correctPassword}"`);
+        console.log(`Dynamically generated hash for default admin: ${dynamicallyGeneratedHash}`);
+        console.log(`-------------------------------------------`);
 
-        const adminResult = await dbClient.query('SELECT id FROM admins WHERE email = $1', [adminEmail]);
+        const adminResult = await dbClient.query('SELECT id, password_hash FROM admins WHERE email = $1', [adminEmail]);
 
         if (adminResult.rows.length === 0) {
             console.log('[runMigrations] Default admin not found. Seeding with dynamically generated hash...');
@@ -98,7 +98,7 @@ async function runMigrations(client: Pool): Promise<boolean> {
             console.log('[runMigrations] Default admin user seeded successfully.');
         } else {
             console.log('[runMigrations] Default admin user found. Forcing password hash update to ensure consistency...');
-            await dbClient.query('UPDATE admins SET password_hash = $1 WHERE email = $2', [dynamicallyGeneratedHash, adminEmail]);
+            await dbClient.query('UPDATE admins SET password_hash = $1, updated_at = NOW() WHERE email = $2', [dynamicallyGeneratedHash, adminEmail]);
             console.log('[runMigrations] Default admin password hash updated successfully.');
         }
 
