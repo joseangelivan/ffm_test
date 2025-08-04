@@ -1,6 +1,6 @@
 
 import { Suspense } from 'react';
-import { getDbPool } from '@/lib/db';
+import { initializeDatabase } from '@/lib/db';
 import AdminLoginForm from '@/components/admin-login-form';
 import Loading from '@/app/loading';
 import { Card } from '@/components/ui/card';
@@ -45,12 +45,11 @@ export default async function AdminLoginPage({
 
     // If init_db is true, we handle it on the server.
     if (initDb) {
-        try {
-            await getDbPool(true);
+        const result = await initializeDatabase();
+        if (result.success) {
             return <InitDbMessage />;
-        } catch (error: any) {
-            // We catch the error on the server and pass only the message string to the client component.
-            return <InitDbMessage error={error.message} />;
+        } else {
+            return <InitDbMessage error={result.message} />;
         }
     }
 

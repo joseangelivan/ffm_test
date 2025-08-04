@@ -9,8 +9,12 @@ import bcrypt from 'bcrypt';
 let pool: Pool | undefined;
 let migrationsRan = false;
 
-async function runMigrations(client: Pool) {
-    if (migrationsRan) return;
+async function runMigrations(client: Pool): Promise<boolean> {
+    if (migrationsRan) {
+        console.log('[runMigrations] Migrations already ran in this instance. Skipping.');
+        return false;
+    }
+    
     console.log('[runMigrations] Starting migration process...');
     const dbClient = await client.connect();
     let currentMigrationFile = 'N/A';
@@ -48,7 +52,7 @@ async function runMigrations(client: Pool) {
             let schemaSql = await fs.readFile(sqlPath, 'utf-8');
 
             if (schemaSql.trim()) {
-                const createTypeRegex = /(CREATE TYPE "([^"]+)" AS ENUM \([^)]+\);)/gi;
+                 const createTypeRegex = /(CREATE TYPE "([^"]+)" AS ENUM \([^)]+\);)/gi;
                 let match;
                 while ((match = createTypeRegex.exec(schemaSql)) !== null) {
                     const fullMatch = match[1];
@@ -88,38 +92,55 @@ async function runMigrations(client: Pool) {
         await dbClient.query('COMMIT');
         migrationsRan = true;
         console.log('[runMigrations] Migration process completed successfully.');
+        return true;
     } catch(error: any) {
          console.error(`[runMigrations] Error during migration of file "${currentMigrationFile}". Attempting ROLLBACK.`, error);
          await dbClient.query('ROLLBACK');
+         // Re-throw the error with additional context
          throw new Error(`Migration failed on file: ${currentMigrationFile}. DB-Error: ${error.message}`);
     } finally {
         dbClient.release();
     }
 }
 
-export async function getDbPool(forceMigration = false): Promise<Pool> {
-    if (!pool) {
-        try {
-            console.log('[getDbPool] Initializing database pool...');
-            const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway';
-            
-            if (!connectionString) {
-                throw new Error("DATABASE_URL environment variable is not set. Please provide a database connection string.");
-            }
 
-            pool = new Pool({ connectionString });
+function createPool(): Pool {
+    const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway';
+    if (!connectionString) {
+        throw new Error("DATABASE_URL environment variable is not set. Please provide a database connection string.");
+    }
+    return new Pool({ connectionString });
+}
+
+export async function initializeDatabase(): Promise<{success: boolean, message?: string}> {
+    try {
+        console.log('[initializeDatabase] Ensuring pool exists for initialization...');
+        if (!pool) {
+            pool = createPool();
+        }
+        await pool.query('SELECT NOW()'); // Test connection
+        await runMigrations(pool);
+        return { success: true };
+    } catch (error: any) {
+        console.error("CRITICAL: Database initialization failed.", error);
+        pool = undefined;
+        migrationsRan = false;
+        return { success: false, message: error.message };
+    }
+}
+
+export async function getDbPool(): Promise<Pool> {
+    if (!pool) {
+        console.log('[getDbPool] Pool not found. Initializing new pool...');
+        pool = createPool();
+        try {
             await pool.query('SELECT NOW()');
-            console.log('[getDbPool] Database pool initialized successfully.');
+            console.log('[getDbPool] Database pool initialized and connection verified.');
         } catch (error) {
-            console.error("CRITICAL: Failed during database pool initialization.", error);
-            pool = undefined; 
-            throw new Error("Database initialization failed.");
+            console.error("CRITICAL: Failed to connect with new pool.", error);
+            pool = undefined;
+            throw error; // Re-throw the error to be caught by the caller
         }
     }
-    
-    if (forceMigration) {
-        await runMigrations(pool);
-    }
-    
     return pool;
 }
