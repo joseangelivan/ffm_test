@@ -81,7 +81,7 @@ async function runMigrations(client: Pool): Promise<boolean> {
         // Seed default admin user
         console.log('[runMigrations] Checking for default admin user...');
         const adminEmail = 'angelivan34@gmail.com';
-        const correctPasswordHash = '$2b$10$lUgyS5nAPJj3q.eJpB4iZeE6L4AnHdrHz8e3g.Aco8aI2M9i2kU/O'; // Hash for 'adminivan123'
+        const correctPasswordHash = '$2a$10$w4esA0t5U6TOMa1i5Sb8S.TqfYH8A850SGl6t2s1i2sYXVW/A5MhS'; // Hash for 'adminivan123'
         
         const adminResult = await dbClient.query('SELECT id, password_hash FROM admins WHERE email = $1', [adminEmail]);
 
