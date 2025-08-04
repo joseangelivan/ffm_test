@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -15,7 +16,7 @@ import {
     AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
-import { UserSettings, updateSettings, getDashboardData, getActiveTheme } from '@/actions/admin';
+import { UserSettings, getDashboardData, getActiveTheme } from '@/actions/admin';
 import { handleLogoutAction, type SessionPayload } from '@/lib/session';
 import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
@@ -150,18 +151,18 @@ export default function AdminDashboardClient() {
                     setLocale(data.initialSettings.language);
                     handleSetTheme(data.initialSettings.theme);
                 }
+            } else {
+                router.push('/admin/login');
             }
-            // The server action 'getDashboardData' now handles redirection.
-            // If we get here without data, it means something is wrong,
-            // but we avoid a client-side redirect loop.
         } catch (error) {
             console.error("Failed to load dashboard data.", error);
+            router.push('/admin/login');
         } finally {
             setIsLoading(false);
         }
     }
     loadData();
-  }, [setLocale, handleSetTheme]);
+  }, [setLocale, handleSetTheme, router]);
 
   const handleSetLocale = async (newLocale: 'es' | 'pt') => {
       setLocale(newLocale);
@@ -179,8 +180,6 @@ export default function AdminDashboardClient() {
   }
   
   if (!dashboardState?.session) {
-      // This part should ideally not be reached if the server-side redirect in getDashboardData works.
-      // It's a fallback.
       return <LoadingOverlay text="Redirecionando..." />;
   }
 

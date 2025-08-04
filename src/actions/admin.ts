@@ -815,13 +815,13 @@ export async function getDashboardData() {
     const session = await getSession(sessionToken);
 
     if (!session) {
-        redirect('/admin/login');
+        return { session: null, initialSettings: null };
     }
 
     const isSessionValid = await verifySessionIntegrity(session);
     if (!isSessionValid) {
         cookies().delete('session');
-        redirect('/admin/login?error=session_invalidated');
+        return { session: null, initialSettings: null };
     }
 
     const settings = await getSettings(session);
