@@ -162,50 +162,54 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
 }
 
 export async function authenticateAdmin(prevState: any, formData: FormData): Promise<AuthState> {
-  let client;
-  try {
-    const pool = await getDbPool();
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
 
-    if (!email || !password) {
-      return { success: false, message: "toast.adminLogin.missingCredentials" };
-    }
-    
-    client = await pool.connect();
-    const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
-    if (result.rows.length === 0) {
-      return { success: false, message: "toast.adminLogin.invalidCredentials" };
-    }
-    const admin = result.rows[0];
-    
-    const passwordFromDb = admin.password_hash;
-    const passwordFromForm = password;
+        const email = formData.get('email') as string;
+        const password = formData.get('password') as string;
 
-    const passwordMatch = await bcrypt.compare(passwordFromForm, passwordFromDb);
-    
-    if (!passwordMatch) {
-      return { success: false, message: "toast.adminLogin.invalidCredentials" };
-    }
-    
-    const sessionResult = await createSession(admin.id, 'admin', {
-        email: admin.email,
-        name: admin.name,
-        canCreateAdmins: admin.can_create_admins,
-    });
+        if (!email || !password) {
+            return { success: false, message: "toast.adminLogin.missingCredentials" };
+        }
+        
+        const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
+        if (result.rows.length === 0) {
+            return { success: false, message: "toast.adminLogin.invalidUser" };
+        }
 
-    if(!sessionResult.success) {
-        return { success: false, message: "toast.adminLogin.sessionError" };
+        const admin = result.rows[0];
+        
+        if (!admin.password_hash) {
+            // This case should ideally redirect to first-login, but as a fallback:
+            return { success: false, message: "toast.firstLogin.alreadyActive" }; // A generic message
+        }
+
+        const passwordMatch = await bcrypt.compare(password, admin.password_hash);
+        
+        if (!passwordMatch) {
+            return { success: false, message: "toast.adminLogin.invalidCredentials" };
+        }
+        
+        const sessionResult = await createSession(admin.id, 'admin', {
+            email: admin.email,
+            name: admin.name,
+            canCreateAdmins: admin.can_create_admins,
+        });
+
+        if(!sessionResult.success) {
+            return { success: false, message: "toast.adminLogin.sessionError" };
+        }
+    
+    } catch (error: any) {
+        console.error('Error during authentication:', error);
+        return { success: false, message: "toast.adminLogin.serverError" };
+    } finally {
+        if (client) client.release();
     }
     
-  } catch (error: any) {
-    console.error('Error during authentication:', error);
-    return { success: false, message: "toast.adminLogin.serverError" };
-  } finally {
-    if (client) client.release();
-  }
-  
-  redirect('/admin/dashboard');
+    redirect('/admin/dashboard');
 }
 
 export async function handleFirstLogin(prevState: any, formData: FormData): Promise<AuthState> {
