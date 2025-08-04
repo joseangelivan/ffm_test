@@ -104,13 +104,13 @@ export async function createSession(userId: string, userType: 'admin' | 'residen
 
 
 export async function getCurrentSession(): Promise<SessionPayload | null> {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-  return await getSession(sessionToken?.value);
+  const sessionToken = cookies().get('session');
+  if (!sessionToken) return null;
+  return await getSession(sessionToken.value);
 }
 
 export async function handleLogoutAction() {
-    const sessionCookie = await cookies().get('session');
+    const sessionCookie = cookies().get('session');
     if (sessionCookie) {
         let client;
         try {
