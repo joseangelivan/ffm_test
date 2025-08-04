@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFormStatus } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import {
   Loader,
   AlertCircle,
@@ -18,8 +19,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { UserSettings, getSettings, verifySessionIntegrity, updateSettings } from '@/actions/admin';
-import { handleLogoutAction, getSession, type SessionPayload } from '@/lib/session';
+import { UserSettings, updateSettings, getDashboardData } from '@/actions/admin';
+import { handleLogoutAction, type SessionPayload } from '@/lib/session';
 import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
 import { getThemes } from '@/actions/themes';
@@ -82,27 +83,40 @@ export const useAdminDashboard = () => {
     return context;
 };
 
-export default function AdminDashboardClient({ 
-    session, 
-    isSessionValid: initialIsSessionValid,
-    initialSettings 
-}: { 
-    session: SessionPayload, 
-    isSessionValid: boolean,
-    initialSettings: UserSettings | null
-}) {
-  const { setLocale } = useLocale();
-  const [isSessionValid, setIsSessionValid] = useState(initialIsSessionValid);
+
+type DashboardState = {
+    session: SessionPayload;
+    isSessionValid: boolean;
+    initialSettings: UserSettings | null;
+} | null;
+
+
+export default function AdminDashboardClient() {
+  const [dashboardState, setDashboardState] = useState<DashboardState>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const { setLocale, t } = useLocale();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [theme, setTheme] = useState('light');
-  
-  // Set initial language and theme from server-provided props
+  const router = useRouter();
+
   useEffect(() => {
-    if (initialSettings) {
-      setLocale(initialSettings.language);
-      handleSetTheme(initialSettings.theme);
+    async function loadData() {
+        try {
+            const data = await getDashboardData();
+            setDashboardState(data);
+            if (data.initialSettings) {
+                setLocale(data.initialSettings.language);
+                handleSetTheme(data.initialSettings.theme);
+            }
+        } catch (error) {
+            // getDashboardData will redirect on its own if session is invalid
+            console.error("Failed to load dashboard data, a redirect should have occurred.", error);
+        } finally {
+            setIsLoading(false);
+        }
     }
-  }, [initialSettings, setLocale]);
+    loadData();
+  }, [setLocale]);
 
   const handleSetLocale = async (newLocale: 'es' | 'pt') => {
       setLocale(newLocale);
@@ -148,26 +162,19 @@ export default function AdminDashboardClient({
     }
   }, []);
 
-  useEffect(() => {
-    if (!initialIsSessionValid) {
-        setShowLogoutDialog(true);
-    }
-  }, [initialIsSessionValid]);
-
-  if (!isSessionValid) {
-    return (
-        <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
-             <LoadingOverlay text="Verificando sesión..." />
-             <ForceLogoutDialog 
-                isOpen={true}
-                onConfirm={handleLogoutAction}
-            />
-        </div>
-    )
+  if (isLoading) {
+      return <LoadingOverlay text="Cargando panel..." />;
+  }
+  
+  if (!dashboardState || !dashboardState.session) {
+      // This should ideally not be reached as getDashboardData redirects.
+      // But as a fallback, we can redirect here as well.
+      router.push('/admin/login');
+      return <LoadingOverlay text="Redirigiendo..." />;
   }
 
   return (
-    <AdminDashboardContext.Provider value={{ session, handleSetLocale, handleSetTheme, theme }}>
+    <AdminDashboardContext.Provider value={{ session: dashboardState.session, handleSetLocale, handleSetTheme, theme }}>
         <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
         <AdminHeader onAccountUpdateSuccess={handleAccountUpdateSuccess} />
         
@@ -183,3 +190,4 @@ export default function AdminDashboardClient({
     </AdminDashboardContext.Provider>
   );
 }
+

@@ -631,11 +631,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
 }
 
 
-export async function verifySessionIntegrity(session: SessionPayload | null): Promise<{isValid: boolean}> {
-    if (!session) {
-        return { isValid: false };
-    }
-
+export async function verifySessionIntegrity(session: SessionPayload): Promise<boolean> {
     let client;
     try {
         const pool = await getDbPool();
@@ -643,20 +639,20 @@ export async function verifySessionIntegrity(session: SessionPayload | null): Pr
         
         const result = await client.query('SELECT name, email FROM admins WHERE id = $1', [session.id]);
         if (result.rows.length === 0) {
-            return { isValid: false };
+            return false;
         }
 
         const dbAdmin = result.rows[0];
         
         if (session.name !== dbAdmin.name || session.email !== dbAdmin.email) {
-            return { isValid: false };
+            return false;
         }
 
-        return { isValid: true };
+        return true;
 
     } catch (error) {
         console.error("Error verifying session integrity:", error);
-        return { isValid: false };
+        return false;
     } finally {
         if (client) client.release();
     }
@@ -813,3 +809,29 @@ export async function getActiveTheme() {
     
     return getThemeById('light'); 
 }
+
+// --- Dashboard ---
+
+export async function getDashboardData() {
+    const sessionToken = cookies().get('session')?.value;
+    const session = await getSession(sessionToken);
+
+    if (!session) {
+        redirect('/admin/login');
+    }
+
+    const isSessionValid = await verifySessionIntegrity(session);
+    
+    if (!isSessionValid) {
+        redirect('/admin/login?error=session_invalidated');
+    }
+
+    const settings = await getSettings(session);
+    
+    return {
+        session,
+        isSessionValid,
+        initialSettings: settings,
+    };
+}
+
