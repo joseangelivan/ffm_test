@@ -179,7 +179,11 @@ export async function authenticateAdmin(prevState: any, formData: FormData): Pro
     }
     const admin = result.rows[0];
     
-    const passwordMatch = await bcrypt.compare(password, admin.password_hash);
+    const passwordFromDb = admin.password_hash;
+    const passwordFromForm = password;
+
+    const passwordMatch = await bcrypt.compare(passwordFromForm, passwordFromDb);
+    
     if (!passwordMatch) {
       return { success: false, message: "toast.adminLogin.invalidCredentials" };
     }
