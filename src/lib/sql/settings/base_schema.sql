@@ -1,4 +1,4 @@
-
+-- Tabla para configuraciones globales de la aplicación
 CREATE TABLE IF NOT EXISTS app_settings (
     id VARCHAR(255) PRIMARY KEY,
     value TEXT,
@@ -6,37 +6,22 @@ CREATE TABLE IF NOT EXISTS app_settings (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Function to update the updated_at column
-CREATE OR REPLACE FUNCTION update_app_settings_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-   NEW.updated_at = NOW();
-   RETURN NEW;
-END;
-$$ language 'plpgsql';
+-- Tabla para configuraciones específicas de cada administrador
+CREATE TABLE IF NOT EXISTS admin_settings (
+    admin_id UUID PRIMARY KEY REFERENCES admins(id) ON DELETE CASCADE,
+    language VARCHAR(5) NOT NULL DEFAULT 'pt',
+    theme VARCHAR(255) NOT NULL DEFAULT 'light',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- Trigger to update the updated_at column
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_app_settings_updated_at') THEN
-        CREATE TRIGGER update_app_settings_updated_at
-        BEFORE UPDATE ON app_settings
-        FOR EACH ROW
-        EXECUTE FUNCTION update_app_settings_updated_at_column();
-    END IF;
-END
-$$;
-
--- Insert default settings if they don't exist
-INSERT INTO app_settings (id, value) VALUES ('default_theme_id', 'light') ON CONFLICT (id) DO NOTHING;
-
-
--- Themes Table
+-- Tabla para temas personalizados de la interfaz
 CREATE TABLE IF NOT EXISTS themes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(255) UNIQUE NOT NULL,
     is_default BOOLEAN DEFAULT FALSE,
     
+    -- Colores HSL (Hue, Saturation, Lightness)
     background_hsl VARCHAR(50) NOT NULL,
     foreground_hsl VARCHAR(50) NOT NULL,
     card_hsl VARCHAR(50) NOT NULL,
@@ -61,25 +46,8 @@ CREATE TABLE IF NOT EXISTS themes (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-
-CREATE OR REPLACE FUNCTION update_themes_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-   NEW.updated_at = NOW();
-   RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_themes_updated_at') THEN
-        CREATE TRIGGER update_themes_updated_at
-        BEFORE UPDATE ON themes
-        FOR EACH ROW
-        EXECUTE FUNCTION update_themes_updated_at_column();
-    END IF;
-END
-$$;
-
--- Constraint to ensure only one default theme
-CREATE UNIQUE INDEX IF NOT EXISTS one_default_theme ON themes (is_default) WHERE is_default = TRUE;
+-- Insertar valores iniciales si la tabla está vacía, para evitar errores de aplicación
+INSERT INTO app_settings (id, value)
+VALUES 
+    ('default_theme_id', 'light')
+ON CONFLICT (id) DO NOTHING;
