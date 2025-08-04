@@ -501,5 +501,13 @@
         "activateButton": "Ativar Conta",
         "activating": "Ativando...",
         "backToLogin": "Voltar para o login"
+    },
+    "dbInitializer": {
+        "title": "Inicialização do Banco de Dados",
+        "description": "Por favor, aguarde enquanto configuramos o banco de dados para você.",
+        "loading": "Inicializando o banco de dados e executando as migrações...",
+        "successTitle": "Banco de Dados Inicializado com Sucesso!",
+        "successDescription": "Todas as tabelas foram criadas e os dados padrão foram semeados.",
+        "button": "Ir para o Login de Administrador"
     }
   }

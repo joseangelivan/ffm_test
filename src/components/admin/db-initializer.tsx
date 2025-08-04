@@ -33,15 +33,15 @@ export function DbInitializer() {
                 return (
                     <div className="flex flex-col items-center gap-4">
                         <Loader className="h-12 w-12 animate-spin text-primary" />
-                        <p className="text-muted-foreground">Initializing database and running migrations...</p>
+                        <p className="text-muted-foreground">{t('dbInitializer.loading')}</p>
                     </div>
                 );
             case 'success':
                 return (
                     <div className="flex flex-col items-center gap-4">
                         <CheckCircle className="h-12 w-12 text-green-500" />
-                        <p className="font-semibold text-center">Database initialized successfully!</p>
-                        <p className="text-sm text-muted-foreground text-center">All tables have been created and default data has been seeded.</p>
+                        <p className="font-semibold text-center">{t('dbInitializer.successTitle')}</p>
+                        <p className="text-sm text-muted-foreground text-center">{t('dbInitializer.successDescription')}</p>
                     </div>
                 );
             case 'error':
@@ -62,9 +62,9 @@ export function DbInitializer() {
         <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
             <Card className="w-full max-w-lg shadow-xl">
                  <CardHeader>
-                    <CardTitle className="text-center text-2xl">Database Initialization</CardTitle>
+                    <CardTitle className="text-center text-2xl">{t('dbInitializer.title')}</CardTitle>
                     <CardDescription className="text-center">
-                        Please wait while we set up the database for you.
+                        {t('dbInitializer.description')}
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="flex justify-center py-8">
@@ -73,7 +73,7 @@ export function DbInitializer() {
                 {state.status !== 'loading' && (
                     <CardContent>
                          <Link href="/admin/login" className="w-full">
-                            <Button className="w-full">Go to Admin Login</Button>
+                            <Button className="w-full">{t('dbInitializer.button')}</Button>
                         </Link>
                     </CardContent>
                 )}

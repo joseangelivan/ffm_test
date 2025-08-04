@@ -252,7 +252,7 @@
             "activateButton": "Activar 2FA",
             "setupTitle": "Configurar Autenticación de Dos Factores",
             "setupDescription": "Escanea este código QR con tu aplicación de autenticación (ej. Google Authenticator, Authy).",
-            "secretKeyLabel": "O introduce esta clave manualmente",
+            "secretKeyLabel": "O introduce esta clave manually",
             "verificationCodeLabel": "Introduce el código de verificación",
             "enableButton": "Verificar y Activar",
             "manageDescription": "La autenticación de dos factores está activa.",
@@ -506,5 +506,13 @@
         "activateButton": "Activar Cuenta",
         "activating": "Activando...",
         "backToLogin": "Volver al inicio de sesión"
+    },
+    "dbInitializer": {
+        "title": "Inicialización de la Base de Datos",
+        "description": "Por favor, espera mientras configuramos la base de datos para ti.",
+        "loading": "Inicializando la base de datos y ejecutando migraciones...",
+        "successTitle": "¡Base de Datos Inicializada con Éxito!",
+        "successDescription": "Todas las tablas han sido creadas y los datos por defecto han sido sembrados.",
+        "button": "Ir al Login de Administrador"
     }
   }
