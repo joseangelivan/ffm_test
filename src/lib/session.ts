@@ -77,7 +77,7 @@ export async function createSession(userId: string, userType: 'admin' | 'residen
             secure: process.env.NODE_ENV === 'production',
             maxAge: 60 * 60, // 1 hour
             path: '/',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            sameSite: 'lax',
         });
 
         return { success: true };

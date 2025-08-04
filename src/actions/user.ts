@@ -13,6 +13,7 @@ type AuthState = {
 
 export async function authenticateUser(prevState: any, formData: FormData): Promise<AuthState> {
     let client;
+    let redirectPath: string;
     try {
         const pool = await getDbPool();
         const email = formData.get('email') as string;
@@ -26,7 +27,6 @@ export async function authenticateUser(prevState: any, formData: FormData): Prom
         client = await pool.connect();
         
         let tableName: string;
-        let redirectPath: string;
         let dbUserType: 'resident' | 'gatekeeper';
 
         if (userType === 'residente') {
@@ -69,7 +69,5 @@ export async function authenticateUser(prevState: any, formData: FormData): Prom
         if(client) client.release();
     }
 
-    redirect('/dashboard');
+    redirect(redirectPath);
 }
-
-    
