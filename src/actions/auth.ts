@@ -28,7 +28,6 @@ export { authenticateUser } from './user';
 export { getDbPool } from '@/lib/db';
 export { getCurrentSession, handleLogoutAction, getSession } from '@/lib/session';
 export { sendAdminFirstLoginEmail } from '@/lib/mailer';
-export * from './themes';
 
 export type { Admin } from './admin';
 
