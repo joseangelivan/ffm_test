@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocale } from '@/lib/i18n';
 import { getCondominioById, type Condominio } from '@/actions/condos';
 import { geocodeAddress } from '@/actions/geocoding';
+import { getAppSetting } from '@/actions/settings';
 
 import ManageUsersTab from './condo/manage-users-tab';
 import ManageDevicesTab from './condo/manage-devices-tab';
@@ -41,7 +42,7 @@ type Coords = { lat: number; lng: number };
 
 export default function CondoDashboardClient({ condoId }: { condoId: string }) {
   const { t } = useLocale();
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const [apiKey, setApiKey] = useState<string | null>(null);
   const [condo, setCondo] = useState<Condominio | null>(null);
   const [loading, setLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState<Coords | null>(null);
@@ -49,6 +50,9 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
   useEffect(() => {
     async function fetchCondoAndCoords() {
       const result = await getCondominioById(condoId);
+      const mapsApiKey = await getAppSetting('google_maps_api_key');
+      setApiKey(mapsApiKey);
+
       if (result.success && result.data) {
         setCondo(result.data);
         const geoResult = await geocodeAddress({
@@ -154,11 +158,11 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
                 <Card>
                     <CardHeader>
                         <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-                        <CardDescription>API Key for Google Maps is missing.</CardDescription>
+                        <CardDescription>{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyMissing')}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
-                            <p>Google Maps could not be loaded.</p>
+                            <p>{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
                         </div>
                     </CardContent>
                 </Card>

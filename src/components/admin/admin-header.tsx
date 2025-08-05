@@ -45,6 +45,7 @@ import {
   Moon,
   Palette,
   Server,
+  Book,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -56,6 +57,7 @@ import { SmtpConfigDialog } from './smtp-config-dialog';
 import { ManageAccountDialog } from './manage-account-dialog';
 import { ManageDomainDialog } from './manage-domain-dialog';
 import { ManageInterfaceDialog } from './manage-interface-dialog';
+import { ManageCatalogsDialog } from './manage-catalogs-dialog';
 
 
 export function LoadingOverlay({ text }: { text: string }) {
@@ -150,6 +152,17 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                         <DropdownMenuPortal>
                             <DropdownMenuSubContent>
                                 <ManageInterfaceDialog />
+                                 <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>
+                                        <Book className="mr-2 h-4 w-4" />
+                                        <span>{t('adminDashboard.settingsGroups.catalogs')}</span>
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuPortal>
+                                        <DropdownMenuSubContent>
+                                            <ManageCatalogsDialog />
+                                        </DropdownMenuSubContent>
+                                    </DropdownMenuPortal>
+                                </DropdownMenuSub>
                                 <DropdownMenuSub>
                                     <DropdownMenuSubTrigger>
                                         <Server className="mr-2 h-4 w-4" />

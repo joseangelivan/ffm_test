@@ -183,6 +183,8 @@
       "settingsGroups": {
         "interface": "Interfaz",
         "systemConfiguration": "Configuración del Sistema",
+        "catalogs": "Catálogos",
+        "catalogsDescription": "Gestiona los datos globales que se utilizan en toda la aplicación.",
         "interfaceDescription": "Personaliza la apariencia y el idioma de la aplicación.",
         "languageDescription": "Selecciona el idioma para la interfaz de administración.",
         "themeDescription": "Elige entre un tema claro u oscuro para el panel.",
@@ -211,6 +213,25 @@
             "editorTitle": "Editor de Tema",
             "editorDescription": "Aquí se mostrará un editor para los colores y estilos del tema seleccionado.",
             "editorPlaceholder": "Editor de Tema (Próximamente)"
+        },
+        "catalogs": {
+          "wipDescription": "Gestión completa para este catálogo próximamente.",
+          "maps": {
+            "tab": "Mapas",
+            "title": "Configuración de Mapas",
+            "description": "Gestiona las claves de API y otras configuraciones para los servicios de mapas.",
+            "apiKeyLabel": "Clave de API de Google Maps",
+            "apiKeyMissing": "La clave de API para Google Maps no está configurada.",
+            "apiKeyInstructions": "Por favor, configura la clave de API en el panel de administración en Ajustes > Catálogos > Mapas."
+          },
+          "deviceTypes": {
+            "tab": "Dispositivos",
+            "title": "Tipos de Dispositivo"
+          },
+          "protocols": {
+            "tab": "Protocolos",
+            "title": "Protocolos de Comunicación"
+          }
         }
       },
       "account": {
