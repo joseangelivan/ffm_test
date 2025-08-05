@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -377,9 +378,11 @@ function CondoFormFields({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" type="button" onClick={() => (document.querySelector('[data-radix-dialog-close]') as HTMLElement)?.click()} disabled={isFormPending}>
-              {t('adminDashboard.newCondoDialog.cancel')}
-            </Button>
+            <DialogClose asChild>
+                <Button variant="outline" type="button" disabled={isFormPending}>
+                    {t('adminDashboard.newCondoDialog.cancel')}
+                </Button>
+            </DialogClose>
             <Button type="submit" disabled={isFormPending}>
               {isEditMode
                 ? t('adminDashboard.editCondoDialog.save')
@@ -814,7 +817,7 @@ export function CondoManagement() {
                     {editingCondoData && (
                         <CondoFormWrapper
                             closeDialog={handleCondoFormSuccess}
-                            formAction={updateCondominio}
+                            formAction={handleUpdateCondoAction}
                             initialData={editingCondoData}
                             isEditMode={true}
                             getCachedData={getCachedData}
@@ -825,4 +828,3 @@ export function CondoManagement() {
         </div>
     );
 }
-
