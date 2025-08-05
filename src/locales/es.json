@@ -183,7 +183,24 @@
       "settingsGroups": {
         "interface": "Interfaz",
         "systemConfiguration": "Configuración del Sistema",
-        "catalogs": "Catálogos",
+        "catalogs": {
+            "title": "Catálogos",
+            "wipDescription": "Gestión completa para este catálogo próximamente.",
+            "maps": {
+              "tab": "Mapas",
+              "title": "Configuración de Mapas",
+              "apiKeyMissing": "La clave de API para Google Maps no está configurada.",
+              "apiKeyInstructions": "Por favor, define la variable de entorno NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en tu proyecto."
+            },
+            "deviceTypes": {
+              "tab": "Dispositivos",
+              "title": "Tipos de Dispositivo"
+            },
+            "protocols": {
+              "tab": "Protocolos",
+              "title": "Protocolos de Comunicación"
+            }
+        },
         "catalogsDescription": "Gestiona los datos globales que se utilizan en toda la aplicación.",
         "interfaceDescription": "Personaliza la apariencia y el idioma de la aplicación.",
         "languageDescription": "Selecciona el idioma para la interfaz de administración.",
@@ -213,21 +230,6 @@
             "editorTitle": "Editor de Tema",
             "editorDescription": "Aquí se mostrará un editor para los colores y estilos del tema seleccionado.",
             "editorPlaceholder": "Editor de Tema (Próximamente)"
-        },
-        "catalogs": {
-          "wipDescription": "Gestión completa para este catálogo próximamente.",
-          "maps": {
-            "apiKeyMissing": "La clave de API para Google Maps no está configurada.",
-            "apiKeyInstructions": "Por favor, define la variable de entorno NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en tu proyecto."
-          },
-          "deviceTypes": {
-            "tab": "Dispositivos",
-            "title": "Tipos de Dispositivo"
-          },
-          "protocols": {
-            "tab": "Protocolos",
-            "title": "Protocolos de Comunicación"
-          }
         }
       },
       "account": {
@@ -420,7 +422,7 @@
           "name": "Nombre",
           "type": "Tipo",
           "email": "Email",
-          "actions": "Acciones",
+          "actions": "Ações",
           "resetPassword": "Resetear contraseña",
           "delete": "Eliminar"
         },

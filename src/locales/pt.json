@@ -183,7 +183,24 @@
       "settingsGroups": {
         "interface": "Interface",
         "systemConfiguration": "Configuração do Sistema",
-        "catalogs": "Catálogos",
+        "catalogs": {
+            "title": "Catálogos",
+            "wipDescription": "Gerenciamento completo para este catálogo em breve.",
+            "maps": {
+              "tab": "Mapas",
+              "title": "Configuração de Mapas",
+              "apiKeyMissing": "A chave de API para o Google Maps não está configurada.",
+              "apiKeyInstructions": "Por favor, defina a variável de ambiente NEXT_PUBLIC_GOOGLE_MAPS_API_KEY em seu projeto."
+            },
+            "deviceTypes": {
+              "tab": "Dispositivos",
+              "title": "Tipos de Dispositivo"
+            },
+            "protocols": {
+              "tab": "Protocolos",
+              "title": "Protocolos de Comunicação"
+            }
+        },
         "catalogsDescription": "Gerencie os dados globais que são utilizados em toda a aplicação.",
         "interfaceDescription": "Personalize a aparência e o idioma do aplicativo.",
         "languageDescription": "Selecione o idioma para a interface de administração.",
@@ -213,21 +230,6 @@
             "editorTitle": "Editor de Tema",
             "editorDescription": "Aqui será exibido um editor para as cores e estilos do tema selecionado.",
             "editorPlaceholder": "Editor de Tema (Em breve)"
-        },
-        "catalogs": {
-          "wipDescription": "Gerenciamento completo para este catálogo em breve.",
-          "maps": {
-            "apiKeyMissing": "A chave de API para o Google Maps não está configurada.",
-            "apiKeyInstructions": "Por favor, defina a variável de ambiente NEXT_PUBLIC_GOOGLE_MAPS_API_KEY em seu projeto."
-          },
-          "deviceTypes": {
-            "tab": "Dispositivos",
-            "title": "Tipos de Dispositivo"
-          },
-          "protocols": {
-            "tab": "Protocolos",
-            "title": "Protocolos de Comunicação"
-          }
         }
       },
        "account": {
