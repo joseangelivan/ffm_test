@@ -217,12 +217,8 @@
         "catalogs": {
           "wipDescription": "Gestión completa para este catálogo próximamente.",
           "maps": {
-            "tab": "Mapas",
-            "title": "Configuración de Mapas",
-            "description": "Gestiona las claves de API y otras configuraciones para los servicios de mapas.",
-            "apiKeyLabel": "Clave de API de Google Maps",
             "apiKeyMissing": "La clave de API para Google Maps no está configurada.",
-            "apiKeyInstructions": "Por favor, configura la clave de API en el panel de administración en Ajustes > Catálogos > Mapas."
+            "apiKeyInstructions": "Por favor, define la variable de entorno NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en tu proyecto."
           },
           "deviceTypes": {
             "tab": "Dispositivos",
