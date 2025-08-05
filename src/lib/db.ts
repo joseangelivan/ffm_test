@@ -37,7 +37,7 @@ async function runMigrations(client: Pool): Promise<boolean> {
             'sessions/base_schema.sql',
             'settings/base_schema.sql',
             'devices/base_schema.sql',
-            'geofences/base_schema.sql',
+            'maps/geofences.sql',
         ];
         
         for (const schemaFile of schemasToApply) {
