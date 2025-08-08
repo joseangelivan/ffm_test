@@ -209,10 +209,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
         (activeOverlay as any).setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2, suppressUndo: true });
         (activeOverlay as any).setMap(map);
         setupListeners(activeOverlay);
-    }
-    
-    // Show reference geofence(s) when editing is enabled, but not while editing the selected one
-    if (isEditingEnabled && !isEditing) {
+    } else if (isEditingEnabled) {
         const refGeofence = geofences.find(g => g.id === selectedGeofenceId);
         if (refGeofence?.shape) {
             const isDefault = refGeofence.id === defaultGeofenceId;
@@ -227,7 +224,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             });
             (refGeofence.shape as any).setMap(map);
         }
-    } else if (!isEditingEnabled) {
+    } else {
         // Logic for viewing mode
         geofences.forEach(gf => {
             if (!gf.shape) return;
@@ -253,7 +250,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             gf.shape.setOptions({ ...options, map: visible ? map : null });
         });
     }
-  }, [activeOverlay, isEditingShape, map, geofences, isEditingEnabled, viewAll, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, isEditing]);
+  }, [activeOverlay, isEditing, isEditingShape, map, geofences, isEditingEnabled, viewAll, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners]);
   
   return (
     <Card>
@@ -358,3 +355,4 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     </Card>
   );
 }
+
