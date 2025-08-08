@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -139,7 +140,7 @@ export function GeofenceControls({
             const isSelected = gf.id === selectedGeofenceId;
             let visible = false;
             let options: any = {};
-
+    
             if (isEditingShape && isSelected && !isCreating) {
                 visible = false; // Hide original while editing an existing shape
             } else if (isEditingEnabled) {
@@ -153,7 +154,7 @@ export function GeofenceControls({
                         zIndex: 1
                     };
                 }
-            } else {
+            } else { // View mode
                 if (viewAll) {
                     visible = true;
                     options = {
@@ -163,20 +164,16 @@ export function GeofenceControls({
                         strokeWeight: isDefault ? 3 : 1,
                         zIndex: isDefault ? 2 : 1
                     };
-                } else if (isDefault) {
-                    visible = true;
-                    options = {
-                        ...DEFAULT_COLOR,
-                        strokeWeight: 2, 
-                        zIndex: 1
-                    };
-                } else if (isCreating && isSelected) { // Show selected (usually default) when creating
-                    visible = true;
-                     options = {
-                        ...DEFAULT_COLOR,
-                        strokeWeight: 2, 
-                        zIndex: 1
-                    };
+                } else if (isCreating) {
+                     if (isDefault) {
+                        visible = true;
+                        options = { ...DEFAULT_COLOR, strokeWeight: 2, zIndex: 1 };
+                    }
+                } else {
+                     if (isDefault) {
+                        visible = true;
+                        options = { ...DEFAULT_COLOR, strokeWeight: 2, zIndex: 1 };
+                    }
                 }
             }
             // @ts-ignore
