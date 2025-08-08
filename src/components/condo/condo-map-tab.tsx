@@ -107,7 +107,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             setDefaultGeofenceId(defaultGf.id);
             setSelectedGeofenceId(defaultGf.id);
         } else if (dbGeofences.length > 0) {
-            setSelectedGeofenceId(dbGeofences[0].id)
+            setSelectedGeofenceId(dbGeofences[0].id);
         }
     }
     fetchGeofences();

@@ -146,10 +146,10 @@ export function GeofenceControls({
                  if (isSelected && !isCreating) {
                     // Hide original shape if it's being edited
                     visible = false;
-                } else if (!isCreating && isDefault) {
-                    // Show default geofence in the background while creating a new one
+                } else if (!isCreating && (isDefault || selectedGeofenceId === gf.id)) {
+                    // Show default/selected geofence in the background while creating/editing
                     visible = true;
-                    options = { ...DEFAULT_COLOR, strokeWeight: 2, zIndex: 1 };
+                    options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), strokeWeight: 2, zIndex: 1, fillOpacity: 0.1 };
                 }
             } else if (isEditingEnabled) {
                 // Edit mode enabled, but not actively creating/editing a shape
@@ -160,7 +160,7 @@ export function GeofenceControls({
                         strokeColor: isDefault ? DEFAULT_COLOR.strokeColor : SAVED_COLOR.strokeColor,
                         fillOpacity: 0.4, 
                         strokeWeight: 3, 
-                        zIndex: 1
+                        zIndex: 2 // Bring to front
                     };
                 }
             } else { 
@@ -174,9 +174,9 @@ export function GeofenceControls({
                         strokeWeight: isDefault ? 3 : 1,
                         zIndex: isDefault ? 2 : 1
                     };
-                } else if (isDefault) {
+                } else if (selectedGeofenceId === gf.id) {
                     visible = true;
-                    options = { ...DEFAULT_COLOR, strokeWeight: 2, zIndex: 1 };
+                    options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), strokeWeight: 2, zIndex: 1 };
                 }
             }
             // @ts-ignore
