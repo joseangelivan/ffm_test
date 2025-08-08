@@ -108,10 +108,9 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
         let initialDefaultId: string | null = null;
         if (dbGeofences.length > 0) {
             const defaultGf = dbGeofences.find(g => g.is_default);
-            initialDefaultId = defaultGf ? defaultGf.id : dbGeofences[0].id;
+            initialDefaultId = defaultGf ? defaultGf.id : (gfObjects[0]?.id || null);
         }
         
-        // Atomic state update
         setGeofences(gfObjects);
         setDefaultGeofenceId(initialDefaultId);
         setSelectedGeofenceId(initialDefaultId);
@@ -212,8 +211,8 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
         setupListeners(activeOverlay);
     }
     
-    // Show reference geofence(s) when editing is enabled
-    if (isEditingEnabled) {
+    // Show reference geofence(s) when editing is enabled, but not while editing the selected one
+    if (isEditingEnabled && !isEditing) {
         const refGeofence = geofences.find(g => g.id === selectedGeofenceId);
         if (refGeofence?.shape) {
             const isDefault = refGeofence.id === defaultGeofenceId;
@@ -228,7 +227,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             });
             (refGeofence.shape as any).setMap(map);
         }
-    } else {
+    } else if (!isEditingEnabled) {
         // Logic for viewing mode
         geofences.forEach(gf => {
             if (!gf.shape) return;
@@ -254,7 +253,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             gf.shape.setOptions({ ...options, map: visible ? map : null });
         });
     }
-  }, [activeOverlay, isEditingShape, map, geofences, isEditingEnabled, viewAll, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners]);
+  }, [activeOverlay, isEditingShape, map, geofences, isEditingEnabled, viewAll, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, isEditing]);
   
   return (
     <Card>
