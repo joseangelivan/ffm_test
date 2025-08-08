@@ -1,13 +1,13 @@
 
 'use server';
 
-import nodemailer from 'nodemailer';
 import { getSmtpConfigsForMailer } from '@/actions/smtp';
 import { getAppSetting } from '@/actions/settings';
 import es from '@/locales/es.json';
 import pt from '@/locales/pt.json';
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<{success: boolean, message: string}> {
+    const nodemailer = (await import('nodemailer')).default;
     const smtpConfigs = await getSmtpConfigsForMailer();
 
     if (smtpConfigs.length === 0) {

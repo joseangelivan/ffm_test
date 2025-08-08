@@ -1,7 +1,7 @@
 
 'use server';
 
-import { Pool } from 'pg';
+import type { Pool } from 'pg';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -115,7 +115,8 @@ async function runMigrations(client: Pool): Promise<boolean> {
 }
 
 
-function createPool(): Pool {
+async function createPool(): Promise<Pool> {
+    const { Pool } = await import('pg');
     const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway';
     if (!connectionString) {
         throw new Error("DATABASE_URL environment variable is not set. Please provide a database connection string.");
@@ -127,7 +128,7 @@ export async function initializeDatabase(): Promise<{success: boolean, message?:
     try {
         console.log('[initializeDatabase] Ensuring pool exists for initialization...');
         if (!pool) {
-            pool = createPool();
+            pool = await createPool();
         }
         await pool.query('SELECT NOW()');
         await runMigrations(pool);
@@ -143,7 +144,7 @@ export async function initializeDatabase(): Promise<{success: boolean, message?:
 export async function getDbPool(): Promise<Pool> {
     if (!pool) {
         console.log('[getDbPool] Pool not found. Initializing new pool...');
-        pool = createPool();
+        pool = await createPool();
         try {
             await pool.query('SELECT NOW()');
             console.log('[getDbPool] Database pool initialized and connection verified.');

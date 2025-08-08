@@ -44,9 +44,9 @@ import {
     getAdmins, 
     updateAdmin, 
     deleteAdmin, 
-    sendAdminFirstLoginEmail, 
+    sendAdminFirstLoginEmail,
     type Admin 
-} from '@/actions/auth';
+} from '@/actions/admin';
 import { 
     KeyRound, 
     RefreshCw, 

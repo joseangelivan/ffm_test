@@ -3,7 +3,6 @@
 
 import { z } from 'zod';
 import { getDbPool } from '@/lib/db';
-import nodemailer from 'nodemailer';
 
 // For this example, we'll store the password in plaintext in the DB.
 // In a real-world application, this should be encrypted using a secret key
@@ -235,6 +234,7 @@ export async function updateSmtpOrder(orderedIds: string[]): Promise<ActionState
 
 export async function testSmtpConfiguration(id: string): Promise<ActionState> {
     if (!id) return { success: false, message: "ID no proporcionado." };
+    const nodemailer = (await import('nodemailer')).default;
 
     let client;
     let config: SmtpConfiguration | undefined;

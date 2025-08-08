@@ -23,7 +23,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
 import { ThemeSwitcher } from './theme-switcher';
-import { authenticateAdmin } from '@/actions/auth';
+import { authenticateAdmin } from '@/actions/admin';
 
 function LoadingOverlay({ text }: { text: string }) {
     return (
