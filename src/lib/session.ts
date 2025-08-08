@@ -2,8 +2,6 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { SignJWT, jwtVerify } from 'jose';
-import { JWT_SECRET } from '@/lib/config';
 import { getDbPool } from './db';
 
 const JWT_ALG = 'HS256';
@@ -16,23 +14,16 @@ export type SessionPayload = {
     canCreateAdmins: boolean;
 };
 
-export async function getSession(sessionToken?: string): Promise<SessionPayload | null> {
-    const token = sessionToken ?? cookies().get('session')?.value;
-    
-    if (!token) return null;
-
+// This internal function should only be used by other server-side code
+// that already has the token.
+export async function verifySession(sessionToken: string) {
     try {
-        const { payload } = await jwtVerify(token, JWT_SECRET, {
+        const { jwtVerify } = (await import('jose'));
+        const { JWT_SECRET } = (await import('@/lib/config'));
+        const { payload } = await jwtVerify(sessionToken, JWT_SECRET, {
             algorithms: [JWT_ALG],
         });
-        
-        return {
-            id: payload.id as string,
-            email: payload.email as string,
-            name: payload.name as string,
-            type: payload.type as 'admin' | 'resident' | 'gatekeeper',
-            canCreateAdmins: !!payload.canCreateAdmins,
-        };
+        return payload as SessionPayload;
     } catch (error: any) {
         if (error.code !== 'ERR_JWT_EXPIRED' && error.code !== 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED') {
            console.error('Error verifying JWT:', error);
@@ -43,6 +34,8 @@ export async function getSession(sessionToken?: string): Promise<SessionPayload 
 
 export async function createSession(userId: string, userType: 'admin' | 'resident' | 'gatekeeper', userData: {email: string, name: string, canCreateAdmins?: boolean}) {
     const { randomUUID } = (await import('crypto'));
+    const { SignJWT } = (await import('jose'));
+    const { JWT_SECRET } = (await import('@/lib/config'));
     let client;
     try {
         const pool = await getDbPool();
@@ -51,7 +44,7 @@ export async function createSession(userId: string, userType: 'admin' | 'residen
         const expirationTime = '2h';
         const expirationDate = new Date(Date.now() + 2 * 60 * 60 * 1000); 
 
-        const sessionPayload: SessionPayload = { 
+        const sessionPayload: Omit<SessionPayload, 'iat' | 'exp'> = { 
             id: userId, 
             type: userType,
             email: userData.email,

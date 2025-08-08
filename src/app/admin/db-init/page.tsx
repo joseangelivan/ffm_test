@@ -5,7 +5,7 @@ import React, { useActionState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { Database, AlertCircle, Loader, CheckCircle } from 'lucide-react';
-import { initializeDatabase } from '@/lib/db';
+import { initializeDatabase } from '@/lib/db-initializer';
 import { useLocale } from '@/lib/i18n';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {

@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSession } from '@/lib/auth';
 
 export const config = {
   matcher: [
@@ -11,18 +11,17 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - db-init (the database initializer page)
+     * - admin/db-init (the database initializer page)
      */
     '/((?!api|_next/static|_next/image|favicon.ico|admin/db-init).*)',
   ],
 };
 
 export async function middleware(request: NextRequest) {
-  const sessionToken = request.cookies.get('session')?.value;
-  const session = await getSession(sessionToken);
+  const session = await getSession();
   const { pathname } = request.nextUrl;
 
-  const publicPages = ['/login', '/admin/login', '/admin/first-login', '/admin/enter-password', '/admin/verify-2fa'];
+  const publicPages = ['/', '/login', '/admin/login', '/admin/first-login', '/admin/enter-password', '/admin/verify-2fa'];
   const protectedAdminRoutes = ['/admin/dashboard', '/admin/condominio'];
   const protectedUserRoutes = ['/dashboard'];
 
@@ -40,7 +39,12 @@ export async function middleware(request: NextRequest) {
     }
   } else {
     // If there is no session
-    if (isAdminRoute || isUserRoute) {
+    if (isAdminRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/admin/login';
+      return NextResponse.redirect(url);
+    }
+    if (isUserRoute) {
       // And the user tries to access a protected route, redirect to the main login page
       const url = request.nextUrl.clone();
       url.pathname = '/login';

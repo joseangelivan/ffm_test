@@ -4,8 +4,9 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 
+import { getSession as getSessionFromAuth, type SessionPayload } from '@/lib/auth';
+import { createSession } from '@/lib/session';
 import { getDbPool } from '@/lib/db';
-import { createSession, getSession as getSessionFromToken, type SessionPayload } from '@/lib/session';
 import { sendAdminFirstLoginEmail, sendEmailChangePin } from '@/lib/mailer';
 import { getThemeById, getThemes } from '@/actions/themes';
 import { getAppSetting } from '@/actions/settings';
@@ -299,8 +300,7 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 
 export async function createAdmin(prevState: ActionState | undefined, formData: FormData): Promise<ActionState> {
     const bcrypt = (await import('bcrypt')).default;
-    const sessionToken = cookies().get('session')?.value;
-    const session = await getSessionFromToken(sessionToken);
+    const session = await getSessionFromAuth();
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
     }
@@ -371,8 +371,7 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
 }
 
 export async function getAdmins(): Promise<{admins?: Admin[], error?: string}> {
-    const sessionToken = cookies().get('session')?.value;
-    const session = await getSessionFromToken(sessionToken);
+    const session = await getSessionFromAuth();
     if (!session || session.type !== 'admin') {
         return { error: "No autorizado." };
     }
@@ -391,8 +390,7 @@ export async function getAdmins(): Promise<{admins?: Admin[], error?: string}> {
 }
 
 export async function updateAdmin(prevState: ActionState | undefined, formData: FormData): Promise<ActionState> {
-    const sessionToken = cookies().get('session')?.value;
-    const session = await getSessionFromToken(sessionToken);
+    const session = await getSessionFromAuth();
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
     }
@@ -435,8 +433,7 @@ export async function updateAdmin(prevState: ActionState | undefined, formData: 
 }
 
 export async function deleteAdmin(id: string): Promise<ActionState> {
-    const sessionToken = cookies().get('session')?.value;
-    const session = await getSessionFromToken(sessionToken);
+    const session = await getSessionFromAuth();
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
     }
@@ -472,8 +469,7 @@ function generateVerificationPin(): string {
 }
 
 export async function requestEmailChange(newEmail: string): Promise<ActionState> {
-    const sessionToken = cookies().get('session')?.value;
-    const session = await getSessionFromToken(sessionToken);
+    const session = await getSessionFromAuth();
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -510,8 +506,7 @@ export async function requestEmailChange(newEmail: string): Promise<ActionState>
 }
 
 export async function verifyAdminEmailChangePin(newEmail: string, pin: string): Promise<ActionState> {
-    const sessionToken = cookies().get('session')?.value;
-    const session = await getSessionFromToken(sessionToken);
+    const session = await getSessionFromAuth();
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -547,8 +542,7 @@ export async function verifyAdminEmailChangePin(newEmail: string, pin: string): 
 
 export async function updateAdminAccount(prevState: any, formData: FormData): Promise<ActionState> {
     const bcrypt = (await import('bcrypt')).default;
-    const sessionToken = cookies().get('session')?.value;
-    const session = await getSessionFromToken(sessionToken);
+    const session = await getSessionFromAuth();
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -667,8 +661,7 @@ export async function verifySessionIntegrity(session: SessionPayload): Promise<b
 
 export async function generateTotpSecret(email: string): Promise<ActionState> {
     const { authenticator } = (await import('otplib'));
-    const sessionToken = cookies().get('session')?.value;
-    const session = await getSessionFromToken(sessionToken);
+    const session = await getSessionFromAuth();
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -685,8 +678,7 @@ export async function generateQrCodeDataUrl(otpAuthUrl: string): Promise<string>
 
 export async function enableTotp(secret: string, token: string): Promise<ActionState> {
     const { authenticator } = (await import('otplib'));
-    const sessionToken = cookies().get('session')?.value;
-    const session = await getSessionFromToken(sessionToken);
+    const session = await getSessionFromAuth();
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -775,8 +767,7 @@ export async function hasTotpEnabled(session: SessionPayload | null): Promise<{e
 }
 
 export async function disableTotp(): Promise<ActionState> {
-    const sessionToken = cookies().get('session')?.value;
-    const session = await getSessionFromToken(sessionToken);
+    const session = await getSessionFromAuth();
     if (!session) return { success: false, message: "No autorizado." };
 
     let client;

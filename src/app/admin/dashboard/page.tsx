@@ -3,24 +3,16 @@ import { redirect } from 'next/navigation';
 import { getSettings, verifySessionIntegrity } from '@/actions/admin';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
 import { cookies } from 'next/headers';
-import { getSession } from '@/lib/session';
+import { getSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session')?.value;
-  
-  if (!sessionToken) {
-    redirect('/admin/login');
-  }
-
-  const session = await getSession(sessionToken);
+  const session = await getSession();
 
   if (!session) {
-    // Si el token es inválido o expiró, borramos la cookie y redirigimos
-    cookies().set('session', '', { expires: new Date(0) });
-    redirect('/admin/login?error=session_invalidated');
+    // This check is redundant if middleware is active, but good for safety.
+    redirect('/admin/login');
   }
 
   // Verificamos si los datos de la sesión siguen coincidiendo con la base de datos
