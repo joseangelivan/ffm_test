@@ -2,7 +2,6 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { authenticator } from 'otplib';
 import { cookies } from 'next/headers';
 
 import { getDbPool } from '@/lib/db';
@@ -667,6 +666,7 @@ export async function verifySessionIntegrity(session: SessionPayload): Promise<b
 // --- 2FA (TOTP) Functions ---
 
 export async function generateTotpSecret(email: string): Promise<ActionState> {
+    const { authenticator } = (await import('otplib'));
     const sessionToken = cookies().get('session')?.value;
     const session = await getSessionFromToken(sessionToken);
     if (!session || session.type !== 'admin') {
@@ -679,6 +679,7 @@ export async function generateTotpSecret(email: string): Promise<ActionState> {
 }
 
 export async function enableTotp(secret: string, token: string): Promise<ActionState> {
+    const { authenticator } = (await import('otplib'));
     const sessionToken = cookies().get('session')?.value;
     const session = await getSessionFromToken(sessionToken);
     if (!session || session.type !== 'admin') {
@@ -708,6 +709,7 @@ export async function enableTotp(secret: string, token: string): Promise<ActionS
 }
 
 export async function verifyTotp(prevState: any, formData: FormData): Promise<AuthState> {
+    const { authenticator } = (await import('otplib'));
     const email = formData.get('email') as string;
     const token = formData.get('token') as string;
     

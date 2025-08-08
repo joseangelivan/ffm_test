@@ -2,13 +2,14 @@
 'use server';
 
 import type { Pool } from 'pg';
-import fs from 'fs/promises';
-import path from 'path';
 
 let pool: Pool | undefined;
 let migrationsRan = false;
 
 async function runMigrations(client: Pool): Promise<boolean> {
+    const fs = (await import('fs/promises')).default;
+    const path = (await import('path')).default;
+    
     if (migrationsRan) {
         console.log('[runMigrations] Migrations already ran in this instance. Skipping.');
         return false;

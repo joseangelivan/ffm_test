@@ -44,9 +44,9 @@ import {
     getAdmins, 
     updateAdmin, 
     deleteAdmin, 
-    sendAdminFirstLoginEmail,
     type Admin 
 } from '@/actions/admin';
+import { sendAdminFirstLoginEmail } from '@/lib/mailer';
 import { 
     KeyRound, 
     RefreshCw, 
@@ -294,3 +294,5 @@ export function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string 
         </Dialog>
     )
 }
+
+    
