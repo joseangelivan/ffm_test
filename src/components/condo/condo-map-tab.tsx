@@ -205,20 +205,51 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   }, [clearListeners, activeOverlay]);
 
   useEffect(() => {
+    // Clear all existing geofence shapes from the map first
     geofences.forEach(gf => {
-      // @ts-ignore
-      if (gf.shape) gf.shape.setMap(null);
+      if (gf.shape) {
+        // @ts-ignore
+        gf.shape.setMap(null);
+      }
     });
-    // @ts-ignore
-    if(activeOverlay) activeOverlay.setMap(null);
-    
+
+    // Clear active overlay if it exists
+    if (activeOverlay) {
+        // @ts-ignore
+        activeOverlay.setMap(null);
+    }
+
     if (activeOverlay && isEditingShape) {
-      // @ts-ignore
-      activeOverlay.setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2, suppressUndo: true });
-      // @ts-ignore
-      activeOverlay.setMap(map);
-      setupListeners(activeOverlay);
-    } else {
+        // Show only the active overlay for editing/creating
+        // @ts-ignore
+        activeOverlay.setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2, suppressUndo: true });
+        // @ts-ignore
+        activeOverlay.setMap(map);
+        setupListeners(activeOverlay);
+    }
+
+    // Always render the selected geofence as a reference if we are editing but not drawing
+    if (isEditingEnabled && !isDrawing) {
+        const refGeofence = geofences.find(g => g.id === selectedGeofenceId);
+        if (refGeofence?.shape) {
+            const isDefault = refGeofence.id === defaultGeofenceId;
+            // @ts-ignore
+            refGeofence.shape.setOptions({
+                ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR),
+                fillOpacity: isDefault ? 0.0 : 0.2, // Reference is semi-transparent
+                strokeWeight: 2,
+                zIndex: 1, // Lower z-index than editing shape
+                editable: false,
+                draggable: false,
+            });
+             // @ts-ignore
+            refGeofence.shape.setMap(map);
+        }
+    }
+
+
+    if (!isEditingEnabled) {
+        // Logic for viewing mode
         clearListeners();
         geofences.forEach(gf => {
             if (!gf.shape) return;
@@ -227,39 +258,24 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             let visible = false;
             let options: any = { editable: false, draggable: false };
 
-            if (isEditingEnabled) {
-                if (isSelected) {
-                    visible = true;
-                    options = { 
-                        fillColor: isDefault ? DEFAULT_COLOR.fillColor : SAVED_COLOR.fillColor,
-                        strokeColor: isDefault ? DEFAULT_COLOR.strokeColor : SAVED_COLOR.strokeColor,
-                        fillOpacity: isDefault ? DEFAULT_COLOR.fillOpacity : 0.4, 
-                        strokeWeight: 3, 
-                        zIndex: 2
-                    };
-                }
-            } else { 
-                if (viewAll) {
-                    visible = true;
-                    options = {
-                        fillColor: isDefault ? DEFAULT_COLOR.fillColor : VIEW_ALL_COLOR.fillColor,
-                        strokeColor: isDefault ? DEFAULT_COLOR.strokeColor : VIEW_ALL_COLOR.strokeColor,
-                        fillOpacity: isDefault ? DEFAULT_COLOR.fillOpacity : 0.2, 
-                        strokeWeight: isDefault ? 3 : 1,
-                        zIndex: isDefault ? 2 : 1
-                    };
-                } else if (isSelected) {
-                    visible = true;
-                    options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), strokeWeight: 2, zIndex: 1 };
-                }
+            if (viewAll) {
+                visible = true;
+                options = {
+                    fillColor: isDefault ? DEFAULT_COLOR.fillColor : VIEW_ALL_COLOR.fillColor,
+                    strokeColor: isDefault ? DEFAULT_COLOR.strokeColor : VIEW_ALL_COLOR.strokeColor,
+                    fillOpacity: isDefault ? DEFAULT_COLOR.fillOpacity : 0.2, 
+                    strokeWeight: isDefault ? 3 : 1,
+                    zIndex: isDefault ? 2 : 1
+                };
+            } else if (isSelected) {
+                visible = true;
+                options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), strokeWeight: 2, zIndex: 1 };
             }
              // @ts-ignore
             gf.shape.setOptions({ ...options, map: visible ? map : null });
         });
     }
-    
-  }, [activeOverlay, isEditingShape, map, setupListeners, clearListeners, geofences, isEditingEnabled, viewAll, selectedGeofenceId, defaultGeofenceId]);
-
+  }, [activeOverlay, isEditingShape, map, geofences, isEditingEnabled, viewAll, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, isDrawing]);
   
   return (
     <Card>
