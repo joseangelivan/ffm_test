@@ -105,21 +105,16 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             shape: createShapeFromGeometry(dbGf.geometry) as google.maps.MVCObject
         }));
         
-        const defaultGf = dbGeofences.find(g => g.is_default);
-        let initialSelectedId: string | null = null;
         let initialDefaultId: string | null = null;
-
-        if (defaultGf) {
-            initialDefaultId = defaultGf.id;
-            initialSelectedId = defaultGf.id;
-        } else if (dbGeofences.length > 0) {
-            initialSelectedId = dbGeofences[0].id;
+        if (dbGeofences.length > 0) {
+            const defaultGf = dbGeofences.find(g => g.is_default);
+            initialDefaultId = defaultGf ? defaultGf.id : dbGeofences[0].id;
         }
         
         // Atomic state update
         setGeofences(gfObjects);
         setDefaultGeofenceId(initialDefaultId);
-        setSelectedGeofenceId(initialSelectedId);
+        setSelectedGeofenceId(initialDefaultId);
     }
     fetchGeofences();
   }, [condo.id]);
@@ -192,8 +187,8 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
         overlayListeners.current.push(google.maps.event.addListener(path, 'remove_at', updateAndRecordHistory));
     } else {
         overlayListeners.current.push(google.maps.event.addListener(shape, changedEvent, updateAndRecordHistory));
-        overlayListeners.current.push(google.maps.event.addListener(shape, 'dragend', updateAndRecordHistory));
     }
+    overlayListeners.current.push(google.maps.event.addListener(shape, 'dragend', updateAndRecordHistory));
   }, [updateHistory, clearListeners]);
 
   useEffect(() => {
@@ -209,7 +204,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     geofences.forEach(gf => { if (gf.shape) { (gf.shape as any).setMap(null); } });
     if (activeOverlay) { (activeOverlay as any).setMap(null); }
     clearListeners();
-
+    
     // Show the active overlay for editing/creating
     if (isEditingShape && activeOverlay) {
         (activeOverlay as any).setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2, suppressUndo: true });
@@ -217,15 +212,14 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
         setupListeners(activeOverlay);
     }
     
-    // Show reference geofence(s)
+    // Show reference geofence(s) when editing is enabled
     if (isEditingEnabled) {
-        // Show the selected geofence as a semi-transparent reference during editing/creating actions
         const refGeofence = geofences.find(g => g.id === selectedGeofenceId);
         if (refGeofence?.shape) {
             const isDefault = refGeofence.id === defaultGeofenceId;
             (refGeofence.shape as any).setOptions({
                 ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR),
-                fillOpacity: 0.1, 
+                fillOpacity: isDefault ? 0 : 0.1, 
                 strokeWeight: 2,
                 strokeDasharray: '5,5',
                 zIndex: 1, 
@@ -242,21 +236,21 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             const isSelected = gf.id === selectedGeofenceId;
             let visible = false;
             let options: any = { editable: false, draggable: false };
-
+            
             if (viewAll) {
                 visible = true;
                 options = {
                     fillColor: isDefault ? DEFAULT_COLOR.fillColor : VIEW_ALL_COLOR.fillColor,
                     strokeColor: isDefault ? DEFAULT_COLOR.strokeColor : VIEW_ALL_COLOR.strokeColor,
-                    fillOpacity: isDefault ? DEFAULT_COLOR.fillOpacity : 0.2, 
+                    fillOpacity: isDefault ? 0 : 0.2, 
                     strokeWeight: isDefault ? 3 : 1,
                     zIndex: isDefault ? 2 : 1
                 };
             } else if (isSelected) {
                 visible = true;
-                options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), strokeWeight: 2, zIndex: 1 };
+                options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), fillOpacity: isDefault ? 0: 0.3, strokeWeight: 2, zIndex: 1 };
             }
-             // @ts-ignore
+            // @ts-ignore
             gf.shape.setOptions({ ...options, map: visible ? map : null });
         });
     }
@@ -365,5 +359,3 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     </Card>
   );
 }
-
-    
