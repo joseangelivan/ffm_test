@@ -31,7 +31,7 @@ export type GeofenceObject = {
 export const EDIT_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9' };
 export const SAVED_COLOR = { fillColor: '#1ABC9C', strokeColor: '#16A085' };
 export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d' };
-export const DEFAULT_COLOR = { fillColor: '#f39c12', strokeColor: '#e67e22', fillOpacity: 0.3 };
+export const DEFAULT_COLOR = { fillColor: '#f39c12', strokeColor: '#e67e22', fillOpacity: 0 };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -233,7 +233,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                     options = { 
                         fillColor: isDefault ? DEFAULT_COLOR.fillColor : SAVED_COLOR.fillColor,
                         strokeColor: isDefault ? DEFAULT_COLOR.strokeColor : SAVED_COLOR.strokeColor,
-                        fillOpacity: 0.4, 
+                        fillOpacity: isDefault ? DEFAULT_COLOR.fillOpacity : 0.4, 
                         strokeWeight: 3, 
                         zIndex: 2
                     };
