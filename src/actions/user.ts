@@ -2,7 +2,6 @@
 'use server';
 
 import { redirect } from 'next/navigation'
-import bcrypt from 'bcrypt';
 import { getDbPool } from '@/lib/db';
 import { createSession } from '@/lib/session';
 
@@ -12,6 +11,7 @@ type AuthState = {
 };
 
 export async function authenticateUser(prevState: any, formData: FormData): Promise<AuthState> {
+    const bcrypt = (await import('bcrypt')).default;
     let client;
     let redirectPath: string;
     try {

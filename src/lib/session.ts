@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { cookies } from 'next/headers';
@@ -18,10 +19,12 @@ export type SessionPayload = {
 };
 
 export async function getSession(sessionToken?: string): Promise<SessionPayload | null> {
-    if (!sessionToken) return null;
+    const token = sessionToken ?? cookies().get('session')?.value;
+    
+    if (!token) return null;
 
     try {
-        const { payload } = await jwtVerify(sessionToken, JWT_SECRET, {
+        const { payload } = await jwtVerify(token, JWT_SECRET, {
             algorithms: [JWT_ALG],
         });
         
