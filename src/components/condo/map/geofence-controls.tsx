@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -141,8 +140,8 @@ export function GeofenceControls({
             let visible = false;
             let options: any = {};
 
-            if (isEditingShape && isSelected) {
-                visible = false; // Hide original while editing
+            if (isEditingShape && isSelected && !isCreating) {
+                visible = false; // Hide original while editing an existing shape
             } else if (isEditingEnabled) {
                 if (isSelected) {
                     visible = true;
@@ -171,12 +170,19 @@ export function GeofenceControls({
                         strokeWeight: 2, 
                         zIndex: 1
                     };
+                } else if (isCreating && isSelected) { // Show selected (usually default) when creating
+                    visible = true;
+                     options = {
+                        ...DEFAULT_COLOR,
+                        strokeWeight: 2, 
+                        zIndex: 1
+                    };
                 }
             }
             // @ts-ignore
             gf.shape.setOptions({ ...options, editable: false, draggable: false, map: visible ? map : null });
         });
-  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isEditingShape, map]);
+  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isEditingShape, map, isCreating]);
 
 
     const resetActionStates = useCallback(() => {
@@ -228,16 +234,16 @@ export function GeofenceControls({
         if (!selectedGeofenceId) return;
         const idToDelete = selectedGeofenceId;
         
-        const result = await deleteGeofence(idToDelete);
-        if (!result.success) {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
-            return;
-        }
-
         const geofenceToRemove = geofences.find(g => g.id === idToDelete);
         if (geofenceToRemove && geofenceToRemove.shape) {
             // @ts-ignore
             geofenceToRemove.shape.setMap(null);
+        }
+
+        const result = await deleteGeofence(idToDelete);
+        if (!result.success) {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+            return;
         }
 
         setGeofences(prev => {
@@ -327,7 +333,7 @@ export function GeofenceControls({
         if(isCreating) {
             setCurrentGeofenceName(getNextGeofenceName());
         }
-    }, [isCreating]);
+    }, [isCreating, getNextGeofenceName, t, geofences]);
 
 
     const handleSetAsDefault = async () => {
