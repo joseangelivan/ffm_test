@@ -45,9 +45,9 @@ const GeofenceDrawingManager = ({
         const newDrawingManager = new drawing.DrawingManager({
             drawingMode: drawing.OverlayType[drawingMode.toUpperCase() as keyof typeof google.maps.drawing.OverlayType],
             drawingControl: false,
-            polygonOptions: { ...SAVED_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, zIndex: 1, suppressUndo: true },
-            rectangleOptions: { ...SAVED_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, zIndex: 1, suppressUndo: true },
-            circleOptions: { ...SAVED_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, zIndex: 1, suppressUndo: true },
+            polygonOptions: { ...SAVED_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, draggable: true, zIndex: 1, suppressUndo: true },
+            rectangleOptions: { ...SAVED_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, draggable: true, zIndex: 1, suppressUndo: true },
+            circleOptions: { ...SAVED_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, draggable: true, zIndex: 1, suppressUndo: true },
         });
         
         newDrawingManager.setMap(map);
@@ -188,15 +188,10 @@ export function GeofenceControls({
         if (!selectedGeofenceId) return;
         const idToDelete = selectedGeofenceId;
         
-        const geofenceToRemove = geofences.find(g => g.id === idToDelete);
-        if (geofenceToRemove && geofenceToRemove.shape) {
-            // @ts-ignore
-            geofenceToRemove.shape.setMap(null);
-        }
-
         const result = await deleteGeofence(idToDelete);
-        if (!result.success) {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+        
+        if (!result || !result.success) {
+            toast({ title: t('toast.errorTitle'), description: result?.message || "An unknown error occurred.", variant: "destructive" });
             return;
         }
 
@@ -204,11 +199,13 @@ export function GeofenceControls({
             const newGeofences = prev.filter(g => g.id !== idToDelete);
             
             if(idToDelete === defaultGeofenceId) {
-                setDefaultGeofenceId(newGeofences.length > 0 ? newGeofences[0].id : null);
-            }
-            
-            if (idToDelete === selectedGeofenceId) {
-                setSelectedGeofenceId(newGeofences.length > 0 ? newGeofences[0].id : null);
+                const newDefaultId = newGeofences.length > 0 ? newGeofences[0].id : null;
+                setDefaultGeofenceId(newDefaultId);
+                if (idToDelete === selectedGeofenceId) {
+                    setSelectedGeofenceId(newDefaultId);
+                }
+            } else if (idToDelete === selectedGeofenceId) {
+                setSelectedGeofenceId(defaultGeofenceId);
             }
 
             return newGeofences;
