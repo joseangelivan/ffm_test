@@ -167,7 +167,7 @@ export function GeofenceControls({
      const handleStartEdit = () => {
         if (!selectedGeofenceId) return;
         const geofenceToEdit = geofences.find(g => g.id === selectedGeofenceId);
-        if (!geofenceToEdit) return;
+        if (!geofenceToEdit || !geofenceToEdit.shape) return;
 
         const geometry = getGeometryFromShape(geofenceToEdit.shape);
         const shape = createShapeFromGeometry(geometry);
@@ -190,29 +190,36 @@ export function GeofenceControls({
         
         const result = await deleteGeofence(idToDelete);
         
-        if (!result || !result.success) {
-            toast({ title: t('toast.errorTitle'), description: result?.message || "An unknown error occurred.", variant: "destructive" });
-            return;
-        }
-
-        setGeofences(prev => {
-            const newGeofences = prev.filter(g => g.id !== idToDelete);
-            
-            if(idToDelete === defaultGeofenceId) {
-                const newDefaultId = newGeofences.length > 0 ? newGeofences[0].id : null;
-                setDefaultGeofenceId(newDefaultId);
-                if (idToDelete === selectedGeofenceId) {
-                    setSelectedGeofenceId(newDefaultId);
-                }
-            } else if (idToDelete === selectedGeofenceId) {
-                setSelectedGeofenceId(defaultGeofenceId);
+        if (result && result.success) {
+             // Find the shape to remove from the map
+            const deletedShape = geofences.find(g => g.id === idToDelete)?.shape;
+            if (deletedShape) {
+                (deletedShape as any).setMap(null);
             }
 
-            return newGeofences;
-        });
+            setGeofences(prev => {
+                const newGeofences = prev.filter(g => g.id !== idToDelete);
+                
+                if(idToDelete === defaultGeofenceId) {
+                    const newDefaultId = newGeofences.length > 0 ? newGeofences[0].id : null;
+                    setDefaultGeofenceId(newDefaultId);
+                    if (idToDelete === selectedGeofenceId) {
+                        setSelectedGeofenceId(newDefaultId);
+                    }
+                } else if (idToDelete === selectedGeofenceId) {
+                    setSelectedGeofenceId(defaultGeofenceId);
+                }
 
-        if (isEditing || isCreating) resetActionStates();
-        toast({ title: t('condoDashboard.map.toast.geofenceDeleted'), variant: "destructive" });
+                return newGeofences;
+            });
+            if (isEditing || isCreating) resetActionStates();
+            toast({ title: t('condoDashboard.map.toast.geofenceDeleted'), variant: "destructive" });
+
+        } else if (result) {
+            toast({ title: t('toast.errorTitle'), description: result.message || "An unknown error occurred.", variant: "destructive" });
+        } else {
+             toast({ title: t('toast.errorTitle'), description: "An unexpected error occurred while deleting.", variant: "destructive" });
+        }
     }
 
     const getNextGeofenceName = () => {
