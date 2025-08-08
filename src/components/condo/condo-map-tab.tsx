@@ -88,6 +88,9 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
 
   const [activeModule, setActiveModule] = useState('geofence');
   const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
+  
+  const [isEditingEnabled, setIsEditingEnabled] = useState(false);
+  const [viewAll, setViewAll] = useState(false);
 
 
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
@@ -112,6 +115,56 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     }
     fetchGeofences();
   }, [condo.id]);
+
+  useEffect(() => {
+    geofences.forEach(gf => {
+        if (!gf.shape) return;
+        const isDefault = gf.id === defaultGeofenceId;
+        const isSelected = gf.id === selectedGeofenceId;
+        let visible = false;
+        let options: any = { editable: false, draggable: false };
+
+        if (isEditingShape) {
+             if (isSelected && !isCreating) {
+                // Hide original shape if it's being edited
+                visible = false;
+            } else if (!isCreating && (isDefault || selectedGeofenceId === gf.id)) {
+                // Show default/selected geofence in the background while creating/editing
+                visible = true;
+                options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), strokeWeight: 2, zIndex: 1, fillOpacity: 0.1 };
+            }
+        } else if (isEditingEnabled) {
+            // Edit mode enabled, but not actively creating/editing a shape
+            if (isSelected) {
+                visible = true;
+                options = { 
+                    fillColor: isDefault ? DEFAULT_COLOR.fillColor : SAVED_COLOR.fillColor,
+                    strokeColor: isDefault ? DEFAULT_COLOR.strokeColor : SAVED_COLOR.strokeColor,
+                    fillOpacity: 0.4, 
+                    strokeWeight: 3, 
+                    zIndex: 2 // Bring to front
+                };
+            }
+        } else { 
+            // View mode
+            if (viewAll) {
+                visible = true;
+                options = {
+                    fillColor: isDefault ? DEFAULT_COLOR.fillColor : VIEW_ALL_COLOR.fillColor,
+                    strokeColor: isDefault ? DEFAULT_COLOR.strokeColor : VIEW_ALL_COLOR.strokeColor,
+                    fillOpacity: isDefault ? DEFAULT_COLOR.fillOpacity : 0.2, 
+                    strokeWeight: isDefault ? 3 : 1,
+                    zIndex: isDefault ? 2 : 1
+                };
+            } else if (selectedGeofenceId === gf.id) {
+                visible = true;
+                options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), strokeWeight: 2, zIndex: 1 };
+            }
+        }
+        // @ts-ignore
+        gf.shape.setOptions({ ...options, map: visible ? map : null });
+    });
+  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isEditingShape, map, isCreating]);
 
   const updateHistory = useCallback((geometry: any) => {
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -300,6 +353,10 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                                 map={map}
                                 drawingMode={drawingMode}
                                 setDrawingMode={setDrawingMode}
+                                isEditingEnabled={isEditingEnabled}
+                                setIsEditingEnabled={setIsEditingEnabled}
+                                viewAll={viewAll}
+                                setViewAll={setViewAll}
                             />
                         )}
                         {activeModule === 'elements' && (
