@@ -184,8 +184,22 @@
         "interface": "Interface",
         "systemConfiguration": "Configuração do Sistema",
         "catalogs": {
-            "title": "Catálogos",
+            "title": "Gestão de Catálogos",
+            "description": "Gerencie os dados globais que são utilizados em toda a aplicação, como tipos de dispositivo e protocolos.",
             "wipDescription": "Gerenciamento completo para este catálogo em breve.",
+            "table": {
+                "name": "Nome",
+                "features": "Características",
+                "actions": "Ações"
+            },
+            "form": {
+                "tab_es": "Espanhol",
+                "tab_pt": "Português",
+                "nameLabel": "Nome",
+                "featuresLabel": "Características",
+                "createTitle": "Criar Novo Tipo de Dispositivo",
+                "editTitle": "Editar Tipo de Dispositivo"
+            },
             "maps": {
               "tab": "Mapas",
               "title": "Configuração de Mapas",
@@ -201,7 +215,6 @@
               "title": "Protocolos de Comunicação"
             }
         },
-        "catalogsDescription": "Gerencie os dados globais que são utilizados em toda a aplicação.",
         "interfaceDescription": "Personalize a aparência e o idioma do aplicativo.",
         "languageDescription": "Selecione o idioma para a interface de administração.",
         "themeDescription": "Escolha entre um tema claro ou escuro para o painel.",

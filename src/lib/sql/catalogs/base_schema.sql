@@ -1,35 +1,32 @@
 
 CREATE TABLE IF NOT EXISTS device_types (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) UNIQUE NOT NULL,
-    description TEXT,
+    id SERIAL PRIMARY KEY,
+    name_translations JSONB NOT NULL,
+    features_translations JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS communication_protocols (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) UNIQUE NOT NULL,
-    description TEXT,
+    id SERIAL PRIMARY KEY,
+    name_translations JSONB NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Seed default device types
-INSERT INTO device_types (name, description) VALUES
-('smartphone', 'Teléfono inteligente con GPS y capacidades de datos.'),
-('watch', 'Reloj inteligente con GPS.'),
-('esp32', 'Placa de desarrollo ESP32 para proyectos IoT.'),
-('car_gps', 'Dispositivo de rastreo GPS para vehículos.'),
-('asset_tracker', 'Rastreador de activos para contenedores, maquinaria, etc.'),
-('pet_collar', 'Collar de rastreo para mascotas.')
-ON CONFLICT (name) DO NOTHING;
+-- Seed initial device types
+INSERT INTO device_types (name_translations, features_translations) VALUES
+('{"es": "Teléfono Inteligente", "pt": "Smartphone"}', '{"es": "Dispositivo móvil con GPS y conectividad celular.", "pt": "Dispositivo móvel com GPS e conectividade celular."}'),
+('{"es": "Reloj Inteligente", "pt": "Relógio Inteligente"}', '{"es": "Dispositivo de pulsera con seguimiento de ubicación.", "pt": "Dispositivo de pulso com rastreamento de localização."}'),
+('{"es": "Dispositivo IoT (ESP32)", "pt": "Dispositivo IoT (ESP32)"}', '{"es": "Placa de desarrollo con Wi-Fi y Bluetooth.", "pt": "Placa de desenvolvimento com Wi-Fi e Bluetooth."}'),
+('{"es": "Vehículo", "pt": "Veículo"}', '{"es": "Rastreador GPS instalado en un coche o motocicleta.", "pt": "Rastreador GPS instalado em um carro ou motocicleta."}')
+ON CONFLICT DO NOTHING;
 
--- Seed default communication protocols
-INSERT INTO communication_protocols (name, description) VALUES
-('http', 'Protocolo de Transferencia de Hipertexto (HTTP/HTTPS).'),
-('websocket', 'Comunicación bidireccional en tiempo real sobre una única conexión TCP.'),
-('mqtt', 'Protocolo ligero de mensajería para dispositivos restringidos.'),
-('tcp', 'Protocolo de Control de Transmisión (Socket TCP).'),
-('udp', 'Protocolo de Datagramas de Usuario (Socket UDP).')
-ON CONFLICT (name) DO NOTHING;
+-- Seed initial communication protocols
+INSERT INTO communication_protocols (name_translations) VALUES
+('{"es": "WebSocket", "pt": "WebSocket"}'),
+('{"es": "MQTT", "pt": "MQTT"}'),
+('{"es": "HTTP", "pt": "HTTP"}'),
+('{"es": "TCP", "pt": "TCP"}'),
+('{"es": "UDP", "pt": "UDP"}')
+ON CONFLICT DO NOTHING;

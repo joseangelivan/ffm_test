@@ -152,17 +152,7 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                         <DropdownMenuPortal>
                             <DropdownMenuSubContent>
                                 <ManageInterfaceDialog />
-                                 <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger>
-                                        <Book className="mr-2 h-4 w-4" />
-                                        <span>{t('adminDashboard.settingsGroups.catalogs')}</span>
-                                    </DropdownMenuSubTrigger>
-                                    <DropdownMenuPortal>
-                                        <DropdownMenuSubContent>
-                                            <ManageCatalogsDialog />
-                                        </DropdownMenuSubContent>
-                                    </DropdownMenuPortal>
-                                </DropdownMenuSub>
+                                <ManageCatalogsDialog />
                                 <DropdownMenuSub>
                                     <DropdownMenuSubTrigger>
                                         <Server className="mr-2 h-4 w-4" />

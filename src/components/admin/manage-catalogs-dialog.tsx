@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,41 +15,36 @@ import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useLocale } from '@/lib/i18n';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Book, Smartphone, Wifi, Map as MapIcon } from 'lucide-react';
+import { Book, Smartphone, Wifi, Map as MapIcon, Loader } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { getDeviceTypes, type DeviceType } from '@/actions/catalogs';
+import { CatalogManager } from './catalog-manager';
 
-function PlaceholderTab({ title }: { title: string }) {
-    const { t } = useLocale();
-    return (
-        <Card className="mt-4 border-dashed">
-            <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{t('adminDashboard.settingsGroups.catalogs.wipDescription')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <div className="h-48 w-full rounded-md border-dashed flex items-center justify-center bg-muted/30">
-                    <span className="text-muted-foreground text-sm">{t('adminDashboard.settingsGroups.manageThemes.editorPlaceholder')}</span>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
 
 export function ManageCatalogsDialog() {
     const { t } = useLocale();
-    
+    const [isLoading, setIsLoading] = useState(true);
+    const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
+
+    const fetchDeviceTypes = async () => {
+        setIsLoading(true);
+        const data = await getDeviceTypes();
+        setDeviceTypes(data);
+        setIsLoading(false);
+    };
+
     return (
-        <Dialog>
+        <Dialog onOpenChange={(open) => { if(open) fetchDeviceTypes() }}>
             <DialogTrigger asChild>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                     <Book className="mr-2 h-4 w-4" />
                     <span>{t('adminDashboard.settingsGroups.catalogs.title')}</span>
                 </DropdownMenuItem>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-xl">
+            <DialogContent className="sm:max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>{t('adminDashboard.settingsGroups.catalogs.title')}</DialogTitle>
-                    <DialogDescription>{t('adminDashboard.settingsGroups.catalogsDescription')}</DialogDescription>
+                    <DialogDescription>{t('adminDashboard.settingsGroups.catalogs.description')}</DialogDescription>
                 </DialogHeader>
                  <Tabs defaultValue="devices" className="w-full">
                     <TabsList className="grid w-full grid-cols-3">
@@ -57,16 +52,39 @@ export function ManageCatalogsDialog() {
                         <TabsTrigger value="protocols"><Wifi className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.protocols.tab')}</TabsTrigger>
                         <TabsTrigger value="maps" disabled><MapIcon className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.maps.tab')}</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="devices">
-                        <PlaceholderTab title={t('adminDashboard.settingsGroups.catalogs.deviceTypes.title')} />
+                    <TabsContent value="devices" className="mt-4">
+                        {isLoading ? (
+                            <div className="flex justify-center items-center h-48"><Loader className="h-8 w-8 animate-spin"/></div>
+                        ) : (
+                            <CatalogManager
+                                title={t('adminDashboard.settingsGroups.catalogs.deviceTypes.title')}
+                                data={deviceTypes}
+                                columns={{
+                                    name_translations: t('adminDashboard.settingsGroups.catalogs.table.name'),
+                                    features_translations: t('adminDashboard.settingsGroups.catalogs.table.features'),
+                                }}
+                                onRefresh={fetchDeviceTypes}
+                            />
+                        )}
                     </TabsContent>
-                     <TabsContent value="protocols">
-                        <PlaceholderTab title={t('adminDashboard.settingsGroups.catalogs.protocols.title')} />
+                     <TabsContent value="protocols" className="mt-4">
+                        <Card className="border-dashed">
+                            <CardHeader>
+                                <CardTitle>{t('adminDashboard.settingsGroups.catalogs.protocols.title')}</CardTitle>
+                                <CardDescription>{t('adminDashboard.settingsGroups.catalogs.wipDescription')}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-48 w-full rounded-md border-dashed flex items-center justify-center bg-muted/30">
+                                    <span className="text-muted-foreground text-sm">{t('adminDashboard.settingsGroups.manageThemes.editorPlaceholder')}</span>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </TabsContent>
-                    <TabsContent value="maps">
-                        <Card className="mt-4">
+                    <TabsContent value="maps" className="mt-4">
+                       <Card className="border-dashed">
                             <CardHeader>
                                 <CardTitle>{t('adminDashboard.settingsGroups.catalogs.maps.title')}</CardTitle>
+                                <CardDescription>{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyMissing')}</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center text-center p-4">
@@ -76,11 +94,13 @@ export function ManageCatalogsDialog() {
                         </Card>
                     </TabsContent>
                 </Tabs>
-                <DialogClose asChild>
-                    <Button type="button" variant="outline" className="mt-4 w-full">
-                        {t('common.close')}
-                    </Button>
-                </DialogClose>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="outline" className="mt-4">
+                            {t('common.close')}
+                        </Button>
+                    </DialogClose>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     )

@@ -184,13 +184,27 @@
         "interface": "Interfaz",
         "systemConfiguration": "Configuración del Sistema",
         "catalogs": {
-            "title": "Catálogos",
+            "title": "Gestión de Catálogos",
+            "description": "Gestiona los datos globales que se utilizan en toda la aplicación, como tipos de dispositivo y protocolos.",
             "wipDescription": "Gestión completa para este catálogo próximamente.",
+            "table": {
+                "name": "Nombre",
+                "features": "Características",
+                "actions": "Acciones"
+            },
+            "form": {
+                "tab_es": "Español",
+                "tab_pt": "Portugués",
+                "nameLabel": "Nombre",
+                "featuresLabel": "Características",
+                "createTitle": "Crear Nuevo Tipo de Dispositivo",
+                "editTitle": "Editar Tipo de Dispositivo"
+            },
             "maps": {
               "tab": "Mapas",
               "title": "Configuración de Mapas",
               "apiKeyMissing": "La clave de API para Google Maps no está configurada.",
-              "apiKeyInstructions": "Por favor, define la variable de entorno NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en tu proyecto."
+              "apiKeyInstructions": "Por favor, defina la variable de entorno NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en tu proyecto."
             },
             "deviceTypes": {
               "tab": "Dispositivos",
@@ -201,7 +215,6 @@
               "title": "Protocolos de Comunicación"
             }
         },
-        "catalogsDescription": "Gestiona los datos globales que se utilizan en toda la aplicación.",
         "interfaceDescription": "Personaliza la apariencia y el idioma de la aplicación.",
         "languageDescription": "Selecciona el idioma para la interfaz de administración.",
         "themeDescription": "Elige entre un tema claro u oscuro para el panel.",
