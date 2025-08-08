@@ -136,14 +136,23 @@ export function GeofenceControls({
     
     useEffect(() => {
         geofences.forEach(gf => {
+            if (!gf.shape) return;
             const isDefault = gf.id === defaultGeofenceId;
             const isSelected = gf.id === selectedGeofenceId;
             let visible = false;
-            let options: any = {};
+            let options: any = { editable: false, draggable: false };
     
-            if (isEditingShape && isSelected && !isCreating) {
-                visible = false; // Hide original while editing an existing shape
+            if (isEditingShape) {
+                 if (isSelected && !isCreating) {
+                    // Hide original shape if it's being edited
+                    visible = false;
+                } else if (!isCreating && isDefault) {
+                    // Show default geofence in the background while creating a new one
+                    visible = true;
+                    options = { ...DEFAULT_COLOR, strokeWeight: 2, zIndex: 1 };
+                }
             } else if (isEditingEnabled) {
+                // Edit mode enabled, but not actively creating/editing a shape
                 if (isSelected) {
                     visible = true;
                     options = { 
@@ -154,7 +163,8 @@ export function GeofenceControls({
                         zIndex: 1
                     };
                 }
-            } else { // View mode
+            } else { 
+                // View mode
                 if (viewAll) {
                     visible = true;
                     options = {
@@ -164,22 +174,15 @@ export function GeofenceControls({
                         strokeWeight: isDefault ? 3 : 1,
                         zIndex: isDefault ? 2 : 1
                     };
-                } else if (isCreating) {
-                     if (isDefault) {
-                        visible = true;
-                        options = { ...DEFAULT_COLOR, strokeWeight: 2, zIndex: 1 };
-                    }
-                } else {
-                     if (isDefault) {
-                        visible = true;
-                        options = { ...DEFAULT_COLOR, strokeWeight: 2, zIndex: 1 };
-                    }
+                } else if (isDefault) {
+                    visible = true;
+                    options = { ...DEFAULT_COLOR, strokeWeight: 2, zIndex: 1 };
                 }
             }
             // @ts-ignore
-            gf.shape.setOptions({ ...options, editable: false, draggable: false, map: visible ? map : null });
+            gf.shape.setOptions({ ...options, map: visible ? map : null });
         });
-  }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isEditingShape, map, isCreating]);
+    }, [isEditingEnabled, viewAll, geofences, selectedGeofenceId, defaultGeofenceId, isEditingShape, map, isCreating]);
 
 
     const resetActionStates = useCallback(() => {
