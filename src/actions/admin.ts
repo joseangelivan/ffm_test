@@ -678,6 +678,11 @@ export async function generateTotpSecret(email: string): Promise<ActionState> {
     return { success: true, message: 'Secreto generado.', data: { qrCodeUrl: otpauth, secret: secret } };
 }
 
+export async function generateQrCodeDataUrl(otpAuthUrl: string): Promise<string> {
+    const QRCode = (await import('qrcode')).default;
+    return await QRCode.toDataURL(otpAuthUrl);
+}
+
 export async function enableTotp(secret: string, token: string): Promise<ActionState> {
     const { authenticator } = (await import('otplib'));
     const sessionToken = cookies().get('session')?.value;

@@ -302,4 +302,3 @@ export async function testSmtpConfiguration(id: string): Promise<ActionState> {
          return { success: false, message: errorMessage };
     }
 }
-    

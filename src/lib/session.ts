@@ -1,12 +1,10 @@
 
-
 'use server';
 
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
 import { JWT_SECRET } from '@/lib/config';
 import { getDbPool } from './db';
-import { randomUUID } from 'crypto';
 
 const JWT_ALG = 'HS256';
 
@@ -44,6 +42,7 @@ export async function getSession(sessionToken?: string): Promise<SessionPayload 
 }
 
 export async function createSession(userId: string, userType: 'admin' | 'resident' | 'gatekeeper', userData: {email: string, name: string, canCreateAdmins?: boolean}) {
+    const { randomUUID } = (await import('crypto'));
     let client;
     try {
         const pool = await getDbPool();

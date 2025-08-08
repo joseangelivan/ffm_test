@@ -9,6 +9,7 @@ let migrationsRan = false;
 async function runMigrations(client: Pool): Promise<boolean> {
     const fs = (await import('fs/promises')).default;
     const path = (await import('path')).default;
+    const bcrypt = (await import('bcrypt')).default;
     
     if (migrationsRan) {
         console.log('[runMigrations] Migrations already ran in this instance. Skipping.');
@@ -68,7 +69,6 @@ async function runMigrations(client: Pool): Promise<boolean> {
         }
         
         console.log('[runMigrations] Checking for default admin user...');
-        const bcrypt = (await import('bcrypt')).default;
         const adminEmail = 'angelivan34@gmail.com';
         const correctPassword = 'adminivan123';
         const dynamicallyGeneratedHash = await bcrypt.hash(correctPassword, 10);
