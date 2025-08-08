@@ -301,6 +301,14 @@ export function GeofenceControls({
         }
     }
 
+    const handleEditingEnabledChange = (checked: boolean) => {
+        setIsEditingEnabled(checked);
+        if (!checked) {
+            setViewAll(false);
+            resetActionStates();
+        }
+    };
+
     return (
         <div className="space-y-4 pt-2 border-t">
             <div className="flex flex-col gap-4">
@@ -323,7 +331,7 @@ export function GeofenceControls({
 
             <div className="pt-4 border-t space-y-2">
                 <div className="flex items-center space-x-2">
-                    <Checkbox id="enable-editing" checked={isEditingEnabled} onCheckedChange={(checked) => setIsEditingEnabled(!!checked)}/>
+                    <Checkbox id="enable-editing" checked={isEditingEnabled} onCheckedChange={(checked) => handleEditingEnabledChange(!!checked)}/>
                     <label htmlFor="enable-editing" className="text-base font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                         {t('condoDashboard.map.geofence.editMode')}
                     </label>

@@ -36,20 +36,20 @@ export const DEFAULT_COLOR = { fillColor: '#f39c12', strokeColor: '#e67e22', fil
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
     if (!shape) return null;
-    const shapeType = 'getPaths' in shape ? 'polygon' : 'getBounds' in shape ? 'rectangle' : 'getRadius' in shape ? 'circle' : null;
     
-    switch (shapeType) {
-        case 'polygon': {
-            const path = (shape as google.maps.Polygon).getPath();
-            return { type: 'polygon', paths: path.getArray().map((latLng: google.maps.LatLng) => ({ lat: latLng.lat(), lng: latLng.lng() })) };
-        }
-        case 'rectangle':
-            return { type: 'rectangle', bounds: (shape as google.maps.Rectangle).getBounds()?.toJSON() };
-        case 'circle':
-            return { type: 'circle', center: (shape as google.maps.Circle).getCenter()?.toJSON(), radius: (shape as google.maps.Circle).getRadius() };
-        default:
-            return null;
+    // Explicitly check for circle first because a circle also has getBounds()
+    if ('getRadius' in shape) {
+        return { type: 'circle', center: (shape as google.maps.Circle).getCenter()?.toJSON(), radius: (shape as google.maps.Circle).getRadius() };
     }
+    if ('getPaths' in shape) {
+        const path = (shape as google.maps.Polygon).getPath();
+        return { type: 'polygon', paths: path.getArray().map((latLng: google.maps.LatLng) => ({ lat: latLng.lat(), lng: latLng.lng() })) };
+    }
+    if ('getBounds' in shape) {
+        return { type: 'rectangle', bounds: (shape as google.maps.Rectangle).getBounds()?.toJSON() };
+    }
+    
+    return null;
 };
 
 export const createShapeFromGeometry = (geometry: any): google.maps.MVCObject | null => {
