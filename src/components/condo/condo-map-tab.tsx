@@ -205,52 +205,37 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   }, [clearListeners, activeOverlay]);
 
   useEffect(() => {
-    // Clear all existing geofence shapes from the map first
-    geofences.forEach(gf => {
-      if (gf.shape) {
-        // @ts-ignore
-        gf.shape.setMap(null);
-      }
-    });
+    // Clear all existing shapes from the map to prevent duplicates
+    geofences.forEach(gf => { if (gf.shape) { (gf.shape as any).setMap(null); } });
+    if (activeOverlay) { (activeOverlay as any).setMap(null); }
+    clearListeners();
 
-    // Clear active overlay if it exists
-    if (activeOverlay) {
-        // @ts-ignore
-        activeOverlay.setMap(null);
-    }
-
-    if (activeOverlay && isEditingShape) {
-        // Show only the active overlay for editing/creating
-        // @ts-ignore
-        activeOverlay.setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2, suppressUndo: true });
-        // @ts-ignore
-        activeOverlay.setMap(map);
+    // Show the active overlay for editing/creating
+    if (isEditingShape && activeOverlay) {
+        (activeOverlay as any).setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2, suppressUndo: true });
+        (activeOverlay as any).setMap(map);
         setupListeners(activeOverlay);
     }
-
-    // Always render the selected geofence as a reference if we are editing but not drawing
-    if (isEditingEnabled && !isDrawing) {
+    
+    // Show reference geofence(s)
+    if (isEditingEnabled) {
+        // Show the selected geofence as a semi-transparent reference during editing/creating actions
         const refGeofence = geofences.find(g => g.id === selectedGeofenceId);
         if (refGeofence?.shape) {
             const isDefault = refGeofence.id === defaultGeofenceId;
-            // @ts-ignore
-            refGeofence.shape.setOptions({
+            (refGeofence.shape as any).setOptions({
                 ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR),
-                fillOpacity: isDefault ? 0.0 : 0.2, // Reference is semi-transparent
+                fillOpacity: 0.1, 
                 strokeWeight: 2,
-                zIndex: 1, // Lower z-index than editing shape
+                strokeDasharray: '5,5',
+                zIndex: 1, 
                 editable: false,
                 draggable: false,
             });
-             // @ts-ignore
-            refGeofence.shape.setMap(map);
+            (refGeofence.shape as any).setMap(map);
         }
-    }
-
-
-    if (!isEditingEnabled) {
+    } else {
         // Logic for viewing mode
-        clearListeners();
         geofences.forEach(gf => {
             if (!gf.shape) return;
             const isDefault = gf.id === defaultGeofenceId;
@@ -275,7 +260,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             gf.shape.setOptions({ ...options, map: visible ? map : null });
         });
     }
-  }, [activeOverlay, isEditingShape, map, geofences, isEditingEnabled, viewAll, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, isDrawing]);
+  }, [activeOverlay, isEditingShape, map, geofences, isEditingEnabled, viewAll, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners]);
   
   return (
     <Card>
@@ -380,3 +365,5 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     </Card>
   );
 }
+
+    
