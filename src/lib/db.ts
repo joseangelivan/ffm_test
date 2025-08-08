@@ -55,20 +55,28 @@ async function runMigrations(client: Pool): Promise<boolean> {
             let schemaSql = await fs.readFile(sqlPath, 'utf-8');
 
             if (schemaSql.trim()) {
-                const createTypeRegex = /(CREATE TYPE "([^"]+)" AS ENUM \([^)]+\);)/gi;
+                // Regex to find all CREATE TYPE ... AS ENUM statements.
+                // This is more robust than the previous one.
+                const createTypeRegex = /CREATE\s+TYPE\s+"([^"]+)"\s+AS\s+ENUM\s*\(([^)]+)\);/gi;
                 let match;
+                const typesToCreate: { typeName: string, fullMatch: string }[] = [];
+                
+                // First, find all matches before replacing, to avoid issues with replacing inside a loop.
                 while ((match = createTypeRegex.exec(schemaSql)) !== null) {
-                    const fullMatch = match[1];
-                    const typeName = match[2];
+                    typesToCreate.push({ typeName: match[1], fullMatch: match[0] });
+                }
+
+                // Now, replace them with the safe block
+                for (const typeInfo of typesToCreate) {
                     const safeBlock = `
-                        DO $$
-                        BEGIN
-                            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeName}') THEN
-                                ${fullMatch}
-                            END IF;
-                        END$$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeInfo.typeName}') THEN
+        ${typeInfo.fullMatch}
+    END IF;
+END$$;
                     `;
-                    schemaSql = schemaSql.replace(fullMatch, safeBlock);
+                    schemaSql = schemaSql.replace(typeInfo.fullMatch, safeBlock);
                 }
                 
                 await dbClient.query(schemaSql);
