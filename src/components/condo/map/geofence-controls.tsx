@@ -306,6 +306,7 @@ export function GeofenceControls({
         if (!checked) {
             setViewAll(false);
             resetActionStates();
+            setSelectedGeofenceId(defaultGeofenceId);
         }
     };
 
