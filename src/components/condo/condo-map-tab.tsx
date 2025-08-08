@@ -18,6 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import MapComponent from '@/components/map';
 import { GeofenceControls } from './map/geofence-controls';
 import { ElementsControls } from './map/elements-controls';
+import { getGeofencesByCondoId } from '@/actions/maps';
+import type { Geofence } from '@/actions/maps';
 
 
 export type GeofenceObject = {
@@ -29,7 +31,7 @@ export type GeofenceObject = {
 export const EDIT_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9' };
 export const SAVED_COLOR = { fillColor: '#1ABC9C', strokeColor: '#16A085' };
 export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d' };
-export const DEFAULT_COLOR = { fillColor: '#f39c12', strokeColor: '#e67e22', fillOpacity: 0 };
+export const DEFAULT_COLOR = { fillColor: '#f39c12', strokeColor: '#e67e22', fillOpacity: 0.3 };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -89,6 +91,26 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   const isEditingShape = isEditing || isCreating;
 
+  useEffect(() => {
+    async function fetchGeofences() {
+        const dbGeofences = await getGeofencesByCondoId(condo.id);
+        const gfObjects = dbGeofences.map(dbGf => ({
+            id: dbGf.id,
+            name: dbGf.name,
+            shape: createShapeFromGeometry(dbGf.geometry) as google.maps.MVCObject
+        }));
+        setGeofences(gfObjects);
+        const defaultGf = dbGeofences.find(g => g.is_default);
+        if (defaultGf) {
+            setDefaultGeofenceId(defaultGf.id);
+            setSelectedGeofenceId(defaultGf.id);
+        } else if (dbGeofences.length > 0) {
+            setSelectedGeofenceId(dbGeofences[0].id)
+        }
+    }
+    fetchGeofences();
+  }, [condo.id]);
+
   const updateHistory = useCallback((geometry: any) => {
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
     newHistory.push(geometry);
@@ -107,12 +129,14 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     const newShape = createShapeFromGeometry(previousGeometry);
     
     if (newShape) {
+        // @ts-ignore
+        if(activeOverlay) activeOverlay.setMap(null);
         setActiveOverlay(newShape);
     }
     
     setCanUndo(historyIndexRef.current > 0);
     setCanRedo(true);
-  }, [canUndo]);
+  }, [canUndo, activeOverlay]);
 
   const handleRedo = useCallback(() => {
     if (!canRedo) return;
@@ -122,12 +146,14 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     const newShape = createShapeFromGeometry(nextGeometry);
     
     if (newShape) {
+        // @ts-ignore
+        if(activeOverlay) activeOverlay.setMap(null);
         setActiveOverlay(newShape);
     }
 
     setCanUndo(true);
     setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-  }, [canRedo]);
+  }, [canRedo, activeOverlay]);
   
   const clearListeners = useCallback(() => {
     overlayListeners.current.forEach(l => l.remove());
@@ -247,6 +273,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                         </div>
                         {activeModule === 'geofence' && (
                             <GeofenceControls
+                                condoId={condo.id}
                                 geofences={geofences}
                                 setGeofences={setGeofences}
                                 selectedGeofenceId={selectedGeofenceId}
