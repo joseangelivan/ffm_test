@@ -1,39 +1,36 @@
--- src/lib/sql/maps/base_schema.sql
-
+-- Geofences for each condominium
 CREATE TABLE IF NOT EXISTS geofences (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
+    condominium_id UUID NOT NULL,
     name VARCHAR(255) NOT NULL,
     geometry JSONB NOT NULL,
     is_default BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    FOREIGN KEY (condominium_id) REFERENCES condominiums(id) ON DELETE CASCADE
 );
 
+-- Types of elements that can be placed on the map
 CREATE TABLE IF NOT EXISTS map_element_types (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
+    condominium_id UUID NOT NULL,
     name VARCHAR(100) NOT NULL,
-    icon_svg TEXT, -- Store SVG content directly
+    icon_svg TEXT, -- Storing SVG as text
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(condominium_id, name)
+    FOREIGN KEY (condominium_id) REFERENCES condominiums(id) ON DELETE CASCADE
 );
 
+-- Specific instances of map elements
 CREATE TABLE IF NOT EXISTS map_elements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
-    type_id UUID NOT NULL REFERENCES map_element_types(id) ON DELETE RESTRICT,
+    condominium_id UUID NOT NULL,
+    type_id UUID NOT NULL,
     name VARCHAR(255) NOT NULL,
-    geometry JSONB NOT NULL, -- Could be a point for a camera, a polygon for an area
-    related_device_id UUID REFERENCES devices(id) ON DELETE SET NULL,
-    metadata JSONB,
+    location GEOMETRY(Point, 4326), -- Using PostGIS for location
+    properties JSONB, -- For extra data like camera URL, etc.
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    FOREIGN KEY (condominium_id) REFERENCES condominiums(id) ON DELETE CASCADE,
+    FOREIGN KEY (type_id) REFERENCES map_element_types(id) ON DELETE RESTRICT
 );
-
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_geofences_on_condominium_id ON geofences(condominium_id);
-CREATE INDEX IF NOT EXISTS idx_map_element_types_on_condominium_id ON map_element_types(condominium_id);
-CREATE INDEX IF NOT EXISTS idx_map_elements_on_condominium_id ON map_elements(condominium_id);
-CREATE INDEX IF NOT EXISTS idx_map_elements_on_type_id ON map_elements(type_id);

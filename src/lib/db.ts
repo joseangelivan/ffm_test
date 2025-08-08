@@ -49,14 +49,21 @@ async function runMigrations(client: Pool): Promise<boolean> {
                 console.log(`[runMigrations] Migration already applied, skipping: ${schemaFile}`);
                 continue; 
             }
-            console.log(`[runMigrations] Applying migration: ${schemaFile}`);
             
-            const sqlPath = path.join(process.cwd(), 'src', 'lib', 'sql', schemaFile);
-            const schemaSql = await fs.readFile(sqlPath, 'utf-8');
+            try {
+                console.log(`[runMigrations] Applying migration: ${schemaFile}`);
+                const sqlPath = path.join(process.cwd(), 'src', 'lib', 'sql', schemaFile);
+                const schemaSql = await fs.readFile(sqlPath, 'utf-8');
 
-            if (schemaSql.trim()) {
-                await dbClient.query(schemaSql);
-                await dbClient.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [schemaFile]);
+                if (schemaSql.trim()) {
+                    await dbClient.query(schemaSql);
+                    await dbClient.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [schemaFile]);
+                    console.log(`[runMigrations] Successfully applied and logged: ${schemaFile}`);
+                }
+            } catch (migrationError: any) {
+                console.error(`[runMigrations] FAILED to apply migration file "${schemaFile}". Error: ${migrationError.message}`);
+                // Re-throw the error to be caught by the outer catch block, which will cause a ROLLBACK.
+                throw migrationError;
             }
         }
         
