@@ -4,7 +4,6 @@
 import { Pool } from 'pg';
 import fs from 'fs/promises';
 import path from 'path';
-import bcrypt from 'bcrypt';
 
 let pool: Pool | undefined;
 let migrationsRan = false;
@@ -68,6 +67,7 @@ async function runMigrations(client: Pool): Promise<boolean> {
         }
         
         console.log('[runMigrations] Checking for default admin user...');
+        const bcrypt = (await import('bcrypt')).default;
         const adminEmail = 'angelivan34@gmail.com';
         const correctPassword = 'adminivan123';
         const dynamicallyGeneratedHash = await bcrypt.hash(correctPassword, 10);

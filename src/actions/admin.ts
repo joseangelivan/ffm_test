@@ -2,7 +2,6 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import bcrypt from 'bcrypt';
 import { authenticator } from 'otplib';
 import { cookies } from 'next/headers';
 
@@ -179,6 +178,7 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
 }
 
 export async function authenticateAdmin(prevState: any, formData: FormData): Promise<AuthState> {
+    const bcrypt = (await import('bcrypt')).default;
     let client;
     try {
         const pool = await getDbPool();
@@ -231,6 +231,7 @@ export async function authenticateAdmin(prevState: any, formData: FormData): Pro
 }
 
 export async function handleFirstLogin(prevState: any, formData: FormData): Promise<AuthState> {
+    const bcrypt = (await import('bcrypt')).default;
     const email = formData.get('email') as string;
     const pin = formData.get('pin') as string;
     const password = formData.get('password') as string;
@@ -298,6 +299,7 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 // --- Admin CRUD ---
 
 export async function createAdmin(prevState: ActionState | undefined, formData: FormData): Promise<ActionState> {
+    const bcrypt = (await import('bcrypt')).default;
     const sessionToken = cookies().get('session')?.value;
     const session = await getSessionFromToken(sessionToken);
     if (!session || !session.canCreateAdmins) {
@@ -545,6 +547,7 @@ export async function verifyAdminEmailChangePin(newEmail: string, pin: string): 
 }
 
 export async function updateAdminAccount(prevState: any, formData: FormData): Promise<ActionState> {
+    const bcrypt = (await import('bcrypt')).default;
     const sessionToken = cookies().get('session')?.value;
     const session = await getSessionFromToken(sessionToken);
     if (!session || session.type !== 'admin') {
