@@ -9,7 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogClose,
-  DialogTrigger
+  DialogTrigger,
+  DialogFooter
 } from '@/components/ui/dialog';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
