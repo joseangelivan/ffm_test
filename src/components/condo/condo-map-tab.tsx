@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MapComponent from '@/components/map';
-import { GeofenceControls } from './map/geofence-controls';
+import { GeofenceControls, type DrawingMode } from './map/geofence-controls';
 import { ElementsControls } from './map/elements-controls';
 import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence } from '@/actions/maps';
@@ -87,6 +87,8 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   const [canRedo, setCanRedo] = useState(false);
 
   const [activeModule, setActiveModule] = useState('geofence');
+  const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
+
 
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   const isEditingShape = isEditing || isCreating;
@@ -228,7 +230,8 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                  <div className="h-full w-full bg-muted overflow-hidden relative shadow-inner rounded-md border">
                    <MapComponent center={center} zoom={15}>
                        {isDrawing && (
-                           <GeofenceControls.DrawingManager 
+                           <GeofenceControls.DrawingManager
+                                drawingMode={drawingMode}
                                onOverlayComplete={(overlay: google.maps.MVCObject) => {
                                    setIsDrawing(false);
                                    setIsCreating(true);
@@ -295,6 +298,8 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                                 setCanRedo={setCanRedo}
                                 clearListeners={clearListeners}
                                 map={map}
+                                drawingMode={drawingMode}
+                                setDrawingMode={setDrawingMode}
                             />
                         )}
                         {activeModule === 'elements' && (

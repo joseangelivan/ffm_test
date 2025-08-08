@@ -27,16 +27,17 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
-type DrawingMode = 'polygon' | 'rectangle' | 'circle';
+export type DrawingMode = 'polygon' | 'rectangle' | 'circle';
 
 const GeofenceDrawingManager = ({
+    drawingMode,
     onOverlayComplete,
 }: {
+    drawingMode: DrawingMode;
     onOverlayComplete: (overlay: google.maps.MVCObject) => void;
 }) => {
     const map = useMap();
     const drawing = useMapsLibrary('drawing');
-    const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
     
     useEffect(() => {
         if (!map || !drawing) return;
@@ -64,25 +65,7 @@ const GeofenceDrawingManager = ({
         };
     }, [map, drawing, onOverlayComplete, drawingMode]);
 
-    return (
-         <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-40 justify-between">
-                    <span>
-                        {drawingMode === 'polygon' && 'Polígono'}
-                        {drawingMode === 'rectangle' && 'Rectángulo'}
-                        {drawingMode === 'circle' && 'Círculo'}
-                    </span>
-                    <ChevronDown className="h-4 w-4"/>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => setDrawingMode('polygon')}>Polígono</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setDrawingMode('rectangle')}>Rectángulo</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setDrawingMode('circle')}>Círculo</DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    );
+    return null;
 };
 
 
@@ -109,6 +92,8 @@ type GeofenceControlsProps = {
     setCanRedo: React.Dispatch<React.SetStateAction<boolean>>;
     clearListeners: () => void;
     map: google.maps.Map | null;
+    drawingMode: DrawingMode;
+    setDrawingMode: React.Dispatch<React.SetStateAction<DrawingMode>>;
 }
 
 export function GeofenceControls({
@@ -133,14 +118,15 @@ export function GeofenceControls({
     setCanUndo,
     setCanRedo,
     clearListeners,
-    map
+    map,
+    drawingMode,
+    setDrawingMode,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
 
     const [isEditingEnabled, setIsEditingEnabled] = useState(false);
     const [viewAll, setViewAll] = useState(false);
-    const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
     
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
 
