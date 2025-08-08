@@ -234,6 +234,12 @@ export function GeofenceControls({
             return;
         }
 
+        const geofenceToRemove = geofences.find(g => g.id === idToDelete);
+        if (geofenceToRemove && geofenceToRemove.shape) {
+            // @ts-ignore
+            geofenceToRemove.shape.setMap(null);
+        }
+
         setGeofences(prev => {
             const newGeofences = prev.filter(g => g.id !== idToDelete);
             
