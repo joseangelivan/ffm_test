@@ -39,7 +39,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createDeviceType, updateDeviceType, deleteDeviceType } from '@/actions/catalogs';
 import type { TranslationObject } from '@/actions/catalogs';
 
@@ -68,6 +68,7 @@ function CatalogForm({
     const { toast } = useToast();
     const isEditMode = !!item;
     const formAction = isEditMode ? updateDeviceType : createDeviceType;
+    const [selectedLang, setSelectedLang] = useState<'es' | 'pt'>('es');
     
     const handleAction = async (prevState: any, formData: FormData) => {
         const result = await formAction(prevState, formData);
@@ -97,32 +98,46 @@ function CatalogForm({
                     </DialogTitle>
                 </DialogHeader>
                 <input type="hidden" name="id" value={item?.id || ''} />
-                <Tabs defaultValue="es" className="py-4">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="es">{t('adminDashboard.settingsGroups.catalogs.form.tab_es')}</TabsTrigger>
-                        <TabsTrigger value="pt">{t('adminDashboard.settingsGroups.catalogs.form.tab_pt')}</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="es" className="space-y-4 pt-4">
-                        <div className="space-y-2">
+                
+                <div className="py-4 space-y-4">
+                    <div className="space-y-2">
+                        <Label>{t('dashboard.language')}</Label>
+                        <Select value={selectedLang} onValueChange={(value) => setSelectedLang(value as 'es' | 'pt')}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar idioma"/>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="es">{t('adminDashboard.settingsGroups.catalogs.form.tab_es')}</SelectItem>
+                                <SelectItem value="pt">{t('adminDashboard.settingsGroups.catalogs.form.tab_pt')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Spanish Fields - Always in DOM for form submission */}
+                    <div className={`${selectedLang === 'es' ? 'block' : 'hidden'}`}>
+                         <div className="space-y-2">
                             <Label htmlFor="name_es">{t('adminDashboard.settingsGroups.catalogs.form.nameLabel')}</Label>
                             <Input id="name_es" name="name_es" defaultValue={item?.name_translations?.es} required />
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-2 mt-4">
                             <Label htmlFor="features_es">{t('adminDashboard.settingsGroups.catalogs.form.featuresLabel')}</Label>
                             <Textarea id="features_es" name="features_es" defaultValue={item?.features_translations?.es} />
                         </div>
-                    </TabsContent>
-                    <TabsContent value="pt" className="space-y-4 pt-4">
-                        <div className="space-y-2">
+                    </div>
+
+                    {/* Portuguese Fields - Always in DOM for form submission */}
+                    <div className={`${selectedLang === 'pt' ? 'block' : 'hidden'}`}>
+                         <div className="space-y-2">
                             <Label htmlFor="name_pt">{t('adminDashboard.settingsGroups.catalogs.form.nameLabel')}</Label>
                             <Input id="name_pt" name="name_pt" defaultValue={item?.name_translations?.pt} required />
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-2 mt-4">
                             <Label htmlFor="features_pt">{t('adminDashboard.settingsGroups.catalogs.form.featuresLabel')}</Label>
                             <Textarea id="features_pt" name="features_pt" defaultValue={item?.features_translations?.pt} />
                         </div>
-                    </TabsContent>
-                </Tabs>
+                    </div>
+                </div>
+
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={onCancel}>{t('common.cancel')}</Button>
                     <Button type="submit">{t('common.save')}</Button>
