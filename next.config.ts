@@ -22,14 +22,11 @@ const nextConfig: NextConfig = {
   webpack: (config, { isServer, webpack }) => {
     // This is a workaround for a bug in Next.js where it tries to bundle
     // a file from a dependency that is not meant to be bundled.
-    // This plugin will replace the problematic file with an empty module.
-    // See: https://github.com/vercel/next.js/issues/48332
-    config.plugins.push(
-      new webpack.NormalModuleReplacementPlugin(
-        /node_modules\/@mapbox\/node-pre-gyp\/lib\/util\/nw-pre-gyp\/index\.html/,
-        require.resolve('./public/empty.js')
-      )
-    );
+    // This rule tells Webpack to treat the problematic file as an empty module.
+    config.module.rules.push({
+      test: /node_modules\/@mapbox\/node-pre-gyp\/lib\/util\/nw-pre-gyp\/index\.html$/,
+      use: 'null-loader',
+    });
     
     return config;
   }
