@@ -54,10 +54,16 @@ export async function createTranslationService(prevState: any, formData: FormDat
     }
     
     const { name, request_config, response_config } = validatedFields.data;
-    const combinedConfig = {
-        request: JSON.parse(request_config),
-        response: JSON.parse(response_config)
-    };
+    
+    let combinedConfig;
+    try {
+        combinedConfig = {
+            request: JSON.parse(request_config),
+            response: JSON.parse(response_config)
+        };
+    } catch (e) {
+        return { success: false, message: 'Formato JSON inválido.' };
+    }
 
     let client;
     try {
@@ -92,10 +98,16 @@ export async function updateTranslationService(prevState: any, formData: FormDat
     }
 
     const { name, request_config, response_config } = validatedFields.data;
-    const combinedConfig = {
-        request: JSON.parse(request_config),
-        response: JSON.parse(response_config)
-    };
+    
+    let combinedConfig;
+    try {
+        combinedConfig = {
+            request: JSON.parse(request_config),
+            response: JSON.parse(response_config)
+        };
+    } catch (e) {
+        return { success: false, message: 'Formato JSON inválido.' };
+    }
 
     let client;
     try {
@@ -320,18 +332,6 @@ export async function testTranslationService(id: string): Promise<ActionState> {
     if (!service || !service.config_json) {
         console.error('[testTranslationService] Error: Configuración JSON inválida o no encontrada en el servicio.');
         return { success: false, message: "Configuración JSON inválida o no encontrada." };
-    }
-    
-    // Ensure config_json is an object
-    if (typeof service.config_json !== 'object') {
-        try {
-            // Attempt to parse if it's a string
-            service.config_json = JSON.parse(service.config_json);
-            console.log('[testTranslationService] config_json fue parseado de string a objeto.');
-        } catch (e) {
-            console.error('[testTranslationService] Error: config_json no es un objeto y tampoco es un string JSON válido.', e);
-            return { success: false, message: "El formato de configuración guardado es incorrecto. Debe ser un objeto JSON." };
-        }
     }
     
     console.log('[testTranslationService] Llamando a translateText...');

@@ -68,11 +68,6 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
     const [isRequestJsonValid, setIsRequestJsonValid] = useState(true);
     const [isResponseJsonValid, setIsResponseJsonValid] = useState(true);
 
-    const combinedJson = JSON.stringify({
-        request: isRequestJsonValid ? JSON.parse(requestConfig || '{}') : {},
-        response: isResponseJsonValid ? JSON.parse(responseConfig || '{}') : {}
-    });
-
     const handleJsonChange = (setter: React.Dispatch<React.SetStateAction<string>>, validator: React.Dispatch<React.SetStateAction<boolean>>) => (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const text = e.target.value;
         setter(text);
@@ -92,7 +87,6 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
                 <DialogDescription>{t('adminDashboard.translator.formDescription')}</DialogDescription>
             </DialogHeader>
             <input type="hidden" name="id" value={service?.id || ''} />
-            <input type="hidden" name="config_json" value={combinedJson} />
 
             <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
@@ -103,6 +97,7 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
                     <Label htmlFor="request_config">{t('adminDashboard.translator.requestConfigLabel')}</Label>
                     <Textarea 
                         id="request_config"
+                        name="request_config"
                         value={requestConfig}
                         onChange={handleJsonChange(setRequestConfig, setIsRequestJsonValid)}
                         placeholder='{ "base_url": "...", "parameters": { ... } }' 
@@ -116,6 +111,7 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
                     <Label htmlFor="response_config">{t('adminDashboard.translator.responseConfigLabel')}</Label>
                     <Textarea 
                         id="response_config"
+                        name="response_config"
                         value={responseConfig}
                         onChange={handleJsonChange(setResponseConfig, setIsResponseJsonValid)}
                         placeholder='{ "path": "responseData.translatedText" }' 
