@@ -193,8 +193,13 @@ export function ManageTranslatorDialog() {
   
   const fetchServices = useCallback(async () => {
     setIsLoading(true);
-    const result = await getTranslationServices();
-    setServices(Array.isArray(result) ? result : []);
+    try {
+        const result = await getTranslationServices();
+        setServices(Array.isArray(result) ? result : []);
+    } catch (e) {
+        setServices([]);
+        console.error("Failed to fetch translation services", e);
+    }
     setIsLoading(false);
   }, []);
 
@@ -244,7 +249,7 @@ export function ManageTranslatorDialog() {
       setTestingId(id);
       startSubmitting(async () => {
           const result = await testTranslationService(id);
-          console.log(`13.- [Client] Resultado final recibido:`, result);
+          console.log(`20.- [Client] Resultado final recibido:`, result);
           if (result.success) {
               toast({ title: t('toast.successTitle'), description: result.message, duration: 9000 });
           } else {
@@ -362,5 +367,3 @@ export function ManageTranslatorDialog() {
     </>
   );
 }
-
-    
