@@ -191,7 +191,6 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         return { success: false, message: "Configuración JSON inválida o no encontrada." };
     }
     
-    // config_json is already an object from the database
     const { config_json } = service;
 
     const testUrl = buildTranslationUrl(config_json.request, "Hello", "en", "es");
