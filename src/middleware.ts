@@ -29,7 +29,6 @@ async function handleInvalidSession(request: NextRequest, isPublicPage: boolean)
 
 export async function middleware(request: NextRequest) {
   const sessionToken = request.cookies.get('session')?.value;
-  const session = await verifySession(sessionToken);
   
   const { pathname } = request.nextUrl;
 
@@ -40,6 +39,17 @@ export async function middleware(request: NextRequest) {
   const isPublicPage = publicPages.some(page => pathname === page);
   const isAdminRoute = protectedAdminRoutes.some(route => pathname.startsWith(route));
   const isUserRoute = protectedUserRoutes.some(route => pathname.startsWith(route));
+
+  // If there's no token, treat as logged out
+  if (!sessionToken) {
+    if (isAdminRoute || isUserRoute) {
+      const loginPath = isAdminRoute ? '/admin/login' : '/login';
+      return NextResponse.redirect(new URL(loginPath, request.url));
+    }
+    return NextResponse.next();
+  }
+  
+  const session = await verifySession(sessionToken);
 
   if (session) {
     const isSessionDataValid = await verifySessionIntegrity(session);
@@ -58,7 +68,7 @@ export async function middleware(request: NextRequest) {
     }
 
   } else {
-    // If there is no session
+    // If there is no session (invalid token)
     if (isAdminRoute) {
       const url = request.nextUrl.clone();
       url.pathname = '/admin/login';
