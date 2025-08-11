@@ -1,7 +1,8 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifySession } from '@/lib/session';
+import { verifySession, type SessionPayload } from '@/lib/session';
+import { verifySessionIntegrity } from '@/actions/admin';
 
 export const config = {
   matcher: [
@@ -16,6 +17,15 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico|admin/db-init).*)',
   ],
 };
+
+async function handleInvalidSession(request: NextRequest, isPublicPage: boolean) {
+    const response = isPublicPage 
+        ? NextResponse.next() 
+        : NextResponse.redirect(new URL('/admin/login', request.url));
+    
+    response.cookies.delete('session');
+    return response;
+}
 
 export async function middleware(request: NextRequest) {
   const sessionToken = request.cookies.get('session')?.value;
@@ -32,13 +42,21 @@ export async function middleware(request: NextRequest) {
   const isUserRoute = protectedUserRoutes.some(route => pathname.startsWith(route));
 
   if (session) {
-    // If there is a session
+    const isSessionDataValid = await verifySessionIntegrity(session);
+    
+    if (!isSessionDataValid) {
+        // Data in cookie is stale (e.g., email changed).
+        // Delete cookie and redirect to login. This breaks the loop.
+        return handleInvalidSession(request, isPublicPage);
+    }
+
+    // If session is valid and user is on a public page, redirect to their dashboard
     if (isPublicPage) {
-      // And the user tries to access a public login page, redirect them to their dashboard
       const url = request.nextUrl.clone();
       url.pathname = session.type === 'admin' ? '/admin/dashboard' : '/dashboard';
       return NextResponse.redirect(url);
     }
+
   } else {
     // If there is no session
     if (isAdminRoute) {
