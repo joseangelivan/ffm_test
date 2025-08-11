@@ -3,6 +3,7 @@
 
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
+import { bcrypt } from 'bcryptjs';
 
 import { verifySession, type SessionPayload } from '@/lib/session';
 import { createSession } from '@/lib/session';
@@ -190,7 +191,7 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
 }
 
 export async function authenticateAdmin(prevState: any, formData: FormData): Promise<AuthState> {
-    const bcrypt = (await import('bcryptjs')).default;
+    const bcryptjs = (await import('bcryptjs')).default;
     let client;
     try {
         const pool = await getDbPool();
@@ -214,7 +215,7 @@ export async function authenticateAdmin(prevState: any, formData: FormData): Pro
             return { success: false, message: "toast.firstLogin.alreadyActive" };
         }
         
-        const passwordMatch = await bcrypt.compare(password, admin.password_hash);
+        const passwordMatch = await bcryptjs.compare(password, admin.password_hash);
         
         if (!passwordMatch) {
             return { success: false, message: "toast.adminLogin.invalidCredentials" };
@@ -243,7 +244,7 @@ export async function authenticateAdmin(prevState: any, formData: FormData): Pro
 }
 
 export async function handleFirstLogin(prevState: any, formData: FormData): Promise<AuthState> {
-    const bcrypt = (await import('bcryptjs')).default;
+    const bcryptjs = (await import('bcryptjs')).default;
     const email = formData.get('email') as string;
     const pin = formData.get('pin') as string;
     const password = formData.get('password') as string;
@@ -277,12 +278,12 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
         }
         const storedPin = pinResult.rows[0];
 
-        const pinMatch = await bcrypt.compare(pin, storedPin.pin_hash);
+        const pinMatch = await bcryptjs.compare(pin, storedPin.pin_hash);
         if (!pinMatch) {
             return { success: false, message: "toast.firstLogin.invalidPin" };
         }
 
-        const newPasswordHash = await bcrypt.hash(password, 10);
+        const newPasswordHash = await bcryptjs.hash(password, 10);
         await client.query('UPDATE admins SET password_hash = $1 WHERE id = $2', [newPasswordHash, admin.id]);
         
         await client.query('DELETE FROM admin_first_login_pins WHERE admin_id = $1', [admin.id]);
@@ -311,7 +312,7 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 // --- Admin CRUD ---
 
 export async function createAdmin(prevState: ActionState | undefined, formData: FormData): Promise<ActionState> {
-    const bcrypt = (await import('bcryptjs')).default;
+    const bcryptjs = (await import('bcryptjs')).default;
     const session = await getSession();
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
@@ -349,7 +350,7 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
         );
         const newAdminId = newAdminResult.rows[0].id;
         
-        const pinHash = await bcrypt.hash(pin, 10);
+        const pinHash = await bcryptjs.hash(pin, 10);
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
         await client.query(
@@ -553,7 +554,7 @@ export async function verifyAdminEmailChangePin(newEmail: string, pin: string): 
 }
 
 export async function updateAdminAccount(prevState: any, formData: FormData): Promise<ActionState> {
-    const bcrypt = (await import('bcryptjs')).default;
+    const bcryptjs = (await import('bcryptjs')).default;
     const session = await getSession();
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
@@ -606,12 +607,12 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
                 return { success: false, message: "Las nuevas contraseñas no coinciden." };
             }
 
-            const passwordMatch = await bcrypt.compare(currentPassword, currentAdmin.password_hash);
+            const passwordMatch = await bcryptjs.compare(currentPassword, currentAdmin.password_hash);
             if (!passwordMatch) {
                 return { success: false, message: "La contraseña actual es incorrecta." };
             }
 
-            const newPasswordHash = await bcrypt.hash(newPassword, 10);
+            const newPasswordHash = await bcryptjs.hash(newPassword, 10);
             updateClauses.push(`password_hash = $${valueIndex++}`);
             values.push(newPasswordHash);
         }

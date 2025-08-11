@@ -18,11 +18,8 @@ export const config = {
   ],
 };
 
-async function handleInvalidSession(request: NextRequest, isPublicPage: boolean) {
-    const response = isPublicPage 
-        ? NextResponse.next() 
-        : NextResponse.redirect(new URL('/admin/login', request.url));
-    
+async function handleInvalidSession(request: NextRequest) {
+    const response = NextResponse.redirect(new URL('/admin/login', request.url));
     response.cookies.delete('session');
     return response;
 }
@@ -35,50 +32,57 @@ export async function middleware(request: NextRequest) {
   const protectedAdminRoutes = ['/admin/dashboard', '/admin/condominio'];
   const protectedUserRoutes = ['/dashboard'];
 
-  const isPublicPage = publicPages.some(page => pathname === page);
+  const isPublicPage = publicPages.some(page => pathname.startsWith(page));
   const isAdminRoute = protectedAdminRoutes.some(route => pathname.startsWith(route));
   const isUserRoute = protectedUserRoutes.some(route => pathname.startsWith(route));
 
+  // 1. If no session token exists
   if (!sessionToken) {
-    if (isAdminRoute || isUserRoute) {
-      const loginPath = isAdminRoute ? '/admin/login' : '/login';
-      return NextResponse.redirect(new URL(loginPath, request.url));
-    }
+    // If trying to access a protected route, redirect to the appropriate login page
+    if (isAdminRoute) return NextResponse.redirect(new URL('/admin/login', request.url));
+    if (isUserRoute) return NextResponse.redirect(new URL('/login', request.url));
+    // Otherwise, allow access to public pages
     return NextResponse.next();
   }
-  
+
+  // 2. If a session token exists, verify it
   const session = await verifySession(sessionToken);
 
-  if (session) {
-    const isSessionDataValid = await verifySessionIntegrity(session);
-    
-    if (!isSessionDataValid) {
-        return handleInvalidSession(request, isPublicPage);
-    }
-
-    const dashboardPath = session.type === 'admin' ? '/admin/dashboard' : '/dashboard';
-    
-    if (isPublicPage) {
-      return NextResponse.redirect(new URL(dashboardPath, request.url));
-    }
-    
-    if (session.type === 'admin' && isUserRoute) {
-        return NextResponse.redirect(new URL('/admin/dashboard', request.url));
-    }
-
-    if ((session.type === 'resident' || session.type === 'gatekeeper') && isAdminRoute) {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-
-  } else {
-    // Invalid token
+  if (!session) {
+    // If token is invalid (expired, malformed), treat as no session
     if (isAdminRoute || isUserRoute) {
-        const loginPath = isAdminRoute ? '/admin/login' : '/login';
-        const response = NextResponse.redirect(new URL(loginPath, request.url));
-        response.cookies.delete('session');
-        return response;
+      const loginPath = isAdminRoute ? '/admin/login' : '/login';
+      return handleInvalidSession(request);
     }
+    const response = NextResponse.next();
+    response.cookies.delete('session');
+    return response;
+  }
+
+  // 3. If session is valid, check data integrity
+  const isSessionDataValid = await verifySessionIntegrity(session);
+  if (!isSessionDataValid) {
+    return handleInvalidSession(request);
+  }
+
+  // 4. Handle routing for valid sessions
+  const isAdmin = session.type === 'admin';
+  const isStandardUser = session.type === 'resident' || session.type === 'gatekeeper';
+  
+  // If user is on a public page, redirect them to their dashboard
+  if (isPublicPage) {
+    const dashboardPath = isAdmin ? '/admin/dashboard' : '/dashboard';
+    return NextResponse.redirect(new URL(dashboardPath, request.url));
+  }
+
+  // Prevent cross-access to protected routes
+  if (isAdmin && isUserRoute) {
+    return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+  }
+  if (isStandardUser && isAdminRoute) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
   
+  // 5. If everything is correct, allow the request to proceed
   return NextResponse.next();
 }
