@@ -11,7 +11,7 @@ type AuthState = {
 };
 
 export async function authenticateUser(prevState: any, formData: FormData): Promise<AuthState> {
-    const bcrypt = (await import('bcrypt')).default;
+    const bcrypt = (await import('bcryptjs')).default;
     let client;
     let redirectPath: string;
     try {

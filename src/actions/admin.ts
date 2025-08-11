@@ -185,7 +185,7 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
 }
 
 export async function authenticateAdmin(prevState: any, formData: FormData): Promise<AuthState> {
-    const bcrypt = (await import('bcrypt')).default;
+    const bcrypt = (await import('bcryptjs')).default;
     let client;
     try {
         const pool = await getDbPool();
@@ -238,7 +238,7 @@ export async function authenticateAdmin(prevState: any, formData: FormData): Pro
 }
 
 export async function handleFirstLogin(prevState: any, formData: FormData): Promise<AuthState> {
-    const bcrypt = (await import('bcrypt')).default;
+    const bcrypt = (await import('bcryptjs')).default;
     const email = formData.get('email') as string;
     const pin = formData.get('pin') as string;
     const password = formData.get('password') as string;
@@ -306,7 +306,7 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 // --- Admin CRUD ---
 
 export async function createAdmin(prevState: ActionState | undefined, formData: FormData): Promise<ActionState> {
-    const bcrypt = (await import('bcrypt')).default;
+    const bcrypt = (await import('bcryptjs')).default;
     const session = await getSession();
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
@@ -548,7 +548,7 @@ export async function verifyAdminEmailChangePin(newEmail: string, pin: string): 
 }
 
 export async function updateAdminAccount(prevState: any, formData: FormData): Promise<ActionState> {
-    const bcrypt = (await import('bcrypt')).default;
+    const bcrypt = (await import('bcryptjs')).default;
     const session = await getSession();
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
