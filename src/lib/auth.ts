@@ -11,7 +11,8 @@ import { verifySession, type SessionPayload } from '@/lib/session';
  * @returns The session payload or null if not valid.
  */
 export async function getSession(): Promise<SessionPayload | null> {
-    const sessionToken = cookies().get('session')?.value;
+    const cookieStore = cookies();
+    const sessionToken = cookieStore.get('session')?.value;
 
     if(!sessionToken) return null;
     

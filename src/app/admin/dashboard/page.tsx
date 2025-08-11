@@ -4,11 +4,13 @@ import { getSettings, verifySessionIntegrity } from '@/actions/admin';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
 import { cookies } from 'next/headers';
 import { getSession } from '@/lib/auth';
+import { verifySession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
-  const session = await getSession();
+  const sessionToken = cookies().get('session')?.value;
+  const session = await verifySession(sessionToken);
 
   if (!session) {
     // This check is redundant if middleware is active, but good for safety.
