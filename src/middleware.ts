@@ -29,7 +29,6 @@ async function handleInvalidSession(request: NextRequest, isPublicPage: boolean)
 
 export async function middleware(request: NextRequest) {
   const sessionToken = request.cookies.get('session')?.value;
-  
   const { pathname } = request.nextUrl;
 
   const publicPages = ['/', '/login', '/admin/login', '/admin/first-login', '/admin/enter-password', '/admin/verify-2fa'];
@@ -40,7 +39,6 @@ export async function middleware(request: NextRequest) {
   const isAdminRoute = protectedAdminRoutes.some(route => pathname.startsWith(route));
   const isUserRoute = protectedUserRoutes.some(route => pathname.startsWith(route));
 
-  // If there's no token, treat as logged out
   if (!sessionToken) {
     if (isAdminRoute || isUserRoute) {
       const loginPath = isAdminRoute ? '/admin/login' : '/login';
@@ -55,33 +53,32 @@ export async function middleware(request: NextRequest) {
     const isSessionDataValid = await verifySessionIntegrity(session);
     
     if (!isSessionDataValid) {
-        // Data in cookie is stale (e.g., email changed).
-        // Delete cookie and redirect to login. This breaks the loop.
         return handleInvalidSession(request, isPublicPage);
     }
 
-    // If session is valid and user is on a public page, redirect to their dashboard
+    const dashboardPath = session.type === 'admin' ? '/admin/dashboard' : '/dashboard';
+    
     if (isPublicPage) {
-      const url = request.nextUrl.clone();
-      url.pathname = session.type === 'admin' ? '/admin/dashboard' : '/dashboard';
-      return NextResponse.redirect(url);
+      return NextResponse.redirect(new URL(dashboardPath, request.url));
+    }
+    
+    if (session.type === 'admin' && isUserRoute) {
+        return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+    }
+
+    if ((session.type === 'resident' || session.type === 'gatekeeper') && isAdminRoute) {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
   } else {
-    // If there is no session (invalid token)
-    if (isAdminRoute) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/admin/login';
-      return NextResponse.redirect(url);
-    }
-    if (isUserRoute) {
-      // And the user tries to access a protected route, redirect to the main login page
-      const url = request.nextUrl.clone();
-      url.pathname = '/login';
-      return NextResponse.redirect(url);
+    // Invalid token
+    if (isAdminRoute || isUserRoute) {
+        const loginPath = isAdminRoute ? '/admin/login' : '/login';
+        const response = NextResponse.redirect(new URL(loginPath, request.url));
+        response.cookies.delete('session');
+        return response;
     }
   }
-
-  // If none of the above, let the request continue
+  
   return NextResponse.next();
 }
