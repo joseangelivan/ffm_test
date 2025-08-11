@@ -149,7 +149,16 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
         }
     }
     applyInitialSettings();
-  }, [initialSettings, setLocale, applyTheme]);
+
+    async function checkSession() {
+        const isSessionValid = await verifySessionIntegrity(session);
+        if (!isSessionValid) {
+            await handleLogoutAction();
+            router.push('/admin/login');
+        }
+    }
+    checkSession();
+  }, [initialSettings, setLocale, applyTheme, router, session]);
 
   const handleSetLocale = async (newLocale: 'es' | 'pt') => {
       setLocale(newLocale);
