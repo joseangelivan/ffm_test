@@ -32,27 +32,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/logo';
 
-function SubmitButton() {
-    const { pending } = useFormStatus();
-    const { t } = useLocale();
-
-    return (
-        <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? (
-                <>
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    {t('dbInitializer.loading')}
-                </>
-            ) : (
-                <>
-                    <Database className="mr-2 h-4 w-4" />
-                    {t('dbInitializer.button')}
-                </>
-            )}
-        </Button>
-    );
-}
-
 function LogEntry({ logLine }: { logLine: string }) {
     const parts = logLine.split(':');
     const type = parts[0];
@@ -83,20 +62,24 @@ function DbInitForm() {
     const { t } = useLocale();
     const initialState: DbInitResult = { success: false, message: '', log: [] };
     
-    const [state, formAction] = useActionState(initializeDatabase, initialState);
-    const { pending } = useFormStatus();
+    const [state, formAction, isPending] = useActionState(initializeDatabase, initialState);
     const [isAlertOpen, setIsAlertOpen] = useState(false);
+    const formRef = useRef<HTMLFormElement>(null);
 
     useEffect(() => {
         // When the form submission starts, close the dialog.
-        if (pending) {
+        if (isPending) {
             setIsAlertOpen(false);
         }
-    }, [pending]);
+    }, [isPending]);
+
+    const handleFormSubmit = () => {
+        formRef.current?.requestSubmit();
+    }
 
     return (
         <Card className="w-full max-w-2xl shadow-xl">
-            <form action={formAction}>
+            <form ref={formRef} action={formAction}>
                 <CardHeader>
                     <div className="flex justify-center pb-4">
                         <Logo />
@@ -127,7 +110,7 @@ function DbInitForm() {
                                 </ScrollArea>
                             </div>
                         </div>
-                    ) : pending && (
+                    ) : isPending && (
                         <div className="flex items-center justify-center gap-4 text-muted-foreground py-10">
                             <Loader className="h-8 w-8 animate-spin" />
                             <span>{t('dbInitializer.loading')}</span>
@@ -137,8 +120,8 @@ function DbInitForm() {
                 <CardFooter className="flex flex-col gap-4">
                     <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
                         <AlertDialogTrigger asChild>
-                            <Button className="w-full" disabled={pending}>
-                                {pending ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <Database className="mr-2 h-4 w-4" />}
+                            <Button type="button" className="w-full" disabled={isPending}>
+                                {isPending ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <Database className="mr-2 h-4 w-4" />}
                                 {t('dbInitializer.button')}
                             </Button>
                         </AlertDialogTrigger>
@@ -151,9 +134,8 @@ function DbInitForm() {
                             </AlertDialogHeader>
                             <AlertDialogFooter className="mt-4">
                                 <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                <AlertDialogAction asChild>
-                                    {/* This button submits the form */}
-                                    <Button type="submit">{t('dbInitializer.confirmButton')}</Button>
+                                <AlertDialogAction onClick={handleFormSubmit}>
+                                    {t('dbInitializer.confirmButton')}
                                 </AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>
