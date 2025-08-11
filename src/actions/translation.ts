@@ -19,14 +19,12 @@ type ActionState<T = null> = {
 
 const ServiceSchema = z.object({
     name: z.string().min(1, "El nombre es obligatorio."),
-    config_json: z.string().refine((val) => {
-        try {
-            JSON.parse(val);
-            return true;
-        } catch (e) {
-            return false;
-        }
-    }, { message: "La configuración debe ser un JSON válido."}),
+    request_config: z.string().refine((val) => {
+        try { JSON.parse(val); return true; } catch (e) { return false; }
+    }, { message: "La configuración de solicitud debe ser un JSON válido."}),
+    response_config: z.string().refine((val) => {
+        try { JSON.parse(val); return true; } catch (e) { return false; }
+    }, { message: "La configuración de respuesta debe ser un JSON válido."}),
 });
 
 export async function getTranslationServices(): Promise<TranslationService[]> {
@@ -35,7 +33,10 @@ export async function getTranslationServices(): Promise<TranslationService[]> {
         const pool = await getDbPool();
         client = await pool.connect();
         const result = await client.query('SELECT * FROM translation_services ORDER BY created_at ASC');
-        return result.rows;
+        return result.rows.map(row => ({
+            ...row,
+            config_json: typeof row.config_json === 'string' ? JSON.parse(row.config_json) : row.config_json
+        }));
     } catch (error) {
         console.error("Error getting translation services:", error);
         return [];
@@ -47,14 +48,19 @@ export async function getTranslationServices(): Promise<TranslationService[]> {
 export async function createTranslationService(prevState: any, formData: FormData): Promise<ActionState> {
     const validatedFields = ServiceSchema.safeParse({
         name: formData.get('name'),
-        config_json: formData.get('config_json'),
+        request_config: formData.get('request_config'),
+        response_config: formData.get('response_config'),
     });
 
     if (!validatedFields.success) {
         return { success: false, message: validatedFields.error.errors[0].message };
     }
     
-    const { name, config_json } = validatedFields.data;
+    const { name, request_config, response_config } = validatedFields.data;
+    const combinedConfig = {
+        request: JSON.parse(request_config),
+        response: JSON.parse(response_config)
+    };
 
     let client;
     try {
@@ -63,7 +69,7 @@ export async function createTranslationService(prevState: any, formData: FormDat
         
         await client.query(
             'INSERT INTO translation_services (name, config_json) VALUES ($1, $2)',
-            [name, JSON.parse(config_json)]
+            [name, combinedConfig]
         );
         return { success: true, message: `Servicio "${name}" creado con éxito.` };
     } catch (error) {
@@ -80,14 +86,19 @@ export async function updateTranslationService(prevState: any, formData: FormDat
 
     const validatedFields = ServiceSchema.safeParse({
         name: formData.get('name'),
-        config_json: formData.get('config_json'),
+        request_config: formData.get('request_config'),
+        response_config: formData.get('response_config'),
     });
 
     if (!validatedFields.success) {
         return { success: false, message: validatedFields.error.errors[0].message };
     }
 
-    const { name, config_json } = validatedFields.data;
+    const { name, request_config, response_config } = validatedFields.data;
+    const combinedConfig = {
+        request: JSON.parse(request_config),
+        response: JSON.parse(response_config)
+    };
 
     let client;
     try {
@@ -95,7 +106,7 @@ export async function updateTranslationService(prevState: any, formData: FormDat
         client = await pool.connect();
         await client.query(
             'UPDATE translation_services SET name = $1, config_json = $2, updated_at = NOW() WHERE id = $3',
-            [name, JSON.parse(config_json), id]
+            [name, combinedConfig, id]
         );
         return { success: true, message: `Servicio "${name}" actualizado con éxito.` };
     } catch (error) {
@@ -130,7 +141,7 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
     try {
         const pool = await getDbPool();
         client = await pool.connect();
-        // The trigger will handle unsetting other defaults
+        await client.query('UPDATE translation_services SET is_default = FALSE');
         await client.query('UPDATE translation_services SET is_default = TRUE WHERE id = $1', [id]);
         return { success: true, message: 'Servicio establecido como predeterminado.' };
     } catch (error) {
@@ -142,7 +153,6 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
 }
 
 
-// --- Helper Functions for Testing ---
 function buildTranslationUrl(requestConfig: any, inputText: string, inputLang: string, outputLang: string): string | null {
     if (!requestConfig?.base_url || !requestConfig?.parameters) {
         return null;
@@ -166,6 +176,45 @@ function getNestedValue(obj: any, path: string): any {
     return path.split('.').reduce((acc, part) => acc && acc[part], obj);
 }
 
+async function translateText(
+    service: TranslationService,
+    text: string,
+    inputLang: string,
+    outputLang: string
+): Promise<{ success: boolean; data?: string; error?: string }> {
+    const config = typeof service.config_json === 'string' 
+        ? JSON.parse(service.config_json) 
+        : service.config_json;
+
+    if (!config?.request || !config?.response) {
+        return { success: false, error: "La configuración del servicio es inválida." };
+    }
+
+    const testUrl = buildTranslationUrl(config.request, text, inputLang, outputLang);
+    if (!testUrl) {
+        return { success: false, error: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
+    }
+
+    try {
+        const response = await fetch(testUrl);
+        const responseData = await response.json();
+
+        const responsePath = config.response?.path;
+        if (!responsePath) {
+            return { success: false, error: "La configuración JSON no define una ruta de respuesta ('response.path')." };
+        }
+
+        const translatedText = getNestedValue(responseData, responsePath);
+
+        if (translatedText) {
+            return { success: true, data: translatedText };
+        } else {
+            return { success: false, error: `No se pudo encontrar el texto traducido en la ruta: '${responsePath}'.` };
+        }
+    } catch (apiError: any) {
+        return { success: false, error: `Error al conectar con la API: ${apiError.message}` };
+    }
+}
 
 export async function testTranslationService(id: string): Promise<ActionState> {
     if (!id) return { success: false, message: "ID no proporcionado." };
@@ -187,40 +236,15 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         if (client) client.release();
     }
 
-    if (!service || !service.config_json) {
+    if (!service) {
         return { success: false, message: "Configuración JSON inválida o no encontrada." };
     }
     
-    const { config_json } = service;
+    const translationResult = await translateText(service, "Hello", "en", "es");
 
-    const testUrl = buildTranslationUrl(config_json.request, "Hello", "en", "es");
-    if (!testUrl) {
-        return { success: false, message: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
-    }
-
-    try {
-        const response = await fetch(testUrl);
-        if (!response.ok) {
-            return { success: false, message: `La API respondió con un error: ${response.status} ${response.statusText}` };
-        }
-        
-        const responseData = await response.json();
-        
-        const responsePath = config_json.response?.path;
-        if (!responsePath) {
-            return { success: false, message: "La configuración JSON no define una ruta de respuesta ('response.path')." };
-        }
-
-        const translatedText = getNestedValue(responseData, responsePath);
-
-        if (translatedText) {
-            return { success: true, message: `¡Prueba exitosa! Respuesta: "${translatedText}"` };
-        } else {
-            return { success: false, message: `Prueba fallida. No se pudo encontrar el texto traducido en la ruta: '${responsePath}'. Respuesta recibida: ${JSON.stringify(responseData).substring(0, 100)}...` };
-        }
-
-    } catch (apiError: any) {
-        console.error(`API Test Error for service ${id}:`, apiError);
-        return { success: false, message: `Error al conectar con la API: ${apiError.message}` };
+    if (translationResult.success) {
+        return { success: true, message: `¡Prueba exitosa! Respuesta: "${translationResult.data}"` };
+    } else {
+        return { success: false, message: `Prueba fallida. ${translationResult.error}` };
     }
 }
