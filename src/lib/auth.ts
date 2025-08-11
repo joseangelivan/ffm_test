@@ -10,7 +10,7 @@ import { verifySession, type SessionPayload } from '@/lib/session';
  * @returns {Promise<SessionPayload | null>} The session payload if the user is authenticated, otherwise null.
  */
 export async function getSession(): Promise<SessionPayload | null> {
-    const sessionCookie = cookies().get('session');
+    const sessionCookie = (await cookies()).get('session');
     if (!sessionCookie) {
         return null;
     }
