@@ -208,7 +208,7 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         
         const responseData = await response.json();
         
-        const responsePath = config_json.response?.path;
+        const responsePath = config_json.api_config.response?.path;
         if (!responsePath) {
             return { success: false, message: "La configuración JSON no define una ruta de respuesta ('response.path')." };
         }
