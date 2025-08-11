@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useActionState, useEffect } from 'react';
+import React, { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { Database, AlertCircle, Loader, CheckCircle } from 'lucide-react';
@@ -36,21 +36,19 @@ function SubmitButton() {
     const { t } = useLocale();
 
     return (
-        <AlertDialogTrigger asChild>
-            <Button type="submit" className="w-full" disabled={pending}>
-                {pending ? (
-                    <>
-                        <Loader className="mr-2 h-4 w-4 animate-spin" />
-                        {t('dbInitializer.loading')}
-                    </>
-                ) : (
-                    <>
-                        <Database className="mr-2 h-4 w-4" />
-                        {t('dbInitializer.button')}
-                    </>
-                )}
-            </Button>
-        </AlertDialogTrigger>
+        <Button type="submit" className="w-full" disabled={pending}>
+            {pending ? (
+                <>
+                    <Loader className="mr-2 h-4 w-4 animate-spin" />
+                    {t('dbInitializer.loading')}
+                </>
+            ) : (
+                <>
+                    <Database className="mr-2 h-4 w-4" />
+                    {t('dbInitializer.button')}
+                </>
+            )}
+        </Button>
     );
 }
 
@@ -60,13 +58,10 @@ function DbInitForm() {
     
     const handleAction = async (prevState: any, formData: FormData) => {
         const result = await initializeDatabase();
-        if (result.success) {
-            return { success: true, message: t('dbInitializer.successDescription') };
-        }
-        return { success: false, message: result.message };
+        return result;
     };
     
-    const [state, formAction] = useActionState(handleAction, undefined);
+    const [state, formAction] = useActionState(handleAction, { success: false, message: '' });
 
     return (
         <Card className="w-full max-w-lg shadow-xl">
@@ -91,25 +86,29 @@ function DbInitForm() {
                 )}
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
-                <form action={formAction} className="w-full">
-                    <AlertDialog>
-                        <SubmitButton />
-                        <AlertDialogContent>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                         <form action={formAction} className="w-full">
+                            <SubmitButton />
+                         </form>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <form action={formAction}>
                             <AlertDialogHeader>
                                 <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
                                 <AlertDialogDescription>
                                     {t('dbInitializer.confirmationDescription')}
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
-                            <AlertDialogFooter>
+                            <AlertDialogFooter className="mt-4">
                                 <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                <AlertDialogAction type="submit" className={buttonVariants({ variant: 'destructive' })}>
-                                     {t('dbInitializer.confirmButton')}
+                                <AlertDialogAction asChild>
+                                    <SubmitButton />
                                 </AlertDialogAction>
                             </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                </form>
+                        </form>
+                    </AlertDialogContent>
+                </AlertDialog>
                  <Link href="/admin/login" className="text-sm text-muted-foreground hover:underline">
                     {t('firstLogin.backToLogin')}
                 </Link>
