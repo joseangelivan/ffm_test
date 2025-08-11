@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useActionState } from 'react';
+import React, { useActionState, useRef, useState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { Database, AlertCircle, Loader, CheckCircle, ListChecks, ServerCrash, Terminal } from 'lucide-react';
@@ -84,6 +84,7 @@ function DbInitForm() {
     const initialState: DbInitResult = { success: false, message: '', log: [] };
     
     const [state, formAction] = useActionState(initializeDatabase, initialState);
+    const [isPending, startTransition] = useTransition();
 
     return (
         <Card className="w-full max-w-2xl shadow-xl">
@@ -97,7 +98,7 @@ function DbInitForm() {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                {state && state.log.length > 0 && (
+                {state && state.log.length > 0 ? (
                     <div className="space-y-4">
                         <Alert variant={state.success ? 'default' : 'destructive'} className={cn(state.success && "border-green-500/50 text-green-900 dark:border-green-500/30 dark:text-green-200 [&>svg]:text-green-600")}>
                             {state.success ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
@@ -117,18 +118,23 @@ function DbInitForm() {
                             </ScrollArea>
                         </div>
                     </div>
+                ) : isPending && (
+                     <div className="flex items-center justify-center gap-4 text-muted-foreground py-10">
+                        <Loader className="h-8 w-8 animate-spin" />
+                        <span>{t('dbInitializer.loading')}</span>
+                    </div>
                 )}
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                         <Button className="w-full">
-                            <Database className="mr-2 h-4 w-4" />
-                            {t('dbInitializer.button')}
-                         </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <form action={formAction}>
+                <form action={() => startTransition(() => formAction(new FormData()))}>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                             <Button className="w-full" disabled={isPending}>
+                                {isPending ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <Database className="mr-2 h-4 w-4" />}
+                                {t('dbInitializer.button')}
+                             </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
                             <AlertDialogHeader>
                                 <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
                                 <AlertDialogDescription>
@@ -138,12 +144,12 @@ function DbInitForm() {
                             <AlertDialogFooter className="mt-4">
                                 <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                                 <AlertDialogAction asChild>
-                                    <SubmitButton />
+                                    <Button type="submit">{t('dbInitializer.confirmButton')}</Button>
                                 </AlertDialogAction>
                             </AlertDialogFooter>
-                        </form>
-                    </AlertDialogContent>
-                </AlertDialog>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </form>
                  <Link href="/admin/login" className="text-sm text-muted-foreground hover:underline">
                     {t('dbInitializer.goBack')}
                 </Link>
