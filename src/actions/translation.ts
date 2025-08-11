@@ -208,9 +208,9 @@ async function translateText(
     console.log('11.- [Server] Objeto de configuración de response extraído:', responseConfig);
 
     if (!requestConfig?.base_url || typeof requestConfig?.parameters !== 'object') {
-        const errorMsg = "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'.";
+        const errorMsg = "La configuración de request es inválida. Falta 'base_url' o 'parameters'.";
         console.error(`12.- [Server] Error: ${errorMsg}`);
-        return { success: false, error: errorMsg };
+        return { success: false, error: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
     }
 
     // --- Construcción de URL ---
@@ -223,7 +223,6 @@ async function translateText(
             .replace(/\$InputLang/g, inputLang)
             .replace(/\$OutputLang/g, outputLang);
         
-        // Only append the parameter if it has a value after replacements
         if (paramValue) {
             urlParams.append(key, paramValue);
         }
