@@ -56,14 +56,15 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
         
         const data = result.rows.map(condo => {
             const addressParts = [
-                `${condo.street || ''} ${condo.number || ''}`.trim(),
+                condo.street,
+                condo.number,
                 condo.city,
                 condo.state
-            ].filter(Boolean); // Filtra partes vacías o nulas
+            ].filter(Boolean).join(', ');
 
             return {
                 ...condo,
-                address: addressParts.join(', '),
+                address: addressParts,
                 residents_count: 0,
                 gatekeepers_count: 0,
                 devices_count: 0
