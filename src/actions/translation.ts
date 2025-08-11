@@ -164,8 +164,23 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
     }
 }
 
-
+/**
+ * Safely navigates a nested object using a string path.
+ * @param obj The object to navigate.
+ * @param path The path to the desired value (e.g., 'data.translations[0].translatedText').
+ * @returns The value if found, otherwise undefined.
+ */
 function getNestedValue(obj: any, path: string): any {
+    // This handles cases where path might be like 'responseData.translatedText'
+    // but the actual object passed is the responseData itself. We adjust.
+    const pathParts = path.split('.');
+    if (pathParts[0] === 'responseData' && obj && !obj.responseData) {
+        // If path starts with 'responseData' but obj doesn't have it,
+        // assume obj *is* responseData and start from the next part.
+        return pathParts.slice(1).reduce((acc, part) => acc && acc[part], obj);
+    }
+    
+    // Standard path reduction
     return path.split('.').reduce((acc, part) => acc && acc[part], obj);
 }
 
@@ -312,3 +327,5 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         return { success: false, message: e.message || "Error inesperado durante la traducción." };
     }
 }
+
+    
