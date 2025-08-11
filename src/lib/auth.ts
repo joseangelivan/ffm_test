@@ -15,5 +15,8 @@ export async function getSession(): Promise<SessionPayload | null> {
         return null;
     }
     const sessionToken = sessionCookie.value;
+    if (!sessionToken) {
+        return null;
+    }
     return await verifySession(sessionToken);
 }
