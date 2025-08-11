@@ -192,23 +192,14 @@ async function translateText(
     console.log(`4.- [translateText] Iniciando traducción para el servicio: "${service.name}"`);
     console.log(`5.- [translateText] Configuración JSON cruda recibida:`, service.config_json);
 
-    let config;
-    try {
-        // Ensure config is always an object
-        config = typeof service.config_json === 'string' 
-            ? JSON.parse(service.config_json) 
-            : service.config_json;
-        if (typeof config !== 'object' || config === null) throw new Error("Parsed config is not an object.");
-    } catch (e) {
-        console.error('6.- [translateText] Error: El JSON de configuración está corrupto.', e);
-        return { success: false, error: "La configuración del servicio guardada está corrupta (JSON inválido)." };
-    }
-    
-    console.log('6.- [translateText] Configuración JSON parseada:', config);
+    // The config_json from pg is already a JavaScript object, no parsing needed.
+    const config = service.config_json;
 
+    console.log('6.- [translateText] Configuración JSON (ya es un objeto):', config);
+    
     const requestConfig = config.request;
     const responseConfig = config.response;
-
+    
     console.log('7.- [translateText] Objeto de configuración de request extraído:', requestConfig);
     console.log('7.1.- [translateText] Objeto de configuración de response extraído:', responseConfig);
 
