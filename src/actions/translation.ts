@@ -225,18 +225,16 @@ async function translateText(
 ): Promise<{ success: boolean; data?: string; error?: string }> {
     console.log(`[translateText] Iniciando traducción para: "${text}" con servicio: "${service.name}"`);
 
-    let config;
-    try {
-        if (typeof service.config_json === 'string') {
-            console.log('[translateText] config_json es una cadena, parseando...');
-            config = JSON.parse(service.config_json);
-        } else {
-            console.log('[translateText] config_json ya es un objeto.');
-            config = service.config_json;
+    let config = service.config_json;
+    // Defensive check: if config_json is a string, parse it.
+    if (typeof config === 'string') {
+        console.log('[translateText] config_json es una cadena, parseando...');
+        try {
+            config = JSON.parse(config);
+        } catch(e) {
+            console.error('[translateText] Error crítico: No se pudo parsear config_json.', e);
+            return { success: false, error: "La configuración del servicio guardada está corrupta (JSON inválido)." };
         }
-    } catch(e) {
-        console.error('[translateText] Error crítico: No se pudo parsear config_json.', e);
-        return { success: false, error: "La configuración del servicio guardada está corrupta (JSON inválido)." };
     }
     
     console.log('[translateText] Configuración completa del servicio:', config);
@@ -297,12 +295,6 @@ async function translateText(
         console.error(`[translateText] Error en la llamada fetch: ${apiError.message}`);
         return { success: false, error: `Error al conectar con la API: ${apiError.message}` };
     }
-}
-
-
-export async function simpleTestAction(id: string): Promise<ActionState> {
-    console.log(`[simpleTestAction] SIMPLE TEST ACTION TRIGGERED FOR ID: ${id}`);
-    return { success: true, message: "Simple test action executed successfully." };
 }
 
 

@@ -40,7 +40,6 @@ import {
     deleteTranslationService,
     setTranslationServiceAsDefault,
     testTranslationService,
-    simpleTestAction, // Importar la acción simple
     type TranslationService
 } from '@/actions/translation';
 import { 
@@ -59,11 +58,20 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
     const isEditMode = !!service;
     const { t } = useLocale();
 
+    const getInitialJson = (config: any) => {
+        if (!config) return '';
+        try {
+            return JSON.stringify(config, null, 2);
+        } catch {
+            return '';
+        }
+    };
+    
     const [requestConfig, setRequestConfig] = useState(
-        isEditMode ? JSON.stringify(service.config_json?.request || {}, null, 2) : ''
+        isEditMode ? getInitialJson(service.config_json?.request) : ''
     );
     const [responseConfig, setResponseConfig] = useState(
-        isEditMode ? JSON.stringify(service.config_json?.response || {}, null, 2) : ''
+        isEditMode ? getInitialJson(service.config_json?.response) : ''
     );
 
     const [isRequestJsonValid, setIsRequestJsonValid] = useState(true);
@@ -72,6 +80,10 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
     const handleJsonChange = (setter: React.Dispatch<React.SetStateAction<string>>, validator: React.Dispatch<React.SetStateAction<boolean>>) => (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const text = e.target.value;
         setter(text);
+        if (!text.trim()) {
+            validator(true); // Allow empty
+            return;
+        }
         try {
             JSON.parse(text);
             validator(true);
