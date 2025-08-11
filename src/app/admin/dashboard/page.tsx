@@ -20,7 +20,7 @@ export default async function AdminDashboardPage() {
   const isSessionValid = await verifySessionIntegrity(session);
   if (!isSessionValid) {
     // Si los datos no coinciden (ej. email o permisos cambiados), forzamos un nuevo login
-    cookies().set('session', '', { expires: new Date(0) });
+    // NO se puede modificar la cookie aquí. Se redirige y el middleware/siguiente acción se encarga.
     redirect('/admin/login?error=session_invalidated');
   }
 
