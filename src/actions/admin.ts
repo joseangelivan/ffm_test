@@ -234,7 +234,7 @@ export async function authenticateAdmin(prevState: any, formData: FormData): Pro
         if (client) client.release();
     }
     
-    redirect('/admin/dashboard');
+    return { success: true, message: 'Login successful', redirect: '/admin/dashboard' };
 }
 
 export async function handleFirstLogin(prevState: any, formData: FormData): Promise<AuthState> {
@@ -809,3 +809,5 @@ export async function getActiveTheme(settings: UserSettings | null) {
     
     return customTheme;
 }
+
+    

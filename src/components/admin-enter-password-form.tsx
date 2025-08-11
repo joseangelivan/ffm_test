@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { useSearchParams, redirect } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -132,13 +132,20 @@ function EnterPasswordFormContent({ email, state }: { email: string, state: any 
 export function AdminEnterPasswordForm() {
   const [state, formAction] = useActionState(authenticateAdmin, undefined);
   const searchParams = useSearchParams();
+  const router = useRouter();
   const email = searchParams.get('email');
 
   useEffect(() => {
     if (!email) {
-      redirect('/admin/login');
+      router.replace('/admin/login');
     }
-  }, [email]);
+  }, [email, router]);
+
+  useEffect(() => {
+    if (state?.success && state.redirect) {
+      router.replace(state.redirect);
+    }
+  }, [state, router]);
 
   if (!email) {
     return (
@@ -162,3 +169,5 @@ export function AdminEnterPasswordForm() {
     </div>
   );
 }
+
+    
