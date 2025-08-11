@@ -163,9 +163,11 @@ function buildTranslationUrl(requestConfig: any, inputText: string, inputLang: s
 
     for (const [key, value] of Object.entries(parameters)) {
         let paramValue = String(value);
-        paramValue = paramValue.replace('$InputText', inputText);
-        paramValue = paramValue.replace('$InputLang', inputLang);
-        paramValue = paramValue.replace('$OutputLang', outputLang);
+        if (paramValue.includes('$InputText') || paramValue.includes('$InputLang') || paramValue.includes('$OutputLang')) {
+            paramValue = paramValue.replace('$InputText', inputText);
+            paramValue = paramValue.replace('$InputLang', inputLang);
+            paramValue = paramValue.replace('$OutputLang', outputLang);
+        }
         urlParams.append(key, paramValue);
     }
 
@@ -204,7 +206,7 @@ async function translateText(
 
         const responsePath = responseConfig.path;
         if (!responsePath) {
-            return { success: false, error: "La configuración JSON no define una ruta de respuesta ('response.path')." };
+            return { success: false, error: "La configuración JSON de respuesta no define una ruta ('path')." };
         }
 
         const translatedText = getNestedValue(responseData, responsePath);
