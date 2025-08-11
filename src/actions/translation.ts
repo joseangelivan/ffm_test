@@ -146,11 +146,11 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
 
 // --- Helper Functions for Testing ---
 function buildTranslationUrl(config: any, inputText: string, inputLang: string, outputLang: string): string | null {
-    if (!config?.api_config?.base_url || !config?.api_config?.parameters) {
+    if (!config?.request?.base_url || !config?.request?.parameters) {
         return null;
     }
 
-    const { base_url, parameters } = config.api_config;
+    const { base_url, parameters } = config.request;
     const urlParams = new URLSearchParams();
 
     for (const [key, value] of Object.entries(parameters)) {
@@ -208,7 +208,7 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         
         const responseData = await response.json();
         
-        const responsePath = config_json.api_config.response?.path;
+        const responsePath = config_json.response?.path;
         if (!responsePath) {
             return { success: false, message: "La configuración JSON no define una ruta de respuesta ('response.path')." };
         }

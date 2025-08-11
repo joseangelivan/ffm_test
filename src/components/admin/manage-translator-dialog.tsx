@@ -58,20 +58,32 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
     const isEditMode = !!service;
     const { t } = useLocale();
 
-    const [jsonConfig, setJsonConfig] = useState(isEditMode ? JSON.stringify(service.config_json, null, 2) : '');
-    const [isJsonValid, setIsJsonValid] = useState(true);
+    const [requestConfig, setRequestConfig] = useState(
+        isEditMode ? JSON.stringify(service.config_json?.request || {}, null, 2) : ''
+    );
+    const [responseConfig, setResponseConfig] = useState(
+        isEditMode ? JSON.stringify(service.config_json?.response || {}, null, 2) : ''
+    );
 
-    const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const [isRequestJsonValid, setIsRequestJsonValid] = useState(true);
+    const [isResponseJsonValid, setIsResponseJsonValid] = useState(true);
+
+    const combinedJson = JSON.stringify({
+        request: isRequestJsonValid ? JSON.parse(requestConfig || '{}') : {},
+        response: isResponseJsonValid ? JSON.parse(responseConfig || '{}') : {}
+    });
+
+    const handleJsonChange = (setter: React.Dispatch<React.SetStateAction<string>>, validator: React.Dispatch<React.SetStateAction<boolean>>) => (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const text = e.target.value;
-        setJsonConfig(text);
+        setter(text);
         try {
             JSON.parse(text);
-            setIsJsonValid(true);
+            validator(true);
         } catch (error) {
-            setIsJsonValid(false);
+            validator(false);
         }
-    }
-
+    };
+    
     return (
         <div className={cn("relative transition-opacity", pending && "opacity-50")}>
             {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating')} />}
@@ -80,33 +92,48 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
                 <DialogDescription>{t('adminDashboard.translator.formDescription')}</DialogDescription>
             </DialogHeader>
             <input type="hidden" name="id" value={service?.id || ''} />
+            <input type="hidden" name="config_json" value={combinedJson} />
+
             <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                     <Label htmlFor="name">{t('adminDashboard.translator.nameLabel')}</Label>
                     <Input id="name" name="name" defaultValue={service?.name} placeholder="MyMemory API" required disabled={pending}/>
                 </div>
                 <div className="grid gap-2">
-                    <Label htmlFor="config_json">{t('adminDashboard.translator.configJsonLabel')}</Label>
+                    <Label htmlFor="request_config">{t('adminDashboard.translator.requestConfigLabel')}</Label>
                     <Textarea 
-                        id="config_json" 
-                        name="config_json"
-                        value={jsonConfig}
-                        onChange={handleJsonChange}
-                        placeholder='{ "api_config": { ... } }' 
+                        id="request_config"
+                        value={requestConfig}
+                        onChange={handleJsonChange(setRequestConfig, setIsRequestJsonValid)}
+                        placeholder='{ "base_url": "...", "parameters": { ... } }' 
                         required 
                         disabled={pending}
-                        className={cn("min-h-[250px] font-mono text-xs", !isJsonValid && "border-destructive focus-visible:ring-destructive")}
+                        className={cn("min-h-[150px] font-mono text-xs", !isRequestJsonValid && "border-destructive focus-visible:ring-destructive")}
                     />
-                    {!isJsonValid && <p className="text-sm text-destructive">{t('adminDashboard.translator.invalidJson')}</p>}
+                    {!isRequestJsonValid && <p className="text-sm text-destructive">{t('adminDashboard.translator.invalidJson')}</p>}
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="response_config">{t('adminDashboard.translator.responseConfigLabel')}</Label>
+                    <Textarea 
+                        id="response_config"
+                        value={responseConfig}
+                        onChange={handleJsonChange(setResponseConfig, setIsResponseJsonValid)}
+                        placeholder='{ "path": "responseData.translatedText" }' 
+                        required 
+                        disabled={pending}
+                        className={cn("min-h-[100px] font-mono text-xs", !isResponseJsonValid && "border-destructive focus-visible:ring-destructive")}
+                    />
+                    {!isResponseJsonValid && <p className="text-sm text-destructive">{t('adminDashboard.translator.invalidJson')}</p>}
                 </div>
             </div>
             <DialogFooter>
                 <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
-                <Button type="submit" disabled={pending || !isJsonValid}>{isEditMode ? t('common.saveChanges') : t('common.create')}</Button>
+                <Button type="submit" disabled={pending || !isRequestJsonValid || !isResponseJsonValid}>{isEditMode ? t('common.saveChanges') : t('common.create')}</Button>
             </DialogFooter>
         </div>
     )
 }
+
 
 function ServiceFormDialog({ service, onSuccess, onCancel }: { service: TranslationService | null, onSuccess: () => void, onCancel: () => void }) {
     const { t } = useLocale();

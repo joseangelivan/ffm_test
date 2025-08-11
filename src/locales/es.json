@@ -212,7 +212,7 @@
             },
             "protocols": {
               "tab": "Protocolos",
-              "title": "Protocolos de Comunicación"
+              "title": "Protocolos de Comunicação"
             }
         },
         "interfaceDescription": "Personaliza la apariencia y el idioma de la aplicación.",
@@ -319,9 +319,10 @@
         "addButton": "Agregar Servicio",
         "editTitle": "Editar Servicio de Traducción",
         "newTitle": "Nuevo Servicio de Traducción",
-        "formDescription": "Define un nombre y proporciona la configuración JSON para la API del servicio.",
+        "formDescription": "Define un nombre y proporciona la configuración para la API del servicio.",
         "nameLabel": "Nombre del Servicio",
-        "configJsonLabel": "Configuración JSON de la API",
+        "requestConfigLabel": "Configuración de la Solicitud (Request)",
+        "responseConfigLabel": "Configuración de la Respuesta (Response)",
         "invalidJson": "El formato JSON no es válido.",
         "setAsDefault": "Establecer como predeterminado",
         "test": "Probar Servicio",
@@ -559,10 +560,10 @@
         "description": "Esta es una acción sensible que reiniciará las migraciones. Esto podría ser útil si hubo un error, pero también podría causar problemas si no se usa con cuidado.",
         "loading": "Inicializando...",
         "successTitle": "¡Éxito!",
-        "successDescription": "El proceso de inicialización de la base de datos se completó.",
-        "button": "Inicializar Base de Datos",
-        "goBack": "Volver al Login de Administrador",
-        "confirmationDescription": "Esto intentará volver a ejecutar todas las migraciones de la base de datos. Esta acción generalmente es segura pero solo debe realizarse si se sospecha un problema con el esquema de la base de datos. ¿Estás seguro de que quieres continuar?",
-        "confirmButton": "Sí, inicializar"
+        "successDescription": "O processo de inicialização do banco de dados foi concluído.",
+        "button": "Inicializar Banco de Dados",
+        "goBack": "Voltar para o Login de Administrador",
+        "confirmationDescription": "Isso tentará executar novamente todas as migrações do banco de dados. Esta ação geralmente é segura, mas só deve ser feita se houver suspeita de um problema com o esquema do banco de dados. Tem certeza de que deseja continuar?",
+        "confirmButton": "Sim, inicializar"
     }
   }
