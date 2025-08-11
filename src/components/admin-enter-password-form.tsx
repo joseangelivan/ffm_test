@@ -141,12 +141,6 @@ export function AdminEnterPasswordForm() {
     }
   }, [email, router]);
 
-  useEffect(() => {
-    if (state?.success && state.redirect) {
-      router.replace(state.redirect);
-    }
-  }, [state, router]);
-
   if (!email) {
     return (
         <div className="flex min-h-screen items-center justify-center bg-background">
@@ -169,5 +163,3 @@ export function AdminEnterPasswordForm() {
     </div>
   );
 }
-
-    

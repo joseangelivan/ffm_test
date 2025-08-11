@@ -234,7 +234,7 @@ export async function authenticateAdmin(prevState: any, formData: FormData): Pro
         if (client) client.release();
     }
     
-    return { success: true, message: 'Login successful', redirect: '/admin/dashboard' };
+    redirect('/admin/dashboard');
 }
 
 export async function handleFirstLogin(prevState: any, formData: FormData): Promise<AuthState> {
