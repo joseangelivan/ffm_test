@@ -592,10 +592,12 @@ export function CondoManagement() {
     const fetchCondos = useCallback(async () => {
         setLoading(true);
         const result = await getCondominios();
-        if(result.success && result.data) {
+        if (result && result.success && result.data) {
             setCondominios(result.data);
-        } else {
+        } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+        } else {
+            toast({ title: t('toast.errorTitle'), description: 'Falha ao buscar condomínios.', variant: 'destructive' });
         }
         setLoading(false);
     }, [toast, t]);
