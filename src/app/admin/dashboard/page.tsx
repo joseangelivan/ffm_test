@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation';
 import { getSettings, verifySessionIntegrity } from '@/actions/admin';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
 import { cookies } from 'next/headers';
-import { getSession } from '@/lib/auth';
 import { verifySession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
