@@ -217,15 +217,32 @@ async function translateText(
     const { base_url, parameters } = requestConfig;
     const urlParams = new URLSearchParams();
 
-    for (const [key, value] of Object.entries(parameters)) {
-        let paramValue = String(value)
+    for (const [key, paramConfig] of Object.entries(parameters)) {
+        let rawValue: any;
+        let isOptional: boolean = true; // Default to optional as per rule #3
+
+        if (typeof paramConfig === 'object' && paramConfig !== null) {
+            rawValue = (paramConfig as any).value;
+            if ((paramConfig as any).optional === false) {
+                isOptional = false; // Rule #2
+            }
+        } else {
+            rawValue = paramConfig;
+        }
+
+        const paramValue = String(rawValue || '')
             .replace(/\$InputText/g, encodeURIComponent(text))
             .replace(/\$InputLang/g, inputLang)
             .replace(/\$OutputLang/g, outputLang);
         
-        if (paramValue) {
-            urlParams.append(key, paramValue);
+        // Add to URL based on the rules
+        if (paramValue) { // Always include if it has a value
+             urlParams.append(key, paramValue);
+        } else if (!isOptional) { // Rule #2: Include even if empty if not optional
+            urlParams.append(key, '');
         }
+        // Rule #1 and #3 are handled by the combination of these checks:
+        // if the value is empty AND it's optional (or implicitly optional), it's skipped.
     }
     
     const finalUrl = `${base_url}?${urlParams.toString()}`;
