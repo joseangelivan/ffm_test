@@ -52,7 +52,7 @@ import {
     TestTube2
 } from 'lucide-react';
 import { LoadingOverlay } from './admin-header';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 function ServiceFormFields({ service, onCancel }: { service: TranslationService | null, onCancel: () => void}) {
     const { pending } = useFormStatus();
@@ -194,7 +194,7 @@ export function ManageTranslatorDialog() {
   const fetchServices = useCallback(async () => {
     setIsLoading(true);
     const result = await getTranslationServices();
-    setServices(result);
+    setServices(result || []);
     setIsLoading(false);
   }, []);
 
@@ -275,6 +275,7 @@ export function ManageTranslatorDialog() {
                 </DialogHeader>
 
                 <div className="py-4 space-y-2">
+                    <TooltipProvider>
                     {isLoading ? (
                         Array.from({length: 2}).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
                     ) : services.length === 0 ? (
@@ -342,6 +343,7 @@ export function ManageTranslatorDialog() {
                             </div>
                         ))
                     )}
+                    </TooltipProvider>
                 </div>
                 
                 <DialogFooter className="sm:justify-between">
