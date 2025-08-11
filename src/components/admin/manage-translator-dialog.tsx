@@ -39,6 +39,7 @@ import {
     updateTranslationService,
     deleteTranslationService,
     setTranslationServiceAsDefault,
+    testTranslationService,
     type TranslationService
 } from '@/actions/translation';
 import { 
@@ -147,6 +148,7 @@ export function ManageTranslatorDialog() {
   const [services, setServices] = useState<TranslationService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, startSubmitting] = useTransition();
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isListOpen, setIsListOpen] = useState(false);
@@ -200,6 +202,20 @@ export function ManageTranslatorDialog() {
     });
   }
 
+  const handleTest = (id: string) => {
+      setTestingId(id);
+      startSubmitting(async () => {
+          const result = await testTranslationService(id);
+          if (result.success) {
+              toast({ title: t('toast.successTitle'), description: result.message, duration: 9000 });
+          } else {
+              toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', duration: 9000 });
+          }
+          setTestingId(null);
+      });
+  }
+
+
   return (
     <>
       <Dialog open={isListOpen} onOpenChange={setIsListOpen}>
@@ -210,8 +226,8 @@ export function ManageTranslatorDialog() {
             </DropdownMenuItem>
         </DialogTrigger>
         <DialogContent className="sm:max-w-2xl">
-            <div className={cn("relative", isSubmitting && "opacity-50")}>
-                {isSubmitting && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
+            <div className={cn("relative", (isSubmitting && !testingId) && "opacity-50")}>
+                {(isSubmitting && !testingId) && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
                 <DialogHeader>
                     <DialogTitle>{t('adminDashboard.translator.title')}</DialogTitle>
                     <DialogDescription>
@@ -238,8 +254,8 @@ export function ManageTranslatorDialog() {
                                     <Star className={cn("h-4 w-4", service.is_default && "fill-orange-400 text-orange-500")} />
                                     <span className="sr-only">{t('adminDashboard.translator.setAsDefault')}</span>
                                 </Button>
-                                <Button variant="ghost" size="icon" disabled={isSubmitting}>
-                                    <TestTube2 className="h-4 w-4"/>
+                                <Button variant="ghost" size="icon" onClick={() => handleTest(service.id)} disabled={isSubmitting}>
+                                    {testingId === service.id ? <Loader className="h-4 w-4 animate-spin"/> : <TestTube2 className="h-4 w-4"/>}
                                     <span className="sr-only">{t('adminDashboard.translator.test')}</span>
                                 </Button>
                                 <Button variant="ghost" size="icon" onClick={() => handleEditClick(service)} disabled={isSubmitting}><Edit className="h-4 w-4"/></Button>
@@ -279,4 +295,3 @@ export function ManageTranslatorDialog() {
     </>
   );
 }
-

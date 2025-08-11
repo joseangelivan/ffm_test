@@ -143,3 +143,86 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
     }
 }
 
+
+// --- Helper Functions for Testing ---
+function buildTranslationUrl(config: any, inputText: string, inputLang: string, outputLang: string): string | null {
+    if (!config?.api_config?.base_url || !config?.api_config?.parameters) {
+        return null;
+    }
+
+    const { base_url, parameters } = config.api_config;
+    const urlParams = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(parameters)) {
+        let paramValue = String(value);
+        paramValue = paramValue.replace('$InputText', inputText);
+        paramValue = paramValue.replace('$InputLang', inputLang);
+        paramValue = paramValue.replace('$OutputLang', outputLang);
+        urlParams.append(key, paramValue);
+    }
+
+    return `${base_url}?${urlParams.toString()}`;
+}
+
+function getNestedValue(obj: any, path: string): any {
+    return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+}
+
+
+export async function testTranslationService(id: string): Promise<ActionState> {
+    if (!id) return { success: false, message: "ID no proporcionado." };
+    
+    let client;
+    let service: TranslationService | null = null;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        const result = await client.query('SELECT * FROM translation_services WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return { success: false, message: "Servicio no encontrado." };
+        }
+        service = result.rows[0];
+    } catch (dbError: any) {
+        console.error("DB Error fetching service for test:", dbError);
+        return { success: false, message: "Error al leer la configuración de la base de datos." };
+    } finally {
+        if (client) client.release();
+    }
+
+    if (!service || !service.config_json) {
+        return { success: false, message: "Configuración JSON inválida o no encontrada." };
+    }
+    
+    const { config_json } = service;
+
+    const testUrl = buildTranslationUrl(config_json, "Hello", "en", "es");
+    if (!testUrl) {
+        return { success: false, message: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
+    }
+
+    try {
+        const response = await fetch(testUrl);
+        if (!response.ok) {
+            return { success: false, message: `La API respondió con un error: ${response.status} ${response.statusText}` };
+        }
+        
+        const responseData = await response.json();
+        
+        const responsePath = config_json.api_config?.response?.path;
+        if (!responsePath) {
+            return { success: false, message: "La configuración JSON no define una ruta de respuesta ('response.path')." };
+        }
+
+        const translatedText = getNestedValue(responseData, responsePath);
+
+        if (translatedText) {
+            return { success: true, message: `¡Prueba exitosa! Respuesta: "${translatedText}"` };
+        } else {
+            return { success: false, message: `Prueba fallida. No se pudo encontrar el texto traducido en la ruta: '${responsePath}'. Respuesta recibida: ${JSON.stringify(responseData).substring(0, 100)}...` };
+        }
+
+    } catch (apiError: any) {
+        console.error(`API Test Error for service ${id}:`, apiError);
+        return { success: false, message: `Error al conectar con la API: ${apiError.message}` };
+    }
+}
