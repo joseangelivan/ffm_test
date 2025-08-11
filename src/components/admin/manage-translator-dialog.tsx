@@ -40,6 +40,7 @@ import {
     deleteTranslationService,
     setTranslationServiceAsDefault,
     testTranslationService,
+    simpleTestAction, // Importar la acción simple
     type TranslationService
 } from '@/actions/translation';
 import { 

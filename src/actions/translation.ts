@@ -300,6 +300,12 @@ async function translateText(
 }
 
 
+export async function simpleTestAction(id: string): Promise<ActionState> {
+    console.log(`[simpleTestAction] SIMPLE TEST ACTION TRIGGERED FOR ID: ${id}`);
+    return { success: true, message: "Simple test action executed successfully." };
+}
+
+
 export async function testTranslationService(id: string): Promise<ActionState> {
     console.log(`[testTranslationService] INICIO de prueba para el servicio con ID: ${id}`);
     if (!id) {
@@ -310,9 +316,13 @@ export async function testTranslationService(id: string): Promise<ActionState> {
     let client;
     let service: TranslationService | null = null;
     try {
+        console.log('[testTranslationService] Intentando obtener pool de DB...');
         const pool = await getDbPool();
+        console.log('[testTranslationService] Pool obtenido. Conectando cliente...');
         client = await pool.connect();
+        console.log('[testTranslationService] Cliente conectado. Ejecutando query...');
         const result = await client.query('SELECT * FROM translation_services WHERE id = $1', [id]);
+        console.log('[testTranslationService] Query ejecutada.');
         
         if (result.rows.length === 0) {
             console.error(`[testTranslationService] Error: Servicio con ID ${id} no encontrado.`);
@@ -326,7 +336,10 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         console.error("[testTranslationService] DB Error fetching service for test:", dbError);
         return { success: false, message: "Error al leer la configuración de la base de datos." };
     } finally {
-        if (client) client.release();
+        if (client) {
+            console.log('[testTranslationService] Liberando cliente de DB.');
+            client.release();
+        }
     }
 
     if (!service || !service.config_json) {
@@ -334,16 +347,19 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         return { success: false, message: "Configuración JSON inválida o no encontrada." };
     }
     
-    console.log('[testTranslationService] Llamando a translateText...');
-    const translationResult = await translateText(service, "Hello", "en", "es");
+    try {
+        console.log('[testTranslationService] Llamando a translateText...');
+        const translationResult = await translateText(service, "Hello", "en", "es");
 
-    if (translationResult.success) {
-        console.log('[testTranslationService] Prueba exitosa.');
-        return { success: true, message: `¡Prueba exitosa! Respuesta: "${translationResult.data}"` };
-    } else {
-        console.error('[testTranslationService] Prueba fallida. Razón:', translationResult.error);
-        return { success: false, message: `Prueba fallida. ${translationResult.error}` };
+        if (translationResult.success) {
+            console.log('[testTranslationService] Prueba exitosa.');
+            return { success: true, message: `¡Prueba exitosa! Respuesta: "${translationResult.data}"` };
+        } else {
+            console.error('[testTranslationService] Prueba fallida. Razón:', translationResult.error);
+            return { success: false, message: `Prueba fallida. ${translationResult.error}` };
+        }
+    } catch (e: any) {
+        console.error('[testTranslationService] CATCH EXTERNO: Error inesperado llamando a translateText:', e);
+        return { success: false, message: e.message || "Error inesperado durante la traducción." };
     }
 }
-
-    
