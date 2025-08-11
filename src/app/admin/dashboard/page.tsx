@@ -2,23 +2,21 @@
 import { redirect } from 'next/navigation';
 import { getSettings } from '@/actions/admin';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
-import { cookies } from 'next/headers';
-import { verifySession } from '@/lib/session';
+import { getSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
-  const sessionToken = cookies().get('session')?.value;
-  const session = await verifySession(sessionToken);
+  const session = await getSession();
 
-  if (!session) {
+  if (!session || session.type !== 'admin') {
     // This check is redundant if middleware is active, but good for safety.
     redirect('/admin/login');
   }
 
   const initialSettings = await getSettings(session);
 
-  // Aseguramos que los settings nunca sean null para el componente cliente
+  // Ensure settings are never null for the client component
   const settings = initialSettings || { theme: 'light', language: 'pt' };
 
   return <AdminDashboardClient session={session} initialSettings={settings} />;
