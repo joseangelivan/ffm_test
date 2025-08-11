@@ -167,21 +167,20 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
 /**
  * Safely navigates a nested object using a string path.
  * @param obj The object to navigate.
- * @param path The path to the desired value (e.g., 'data.translations[0].translatedText').
+ * @param path The path to the desired value (e.g., 'data.translations.0.translatedText').
  * @returns The value if found, otherwise undefined.
  */
 function getNestedValue(obj: any, path: string): any {
-    // This handles cases where path might be like 'responseData.translatedText'
-    // but the actual object passed is the responseData itself. We adjust.
-    const pathParts = path.split('.');
-    if (pathParts[0] === 'responseData' && obj && !obj.responseData) {
-        // If path starts with 'responseData' but obj doesn't have it,
-        // assume obj *is* responseData and start from the next part.
-        return pathParts.slice(1).reduce((acc, part) => acc && acc[part], obj);
-    }
-    
-    // Standard path reduction
-    return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+    return path.split('.').reduce((acc, part) => {
+        // Handle array indexing like 'translations[0]'
+        const arrayMatch = part.match(/(\w+)\[(\d+)\]/);
+        if (arrayMatch) {
+            const key = arrayMatch[1];
+            const index = parseInt(arrayMatch[2], 10);
+            return acc && acc[key] ? acc[key][index] : undefined;
+        }
+        return acc ? acc[part] : undefined;
+    }, obj);
 }
 
 async function translateText(
@@ -195,24 +194,23 @@ async function translateText(
 
     let config;
     try {
-        if (typeof service.config_json === 'string') {
-            config = JSON.parse(service.config_json);
-        } else {
-            config = service.config_json;
-        }
+        // Ensure config is always an object
+        config = typeof service.config_json === 'string' 
+            ? JSON.parse(service.config_json) 
+            : service.config_json;
+        if (typeof config !== 'object' || config === null) throw new Error("Parsed config is not an object.");
     } catch (e) {
-        console.error('6.- [translateText] Error: El JSON de configuración está corrupto.');
+        console.error('6.- [translateText] Error: El JSON de configuración está corrupto.', e);
         return { success: false, error: "La configuración del servicio guardada está corrupta (JSON inválido)." };
     }
     
     console.log('6.- [translateText] Configuración JSON parseada:', config);
-    
+
     const requestConfig = config.request;
     const responseConfig = config.response;
 
     console.log('7.- [translateText] Objeto de configuración de request extraído:', requestConfig);
     console.log('7.1.- [translateText] Objeto de configuración de response extraído:', responseConfig);
-
 
     if (!requestConfig || !requestConfig.base_url || typeof requestConfig.parameters !== 'object') {
         console.error("8.- [translateText] Error: La configuración de request es inválida. Falta 'base_url' o 'parameters'.");
@@ -226,15 +224,10 @@ async function translateText(
     for (const [key, value] of Object.entries(parameters)) {
         let paramValue = String(value);
 
-        if (paramValue.includes('$InputText')) {
-            paramValue = paramValue.replace(/\$InputText/g, encodeURIComponent(text));
-        }
-        if (paramValue.includes('$InputLang')) {
-            paramValue = paramValue.replace(/\$InputLang/g, inputLang);
-        }
-        if (paramValue.includes('$OutputLang')) {
-            paramValue = paramValue.replace(/\$OutputLang/g, outputLang);
-        }
+        paramValue = paramValue.replace(/\$InputText/g, text);
+        paramValue = paramValue.replace(/\$InputLang/g, inputLang);
+        paramValue = paramValue.replace(/\$OutputLang/g, outputLang);
+
         urlParams.append(key, paramValue);
     }
     
@@ -244,7 +237,7 @@ async function translateText(
 
     try {
         console.log(`9.- [translateText] Realizando fetch a: ${finalUrl}`);
-        const response = await fetch(finalUrl);
+        const response = await fetch(finalUrl, { cache: 'no-store' }); // Disable cache
         
         if (!response.ok) {
             const errorBody = await response.text();
@@ -263,17 +256,18 @@ async function translateText(
         }
 
         const translatedText = getNestedValue(responseData, responsePath);
-        console.log(`11.- [translateText] Texto traducido extraído de '${responsePath}':`, translatedText);
+        console.log(`11.- [translateText] Intentando extraer texto de la ruta: '${responsePath}'.`);
+        console.log(`12.- [translateText] Texto traducido extraído:`, translatedText);
 
         if (translatedText) {
-            console.log('12.- [translateText] Traducción exitosa.');
+            console.log('12.1.- [translateText] Traducción exitosa.');
             return { success: true, data: translatedText };
         } else {
-            console.error(`12.- [translateText] Error: No se pudo encontrar el texto traducido en la ruta: '${responsePath}'.`);
+            console.error(`12.1.- [translateText] Error: No se pudo encontrar el texto traducido.`);
             return { success: false, error: `No se pudo encontrar el texto traducido en la ruta: '${responsePath}'. Respuesta de la API: ${JSON.stringify(responseData)}` };
         }
     } catch (apiError: any) {
-        console.error('9.- [translateText] Error de fetch o conexión:', apiError);
+        console.error('9.1.- [translateText] Error de fetch o conexión:', apiError);
         return { success: false, error: `Error al conectar con la API: ${apiError.message}` };
     }
 }
@@ -315,7 +309,7 @@ export async function testTranslationService(id: string): Promise<ActionState> {
     
     try {
         const translationResult = await translateText(service, "Hello", "en", "es");
-        console.log('12.- [testTranslationService] Resultado de la traducción:', translationResult);
+        console.log('12.2.- [testTranslationService] Resultado de la traducción:', translationResult);
 
         if (translationResult.success) {
             return { success: true, message: `¡Prueba exitosa! Respuesta: "${translationResult.data}"` };
@@ -327,5 +321,3 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         return { success: false, message: e.message || "Error inesperado durante la traducción." };
     }
 }
-
-    
