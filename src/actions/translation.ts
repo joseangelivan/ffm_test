@@ -222,7 +222,11 @@ async function translateText(
             .replace(/\$InputText/g, encodeURIComponent(text))
             .replace(/\$InputLang/g, inputLang)
             .replace(/\$OutputLang/g, outputLang);
-        urlParams.append(key, paramValue);
+        
+        // Only append the parameter if it has a value after replacements
+        if (paramValue) {
+            urlParams.append(key, paramValue);
+        }
     }
     
     const finalUrl = `${base_url}?${urlParams.toString()}`;
@@ -257,8 +261,17 @@ async function translateText(
             console.log('18.- [Server] Traducción exitosa.');
             return { success: true, data: translatedText };
         } else {
-            console.error(`18.- [Server] Error: No se pudo encontrar un texto válido en la ruta especificada.`);
-            return { success: false, error: `No se pudo encontrar el texto traducido en la ruta: '${responsePath}'. Respuesta de la API: ${JSON.stringify(responseData)}` };
+            // Handle API-specific error messages if possible
+            const apiErrorStatus = getNestedValue(responseData, responseConfig.statusPath || 'responseStatus');
+            const apiErrorDetails = getNestedValue(responseData, responseConfig.detailsPath || 'responseDetails');
+            
+            let errorMessage = `No se pudo encontrar un texto válido en la ruta especificada: '${responsePath}'.`;
+            if (apiErrorStatus) {
+                errorMessage = `Error de la API (Estado ${apiErrorStatus}): ${apiErrorDetails || 'Sin detalles'}`;
+            }
+
+            console.error(`18.- [Server] Error: ${errorMessage}. Respuesta de la API: ${JSON.stringify(responseData)}`);
+            return { success: false, error: errorMessage };
         }
     } catch (apiError: any) {
         console.error('14.1.- [Server] Error de fetch o conexión:', apiError);
