@@ -141,10 +141,13 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
     try {
         const pool = await getDbPool();
         client = await pool.connect();
+        await client.query('BEGIN');
         await client.query('UPDATE translation_services SET is_default = FALSE');
         await client.query('UPDATE translation_services SET is_default = TRUE WHERE id = $1', [id]);
+        await client.query('COMMIT');
         return { success: true, message: 'Servicio establecido como predeterminado.' };
     } catch (error) {
+        if (client) await client.query('ROLLBACK');
         console.error("Error setting default translation service:", error);
         return { success: false, message: 'Error del servidor.' };
     } finally {
@@ -190,16 +193,22 @@ async function translateText(
         return { success: false, error: "La configuración del servicio es inválida." };
     }
 
-    const testUrl = buildTranslationUrl(config.request, text, inputLang, outputLang);
-    if (!testUrl) {
+    const requestConfig = config.request;
+    const responseConfig = config.response;
+    
+    const url = buildTranslationUrl(requestConfig, text, inputLang, outputLang);
+    if (!url) {
         return { success: false, error: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
     }
 
     try {
-        const response = await fetch(testUrl);
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`La API respondió con el estado: ${response.status}`);
+        }
         const responseData = await response.json();
 
-        const responsePath = config.response?.path;
+        const responsePath = responseConfig.path;
         if (!responsePath) {
             return { success: false, error: "La configuración JSON no define una ruta de respuesta ('response.path')." };
         }
@@ -209,7 +218,7 @@ async function translateText(
         if (translatedText) {
             return { success: true, data: translatedText };
         } else {
-            return { success: false, error: `No se pudo encontrar el texto traducido en la ruta: '${responsePath}'.` };
+            return { success: false, error: `No se pudo encontrar el texto traducido en la ruta: '${responsePath}'. Respuesta de la API: ${JSON.stringify(responseData)}` };
         }
     } catch (apiError: any) {
         return { success: false, error: `Error al conectar con la API: ${apiError.message}` };
