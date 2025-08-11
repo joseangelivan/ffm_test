@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useActionState, useRef, useState, useTransition } from 'react';
+import React, { useActionState, useRef, useState, useTransition, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { Database, AlertCircle, Loader, CheckCircle, ListChecks, ServerCrash, Terminal } from 'lucide-react';
@@ -84,55 +84,63 @@ function DbInitForm() {
     const initialState: DbInitResult = { success: false, message: '', log: [] };
     
     const [state, formAction] = useActionState(initializeDatabase, initialState);
-    const [isPending, startTransition] = useTransition();
+    const { pending } = useFormStatus();
+    const [isAlertOpen, setIsAlertOpen] = useState(false);
+
+    useEffect(() => {
+        // When the form submission starts, close the dialog.
+        if (pending) {
+            setIsAlertOpen(false);
+        }
+    }, [pending]);
 
     return (
         <Card className="w-full max-w-2xl shadow-xl">
-            <CardHeader>
-                <div className="flex justify-center pb-4">
-                    <Logo />
-                </div>
-                <CardTitle className="text-center text-2xl">{t('dbInitializer.title')}</CardTitle>
-                <CardDescription className="text-center">
-                    {t('dbInitializer.description')}
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                {state && state.log.length > 0 ? (
-                    <div className="space-y-4">
-                        <Alert variant={state.success ? 'default' : 'destructive'} className={cn(state.success && "border-green-500/50 text-green-900 dark:border-green-500/30 dark:text-green-200 [&>svg]:text-green-600")}>
-                            {state.success ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                            <AlertTitle>{state.success ? t('dbInitializer.successTitle') : t('toast.errorTitle')}</AlertTitle>
-                            <AlertDescription>
-                                {state.message}
-                            </AlertDescription>
-                        </Alert>
+            <form action={formAction}>
+                <CardHeader>
+                    <div className="flex justify-center pb-4">
+                        <Logo />
+                    </div>
+                    <CardTitle className="text-center text-2xl">{t('dbInitializer.title')}</CardTitle>
+                    <CardDescription className="text-center">
+                        {t('dbInitializer.description')}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {state && state.log.length > 0 ? (
+                        <div className="space-y-4">
+                            <Alert variant={state.success ? 'default' : 'destructive'} className={cn(state.success && "border-green-500/50 text-green-900 dark:border-green-500/30 dark:text-green-200 [&>svg]:text-green-600")}>
+                                {state.success ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                                <AlertTitle>{state.success ? t('dbInitializer.successTitle') : t('toast.errorTitle')}</AlertTitle>
+                                <AlertDescription>
+                                    {state.message}
+                                </AlertDescription>
+                            </Alert>
 
-                        <div className="rounded-lg border bg-muted/50">
-                            <div className="flex items-center gap-2 p-3 border-b">
-                                <Terminal className="h-5 w-5" />
-                                <h3 className="font-semibold">{t('dbInitializer.logTitle')}</h3>
+                            <div className="rounded-lg border bg-muted/50">
+                                <div className="flex items-center gap-2 p-3 border-b">
+                                    <Terminal className="h-5 w-5" />
+                                    <h3 className="font-semibold">{t('dbInitializer.logTitle')}</h3>
+                                </div>
+                                <ScrollArea className="h-60 p-2">
+                                    {state.log.map((line, index) => <LogEntry key={index} logLine={line} />)}
+                                </ScrollArea>
                             </div>
-                            <ScrollArea className="h-60 p-2">
-                                {state.log.map((line, index) => <LogEntry key={index} logLine={line} />)}
-                            </ScrollArea>
                         </div>
-                    </div>
-                ) : isPending && (
-                     <div className="flex items-center justify-center gap-4 text-muted-foreground py-10">
-                        <Loader className="h-8 w-8 animate-spin" />
-                        <span>{t('dbInitializer.loading')}</span>
-                    </div>
-                )}
-            </CardContent>
-            <CardFooter className="flex flex-col gap-4">
-                <form action={() => startTransition(() => formAction(new FormData()))}>
-                    <AlertDialog>
+                    ) : pending && (
+                        <div className="flex items-center justify-center gap-4 text-muted-foreground py-10">
+                            <Loader className="h-8 w-8 animate-spin" />
+                            <span>{t('dbInitializer.loading')}</span>
+                        </div>
+                    )}
+                </CardContent>
+                <CardFooter className="flex flex-col gap-4">
+                    <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
                         <AlertDialogTrigger asChild>
-                             <Button className="w-full" disabled={isPending}>
-                                {isPending ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <Database className="mr-2 h-4 w-4" />}
+                            <Button className="w-full" disabled={pending}>
+                                {pending ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <Database className="mr-2 h-4 w-4" />}
                                 {t('dbInitializer.button')}
-                             </Button>
+                            </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader>
@@ -144,16 +152,17 @@ function DbInitForm() {
                             <AlertDialogFooter className="mt-4">
                                 <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                                 <AlertDialogAction asChild>
+                                    {/* This button submits the form */}
                                     <Button type="submit">{t('dbInitializer.confirmButton')}</Button>
                                 </AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
-                </form>
-                 <Link href="/admin/login" className="text-sm text-muted-foreground hover:underline">
-                    {t('dbInitializer.goBack')}
-                </Link>
-            </CardFooter>
+                    <Link href="/admin/login" className="text-sm text-muted-foreground hover:underline">
+                        {t('dbInitializer.goBack')}
+                    </Link>
+                </CardFooter>
+            </form>
         </Card>
     );
 }
