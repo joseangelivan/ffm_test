@@ -55,7 +55,7 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
         `);
         const data = result.rows.map(condo => ({
             ...condo,
-            address: `${condo.street} ${condo.number}, ${condo.city}, ${condo.state}`,
+            address: `${condo.street || ''} ${condo.number || ''}, ${condo.city || ''}, ${condo.state || ''}`,
             residents_count: 0,
             gatekeepers_count: 0,
             devices_count: 0
