@@ -192,10 +192,12 @@ async function translateText(
     
     console.log('6.- [translateText] Configuración JSON parseada:', config);
     
-    const requestConfig = config?.request;
-    const responseConfig = config?.response;
+    const requestConfig = config.request;
+    const responseConfig = config.response;
 
     console.log('7.- [translateText] Objeto de configuración de request extraído:', requestConfig);
+    console.log('7.1.- [translateText] Objeto de configuración de response extraído:', responseConfig);
+
 
     if (!requestConfig || !requestConfig.base_url || typeof requestConfig.parameters !== 'object') {
         console.error("8.- [translateText] Error: La configuración de request es inválida. Falta 'base_url' o 'parameters'.");
@@ -298,7 +300,7 @@ export async function testTranslationService(id: string): Promise<ActionState> {
     
     try {
         const translationResult = await translateText(service, "Hello", "en", "es");
-        console.log('11.- [testTranslationService] Resultado de la traducción:', translationResult);
+        console.log('12.- [testTranslationService] Resultado de la traducción:', translationResult);
 
         if (translationResult.success) {
             return { success: true, message: `¡Prueba exitosa! Respuesta: "${translationResult.data}"` };
