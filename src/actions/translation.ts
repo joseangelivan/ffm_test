@@ -171,34 +171,35 @@ function buildTranslationUrl(requestConfig: any, inputText: string, inputLang: s
         console.error('[buildTranslationUrl] Error: Falta base_url o parameters en la configuración.');
         return null;
     }
-    
+
     const { base_url, parameters } = requestConfig;
     console.log(`[buildTranslationUrl] Base URL: ${base_url}`);
     console.log(`[buildTranslationUrl] Parámetros de plantilla:`, parameters);
-    
+
     const urlParams = new URLSearchParams();
-    
-    const staticParams = { ...parameters };
 
     for (const [key, value] of Object.entries(parameters)) {
         let paramValue = String(value);
-        if (paramValue.includes('$InputText') || paramValue.includes('$InputLang') || paramValue.includes('$OutputLang')) {
-            paramValue = paramValue.replace('$InputText', inputText);
-            paramValue = paramValue.replace('$InputLang', inputLang);
-            paramValue = paramValue.replace('$OutputLang', outputLang);
-            urlParams.append(key, paramValue);
-            delete staticParams[key];
-        }
-    }
 
-    for (const [key, value] of Object.entries(staticParams)) {
-        urlParams.append(key, String(value));
+        // Replace placeholders if they exist
+        if (paramValue.includes('$InputText')) {
+            paramValue = paramValue.replace(/\$InputText/g, inputText);
+        }
+        if (paramValue.includes('$InputLang')) {
+            paramValue = paramValue.replace(/\$InputLang/g, inputLang);
+        }
+        if (paramValue.includes('$OutputLang')) {
+            paramValue = paramValue.replace(/\$OutputLang/g, outputLang);
+        }
+
+        urlParams.append(key, paramValue);
     }
 
     const finalUrl = `${base_url}?${urlParams.toString()}`;
     console.log(`[buildTranslationUrl] URL Final construida: ${finalUrl}`);
     return finalUrl;
 }
+
 
 function getNestedValue(obj: any, path: string): any {
     return path.split('.').reduce((acc, part) => acc && acc[part], obj);
