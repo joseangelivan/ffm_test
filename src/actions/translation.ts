@@ -186,30 +186,31 @@ async function translateText(
     console.log(`6.- [Server] Tipo de config_json: ${typeof service.config_json}`);
     
     let config: any;
-    try {
-        if (typeof service.config_json === 'string') {
+    if (typeof service.config_json === 'string') {
+        try {
             console.log('7.- [Server] config_json es una cadena, intentando parsear...');
             config = JSON.parse(service.config_json);
-        } else {
-            console.log('7.- [Server] config_json ya es un objeto, usándolo directamente.');
-            config = service.config_json;
+        } catch(e: any) {
+            console.error('8.- [Server] CRITICAL: Error al parsear config_json.', e);
+            return { success: false, error: `Error interno al procesar la configuración JSON: ${e.message}` };
         }
-    } catch (e: any) {
-        console.error('8.- [Server] CRITICAL: Error al parsear config_json.', e);
-        return { success: false, error: `Error interno al procesar la configuración JSON: ${e.message}` };
+    } else {
+        console.log('7.- [Server] config_json ya es un objeto, usándolo directamente.');
+        config = service.config_json;
     }
 
     console.log('9.- [Server] Objeto de configuración final:', config);
 
-    const requestConfig = config?.request;
+    const requestConfig = config?.request?.api_config;
     const responseConfig = config?.response;
     
     console.log('10.- [Server] Objeto de configuración de request extraído:', requestConfig);
     console.log('11.- [Server] Objeto de configuración de response extraído:', responseConfig);
 
     if (!requestConfig?.base_url || typeof requestConfig?.parameters !== 'object') {
-        console.error("12.- [Server] Error: La configuración de request es inválida. Falta 'base_url' o 'parameters'.");
-        return { success: false, error: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
+        const errorMsg = "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'.";
+        console.error(`12.- [Server] Error: ${errorMsg}`);
+        return { success: false, error: errorMsg };
     }
 
     // --- Construcción de URL ---
