@@ -2,7 +2,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifySession, type SessionPayload } from '@/lib/session';
-import { verifySessionIntegrity } from '@/actions/admin';
 
 export const config = {
   matcher: [
