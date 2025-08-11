@@ -145,12 +145,12 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
 
 
 // --- Helper Functions for Testing ---
-function buildTranslationUrl(config: any, inputText: string, inputLang: string, outputLang: string): string | null {
-    if (!config?.request?.base_url || !config?.request?.parameters) {
+function buildTranslationUrl(requestConfig: any, inputText: string, inputLang: string, outputLang: string): string | null {
+    if (!requestConfig?.base_url || !requestConfig?.parameters) {
         return null;
     }
 
-    const { base_url, parameters } = config.request;
+    const { base_url, parameters } = requestConfig;
     const urlParams = new URLSearchParams();
 
     for (const [key, value] of Object.entries(parameters)) {
@@ -195,7 +195,7 @@ export async function testTranslationService(id: string): Promise<ActionState> {
     
     const { config_json } = service;
 
-    const testUrl = buildTranslationUrl(config_json, "Hello", "en", "es");
+    const testUrl = buildTranslationUrl(config_json.request, "Hello", "en", "es");
     if (!testUrl) {
         return { success: false, message: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
     }
