@@ -27,6 +27,15 @@ const nextConfig: NextConfig = {
       test: /node_modules\/@mapbox\/node-pre-gyp\/lib\/util\/nw-pre-gyp\/index\.html$/,
       use: 'null-loader',
     });
+
+    // This prevents the "Module not found: Can't resolve 'pg-native'" error.
+    // The pg library optionally tries to require a native binding that's not needed for standard use.
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        "pg-native": false,
+      };
+    }
     
     return config;
   }
