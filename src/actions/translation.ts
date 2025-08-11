@@ -175,14 +175,14 @@ async function translateText(
     inputLang: string,
     outputLang: string
 ): Promise<{ success: boolean; data?: string; error?: string }> {
-    console.log(`[translateText] Iniciando traducción para el servicio: "${service.name}"`);
+    console.log(`4.- [translateText] Iniciando traducción para el servicio: "${service.name}"`);
     
     let config;
     if (typeof service.config_json === 'string') {
         try {
             config = JSON.parse(service.config_json);
         } catch (e) {
-            console.error('[translateText] Error: El JSON de configuración está corrupto.');
+            console.error('5.- [translateText] Error: El JSON de configuración está corrupto.');
             return { success: false, error: "La configuración del servicio guardada está corrupta (JSON inválido)." };
         }
     } else {
@@ -192,20 +192,14 @@ async function translateText(
     const requestConfig = config?.request;
     const responseConfig = config?.response;
     
-    console.log('[translateText] Configuración de request recibida:', requestConfig);
-    console.log('[translateText] Configuración de response recibida:', responseConfig);
+    console.log('5.- [translateText] Configuración de request recibida:', requestConfig);
 
-    if (!requestConfig || !responseConfig) {
-        console.error('[translateText] Error: La configuración de request o response está incompleta.');
-        return { success: false, error: "La configuración del servicio es inválida o incompleta." };
-    }
-
-    // --- Construcción de URL ---
-    if (!requestConfig.base_url || typeof requestConfig.parameters !== 'object') {
-        console.error('[translateText] Error: Falta base_url o parameters en la configuración de request.');
+    if (!requestConfig || !requestConfig.base_url || typeof requestConfig.parameters !== 'object') {
+        console.error("6.- [translateText] Error: La configuración de request es inválida. Falta 'base_url' o 'parameters'.");
         return { success: false, error: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
     }
 
+    // --- Construcción de URL ---
     const { base_url, parameters } = requestConfig;
     const urlParams = new URLSearchParams();
 
@@ -225,47 +219,48 @@ async function translateText(
     }
     
     const finalUrl = `${base_url}?${urlParams.toString()}`;
+    console.log(`6.- [translateText] URL final construida: ${finalUrl}`);
     // --- Fin Construcción de URL ---
 
     try {
-        console.log(`[translateText] Realizando fetch a: ${finalUrl}`);
+        console.log(`7.- [translateText] Realizando fetch a: ${finalUrl}`);
         const response = await fetch(finalUrl);
         
         if (!response.ok) {
             const errorBody = await response.text();
-            console.error(`[translateText] Error de la API. Estado: ${response.status}. Body:`, errorBody);
+            console.error(`8.- [translateText] Error de la API. Estado: ${response.status}. Body:`, errorBody);
             throw new Error(`La API respondió con el estado: ${response.status}`);
         }
 
         const responseData = await response.json();
-        console.log('[translateText] Respuesta JSON de la API recibida:', responseData);
+        console.log('8.- [translateText] Respuesta JSON de la API recibida:', responseData);
 
         const responsePath = responseConfig.path;
 
         if (!responsePath) {
-            console.error("[translateText] Error: La configuración de respuesta no define una 'path'.");
+            console.error("9.- [translateText] Error: La configuración de respuesta no define una 'path'.");
             return { success: false, error: "La configuración JSON de respuesta no define una ruta ('path')." };
         }
 
         const translatedText = getNestedValue(responseData, responsePath);
-        console.log(`[translateText] Texto traducido extraído de '${responsePath}':`, translatedText);
+        console.log(`9.- [translateText] Texto traducido extraído de '${responsePath}':`, translatedText);
 
         if (translatedText) {
-            console.log('[translateText] Traducción exitosa.');
+            console.log('10.- [translateText] Traducción exitosa.');
             return { success: true, data: translatedText };
         } else {
-            console.error(`[translateText] Error: No se pudo encontrar el texto traducido en la ruta: '${responsePath}'.`);
+            console.error(`10.- [translateText] Error: No se pudo encontrar el texto traducido en la ruta: '${responsePath}'.`);
             return { success: false, error: `No se pudo encontrar el texto traducido en la ruta: '${responsePath}'. Respuesta de la API: ${JSON.stringify(responseData)}` };
         }
     } catch (apiError: any) {
-        console.error('[translateText] Error de fetch o conexión:', apiError);
+        console.error('7.- [translateText] Error de fetch o conexión:', apiError);
         return { success: false, error: `Error al conectar con la API: ${apiError.message}` };
     }
 }
 
 
 export async function testTranslationService(id: string): Promise<ActionState> {
-    console.log(`[testTranslationService] Iniciando prueba para el servicio con ID: ${id}`);
+    console.log(`2.- [testTranslationService] Iniciando prueba para el servicio con ID: ${id}`);
     if (!id) {
         return { success: false, message: "ID no proporcionado." };
     }
@@ -282,7 +277,7 @@ export async function testTranslationService(id: string): Promise<ActionState> {
             return { success: false, message: "Servicio no encontrado." };
         }
         service = result.rows[0];
-        console.log(`[testTranslationService] Servicio "${service.name}" encontrado en la BD.`);
+        console.log(`3.- [testTranslationService] Servicio "${service.name}" encontrado en la BD.`);
 
     } catch (dbError: any) {
         console.error(`[testTranslationService] Error de base de datos:`, dbError);
@@ -300,7 +295,7 @@ export async function testTranslationService(id: string): Promise<ActionState> {
     
     try {
         const translationResult = await translateText(service, "Hello", "en", "es");
-        console.log('[testTranslationService] Resultado de la traducción:', translationResult);
+        console.log('11.- [testTranslationService] Resultado de la traducción:', translationResult);
 
         if (translationResult.success) {
             return { success: true, message: `¡Prueba exitosa! Respuesta: "${translationResult.data}"` };
@@ -312,3 +307,4 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         return { success: false, message: e.message || "Error inesperado durante la traducción." };
     }
 }
+

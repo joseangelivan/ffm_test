@@ -240,11 +240,11 @@ export function ManageTranslatorDialog() {
   }
 
   const handleTest = (id: string) => {
-      console.log(`[Client] Iniciando prueba para el servicio ID: ${id}`);
+      console.log(`1.- [Client] Iniciando prueba para el servicio ID: ${id}`);
       setTestingId(id);
       startSubmitting(async () => {
           const result = await testTranslationService(id);
-          console.log('[Client] Resultado de la prueba recibido:', result);
+          console.log('12.- [Client] Resultado final recibido:', result);
           if (result.success) {
               toast({ title: t('toast.successTitle'), description: result.message, duration: 9000 });
           } else {
@@ -362,3 +362,4 @@ export function ManageTranslatorDialog() {
     </>
   );
 }
+
