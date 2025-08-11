@@ -52,6 +52,7 @@ import {
     TestTube2
 } from 'lucide-react';
 import { LoadingOverlay } from './admin-header';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 
 function ServiceFormFields({ service, onCancel }: { service: TranslationService | null, onCancel: () => void}) {
     const { pending } = useFormStatus();
@@ -239,9 +240,11 @@ export function ManageTranslatorDialog() {
   }
 
   const handleTest = (id: string) => {
+      console.log(`[Client] Iniciando prueba para el servicio ID: ${id}`);
       setTestingId(id);
       startSubmitting(async () => {
           const result = await testTranslationService(id);
+          console.log('[Client] Resultado de la prueba recibido:', result);
           if (result.success) {
               toast({ title: t('toast.successTitle'), description: result.message, duration: 9000 });
           } else {
@@ -286,30 +289,56 @@ export function ManageTranslatorDialog() {
                                 <div className="flex-grow">
                                     <p className="font-medium">{service.name}</p>
                                 </div>
-                                <Button variant="ghost" size="icon" disabled={isSubmitting || service.is_default} onClick={() => handleSetDefault(service.id)}>
-                                    <Star className={cn("h-4 w-4", service.is_default && "fill-orange-400 text-orange-500")} />
-                                    <span className="sr-only">{t('adminDashboard.translator.setAsDefault')}</span>
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleTest(service.id)} disabled={isSubmitting}>
-                                    {testingId === service.id ? <Loader className="h-4 w-4 animate-spin"/> : <TestTube2 className="h-4 w-4"/>}
-                                    <span className="sr-only">{t('adminDashboard.translator.test')}</span>
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleEditClick(service)} disabled={isSubmitting}><Edit className="h-4 w-4"/></Button>
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={isSubmitting}><Trash2 className="h-4 w-4"/></Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
-                                            <AlertDialogDescription>{t('adminDashboard.translator.deleteConfirmation', { name: service.name })}</AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDelete(service.id)} className={buttonVariants({variant: 'destructive'})}>{t('common.delete')}</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" disabled={isSubmitting || service.is_default} onClick={() => handleSetDefault(service.id)}>
+                                            <Star className={cn("h-4 w-4", service.is_default && "fill-orange-400 text-orange-500")} />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{t('adminDashboard.translator.setAsDefault')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" onClick={() => handleTest(service.id)} disabled={isSubmitting}>
+                                            {testingId === service.id ? <Loader className="h-4 w-4 animate-spin"/> : <TestTube2 className="h-4 w-4"/>}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{t('adminDashboard.translator.test')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(service)} disabled={isSubmitting}><Edit className="h-4 w-4"/></Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{t('common.edit')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <TooltipTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={isSubmitting}><Trash2 className="h-4 w-4"/></Button>
+                                            </TooltipTrigger>
+                                        </AlertDialogTrigger>
+                                         <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
+                                                <AlertDialogDescription>{t('adminDashboard.translator.deleteConfirmation', { name: service.name })}</AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDelete(service.id)} className={buttonVariants({variant: 'destructive'})}>{t('common.delete')}</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                    <TooltipContent>
+                                        <p>{t('common.delete')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             </div>
                         ))
                     )}
