@@ -156,13 +156,13 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
 function buildTranslationUrl(requestConfig: any, inputText: string, inputLang: string, outputLang: string): string | null {
     console.log('[buildTranslationUrl] Iniciando construcción de URL...');
     console.log('[buildTranslationUrl] Request Config Recibido:', requestConfig);
-    console.log(`[buildTranslationUrl] Input Text: "${inputText}", Input Lang: "${inputLang}", Output Lang: "${outputLang}"`);
 
     if (!requestConfig?.base_url || !requestConfig?.parameters) {
         console.error('[buildTranslationUrl] Error: Falta base_url o parameters en requestConfig.');
         return null;
     }
-
+    
+    console.log('[buildTranslationUrl] base_url y parameters encontrados.');
     const { base_url, parameters } = requestConfig;
     const urlParams = new URLSearchParams();
     
@@ -211,12 +211,26 @@ async function translateText(
     inputLang: string,
     outputLang: string
 ): Promise<{ success: boolean; data?: string; error?: string }> {
-    console.log(`[translateText] Iniciando traducción para: "${text}"`);
-    console.log('[translateText] Usando servicio:', service.name);
-    console.log('[translateText] Configuración completa del servicio:', service);
+    console.log(`[translateText] Iniciando traducción para: "${text}" con servicio: "${service.name}"`);
 
-    const requestConfig = service.config_json?.request;
-    const responseConfig = service.config_json?.response;
+    let config;
+    try {
+        if (typeof service.config_json === 'string') {
+            console.log('[translateText] config_json es una cadena, parseando...');
+            config = JSON.parse(service.config_json);
+        } else {
+            console.log('[translateText] config_json ya es un objeto.');
+            config = service.config_json;
+        }
+    } catch(e) {
+        console.error('[translateText] Error crítico: No se pudo parsear config_json.', e);
+        return { success: false, error: "La configuración del servicio guardada está corrupta (JSON inválido)." };
+    }
+    
+    console.log('[translateText] Configuración completa del servicio:', config);
+
+    const requestConfig = config?.request;
+    const responseConfig = config?.response;
     
     console.log('[translateText] Objeto requestConfig extraído:', requestConfig);
     console.log('[translateText] Objeto responseConfig extraído:', responseConfig);
@@ -275,7 +289,7 @@ async function translateText(
 
 
 export async function testTranslationService(id: string): Promise<ActionState> {
-    console.log(`[testTranslationService] Iniciando prueba para el servicio con ID: ${id}`);
+    console.log(`[testTranslationService] INICIO de prueba para el servicio con ID: ${id}`);
     if (!id) {
         console.error('[testTranslationService] Error: No se proporcionó ID.');
         return { success: false, message: "ID no proporcionado." };
@@ -294,7 +308,7 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         }
         service = result.rows[0];
         console.log('[testTranslationService] Servicio recuperado de la BD:', service);
-        console.log('[testTranslationService] Tipo de config_json:', typeof service.config_json);
+        console.log('[testTranslationService] Tipo de config_json en DB:', typeof service.config_json);
 
     } catch (dbError: any) {
         console.error("[testTranslationService] DB Error fetching service for test:", dbError);
@@ -310,10 +324,17 @@ export async function testTranslationService(id: string): Promise<ActionState> {
     
     // Ensure config_json is an object
     if (typeof service.config_json !== 'object') {
-        console.error('[testTranslationService] Error: config_json no es un objeto. Es:', typeof service.config_json);
-        return { success: false, message: "El formato de configuración guardado es incorrecto. Debe ser un objeto JSON." };
+        try {
+            // Attempt to parse if it's a string
+            service.config_json = JSON.parse(service.config_json);
+            console.log('[testTranslationService] config_json fue parseado de string a objeto.');
+        } catch (e) {
+            console.error('[testTranslationService] Error: config_json no es un objeto y tampoco es un string JSON válido.', e);
+            return { success: false, message: "El formato de configuración guardado es incorrecto. Debe ser un objeto JSON." };
+        }
     }
     
+    console.log('[testTranslationService] Llamando a translateText...');
     const translationResult = await translateText(service, "Hello", "en", "es");
 
     if (translationResult.success) {
@@ -324,5 +345,3 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         return { success: false, message: `Prueba fallida. ${translationResult.error}` };
     }
 }
-
-    
