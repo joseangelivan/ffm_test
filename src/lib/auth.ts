@@ -1,5 +1,6 @@
 
 'use server';
 
-import { cookies } from 'next/headers';
-import { verifySession, type SessionPayload } from '@/lib/session';
+// This file is intentionally left blank.
+// Session verification is handled directly in middleware or server actions
+// using verifySession from @/lib/session to comply with Next.js patterns.

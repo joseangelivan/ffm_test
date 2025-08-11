@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { verifySession } from '@/lib/session';
 
 export const config = {
   matcher: [
@@ -18,7 +18,9 @@ export const config = {
 };
 
 export async function middleware(request: NextRequest) {
-  const session = await getSession();
+  const sessionToken = request.cookies.get('session')?.value;
+  const session = await verifySession(sessionToken);
+  
   const { pathname } = request.nextUrl;
 
   const publicPages = ['/', '/login', '/admin/login', '/admin/first-login', '/admin/enter-password', '/admin/verify-2fa'];
