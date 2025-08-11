@@ -53,13 +53,23 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
             ORDER BY 
                 created_at DESC;
         `);
-        const data = result.rows.map(condo => ({
-            ...condo,
-            address: `${condo.street || ''} ${condo.number || ''}, ${condo.city || ''}, ${condo.state || ''}`,
-            residents_count: 0,
-            gatekeepers_count: 0,
-            devices_count: 0
-        }));
+        
+        const data = result.rows.map(condo => {
+            const addressParts = [
+                `${condo.street || ''} ${condo.number || ''}`.trim(),
+                condo.city,
+                condo.state
+            ].filter(Boolean); // Filtra partes vacías o nulas
+
+            return {
+                ...condo,
+                address: addressParts.join(', '),
+                residents_count: 0,
+                gatekeepers_count: 0,
+                devices_count: 0
+            };
+        });
+
         return { success: true, message: 'Condominios obtenidos.', data: data };
     } catch (error) {
         console.error('Error getting condominios:', error);
@@ -84,10 +94,17 @@ export async function getCondominioById(id: string): Promise<ActionState<Condomi
         }
         
         const condoData = result.rows[0];
+
+        const addressParts = [
+            `${condoData.street || ''} ${condoData.number || ''}`.trim(),
+            condoData.city,
+            condoData.state
+        ].filter(Boolean);
+
         const fullCondo: Condominio = {
             id: condoData.id,
             name: condoData.name,
-            address: `${condoData.street} ${condoData.number}, ${condoData.city}, ${condoData.state}`,
+            address: addressParts.join(', '),
             created_at: condoData.created_at,
             updated_at: condoData.updated_at,
             continent: condoData.continent,
