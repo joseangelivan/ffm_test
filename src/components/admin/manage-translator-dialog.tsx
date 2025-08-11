@@ -1,0 +1,282 @@
+
+"use client";
+
+import React, { useState, useEffect, useCallback, useActionState, useTransition } from 'react';
+import { useFormStatus } from 'react-dom';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useLocale } from '@/lib/i18n';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import { 
+    createTranslationService,
+    getTranslationServices,
+    updateTranslationService,
+    deleteTranslationService,
+    setTranslationServiceAsDefault,
+    type TranslationService
+} from '@/actions/translation';
+import { 
+    MessageSquareQuote,
+    Star,
+    Loader,
+    Edit,
+    Trash2,
+    PlusCircle,
+    TestTube2
+} from 'lucide-react';
+import { LoadingOverlay } from './admin-header';
+
+function ServiceFormFields({ service, onCancel }: { service: TranslationService | null, onCancel: () => void}) {
+    const { pending } = useFormStatus();
+    const isEditMode = !!service;
+    const { t } = useLocale();
+
+    const [jsonConfig, setJsonConfig] = useState(isEditMode ? JSON.stringify(service.config_json, null, 2) : '');
+    const [isJsonValid, setIsJsonValid] = useState(true);
+
+    const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const text = e.target.value;
+        setJsonConfig(text);
+        try {
+            JSON.parse(text);
+            setIsJsonValid(true);
+        } catch (error) {
+            setIsJsonValid(false);
+        }
+    }
+
+    return (
+        <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+            {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating')} />}
+            <DialogHeader>
+                <DialogTitle>{isEditMode ? t('adminDashboard.translator.editTitle') : t('adminDashboard.translator.newTitle')}</DialogTitle>
+                <DialogDescription>{t('adminDashboard.translator.formDescription')}</DialogDescription>
+            </DialogHeader>
+            <input type="hidden" name="id" value={service?.id || ''} />
+            <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="name">{t('adminDashboard.translator.nameLabel')}</Label>
+                    <Input id="name" name="name" defaultValue={service?.name} placeholder="MyMemory API" required disabled={pending}/>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="config_json">{t('adminDashboard.translator.configJsonLabel')}</Label>
+                    <Textarea 
+                        id="config_json" 
+                        name="config_json"
+                        value={jsonConfig}
+                        onChange={handleJsonChange}
+                        placeholder='{ "api_config": { ... } }' 
+                        required 
+                        disabled={pending}
+                        className={cn("min-h-[250px] font-mono text-xs", !isJsonValid && "border-destructive focus-visible:ring-destructive")}
+                    />
+                    {!isJsonValid && <p className="text-sm text-destructive">{t('adminDashboard.translator.invalidJson')}</p>}
+                </div>
+            </div>
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
+                <Button type="submit" disabled={pending || !isJsonValid}>{isEditMode ? t('common.saveChanges') : t('common.create')}</Button>
+            </DialogFooter>
+        </div>
+    )
+}
+
+function ServiceFormDialog({ service, onSuccess, onCancel }: { service: TranslationService | null, onSuccess: () => void, onCancel: () => void }) {
+    const { t } = useLocale();
+    const { toast } = useToast();
+    const isEditMode = !!service;
+    const formAction = isEditMode ? updateTranslationService : createTranslationService;
+    
+    const onFormSuccessCallback = useCallback(() => {
+        onSuccess();
+    }, [onSuccess]);
+
+    const handleAction = async (prevState: any, formData: FormData) => {
+        const result = await formAction(prevState, formData);
+        if (result?.success === false) {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+        }
+        if (result?.success === true) {
+            toast({ title: t('toast.successTitle'), description: result.message });
+            onFormSuccessCallback();
+        }
+        return result;
+    }
+    
+    const [state, dispatch] = useActionState(handleAction, undefined);
+    
+    return (
+        <DialogContent className="sm:max-w-lg">
+            <form action={dispatch}>
+                 <ServiceFormFields service={service} onCancel={onCancel} />
+            </form>
+        </DialogContent>
+    )
+}
+
+export function ManageTranslatorDialog() {
+  const { t } = useLocale();
+  const { toast } = useToast();
+
+  const [services, setServices] = useState<TranslationService[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, startSubmitting] = useTransition();
+
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isListOpen, setIsListOpen] = useState(false);
+  const [editingService, setEditingService] = useState<TranslationService | null>(null);
+  
+  const fetchServices = useCallback(async () => {
+    setIsLoading(true);
+    const result = await getTranslationServices();
+    setServices(result);
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (isListOpen) {
+        fetchServices();
+    }
+  }, [fetchServices, isListOpen]);
+
+  const onFormSuccess = useCallback(() => {
+      setIsFormOpen(false);
+      setEditingService(null);
+      fetchServices();
+  }, [fetchServices]);
+
+  const handleEditClick = (service: TranslationService) => {
+      setEditingService(service);
+      setIsFormOpen(true);
+  };
+  
+  const handleDelete = (id: string) => {
+    startSubmitting(async () => {
+       const result = await deleteTranslationService(id);
+       if(result.success) {
+           toast({ title: t('toast.successTitle'), description: result.message });
+           fetchServices();
+       } else {
+           toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+       }
+    });
+  }
+
+  const handleSetDefault = (id: string) => {
+    startSubmitting(async () => {
+        const result = await setTranslationServiceAsDefault(id);
+        if(result.success) {
+            toast({ title: t('toast.successTitle'), description: result.message });
+            fetchServices();
+        } else {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+        }
+    });
+  }
+
+  return (
+    <>
+      <Dialog open={isListOpen} onOpenChange={setIsListOpen}>
+        <DialogTrigger asChild>
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <MessageSquareQuote className="mr-2 h-4 w-4" />
+                <span>{t('adminDashboard.translator.title')}</span>
+            </DropdownMenuItem>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-2xl">
+            <div className={cn("relative", isSubmitting && "opacity-50")}>
+                {isSubmitting && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
+                <DialogHeader>
+                    <DialogTitle>{t('adminDashboard.translator.title')}</DialogTitle>
+                    <DialogDescription>
+                        {t('adminDashboard.translator.description')}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="py-4 space-y-2">
+                    {isLoading ? (
+                        Array.from({length: 2}).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
+                    ) : services.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-4">{t('adminDashboard.translator.noServices')}</p>
+                    ) : (
+                        services.map((service) => (
+                            <div 
+                                key={service.id} 
+                                className="flex items-center gap-2 p-2 border rounded-lg bg-card"
+                            >
+                                {service.is_default && <Star className="h-5 w-5 text-orange-500 fill-orange-400" />}
+                                <div className="flex-grow">
+                                    <p className="font-medium">{service.name}</p>
+                                </div>
+                                <Button variant="ghost" size="icon" disabled={isSubmitting || service.is_default} onClick={() => handleSetDefault(service.id)}>
+                                    <Star className={cn("h-4 w-4", service.is_default && "fill-orange-400 text-orange-500")} />
+                                    <span className="sr-only">{t('adminDashboard.translator.setAsDefault')}</span>
+                                </Button>
+                                <Button variant="ghost" size="icon" disabled={isSubmitting}>
+                                    <TestTube2 className="h-4 w-4"/>
+                                    <span className="sr-only">{t('adminDashboard.translator.test')}</span>
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleEditClick(service)} disabled={isSubmitting}><Edit className="h-4 w-4"/></Button>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={isSubmitting}><Trash2 className="h-4 w-4"/></Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
+                                            <AlertDialogDescription>{t('adminDashboard.translator.deleteConfirmation', { name: service.name })}</AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDelete(service.id)} className={buttonVariants({variant: 'destructive'})}>{t('common.delete')}</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+                        ))
+                    )}
+                </div>
+                
+                <DialogFooter className="sm:justify-between">
+                    <DialogClose asChild><Button variant="outline">{t('common.close')}</Button></DialogClose>
+                    <Button onClick={() => { setEditingService(null); setIsFormOpen(true); }}>
+                        <PlusCircle className="mr-2 h-4 w-4"/>{t('adminDashboard.translator.addButton')}
+                    </Button>
+                </DialogFooter>
+            </div>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <ServiceFormDialog service={editingService} onSuccess={onFormSuccess} onCancel={() => setIsFormOpen(false)} />
+      </Dialog>
+    </>
+  );
+}
+

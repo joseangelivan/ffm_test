@@ -46,6 +46,7 @@ import {
   Palette,
   Server,
   Book,
+  MessageSquareQuote,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -58,6 +59,7 @@ import { ManageAccountDialog } from './manage-account-dialog';
 import { ManageDomainDialog } from './manage-domain-dialog';
 import { ManageInterfaceDialog } from './manage-interface-dialog';
 import { ManageCatalogsDialog } from './manage-catalogs-dialog';
+import { ManageTranslatorDialog } from './manage-translator-dialog';
 
 
 export function LoadingOverlay({ text }: { text: string }) {
@@ -164,6 +166,7 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                                         <DropdownMenuSubContent>
                                             <SmtpConfigDialog />
                                             <ManageDomainDialog />
+                                            <ManageTranslatorDialog />
                                         </DropdownMenuSubContent>
                                     </DropdownMenuPortal>
                                 </DropdownMenuSub>

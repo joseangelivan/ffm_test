@@ -311,6 +311,21 @@
         "passwordPlaceholderEdit": "Dejar en blanco para no cambiar",
         "secureConnectionLabel": "Usar Conexión Segura (TLS)",
         "deleteConfirmation": "Esto eliminará permanentemente la configuración SMTP \"{name}\"."
+      },
+       "translator": {
+        "title": "Configurar Traductor",
+        "description": "Gestiona los servicios de traducción para la aplicación.",
+        "noServices": "No hay servicios de traducción configurados.",
+        "addButton": "Agregar Servicio",
+        "editTitle": "Editar Servicio de Traducción",
+        "newTitle": "Nuevo Servicio de Traducción",
+        "formDescription": "Define un nombre y proporciona la configuración JSON para la API del servicio.",
+        "nameLabel": "Nombre del Servicio",
+        "configJsonLabel": "Configuración JSON de la API",
+        "invalidJson": "El formato JSON no es válido.",
+        "setAsDefault": "Establecer como predeterminado",
+        "test": "Probar Servicio",
+        "deleteConfirmation": "Esto eliminará permanentemente el servicio de traducción \"{name}\"."
       }
     },
     "condoDashboard": {

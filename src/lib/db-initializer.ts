@@ -39,7 +39,8 @@ async function runMigrations(client: Pool): Promise<boolean> {
             'settings/base_schema.sql',
             'devices/base_schema.sql',
             'catalogs/base_schema.sql',
-            'maps/base_schema.sql'
+            'maps/base_schema.sql',
+            'translation/base_schema.sql'
         ];
         
         for (const schemaFile of schemasToApply) {
