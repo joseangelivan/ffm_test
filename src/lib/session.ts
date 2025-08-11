@@ -25,7 +25,7 @@ export async function verifySession(sessionToken: string) {
         });
         return payload as SessionPayload;
     } catch (error: any) {
-        if (error.code !== 'ERR_JWT_EXPIRED' && error.code !== 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED') {
+        if (error.code !== 'ERR_JWT_EXPIRED' && error.code !== 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED' && error.code !== 'ERR_JWS_INVALID') {
            console.error('Error verifying JWT:', error);
         }
         return null;
@@ -71,7 +71,7 @@ export async function createSession(userId: string, userType: 'admin' | 'residen
         
         await client.query('COMMIT');
         
-        cookies().set('session', token, {
+        (await cookies()).set('session', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             expires: expirationDate,
@@ -99,7 +99,7 @@ export async function createSession(userId: string, userType: 'admin' | 'residen
 
 
 export async function handleLogoutAction() {
-    const sessionCookie = cookies().get('session');
+    const sessionCookie = (await cookies()).get('session');
     if (sessionCookie) {
         let client;
         try {
@@ -114,5 +114,5 @@ export async function handleLogoutAction() {
             }
         }
     }
-    cookies().delete('session');
+    (await cookies()).delete('session');
 }
