@@ -165,42 +165,6 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
 }
 
 
-function buildTranslationUrl(requestConfig: any, inputText: string, inputLang: string, outputLang: string): string | null {
-    console.log('[buildTranslationUrl] Iniciando construcción de URL...');
-    if (!requestConfig?.base_url || !requestConfig?.parameters) {
-        console.error('[buildTranslationUrl] Error: Falta base_url o parameters en la configuración.');
-        return null;
-    }
-
-    const { base_url, parameters } = requestConfig;
-    console.log(`[buildTranslationUrl] Base URL: ${base_url}`);
-    console.log(`[buildTranslationUrl] Parámetros de plantilla:`, parameters);
-
-    const urlParams = new URLSearchParams();
-
-    for (const [key, value] of Object.entries(parameters)) {
-        let paramValue = String(value);
-
-        // Replace placeholders if they exist
-        if (paramValue.includes('$InputText')) {
-            paramValue = paramValue.replace(/\$InputText/g, inputText);
-        }
-        if (paramValue.includes('$InputLang')) {
-            paramValue = paramValue.replace(/\$InputLang/g, inputLang);
-        }
-        if (paramValue.includes('$OutputLang')) {
-            paramValue = paramValue.replace(/\$OutputLang/g, outputLang);
-        }
-
-        urlParams.append(key, paramValue);
-    }
-
-    const finalUrl = `${base_url}?${urlParams.toString()}`;
-    console.log(`[buildTranslationUrl] URL Final construida: ${finalUrl}`);
-    return finalUrl;
-}
-
-
 function getNestedValue(obj: any, path: string): any {
     return path.split('.').reduce((acc, part) => acc && acc[part], obj);
 }
@@ -212,32 +176,60 @@ async function translateText(
     outputLang: string
 ): Promise<{ success: boolean; data?: string; error?: string }> {
     console.log(`[translateText] Iniciando traducción para el servicio: "${service.name}"`);
-    let config = service.config_json;
-    if (typeof config === 'string') {
+    
+    let config;
+    if (typeof service.config_json === 'string') {
         try {
-            config = JSON.parse(config);
-        } catch(e) {
+            config = JSON.parse(service.config_json);
+        } catch (e) {
             console.error('[translateText] Error: El JSON de configuración está corrupto.');
             return { success: false, error: "La configuración del servicio guardada está corrupta (JSON inválido)." };
         }
+    } else {
+        config = service.config_json;
     }
     
     const requestConfig = config?.request;
     const responseConfig = config?.response;
     
+    console.log('[translateText] Configuración de request recibida:', requestConfig);
+    console.log('[translateText] Configuración de response recibida:', responseConfig);
+
     if (!requestConfig || !responseConfig) {
         console.error('[translateText] Error: La configuración de request o response está incompleta.');
         return { success: false, error: "La configuración del servicio es inválida o incompleta." };
     }
 
-    const url = buildTranslationUrl(requestConfig, text, inputLang, outputLang);
-    if (!url) {
+    // --- Construcción de URL ---
+    if (!requestConfig.base_url || typeof requestConfig.parameters !== 'object') {
+        console.error('[translateText] Error: Falta base_url o parameters en la configuración de request.');
         return { success: false, error: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
     }
 
+    const { base_url, parameters } = requestConfig;
+    const urlParams = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(parameters)) {
+        let paramValue = String(value);
+
+        if (paramValue.includes('$InputText')) {
+            paramValue = paramValue.replace(/\$InputText/g, encodeURIComponent(text));
+        }
+        if (paramValue.includes('$InputLang')) {
+            paramValue = paramValue.replace(/\$InputLang/g, inputLang);
+        }
+        if (paramValue.includes('$OutputLang')) {
+            paramValue = paramValue.replace(/\$OutputLang/g, outputLang);
+        }
+        urlParams.append(key, paramValue);
+    }
+    
+    const finalUrl = `${base_url}?${urlParams.toString()}`;
+    // --- Fin Construcción de URL ---
+
     try {
-        console.log(`[translateText] Realizando fetch a: ${url}`);
-        const response = await fetch(url);
+        console.log(`[translateText] Realizando fetch a: ${finalUrl}`);
+        const response = await fetch(finalUrl);
         
         if (!response.ok) {
             const errorBody = await response.text();
@@ -249,16 +241,10 @@ async function translateText(
         console.log('[translateText] Respuesta JSON de la API recibida:', responseData);
 
         const responsePath = responseConfig.path;
-        const statusPath = responseConfig.statusPath;
 
         if (!responsePath) {
             console.error("[translateText] Error: La configuración de respuesta no define una 'path'.");
             return { success: false, error: "La configuración JSON de respuesta no define una ruta ('path')." };
-        }
-        
-        if (statusPath) {
-             const statusValue = getNestedValue(responseData, statusPath);
-             console.log(`[translateText] Valor de estado extraído de '${statusPath}':`, statusValue);
         }
 
         const translatedText = getNestedValue(responseData, responsePath);
