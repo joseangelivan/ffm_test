@@ -559,6 +559,7 @@
         "button": "Inicializar Banco de Dados",
         "goBack": "Voltar para o Login de Administrador",
         "confirmationDescription": "Isso tentará executar novamente todas as migrações do banco de dados. Esta ação geralmente é segura, mas só deve ser feita se houver suspeita de um problema com o esquema do banco de dados. Tem certeza de que deseja continuar?",
-        "confirmButton": "Sim, inicializar"
+        "confirmButton": "Sim, inicializar",
+        "logTitle": "Registro de Inicialização"
     }
   }
