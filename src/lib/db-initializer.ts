@@ -29,7 +29,26 @@ async function runMigrations(client: Pool): Promise<boolean> {
                 applied_at TIMESTAMPTZ DEFAULT NOW()
             );
         `);
-        
+
+        // Tables to drop in dependency order (users before admins, etc.)
+        const tablesToDrop = [
+            'admin_verification_pins', 'admin_totp_secrets', 'admin_first_login_pins', 'admin_settings',
+            'sessions', 'admins', 'residents', 'gatekeepers', 
+            'map_element_types', 'geofences', 'condominiums', 
+            'device_types', 'communication_protocols',
+            'translation_services',
+            'app_settings', 'themes', 'smtp_configurations'
+        ];
+        console.log('[runMigrations] Cleaning up existing tables before migration...');
+        for (const table of tablesToDrop) {
+            try {
+                await dbClient.query(`DROP TABLE IF EXISTS ${table} CASCADE;`);
+                console.log(`[runMigrations] Dropped table (if exists): ${table}`);
+            } catch (dropError: any) {
+                console.warn(`[runMigrations] Could not drop table ${table}: ${dropError.message}`);
+            }
+        }
+
         const schemasToApply = [
             'admins/base_schema.sql',
             'condominiums/base_schema.sql',
@@ -42,15 +61,13 @@ async function runMigrations(client: Pool): Promise<boolean> {
             'maps/base_schema.sql',
             'translation/base_schema.sql'
         ];
+
+        // Clear previous migration logs for a clean run
+        await dbClient.query('DELETE FROM migrations_log WHERE file_name = ANY($1::TEXT[])', [schemasToApply]);
+        console.log('[runMigrations] Cleared previous migration logs for schemas to be applied.');
         
         for (const schemaFile of schemasToApply) {
             currentMigrationFile = schemaFile;
-            const checkMigration = await dbClient.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [schemaFile]);
-            
-            if (checkMigration.rows.length > 0) {
-                console.log(`[runMigrations] Migration already applied, skipping: ${schemaFile}`);
-                continue; 
-            }
             
             try {
                 console.log(`[runMigrations] Applying migration: ${schemaFile}`);
@@ -64,7 +81,6 @@ async function runMigrations(client: Pool): Promise<boolean> {
                 }
             } catch (migrationError: any) {
                 console.error(`[runMigrations] FAILED to apply migration file "${schemaFile}". Error: ${migrationError.message}`);
-                // Re-throw the error to be caught by the outer catch block, which will cause a ROLLBACK.
                 throw migrationError;
             }
         }
