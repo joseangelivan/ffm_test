@@ -160,15 +160,25 @@ function buildTranslationUrl(requestConfig: any, inputText: string, inputLang: s
 
     const { base_url, parameters } = requestConfig;
     const urlParams = new URLSearchParams();
+    const staticParams = { ...parameters };
 
-    for (const [key, value] of Object.entries(parameters)) {
-        let paramValue = String(value);
-        if (paramValue.includes('$InputText') || paramValue.includes('$InputLang') || paramValue.includes('$OutputLang')) {
-            paramValue = paramValue.replace('$InputText', inputText);
-            paramValue = paramValue.replace('$InputLang', inputLang);
-            paramValue = paramValue.replace('$OutputLang', outputLang);
+    // Find and handle dynamic parameters, removing them from the static list
+    for (const [key, value] of Object.entries(staticParams)) {
+        if (value === '$InputText') {
+            urlParams.append(key, inputText);
+            delete staticParams[key];
+        } else if (value === '$InputLang') {
+            urlParams.append(key, inputLang);
+            delete staticParams[key];
+        } else if (value === '$OutputLang') {
+            urlParams.append(key, outputLang);
+            delete staticParams[key];
         }
-        urlParams.append(key, paramValue);
+    }
+    
+    // Append remaining static parameters
+    for (const [key, value] of Object.entries(staticParams)) {
+        urlParams.append(key, String(value));
     }
 
     return `${base_url}?${urlParams.toString()}`;
@@ -242,7 +252,7 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         if (client) client.release();
     }
 
-    if (!service) {
+    if (!service || !service.config_json) {
         return { success: false, message: "Configuración JSON inválida o no encontrada." };
     }
     
