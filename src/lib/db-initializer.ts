@@ -9,7 +9,7 @@ let migrationsRan = false;
 async function runMigrations(client: Pool): Promise<boolean> {
     const fs = (await import('fs/promises')).default;
     const path = (await import('path')).default;
-    const bcrypt = (await import('bcrypt')).default;
+    const bcrypt = (await import('bcryptjs')).default;
     
     if (migrationsRan) {
         console.log('[runMigrations] Migrations already ran in this instance. Skipping.');
@@ -30,25 +30,6 @@ async function runMigrations(client: Pool): Promise<boolean> {
             );
         `);
 
-        // Tables to drop in dependency order (users before admins, etc.)
-        const tablesToDrop = [
-            'admin_verification_pins', 'admin_totp_secrets', 'admin_first_login_pins', 'admin_settings',
-            'sessions', 'admins', 'residents', 'gatekeepers', 
-            'map_element_types', 'geofences', 'condominiums', 
-            'device_types', 'communication_protocols',
-            'translation_services',
-            'app_settings', 'themes', 'smtp_configurations'
-        ];
-        console.log('[runMigrations] Cleaning up existing tables before migration...');
-        for (const table of tablesToDrop) {
-            try {
-                await dbClient.query(`DROP TABLE IF EXISTS ${table} CASCADE;`);
-                console.log(`[runMigrations] Dropped table (if exists): ${table}`);
-            } catch (dropError: any) {
-                console.warn(`[runMigrations] Could not drop table ${table}: ${dropError.message}`);
-            }
-        }
-
         const schemasToApply = [
             'admins/base_schema.sql',
             'condominiums/base_schema.sql',
@@ -61,14 +42,16 @@ async function runMigrations(client: Pool): Promise<boolean> {
             'maps/base_schema.sql',
             'translation/base_schema.sql'
         ];
-
-        // Clear previous migration logs for a clean run
-        await dbClient.query('DELETE FROM migrations_log WHERE file_name = ANY($1::TEXT[])', [schemasToApply]);
-        console.log('[runMigrations] Cleared previous migration logs for schemas to be applied.');
         
         for (const schemaFile of schemasToApply) {
             currentMigrationFile = schemaFile;
             
+            const hasRunResult = await dbClient.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [schemaFile]);
+            if (hasRunResult.rows.length > 0) {
+                console.log(`[runMigrations] Skipping already applied migration: ${schemaFile}`);
+                continue;
+            }
+
             try {
                 console.log(`[runMigrations] Applying migration: ${schemaFile}`);
                 const sqlPath = path.join(process.cwd(), 'src', 'lib', 'sql', schemaFile);
@@ -95,14 +78,12 @@ async function runMigrations(client: Pool): Promise<boolean> {
         if (adminResult.rows.length === 0) {
             console.log('[runMigrations] Default admin not found. Seeding with dynamically generated hash...');
             await dbClient.query(
-                "INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, TRUE)",
+                "INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, TRUE) ON CONFLICT (email) DO NOTHING",
                 ['José Angel Iván Rubianes Silva', adminEmail, dynamicallyGeneratedHash]
             );
             console.log('[runMigrations] Default admin user seeded successfully.');
         } else {
-            console.log('[runMigrations] Default admin user found. Forcing password hash update to ensure consistency...');
-            await dbClient.query('UPDATE admins SET password_hash = $1, updated_at = NOW() WHERE email = $2', [dynamicallyGeneratedHash, adminEmail]);
-            console.log('[runMigrations] Default admin password hash updated successfully.');
+            console.log('[runMigrations] Default admin user found. Skipping seeding.');
         }
 
         console.log('[runMigrations] Checking for test condominium...');
