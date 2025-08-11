@@ -33,10 +33,7 @@ export async function getTranslationServices(): Promise<TranslationService[]> {
         const pool = await getDbPool();
         client = await pool.connect();
         const result = await client.query('SELECT * FROM translation_services ORDER BY created_at ASC');
-        return result.rows.map(row => ({
-            ...row,
-            config_json: typeof row.config_json === 'string' ? JSON.parse(row.config_json) : row.config_json
-        }));
+        return result.rows;
     } catch (error) {
         console.error("Error getting translation services:", error);
         return [];
@@ -185,17 +182,14 @@ async function translateText(
     inputLang: string,
     outputLang: string
 ): Promise<{ success: boolean; data?: string; error?: string }> {
-    const config = typeof service.config_json === 'string' 
-        ? JSON.parse(service.config_json) 
-        : service.config_json;
 
-    if (!config?.request || !config?.response) {
+    const requestConfig = service.config_json?.request;
+    const responseConfig = service.config_json?.response;
+    
+    if (!requestConfig || !responseConfig) {
         return { success: false, error: "La configuración del servicio es inválida." };
     }
 
-    const requestConfig = config.request;
-    const responseConfig = config.response;
-    
     const url = buildTranslationUrl(requestConfig, text, inputLang, outputLang);
     if (!url) {
         return { success: false, error: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
@@ -224,6 +218,7 @@ async function translateText(
         return { success: false, error: `Error al conectar con la API: ${apiError.message}` };
     }
 }
+
 
 export async function testTranslationService(id: string): Promise<ActionState> {
     if (!id) return { success: false, message: "ID no proporcionado." };
