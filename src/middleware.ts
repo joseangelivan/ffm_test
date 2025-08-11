@@ -55,12 +55,6 @@ export async function middleware(request: NextRequest) {
   // 3. Handle routing for valid sessions
   const isAdmin = session.type === 'admin';
 
-  // If user is authenticated and tries to access a public page, redirect to their dashboard
-  if (isPublicPage) {
-    const dashboardPath = isAdmin ? '/admin/dashboard' : '/dashboard';
-    return NextResponse.redirect(new URL(dashboardPath, request.url));
-  }
-
   // Prevent cross-access to protected routes
   if (isAdmin && isUserRoute) {
     return NextResponse.redirect(new URL('/admin/dashboard', request.url));
