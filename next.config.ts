@@ -27,8 +27,6 @@ const nextConfig: NextConfig = {
       test: /\.html$/,
       use: 'raw-loader',
     });
-
-    config.externals.push('node-pre-gyp');
     
     return config;
   }
