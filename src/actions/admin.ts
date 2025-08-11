@@ -147,6 +147,11 @@ export async function updateSettings(settings: Partial<UserSettings>, session: S
 // --- Authentication Flow ---
 
 export async function checkAdminEmail(prevState: any, formData: FormData): Promise<AuthState> {
+    const session = await getSession();
+    if (session?.type === 'admin') {
+        redirect('/admin/dashboard');
+    }
+    
     const email = formData.get('email') as string;
     if (!email) {
         return { success: false, message: "toast.adminLogin.missingCredentials" };
