@@ -194,7 +194,7 @@ export function ManageTranslatorDialog() {
   const fetchServices = useCallback(async () => {
     setIsLoading(true);
     const result = await getTranslationServices();
-    setServices(result || []);
+    setServices(result);
     setIsLoading(false);
   }, []);
 
@@ -244,7 +244,7 @@ export function ManageTranslatorDialog() {
       setTestingId(id);
       startSubmitting(async () => {
           const result = await testTranslationService(id);
-          console.log('12.- [Client] Resultado final recibido:', result);
+          console.log('13.- [Client] Resultado final recibido:', result);
           if (result.success) {
               toast({ title: t('toast.successTitle'), description: result.message, duration: 9000 });
           } else {
@@ -362,4 +362,3 @@ export function ManageTranslatorDialog() {
     </>
   );
 }
-
