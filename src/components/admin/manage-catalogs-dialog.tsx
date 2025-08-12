@@ -58,7 +58,7 @@ export function ManageCatalogsDialog() {
                                 <LanguageManager t={t} />
                             </TabsContent>
                             <TabsContent value="device_types">
-                                <DeviceTypesManager t={t} />
+                                <DeviceTypesManager />
                             </TabsContent>
                             <TabsContent value="protocols">
                                <div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/50 rounded-md">

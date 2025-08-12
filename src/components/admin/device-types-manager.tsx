@@ -46,14 +46,13 @@ function DeviceTypeForm({
     item,
     onSuccess,
     onCancel,
-    t
 }: {
     item: DeviceType | null;
     onSuccess: () => void;
     onCancel: () => void;
-    t: (key: string) => string;
 }) {
     const { toast } = useToast();
+    const { t } = useLocale();
     const isEditMode = !!item;
     const formAction = isEditMode ? updateDeviceType : createDeviceType;
     const [selectedLang, setSelectedLang] = useState<'es' | 'pt'>('es');
@@ -197,9 +196,9 @@ function DeviceTypeForm({
     )
 }
 
-export default function DeviceTypesManager({ t }: { t: (key: string) => string }) {
+export default function DeviceTypesManager() {
     const { toast } = useToast();
-    const { locale } = useLocale();
+    const { t, locale } = useLocale();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<DeviceType | null>(null);
     const [isDeleting, startDeleteTransition] = useTransition();
@@ -338,7 +337,6 @@ export default function DeviceTypesManager({ t }: { t: (key: string) => string }
                         item={editingItem} 
                         onSuccess={onFormSuccess}
                         onCancel={() => setIsFormOpen(false)}
-                        t={t}
                     />
                 </Dialog>
             </CardContent>
