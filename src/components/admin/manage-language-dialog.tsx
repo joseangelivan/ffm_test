@@ -4,10 +4,8 @@
 import React from 'react';
 import { useLocale } from '@/lib/i18n';
 import { useAdminDashboard } from '../admin-dashboard-client';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings } from 'lucide-react';
 
 export function ManageLanguageDialog() {
     const { t, locale } = useLocale();
@@ -16,9 +14,9 @@ export function ManageLanguageDialog() {
     return (
         <Card className="mt-4 border-none shadow-none">
             <CardHeader className="p-1">
-                <CardTitle className="text-base">{t('dashboard.language')}</CardTitle>
+                <CardTitle className="text-base">{t('adminDashboard.settingsGroups.languageManagement.title')}</CardTitle>
                 <CardDescription>
-                    {t('adminDashboard.settingsGroups.languageDescription')}
+                    {t('adminDashboard.settingsGroups.languageManagement.description')}
                 </CardDescription>
             </CardHeader>
             <CardContent className="p-1 pt-4">

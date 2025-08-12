@@ -229,7 +229,10 @@
             }
         },
         "interfaceDescription": "Personaliza la apariencia y el idioma de la aplicación.",
-        "languageDescription": "Selecciona el idioma para la interfaz de administración.",
+        "languageManagement": {
+          "title": "Idioma de la Interfaz",
+          "description": "Selecciona el idioma para tu panel de administración."
+        },
         "themeDescription": "Elige entre un tema claro u oscuro para el panel.",
         "domainConfig": "Configurar Dominio",
         "domainConfigTitle": "Configurar Dominio de la Aplicación",
