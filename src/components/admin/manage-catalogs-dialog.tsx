@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -30,21 +30,29 @@ export function ManageCatalogsDialog() {
     const [languages, setLanguages] = useState<Language[]>([]);
     const [activeTab, setActiveTab] = useState('devices');
 
-    const fetchDataForTab = async (tab: string) => {
+    const fetchDataForTab = useCallback(async (tab: string) => {
         setIsLoading(true);
-        if (tab === 'devices') {
-            const data = await getDeviceTypes();
-            setDeviceTypes(data);
-        } else if (tab === 'languages') {
-            const data = await getLanguages();
-            setLanguages(data);
+        try {
+            if (tab === 'devices') {
+                const data = await getDeviceTypes();
+                setDeviceTypes(data);
+            } else if (tab === 'languages') {
+                const data = await getLanguages();
+                setLanguages(data);
+            }
+        } catch (error) {
+            console.error(`Failed to fetch data for tab ${tab}:`, error);
+            // Optionally set an error state here
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
-    };
+    }, []);
 
     useEffect(() => {
-        fetchDataForTab(activeTab);
-    }, [activeTab]);
+        if(activeTab) {
+            fetchDataForTab(activeTab);
+        }
+    }, [activeTab, fetchDataForTab]);
 
     return (
         <Dialog onOpenChange={(open) => { if(open) fetchDataForTab(activeTab) }}>
@@ -99,6 +107,7 @@ export function ManageCatalogsDialog() {
                             <div className="flex justify-center items-center h-48"><Loader className="h-8 w-8 animate-spin"/></div>
                         ) : (
                             <LanguageManager
+                                t={t}
                                 initialLanguages={languages}
                                 onRefresh={() => fetchDataForTab('languages')}
                             />

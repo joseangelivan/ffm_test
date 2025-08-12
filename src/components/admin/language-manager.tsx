@@ -30,22 +30,23 @@ import {
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Edit, Trash2, PlusCircle, Loader } from 'lucide-react';
-import { useLocale } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { createLanguage, updateLanguage, deleteLanguage, type Language } from '@/actions/catalogs';
+import type { useLocale } from '@/lib/i18n';
 
 function LanguageForm({
+    t,
     item,
     onSuccess,
     onCancel,
 }: {
+    t: ReturnType<typeof useLocale>['t'];
     item: Language | null;
     onSuccess: () => void;
     onCancel: () => void;
 }) {
-    const { t } = useLocale();
     const { toast } = useToast();
     const isEditMode = !!item;
     const formAction = isEditMode ? updateLanguage : createLanguage;
@@ -103,8 +104,13 @@ function LanguageForm({
     )
 }
 
-export function LanguageManager({ initialLanguages, onRefresh }: { initialLanguages: Language[], onRefresh: () => void }) {
-    const { t } = useLocale();
+type LanguageManagerProps = {
+    t: ReturnType<typeof useLocale>['t'];
+    initialLanguages: Language[];
+    onRefresh: () => void;
+};
+
+export function LanguageManager({ t, initialLanguages, onRefresh }: LanguageManagerProps) {
     const { toast } = useToast();
     const [languages, setLanguages] = useState(initialLanguages);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -198,6 +204,7 @@ export function LanguageManager({ initialLanguages, onRefresh }: { initialLangua
 
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                 <LanguageForm 
+                    t={t}
                     item={editingItem} 
                     onSuccess={onFormSuccess}
                     onCancel={() => setIsFormOpen(false)}
