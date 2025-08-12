@@ -254,7 +254,7 @@ export default function DeviceTypesManager({ t }: { t: (key: string) => string }
         fetchData();
     };
 
-    const getTranslatedValue = (translations: TranslationObject) => {
+    const getTranslatedValue = (translations: TranslationObject | null) => {
         if (!translations) return '—';
         return translations[locale as 'es' | 'pt-BR'] || translations['pt-BR'] || translations.es || Object.values(translations)[0];
     }
@@ -299,7 +299,7 @@ export default function DeviceTypesManager({ t }: { t: (key: string) => string }
                                         const colKey = columns[parseInt(idx)].key;
                                         return (
                                             <TableCell key={colKey}>
-                                                {getTranslatedValue(item[colKey as keyof typeof item])}
+                                                {getTranslatedValue(item[colKey as keyof typeof item] as TranslationObject | null)}
                                             </TableCell>
                                         )
                                     })}
