@@ -79,8 +79,8 @@ export function LanguageManager({
                         <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm z-10">
                             <TableRow>
                                 <TableHead className="w-1/4 truncate">{columns[0].header}</TableHead>
-                                <TableHead className="w-1/4">{columns[1].header}</TableHead>
-                                <TableHead className="w-1/4">{columns[2].header}</TableHead>
+                                <TableHead className="w-1/4 truncate">{columns[1].header}</TableHead>
+                                <TableHead className="w-1/4 truncate">{columns[2].header}</TableHead>
                                 <TableHead className="w-auto min-w-[120px] text-right whitespace-nowrap">{columns[3].header}</TableHead>
                             </TableRow>
                         </TableHeader>
