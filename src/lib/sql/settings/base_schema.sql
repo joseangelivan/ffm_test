@@ -1,3 +1,4 @@
+-- Settings Schema
 
 CREATE TABLE IF NOT EXISTS app_settings (
     id VARCHAR(255) PRIMARY KEY,
@@ -6,50 +7,30 @@ CREATE TABLE IF NOT EXISTS app_settings (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS themes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) UNIQUE NOT NULL,
-    background_hsl VARCHAR(50) NOT NULL,
-    foreground_hsl VARCHAR(50) NOT NULL,
-    card_hsl VARCHAR(50) NOT NULL,
-    card_foreground_hsl VARCHAR(50) NOT NULL,
-    popover_hsl VARCHAR(50) NOT NULL,
-    popover_foreground_hsl VARCHAR(50) NOT NULL,
-    primary_hsl VARCHAR(50) NOT NULL,
-    primary_foreground_hsl VARCHAR(50) NOT NULL,
-    secondary_hsl VARCHAR(50) NOT NULL,
-    secondary_foreground_hsl VARCHAR(50) NOT NULL,
-    muted_hsl VARCHAR(50) NOT NULL,
-    muted_foreground_hsl VARCHAR(50) NOT NULL,
-    accent_hsl VARCHAR(50) NOT NULL,
-    accent_foreground_hsl VARCHAR(50) NOT NULL,
-    destructive_hsl VARCHAR(50) NOT NULL,
-    destructive_foreground_hsl VARCHAR(50) NOT NULL,
-    border_hsl VARCHAR(50) NOT NULL,
-    input_hsl VARCHAR(50) NOT NULL,
-    ring_hsl VARCHAR(50) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS smtp_configurations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    host VARCHAR(255) NOT NULL,
-    port INTEGER NOT NULL,
-    secure BOOLEAN NOT NULL,
-    auth_user VARCHAR(255) NOT NULL,
-    auth_pass TEXT NOT NULL,
-    priority INTEGER NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Content from admin_settings_schema.sql
 CREATE TABLE IF NOT EXISTS admin_settings (
-    admin_id UUID PRIMARY KEY REFERENCES admins(id) ON DELETE CASCADE,
-    theme VARCHAR(255) DEFAULT 'light' NOT NULL,
-    language VARCHAR(5) DEFAULT 'pt' NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+    theme VARCHAR(255) DEFAULT 'light',
+    language VARCHAR(10) DEFAULT 'pt-BR',
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(admin_id)
 );
+
+-- Add foreign key constraint to a custom theme if it exists.
+-- This ensures that if a custom theme is deleted, the setting is handled.
+-- We check if the 'themes' table exists before adding the constraint.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'themes') THEN
+        -- First, remove any existing constraint with a similar purpose to avoid errors.
+        IF EXISTS (
+            SELECT 1 FROM information_schema.constraint_column_usage
+            WHERE table_name = 'admin_settings' AND constraint_name = 'admin_settings_theme_fkey'
+        ) THEN
+            ALTER TABLE admin_settings DROP CONSTRAINT admin_settings_theme_fkey;
+        END IF;
+
+    END IF;
+END;
+$$;
