@@ -4,6 +4,7 @@
 import React from 'react';
 import {
     Dialog,
+    DialogContent,
     DialogTrigger,
 } from '@/components/ui/dialog';
 import { useLocale } from '@/lib/i18n';
@@ -12,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Settings } from 'lucide-react';
-import { ManageLanguageListDialog } from './manage-language-list-dialog';
+import { ManageCatalogsDialog } from './manage-catalogs-dialog';
 
 export function ManageLanguageDialog() {
     const { t, locale } = useLocale();
@@ -37,14 +38,6 @@ export function ManageLanguageDialog() {
                             <SelectItem value="pt-BR">Português (Brasil)</SelectItem>
                         </SelectContent>
                     </Select>
-                     <Dialog>
-                        <DialogTrigger asChild>
-                             <Button variant="outline" size="icon">
-                                <Settings className="h-4 w-4"/>
-                            </Button>
-                        </DialogTrigger>
-                        <ManageLanguageListDialog />
-                    </Dialog>
                 </div>
             </CardContent>
         </Card>

@@ -41,12 +41,13 @@ function LanguageForm({
     item,
     onSuccess,
     onCancel,
+    t
 }: {
     item: Language | null;
     onSuccess: () => void;
     onCancel: () => void;
+    t: (key: string) => string;
 }) {
-    const { t } = useLocale();
     const { toast } = useToast();
     const isEditMode = !!item;
     const formAction = isEditMode ? updateLanguage : createLanguage;
@@ -168,7 +169,7 @@ export function LanguageManager({
                             <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
                                 <TableRow>
                                     {columns.map(col => <TableHead key={col.key}>{col.header}</TableHead>)}
-                                    <TableHead className="text-right">{t('adminDashboard.settingsGroups.catalogs.table.actions')}</TableHead>
+                                    <TableHead className="text-right">{t('adminDashboard.table.actions')}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -217,6 +218,7 @@ export function LanguageManager({
                     item={editingItem} 
                     onSuccess={onFormSuccess}
                     onCancel={() => setIsFormOpen(false)}
+                    t={t}
                 />
             </Dialog>
         </div>
