@@ -197,9 +197,9 @@ function DeviceTypeForm({
     )
 }
 
-export function DeviceTypesManager() {
-    const { t, locale } = useLocale();
+export function DeviceTypesManager({ t }: { t: (key: string) => string }) {
     const { toast } = useToast();
+    const { locale } = useLocale();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<DeviceType | null>(null);
     const [isDeleting, startDeleteTransition] = useTransition();
