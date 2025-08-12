@@ -10,6 +10,7 @@ export type TranslationService = {
     name: string;
     config_json: any;
     is_default: boolean;
+    supported_languages: string[] | null;
 };
 
 type ActionState<T = null> = {
@@ -27,6 +28,39 @@ const ServiceSchema = z.object({
         try { JSON.parse(val); return true; } catch (e) { return false; }
     }, { message: "La configuración de respuesta debe ser un JSON válido."}),
 });
+
+async function runAndSaveLanguageTest(service: TranslationService) {
+    const languagesToTest = Object.keys(supportedLanguages);
+    const supported: string[] = [];
+
+    const translationPromises = languagesToTest.map(lang => 
+        translateText(service, "Test", "en", lang)
+    );
+
+    const results = await Promise.allSettled(translationPromises);
+
+    results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value.success && result.value.data) {
+            supported.push(languagesToTest[index]);
+        }
+    });
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        await client.query(
+            'UPDATE translation_services SET supported_languages = $1, updated_at = NOW() WHERE id = $2',
+            [JSON.stringify(supported), service.id]
+        );
+        console.log(`Updated supported languages for service ${service.id}: ${supported.join(', ')}`);
+    } catch (error) {
+        console.error(`Failed to save supported languages for service ${service.id}:`, error);
+    } finally {
+        if (client) client.release();
+    }
+}
+
 
 export async function getTranslationServices(): Promise<TranslationService[]> {
     let client;
@@ -67,6 +101,7 @@ export async function createTranslationService(prevState: any, formData: FormDat
     }
 
     let client;
+    let newService: TranslationService | null = null;
     try {
         const pool = await getDbPool();
         client = await pool.connect();
@@ -76,13 +111,21 @@ export async function createTranslationService(prevState: any, formData: FormDat
         const countResult = await client.query('SELECT COUNT(*) FROM translation_services');
         const isFirstService = parseInt(countResult.rows[0].count, 10) === 0;
 
-        await client.query(
-            'INSERT INTO translation_services (name, config_json, is_default) VALUES ($1, $2, $3)',
+        const result = await client.query(
+            'INSERT INTO translation_services (name, config_json, is_default) VALUES ($1, $2, $3) RETURNING *',
             [name, combinedConfig, isFirstService]
         );
         
+        newService = result.rows[0];
+        
         await client.query('COMMIT');
-        return { success: true, message: `Servicio "${name}" creado con éxito.` };
+
+        // Run test in background, don't wait for it
+        if (newService) {
+            runAndSaveLanguageTest(newService).catch(console.error);
+        }
+
+        return { success: true, message: `Servicio "${name}" creado con éxito. Se está realizando una prueba de idiomas en segundo plano.` };
     } catch (error) {
         if (client) await client.query('ROLLBACK');
         console.error("Error creating translation service:", error);
@@ -119,14 +162,25 @@ export async function updateTranslationService(prevState: any, formData: FormDat
     }
 
     let client;
+    let updatedService: TranslationService | null = null;
     try {
         const pool = await getDbPool();
         client = await pool.connect();
-        await client.query(
-            'UPDATE translation_services SET name = $1, config_json = $2, updated_at = NOW() WHERE id = $3',
+        const result = await client.query(
+            'UPDATE translation_services SET name = $1, config_json = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
             [name, combinedConfig, id]
         );
-        return { success: true, message: `Servicio "${name}" actualizado con éxito.` };
+
+        if (result.rows.length === 0) {
+            return { success: false, message: "Servicio no encontrado." };
+        }
+        updatedService = result.rows[0];
+
+        if (updatedService) {
+            runAndSaveLanguageTest(updatedService).catch(console.error);
+        }
+
+        return { success: true, message: `Servicio "${name}" actualizado. Se está realizando una prueba de idiomas en segundo plano.` };
     } catch (error) {
         console.error("Error updating translation service:", error);
         return { success: false, message: 'Error del servidor.' };
@@ -231,11 +285,15 @@ async function translateText(
         } else {
             rawValue = paramConfig;
         }
-
+        
         const paramValue = String(rawValue || '')
             .replace(/\$InputText/g, encodeURIComponent(text))
             .replace(/\$InputLang/g, inputLang)
             .replace(/\$OutputLang/g, outputLang);
+
+        if (!paramValue && isOptional) {
+            continue;
+        }
         
         if (paramValue || !isOptional) {
             urlParams.append(key, paramValue);
@@ -307,29 +365,24 @@ export async function testTranslationService(id: string): Promise<ActionState> {
     }
     
     try {
-        const languagesToTest = Object.keys(supportedLanguages);
-        let successfulTranslations = 0;
-
-        const translationPromises = languagesToTest.map(lang => 
-            translateText(service!, "Test", "en", lang)
-        );
-
-        const results = await Promise.all(translationPromises);
-
-        for (const result of results) {
-            if (result.success && result.data) {
-                successfulTranslations++;
-            }
-        }
+        await runAndSaveLanguageTest(service);
         
-        if (successfulTranslations > 0) {
+        // Re-fetch the service to get the updated supported languages
+        const pool = await getDbPool();
+        client = await pool.connect();
+        const updatedResult = await client.query('SELECT supported_languages FROM translation_services WHERE id = $1', [id]);
+        client.release();
+
+        const supported = updatedResult.rows[0]?.supported_languages || [];
+        const totalLanguages = Object.keys(supportedLanguages).length;
+        
+        if (supported.length > 0) {
             return { 
                 success: true, 
-                message: `¡Prueba exitosa! El servicio tradujo correctamente a ${successfulTranslations} de ${languagesToTest.length} idiomas estándar.` 
+                message: `¡Prueba exitosa! El servicio tradujo correctamente a ${supported.length} de ${totalLanguages} idiomas estándar.` 
             };
         } else {
-            const firstError = results.find(r => !r.success)?.error || "No se pudo traducir a ningún idioma.";
-            return { success: false, message: `Prueba fallida. ${firstError}` };
+            return { success: false, message: `Prueba fallida. No se pudo traducir a ningún idioma.` };
         }
     } catch (e: any) {
         return { success: false, message: e.message || "Error inesperado durante la prueba de traducción." };
