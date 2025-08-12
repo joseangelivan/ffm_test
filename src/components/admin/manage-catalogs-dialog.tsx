@@ -94,6 +94,7 @@ function LanguageForm({
     )
 }
 
+
 function LoadingPlaceholder() {
     return (
         <div className="flex justify-center items-center h-48"><Loader className="h-8 w-8 animate-spin"/></div>
