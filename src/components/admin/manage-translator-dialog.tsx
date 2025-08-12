@@ -49,7 +49,7 @@ import {
     Loader,
     Edit,
     Trash2,
-    PlusCircle
+    PlusCircle,
 } from 'lucide-react';
 import { LoadingOverlay } from './admin-header';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
@@ -72,7 +72,7 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
         isEditMode ? getInitialJson(service.config_json?.request) : ''
     );
     const [responseConfig, setResponseConfig] = useState(
-        isEditMode ? getInitialJson(service.config_json?.response) : ''
+       isEditMode ? getInitialJson(service.config_json?.response) : ''
     );
 
     const [isRequestJsonValid, setIsRequestJsonValid] = useState(true);
@@ -82,7 +82,7 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
         const text = e.target.value;
         setter(text);
         if (!text.trim()) {
-            validator(true); // Allow empty
+            validator(true); 
             return;
         }
         try {
@@ -252,11 +252,9 @@ export function ManageTranslatorDialog() {
   }
 
   const handleTest = (id: string) => {
-      console.log(`1.- [Client] Iniciando prueba para el servicio ID: ${id}`);
       setTestingId(id);
       startSubmitting(async () => {
           const result = await testTranslationService(id);
-          console.log(`20.- [Client] Resultado final recibido:`, result);
           if (result.success) {
               toast({ title: t('toast.successTitle'), description: result.message, duration: 9000 });
           } else {
@@ -265,7 +263,6 @@ export function ManageTranslatorDialog() {
           setTestingId(null);
       });
   }
-
 
   return (
     <>
@@ -318,10 +315,10 @@ export function ManageTranslatorDialog() {
                                             {testingId === service.id ? (
                                                 <Loader className="h-4 w-4 animate-spin"/>
                                             ) : (
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                                                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
-                                                    <path d="M14 2v6h6"></path>
-                                                    <path d="m9 15.5 2 2 4-4"></path>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                                                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                                                    <path d="M14 2v6h6" />
+                                                    <path d="m9 15.5 2 2 4-4" />
                                                 </svg>
                                             )}
                                         </Button>

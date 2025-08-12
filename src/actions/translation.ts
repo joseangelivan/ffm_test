@@ -3,6 +3,7 @@
 
 import { z } from 'zod';
 import { getDbPool } from '@/lib/db';
+import { supportedLanguages } from '@/lib/languages';
 
 export type TranslationService = {
     id: string;
@@ -72,7 +73,6 @@ export async function createTranslationService(prevState: any, formData: FormDat
         
         await client.query('BEGIN');
 
-        // Check if it's the first service
         const countResult = await client.query('SELECT COUNT(*) FROM translation_services');
         const isFirstService = parseInt(countResult.rows[0].count, 10) === 0;
 
@@ -173,36 +173,24 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
     }
 }
 
-/**
- * Safely navigates a nested object using a string path.
- * Supports conditional logic in the path.
- * @param obj The object to navigate.
- * @param path The path to the desired value (e.g., 'data.translations.0.translatedText' or 'status{value > 200 ? "ERROR" : "OK"}').
- * @returns The value if found, otherwise undefined.
- */
 function getNestedValue(obj: any, path: string): any {
-  // Extraer y procesar condicionales tipo "path{(condición)?valorTrue:valorFalse}"
   const conditionalMatch = path.match(/^(.*)\{(.*)\}$/);
   
   if (conditionalMatch) {
     const [_, basePath, condition] = conditionalMatch;
-    // For paths like "object[0]", we need to support it. But for empty base path (e.g. "{value.length > 0}"), we should handle it.
     const value = basePath ? basePath.replace(/\[(\d+)\]/g, '.$1').split('.').reduce((o, k) => (o || {})[k], obj) : obj;
     
-    // Ejecutar el ternario seguro
     try {
-      const ternario = condition.replace(/"/g, "'"); // Normalizar comillas
+      const ternario = condition.replace(/"/g, "'");
       const expresion = `return ${ternario.replace(/value/g, JSON.stringify(value))}`;
       return new Function('value', expresion)(value);
     } catch {
-      return value; // Si falla el ternario, devolver valor crudo
+      return value;
     }
   }
   
-  // Path normal sin condicional, with support for array indexing
   return path.replace(/\[(\d+)\]/g, '.$1').split('.').reduce((o, k) => (o || {})[k], obj);
 }
-
 
 async function translateText(
     service: TranslationService,
@@ -238,7 +226,7 @@ async function translateText(
         if (typeof paramConfig === 'object' && paramConfig !== null) {
             rawValue = (paramConfig as any).value;
             if ((paramConfig as any).optional === false) {
-                isOptional = false; 
+                isOptional = false;
             }
         } else {
             rawValue = paramConfig;
@@ -291,7 +279,6 @@ async function translateText(
     }
 }
 
-
 export async function testTranslationService(id: string): Promise<ActionState> {
     if (!id) {
         return { success: false, message: "ID no proporcionado." };
@@ -312,9 +299,7 @@ export async function testTranslationService(id: string): Promise<ActionState> {
     } catch (dbError: any) {
         return { success: false, message: "Error al leer la configuración de la base de datos." };
     } finally {
-        if (client) {
-            client.release();
-        }
+        if (client) client.release();
     }
 
     if (!service) {
@@ -322,15 +307,32 @@ export async function testTranslationService(id: string): Promise<ActionState> {
     }
     
     try {
-        const translationResult = await translateText(service, "Hello", "en", "es");
+        const languagesToTest = Object.keys(supportedLanguages);
+        let successfulTranslations = 0;
 
-        if (translationResult.success) {
-            return { success: true, message: `¡Prueba exitosa! Respuesta: "${translationResult.data}"` };
+        const translationPromises = languagesToTest.map(lang => 
+            translateText(service!, "Test", "en", lang)
+        );
+
+        const results = await Promise.all(translationPromises);
+
+        for (const result of results) {
+            if (result.success && result.data) {
+                successfulTranslations++;
+            }
+        }
+        
+        if (successfulTranslations > 0) {
+            return { 
+                success: true, 
+                message: `¡Prueba exitosa! El servicio tradujo correctamente a ${successfulTranslations} de ${languagesToTest.length} idiomas estándar.` 
+            };
         } else {
-            return { success: false, message: `Prueba fallida. ${translationResult.error}` };
+            const firstError = results.find(r => !r.success)?.error || "No se pudo traducir a ningún idioma.";
+            return { success: false, message: `Prueba fallida. ${firstError}` };
         }
     } catch (e: any) {
-        return { success: false, message: e.message || "Error inesperado durante la traducción." };
+        return { success: false, message: e.message || "Error inesperado durante la prueba de traducción." };
     }
 }
 
@@ -357,7 +359,7 @@ export async function translateTextAction(data: {
     const defaultService = result.rows[0];
     const translationResult = await translateText(defaultService, data.text, data.sourceLang, data.targetLang);
 
-    if (translationResult.success) {
+    if (translationResult.success && translationResult.data) {
       return { success: true, message: "Traducción completada.", data: translationResult.data };
     } else {
       return { success: false, message: `Error de traducción: ${translationResult.error}` };
