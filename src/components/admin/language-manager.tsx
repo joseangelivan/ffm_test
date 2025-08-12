@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useTransition, useActionState } from 'react';
+import React, { useState, useTransition, useActionState, useMemo } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,19 +34,18 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { createLanguage, updateLanguage, deleteLanguage, type Language } from '@/actions/catalogs';
-import type { useLocale } from '@/lib/i18n';
+import { useLocale } from '@/lib/i18n';
 
 function LanguageForm({
-    t,
     item,
     onSuccess,
     onCancel,
 }: {
-    t: ReturnType<typeof useLocale>['t'];
     item: Language | null;
     onSuccess: () => void;
     onCancel: () => void;
 }) {
+    const { t } = useLocale();
     const { toast } = useToast();
     const isEditMode = !!item;
     const formAction = isEditMode ? updateLanguage : createLanguage;
@@ -105,12 +104,12 @@ function LanguageForm({
 }
 
 type LanguageManagerProps = {
-    t: ReturnType<typeof useLocale>['t'];
     initialLanguages: Language[];
     onRefresh: () => void;
 };
 
-export function LanguageManager({ t, initialLanguages, onRefresh }: LanguageManagerProps) {
+export function LanguageManager({ initialLanguages, onRefresh }: LanguageManagerProps) {
+    const { t } = useLocale();
     const { toast } = useToast();
     const [languages, setLanguages] = useState(initialLanguages);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -144,6 +143,12 @@ export function LanguageManager({ t, initialLanguages, onRefresh }: LanguageMana
         setLanguages(initialLanguages);
     }, [initialLanguages]);
 
+    const columns = useMemo(() => ([
+        { key: 'id', header: t('adminDashboard.settingsGroups.languages.table.key') },
+        { key: 'name_es', header: t('adminDashboard.settingsGroups.languages.table.name_es') },
+        { key: 'name_pt', header: t('adminDashboard.settingsGroups.languages.table.name_pt') },
+    ]), [t]);
+
     return (
         <div>
             <div className="flex justify-between items-center mb-4">
@@ -157,9 +162,7 @@ export function LanguageManager({ t, initialLanguages, onRefresh }: LanguageMana
                 <Table>
                     <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
                         <TableRow>
-                            <TableHead>{t('adminDashboard.settingsGroups.languages.table.key')}</TableHead>
-                            <TableHead>{t('adminDashboard.settingsGroups.languages.table.name_es')}</TableHead>
-                            <TableHead>{t('adminDashboard.settingsGroups.languages.table.name_pt')}</TableHead>
+                            {columns.map(col => <TableHead key={col.key}>{col.header}</TableHead>)}
                             <TableHead className="text-right">{t('adminDashboard.settingsGroups.catalogs.table.actions')}</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -204,7 +207,6 @@ export function LanguageManager({ t, initialLanguages, onRefresh }: LanguageMana
 
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                 <LanguageForm 
-                    t={t}
                     item={editingItem} 
                     onSuccess={onFormSuccess}
                     onCancel={() => setIsFormOpen(false)}

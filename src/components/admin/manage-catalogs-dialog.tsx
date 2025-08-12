@@ -42,7 +42,6 @@ export function ManageCatalogsDialog() {
             }
         } catch (error) {
             console.error(`Failed to fetch data for tab ${tab}:`, error);
-            // Optionally set an error state here
         } finally {
             setIsLoading(false);
         }
@@ -81,10 +80,6 @@ export function ManageCatalogsDialog() {
                             <CatalogManager
                                 title={t('adminDashboard.settingsGroups.catalogs.deviceTypes.title')}
                                 data={deviceTypes}
-                                columns={{
-                                    name_translations: t('adminDashboard.settingsGroups.catalogs.table.name'),
-                                    features_translations: t('adminDashboard.settingsGroups.catalogs.table.features'),
-                                }}
                                 onRefresh={() => fetchDataForTab('devices')}
                             />
                         )}
@@ -107,7 +102,6 @@ export function ManageCatalogsDialog() {
                             <div className="flex justify-center items-center h-48"><Loader className="h-8 w-8 animate-spin"/></div>
                         ) : (
                             <LanguageManager
-                                t={t}
                                 initialLanguages={languages}
                                 onRefresh={() => fetchDataForTab('languages')}
                             />

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useTransition, useActionState, useRef } from 'react';
+import React, { useState, useTransition, useActionState, useRef, useMemo } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -49,7 +49,6 @@ type DataItem = {
 type CatalogManagerProps = {
     title: string;
     data: DataItem[];
-    columns: Record<string, string>;
     onRefresh: () => void;
 };
 
@@ -189,11 +188,11 @@ function CatalogForm({
                     <div className={`${selectedLang === 'pt' ? 'block' : 'hidden'}`}>
                          <div className="space-y-2">
                             <Label htmlFor="name_pt">{t('adminDashboard.settingsGroups.catalogs.form.nameLabel')}</Label>
-                            <Input ref={namePtRef} id="name_pt" name="name_pt" defaultValue={item?.name_translations?.pt} />
+                            <Input ref={namePtRef} id="name_pt" name="name_pt" defaultValue={item?.name_translations?.['pt-BR']} />
                         </div>
                         <div className="space-y-2 mt-4">
                             <Label htmlFor="features_pt">{t('adminDashboard.settingsGroups.catalogs.form.featuresLabel')}</Label>
-                            <Textarea ref={featuresPtRef} id="features_pt" name="features_pt" defaultValue={item?.features_translations?.pt} />
+                            <Textarea ref={featuresPtRef} id="features_pt" name="features_pt" defaultValue={item?.features_translations?.['pt-BR']} />
                         </div>
                     </div>
                 </div>
@@ -208,12 +207,18 @@ function CatalogForm({
 }
 
 
-export function CatalogManager({ title, data, columns, onRefresh }: CatalogManagerProps) {
+export function CatalogManager({ title, data, onRefresh }: CatalogManagerProps) {
     const { t, locale } = useLocale();
     const { toast } = useToast();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<DataItem | null>(null);
     const [isDeleting, startDeleteTransition] = useTransition();
+
+    const columns = useMemo(() => [
+        { key: 'name_translations', header: t('adminDashboard.settingsGroups.catalogs.table.name') },
+        { key: 'features_translations', header: t('adminDashboard.settingsGroups.catalogs.table.features') }
+    ], [t]);
+
 
     const handleEdit = (item: DataItem) => {
         setEditingItem(item);
@@ -239,7 +244,7 @@ export function CatalogManager({ title, data, columns, onRefresh }: CatalogManag
     };
 
     const getTranslatedValue = (translations: TranslationObject) => {
-        return translations?.[locale] || translations?.pt || Object.values(translations)[0];
+        return translations?.[locale] || translations?.['pt-BR'] || translations?.es || Object.values(translations)[0];
     }
 
     return (
@@ -255,18 +260,21 @@ export function CatalogManager({ title, data, columns, onRefresh }: CatalogManag
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            {Object.values(columns).map(header => <TableHead key={header}>{header}</TableHead>)}
+                            {columns.map(col => <TableHead key={col.key}>{col.header}</TableHead>)}
                             <TableHead className="text-right">{t('adminDashboard.settingsGroups.catalogs.table.actions')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {data.map(item => (
                             <TableRow key={item.id}>
-                                {Object.keys(columns).map(colKey => (
-                                    <TableCell key={colKey}>
-                                        {item[colKey] ? getTranslatedValue(item[colKey]) : '—'}
-                                    </TableCell>
-                                ))}
+                                {Object.keys(columns).map(idx => {
+                                    const colKey = columns[parseInt(idx)].key;
+                                    return (
+                                        <TableCell key={colKey}>
+                                            {item[colKey] ? getTranslatedValue(item[colKey]) : '—'}
+                                        </TableCell>
+                                    )
+                                })}
                                 <TableCell className="text-right">
                                     <AlertDialog>
                                         <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
