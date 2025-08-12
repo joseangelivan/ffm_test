@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useTransition, useActionState } from 'react';
+import React, { useState, useTransition, useActionState, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,12 +15,8 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogClose,
 } from '@/components/ui/dialog';
 import {
     AlertDialog,
@@ -33,7 +29,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { MoreVertical, Edit, Trash2, PlusCircle, Loader } from 'lucide-react';
+import { MoreVertical, Edit, Trash2, PlusCircle, Loader, Languages } from 'lucide-react';
 import { useLocale } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
@@ -42,6 +38,8 @@ import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createDeviceType, updateDeviceType, deleteDeviceType } from '@/actions/catalogs';
 import type { TranslationObject } from '@/actions/catalogs';
+import { translateTextAction } from '@/actions/translation';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 type DataItem = {
     id: string;
@@ -70,6 +68,13 @@ function CatalogForm({
     const formAction = isEditMode ? updateDeviceType : createDeviceType;
     const [selectedLang, setSelectedLang] = useState<'es' | 'pt'>('es');
     
+    const nameEsRef = useRef<HTMLInputElement>(null);
+    const featuresEsRef = useRef<HTMLTextAreaElement>(null);
+    const namePtRef = useRef<HTMLInputElement>(null);
+    const featuresPtRef = useRef<HTMLTextAreaElement>(null);
+
+    const [isTranslating, startTranslateTransition] = useTransition();
+
     const handleAction = async (prevState: any, formData: FormData) => {
         const result = await formAction(prevState, formData);
         if (result?.success) {
@@ -84,12 +89,51 @@ function CatalogForm({
     const [state, dispatch] = useActionState(handleAction, undefined);
     const { pending } = useFormStatus();
 
+    const handleTranslate = () => {
+        startTranslateTransition(async () => {
+            const sourceLang = selectedLang;
+            const targetLang = selectedLang === 'es' ? 'pt' : 'es';
+
+            const nameRef = sourceLang === 'es' ? nameEsRef : namePtRef;
+            const featuresRef = sourceLang === 'es' ? featuresEsRef : featuresPtRef;
+            
+            const targetNameRef = targetLang === 'es' ? nameEsRef : namePtRef;
+            const targetFeaturesRef = targetLang === 'es' ? featuresEsRef : featuresPtRef;
+
+            const nameToTranslate = nameRef.current?.value || '';
+            const featuresToTranslate = featuresRef.current?.value || '';
+
+            try {
+                const [nameResult, featuresResult] = await Promise.all([
+                    translateTextAction({ text: nameToTranslate, sourceLang, targetLang }),
+                    translateTextAction({ text: featuresToTranslate, sourceLang, targetLang }),
+                ]);
+
+                if (nameResult.success && nameResult.data && targetNameRef.current) {
+                    targetNameRef.current.value = nameResult.data;
+                } else if (!nameResult.success) {
+                     toast({ title: t('toast.errorTitle'), description: nameResult.message, variant: 'destructive' });
+                }
+
+                if (featuresResult.success && featuresResult.data && targetFeaturesRef.current) {
+                    targetFeaturesRef.current.value = featuresResult.data;
+                } else if (!featuresResult.success) {
+                     toast({ title: t('toast.errorTitle'), description: featuresResult.message, variant: 'destructive' });
+                }
+
+            } catch (error) {
+                 toast({ title: t('toast.errorTitle'), description: t('toast.adminLogin.serverError'), variant: 'destructive' });
+            }
+        });
+    }
+
     return (
         <DialogContent>
             <form action={dispatch}>
-                 {pending && (
+                 {(pending || isTranslating) && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
                         <Loader className="h-8 w-8 animate-spin" />
+                        <span className="ml-2">{isTranslating ? 'Traduciendo...' : (isEditMode ? 'Actualizando...' : 'Creando...')}</span>
                     </div>
                 )}
                 <DialogHeader>
@@ -100,28 +144,44 @@ function CatalogForm({
                 <input type="hidden" name="id" value={item?.id || ''} />
                 
                 <div className="py-4 space-y-4">
-                    <div className="space-y-2">
-                        <Label>{t('dashboard.language')}</Label>
-                        <Select value={selectedLang} onValueChange={(value) => setSelectedLang(value as 'es' | 'pt')}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Seleccionar idioma"/>
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="es">{t('adminDashboard.settingsGroups.catalogs.form.tab_es')}</SelectItem>
-                                <SelectItem value="pt">{t('adminDashboard.settingsGroups.catalogs.form.tab_pt')}</SelectItem>
-                            </SelectContent>
-                        </Select>
+                    <div className="flex justify-between items-center gap-2">
+                        <div className="space-y-2 flex-grow">
+                            <Label>{t('dashboard.language')}</Label>
+                            <Select value={selectedLang} onValueChange={(value) => setSelectedLang(value as 'es' | 'pt')}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar idioma"/>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="es">{t('adminDashboard.settingsGroups.catalogs.form.tab_es')}</SelectItem>
+                                    <SelectItem value="pt">{t('adminDashboard.settingsGroups.catalogs.form.tab_pt')}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="pt-6">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button type="button" variant="outline" size="icon" onClick={handleTranslate}>
+                                            <Languages className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Traducir a otros idiomas</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
                     </div>
 
                     {/* Spanish Fields - Always in DOM for form submission */}
                     <div className={`${selectedLang === 'es' ? 'block' : 'hidden'}`}>
                          <div className="space-y-2">
                             <Label htmlFor="name_es">{t('adminDashboard.settingsGroups.catalogs.form.nameLabel')}</Label>
-                            <Input id="name_es" name="name_es" defaultValue={item?.name_translations?.es} required />
+                            <Input ref={nameEsRef} id="name_es" name="name_es" defaultValue={item?.name_translations?.es} />
                         </div>
                         <div className="space-y-2 mt-4">
                             <Label htmlFor="features_es">{t('adminDashboard.settingsGroups.catalogs.form.featuresLabel')}</Label>
-                            <Textarea id="features_es" name="features_es" defaultValue={item?.features_translations?.es} />
+                            <Textarea ref={featuresEsRef} id="features_es" name="features_es" defaultValue={item?.features_translations?.es} />
                         </div>
                     </div>
 
@@ -129,19 +189,19 @@ function CatalogForm({
                     <div className={`${selectedLang === 'pt' ? 'block' : 'hidden'}`}>
                          <div className="space-y-2">
                             <Label htmlFor="name_pt">{t('adminDashboard.settingsGroups.catalogs.form.nameLabel')}</Label>
-                            <Input id="name_pt" name="name_pt" defaultValue={item?.name_translations?.pt} required />
+                            <Input ref={namePtRef} id="name_pt" name="name_pt" defaultValue={item?.name_translations?.pt} />
                         </div>
                         <div className="space-y-2 mt-4">
                             <Label htmlFor="features_pt">{t('adminDashboard.settingsGroups.catalogs.form.featuresLabel')}</Label>
-                            <Textarea id="features_pt" name="features_pt" defaultValue={item?.features_translations?.pt} />
+                            <Textarea ref={featuresPtRef} id="features_pt" name="features_pt" defaultValue={item?.features_translations?.pt} />
                         </div>
                     </div>
                 </div>
 
-                <DialogFooter>
+                <div className="flex justify-end gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={onCancel}>{t('common.cancel')}</Button>
                     <Button type="submit">{t('common.save')}</Button>
-                </DialogFooter>
+                </div>
             </form>
         </DialogContent>
     )
@@ -209,16 +269,14 @@ export function CatalogManager({ title, data, columns, onRefresh }: CatalogManag
                                 ))}
                                 <TableCell className="text-right">
                                     <AlertDialog>
-                                        <Dialog>
-                                            <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
-                                                <Edit className="h-4 w-4" />
+                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                                <Trash2 className="h-4 w-4" />
                                             </Button>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                        </Dialog>
+                                        </AlertDialogTrigger>
                                         <AlertDialogContent>
                                             <AlertDialogHeader>
                                                 <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>

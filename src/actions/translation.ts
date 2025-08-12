@@ -203,56 +203,42 @@ function getNestedValue(obj: any, path: string): any {
   return path.replace(/\[(\d+)\]/g, '.$1').split('.').reduce((o, k) => (o || {})[k], obj);
 }
 
+
 async function translateText(
     service: TranslationService,
     text: string,
     inputLang: string,
     outputLang: string
 ): Promise<{ success: boolean; data?: string; error?: string }> {
-    console.log(`4.- [Server] Iniciando traducción para el servicio: "${service.name}"`);
-    console.log(`5.- [Server] config_json crudo recibido de la BD:`, service.config_json);
-    console.log(`6.- [Server] Tipo de config_json: ${typeof service.config_json}`);
-    
     let config: any;
     if (typeof service.config_json === 'string') {
         try {
-            console.log('7.- [Server] config_json es una cadena, intentando parsear...');
             config = JSON.parse(service.config_json);
         } catch(e: any) {
-            console.error('8.- [Server] CRITICAL: Error al parsear config_json.', e);
             return { success: false, error: `Error interno al procesar la configuración JSON: ${e.message}` };
         }
     } else {
-        console.log('7.- [Server] config_json ya es un objeto, usándolo directamente.');
         config = service.config_json;
     }
 
-    console.log('9.- [Server] Objeto de configuración final:', config);
-
     const requestConfig = config?.request?.api_config;
     const responseConfig = config?.response;
-    
-    console.log('10.- [Server] Objeto de configuración de request extraído:', requestConfig);
-    console.log('11.- [Server] Objeto de configuración de response extraído:', responseConfig);
 
     if (!requestConfig?.base_url || typeof requestConfig?.parameters !== 'object') {
-        const errorMsg = "La configuración de request es inválida. Falta 'base_url' o 'parameters'.";
-        console.error(`12.- [Server] Error: ${errorMsg}`);
         return { success: false, error: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
     }
 
-    // --- Construcción de URL ---
     const { base_url, parameters } = requestConfig;
     const urlParams = new URLSearchParams();
 
     for (const [key, paramConfig] of Object.entries(parameters)) {
         let rawValue: any;
-        let isOptional: boolean = true; // Default to optional as per rule #3
+        let isOptional: boolean = true; 
 
         if (typeof paramConfig === 'object' && paramConfig !== null) {
             rawValue = (paramConfig as any).value;
             if ((paramConfig as any).optional === false) {
-                isOptional = false; // Rule #2
+                isOptional = false; 
             }
         } else {
             rawValue = paramConfig;
@@ -263,49 +249,33 @@ async function translateText(
             .replace(/\$InputLang/g, inputLang)
             .replace(/\$OutputLang/g, outputLang);
         
-        // Add to URL based on the rules
-        if (paramValue) { // Always include if it has a value
-             urlParams.append(key, paramValue);
-        } else if (!isOptional) { // Rule #2: Include even if empty if not optional
-            urlParams.append(key, '');
+        if (paramValue || !isOptional) {
+            urlParams.append(key, paramValue);
         }
-        // Rule #1 and #3 are handled by the combination of these checks:
-        // if the value is empty AND it's optional (or implicitly optional), it's skipped.
     }
     
     const finalUrl = `${base_url}?${urlParams.toString()}`;
-    console.log(`13.- [Server] URL final construida: ${finalUrl}`);
-    // --- Fin Construcción de URL ---
 
     try {
-        console.log(`14.- [Server] Realizando fetch a: ${finalUrl}`);
-        const response = await fetch(finalUrl, { cache: 'no-store' }); // Disable cache
+        const response = await fetch(finalUrl, { cache: 'no-store' });
         
         if (!response.ok) {
             const errorBody = await response.text();
-            console.error(`15.- [Server] Error de la API. Estado: ${response.status}. Body:`, errorBody);
-            throw new Error(`La API respondió con el estado: ${response.status}`);
+            throw new Error(`La API respondió con el estado: ${response.status}. Body: ${errorBody}`);
         }
 
         const responseData = await response.json();
-        console.log('15.- [Server] Respuesta JSON de la API recibida:', responseData);
-
         const responsePath = responseConfig.path;
 
         if (!responsePath) {
-            console.error("16.- [Server] Error: La configuración de respuesta no define una 'path'.");
             return { success: false, error: "La configuración JSON de respuesta no define una ruta ('path')." };
         }
 
-        console.log(`16.- [Server] Intentando extraer texto de la ruta: '${responsePath}'.`);
         const translatedText = getNestedValue(responseData, responsePath);
-        console.log(`17.- [Server] Texto traducido extraído:`, translatedText);
 
         if (typeof translatedText === 'string' && translatedText) {
-            console.log('18.- [Server] Traducción exitosa.');
             return { success: true, data: translatedText };
         } else {
-            // Handle API-specific error messages if possible
             const apiErrorStatus = responseConfig.statusPath ? getNestedValue(responseData, responseConfig.statusPath) : `HTTP ${response.status}`;
             const apiErrorDetails = responseConfig.detailsPath ? getNestedValue(responseData, responseConfig.detailsPath) : 'Sin detalles';
             
@@ -314,18 +284,15 @@ async function translateText(
                 errorMessage = `Error de la API (Estado ${apiErrorStatus}): ${apiErrorDetails || 'Sin detalles'}`;
             }
 
-            console.error(`18.- [Server] Error: ${errorMessage}. Respuesta de la API: ${JSON.stringify(responseData)}`);
             return { success: false, error: errorMessage };
         }
     } catch (apiError: any) {
-        console.error('14.1.- [Server] Error de fetch o conexión:', apiError);
         return { success: false, error: `Error al conectar con la API: ${apiError.message}` };
     }
 }
 
 
 export async function testTranslationService(id: string): Promise<ActionState> {
-    console.log(`2.- [Server] Iniciando prueba para el servicio con ID: ${id}`);
     if (!id) {
         return { success: false, message: "ID no proporcionado." };
     }
@@ -338,14 +305,11 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         const result = await client.query('SELECT * FROM translation_services WHERE id = $1', [id]);
         
         if (result.rows.length === 0) {
-            console.error(`3.- [Server] Error: Servicio con ID ${id} no encontrado.`);
             return { success: false, message: "Servicio no encontrado." };
         }
         service = result.rows[0];
-        console.log(`3.- [Server] Servicio "${service.name}" encontrado en la BD.`);
 
     } catch (dbError: any) {
-        console.error(`[Server] Error de base de datos:`, dbError);
         return { success: false, message: "Error al leer la configuración de la base de datos." };
     } finally {
         if (client) {
@@ -359,7 +323,6 @@ export async function testTranslationService(id: string): Promise<ActionState> {
     
     try {
         const translationResult = await translateText(service, "Hello", "en", "es");
-        console.log('19.- [Server] Resultado de la traducción:', translationResult);
 
         if (translationResult.success) {
             return { success: true, message: `¡Prueba exitosa! Respuesta: "${translationResult.data}"` };
@@ -367,7 +330,42 @@ export async function testTranslationService(id: string): Promise<ActionState> {
             return { success: false, message: `Prueba fallida. ${translationResult.error}` };
         }
     } catch (e: any) {
-        console.error('19.1.- [Server] Error inesperado:', e);
         return { success: false, message: e.message || "Error inesperado durante la traducción." };
     }
+}
+
+
+export async function translateTextAction(data: {
+  text: string;
+  sourceLang: string;
+  targetLang: string;
+}): Promise<ActionState<string>> {
+  if (!data.text) {
+    return { success: true, message: 'Texto vacío, no se necesita traducción.', data: '' };
+  }
+
+  let client;
+  try {
+    const pool = await getDbPool();
+    client = await pool.connect();
+    const result = await client.query('SELECT * FROM translation_services WHERE is_default = TRUE');
+    
+    if (result.rows.length === 0) {
+      return { success: false, message: "No se ha configurado ningún servicio de traducción predeterminado." };
+    }
+    
+    const defaultService = result.rows[0];
+    const translationResult = await translateText(defaultService, data.text, data.sourceLang, data.targetLang);
+
+    if (translationResult.success) {
+      return { success: true, message: "Traducción completada.", data: translationResult.data };
+    } else {
+      return { success: false, message: `Error de traducción: ${translationResult.error}` };
+    }
+  } catch (error: any) {
+    console.error("Error in translateTextAction:", error);
+    return { success: false, message: "Error del servidor al intentar traducir." };
+  } finally {
+    if (client) client.release();
+  }
 }

@@ -57,12 +57,21 @@ export async function getDeviceTypes(): Promise<DeviceType[]> {
 }
 
 export async function createDeviceType(prevState: any, formData: FormData): Promise<ActionState> {
-    const validatedFields = DeviceTypeSchema.safeParse({
-        name_es: formData.get('name_es'),
-        name_pt: formData.get('name_pt'),
-        features_es: formData.get('features_es'),
-        features_pt: formData.get('features_pt'),
-    });
+    let validatedData = {
+        name_es: formData.get('name_es') as string,
+        name_pt: formData.get('name_pt') as string,
+        features_es: formData.get('features_es') as string,
+        features_pt: formData.get('features_pt') as string,
+    };
+    
+    // Fallback logic
+    if (!validatedData.name_pt && validatedData.name_es) validatedData.name_pt = validatedData.name_es;
+    if (!validatedData.name_es && validatedData.name_pt) validatedData.name_es = validatedData.name_pt;
+    if (!validatedData.features_pt && validatedData.features_es) validatedData.features_pt = validatedData.features_es;
+    if (!validatedData.features_es && validatedData.features_pt) validatedData.features_es = validatedData.features_pt;
+
+
+    const validatedFields = DeviceTypeSchema.safeParse(validatedData);
 
     if (!validatedFields.success) {
         return { success: false, message: "Error de validación.", errors: validatedFields.error.flatten().fieldErrors };
@@ -94,12 +103,21 @@ export async function updateDeviceType(prevState: any, formData: FormData): Prom
     const id = formData.get('id') as string;
     if (!id) return { success: false, message: "ID no proporcionado." };
 
-    const validatedFields = DeviceTypeSchema.safeParse({
-        name_es: formData.get('name_es'),
-        name_pt: formData.get('name_pt'),
-        features_es: formData.get('features_es'),
-        features_pt: formData.get('features_pt'),
-    });
+    let validatedData = {
+        name_es: formData.get('name_es') as string,
+        name_pt: formData.get('name_pt') as string,
+        features_es: formData.get('features_es') as string,
+        features_pt: formData.get('features_pt') as string,
+    };
+    
+    // Fallback logic
+    if (!validatedData.name_pt && validatedData.name_es) validatedData.name_pt = validatedData.name_es;
+    if (!validatedData.name_es && validatedData.name_pt) validatedData.name_es = validatedData.name_pt;
+    if (!validatedData.features_pt && validatedData.features_es) validatedData.features_pt = validatedData.features_es;
+    if (!validatedData.features_es && validatedData.features_pt) validatedData.features_es = validatedData.features_pt;
+
+
+    const validatedFields = DeviceTypeSchema.safeParse(validatedData);
 
     if (!validatedFields.success) {
         return { success: false, message: "Error de validación.", errors: validatedFields.error.flatten().fieldErrors };
