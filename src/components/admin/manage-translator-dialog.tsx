@@ -72,7 +72,7 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
         isEditMode ? getInitialJson(service.config_json?.request) : ''
     );
     const [responseConfig, setResponseConfig] = useState(
-        isEditMode ? getInitialJson(service.config_json?.response) : '{\n  "path": "...",\n  "statusPath": "..."\n}'
+        isEditMode ? getInitialJson(service.config_json?.response) : ''
     );
 
     const [isRequestJsonValid, setIsRequestJsonValid] = useState(true);
@@ -128,7 +128,7 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
                         name="response_config"
                         value={responseConfig}
                         onChange={handleJsonChange(setResponseConfig, setIsResponseJsonValid)}
-                        placeholder='{\n  "path": "..."\n}'
+                        placeholder='{\n  "path": "...",\n  "statusPath": "..."\n}'
                         required 
                         disabled={pending}
                         className={cn("min-h-[100px] font-mono text-xs", !isResponseJsonValid && "border-destructive focus-visible:ring-destructive")}
@@ -376,12 +376,14 @@ export function ManageTranslatorDialog() {
         </DialogContent>
       </Dialog>
       
-      <ServiceFormDialog 
-        isOpen={isFormOpen} 
-        onOpenChange={setIsFormOpen} 
-        service={editingService} 
-        onSuccess={onFormSuccess} 
-      />
+      {isFormOpen && (
+        <ServiceFormDialog 
+            isOpen={isFormOpen} 
+            onOpenChange={setIsFormOpen} 
+            service={editingService} 
+            onSuccess={onFormSuccess} 
+        />
+      )}
     </>
   );
 }
