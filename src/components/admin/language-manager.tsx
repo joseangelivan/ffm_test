@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useTransition, useMemo } from 'react';
@@ -76,10 +75,10 @@ export function LanguageManager({
                     <Table>
                         <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm z-10">
                             <TableRow>
-                                <TableHead className="w-[150px]">{columns[0].header}</TableHead>
+                                <TableHead className="w-1/4">{columns[0].header}</TableHead>
                                 <TableHead>{columns[1].header}</TableHead>
                                 <TableHead>{columns[2].header}</TableHead>
-                                <TableHead className="w-[120px] text-right">{columns[3].header}</TableHead>
+                                <TableHead className="w-auto text-right whitespace-nowrap">{columns[3].header}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -97,7 +96,7 @@ export function LanguageManager({
                                             <TableCell className="font-mono text-xs truncate">{item.id}</TableCell>
                                             <TableCell className="truncate" title={item.name_translations.es}>{item.name_translations.es}</TableCell>
                                             <TableCell className="truncate" title={item.name_translations['pt-BR']}>{item.name_translations['pt-BR']}</TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="text-right whitespace-nowrap">
                                                 <Button variant="ghost" size="icon" onClick={() => onEdit(item)}>
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
