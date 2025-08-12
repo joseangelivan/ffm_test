@@ -15,28 +15,27 @@ export type DbInitResult = {
     log: string[];
 };
 
-async function applySchemas(client: PoolClient, log: string[]): Promise<void> {
+const SCHEMAS_TO_APPLY = [
+    'admins/base_schema.sql',
+    'themes/base_schema.sql',
+    'settings/base_schema.sql',
+    'catalogs/base_schema.sql',
+    'condominiums/base_schema.sql',
+    'residents/base_schema.sql',
+    'gatekeepers/base_schema.sql',
+    'sessions/base_schema.sql',
+    'devices/base_schema.sql',
+    'maps/base_schema.sql',
+    'translation/base_schema.sql'
+];
+
+async function applyAllSchemas(client: PoolClient, log: string[]): Promise<void> {
     const fs = (await import('fs/promises')).default;
     const path = (await import('path')).default;
 
     log.push('PHASE: Applying all schemas...');
     
-    // Corrected order: catalogs must be created early on.
-    const schemasToApply = [
-        'admins/base_schema.sql',
-        'themes/base_schema.sql',
-        'settings/base_schema.sql',
-        'catalogs/base_schema.sql', // Creates 'languages' table
-        'condominiums/base_schema.sql',
-        'residents/base_schema.sql',
-        'gatekeepers/base_schema.sql',
-        'sessions/base_schema.sql',
-        'devices/base_schema.sql',
-        'maps/base_schema.sql',
-        'translation/base_schema.sql'
-    ];
-    
-    for (const schemaFile of schemasToApply) {
+    for (const schemaFile of SCHEMAS_TO_APPLY) {
         log.push(`CHECK: Checking migration: ${schemaFile}`);
         const hasRunResult = await client.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [schemaFile]);
         if (hasRunResult.rows.length > 0) {
@@ -65,10 +64,10 @@ async function applySchemas(client: PoolClient, log: string[]): Promise<void> {
     log.push('SUCCESS: All schemas applied.');
 }
 
-async function seedData(client: PoolClient, log: string[]): Promise<void> {
-    const bcrypt = (await import('bcryptjs')).default;
+async function seedAllData(client: PoolClient, log: string[]): Promise<void> {
+    const bcryptjs = (await import('bcryptjs')).default;
     
-    log.push('PHASE: Seeding initial data...');
+    log.push('PHASE: Seeding all initial data...');
 
     // --- Seed Default Languages ---
     try {
@@ -89,7 +88,7 @@ async function seedData(client: PoolClient, log: string[]): Promise<void> {
             log.push('SKIP: Languages table already contains data.');
         }
     } catch (e: any) {
-         log.push(`ERROR: Failed to seed languages. DB-Error: ${e.message}`);
+        log.push(`ERROR: Failed to seed languages. DB-Error: ${e.message}`);
         throw new Error(`Migration failed on phase: Seed Languages. DB-Error: ${e.message}`);
     }
 
@@ -98,7 +97,7 @@ async function seedData(client: PoolClient, log: string[]): Promise<void> {
     log.push('SEED: Checking for default admin user...');
     const adminEmail = 'angelivan34@gmail.com';
     const correctPassword = 'adminivan123';
-    const dynamicallyGeneratedHash = await bcrypt.hash(correctPassword, 10);
+    const dynamicallyGeneratedHash = await bcryptjs.hash(correctPassword, 10);
 
     const adminResult = await client.query('SELECT id, password_hash FROM admins WHERE email = $1', [adminEmail]);
     if (adminResult.rows.length === 0) {
@@ -110,7 +109,7 @@ async function seedData(client: PoolClient, log: string[]): Promise<void> {
         log.push('SUCCESS: Default admin user seeded.');
     } else {
          const admin = adminResult.rows[0];
-        const passwordMatch = await bcrypt.compare(correctPassword, admin.password_hash);
+        const passwordMatch = await bcryptjs.compare(correctPassword, admin.password_hash);
         if (!passwordMatch) {
             log.push('SEED: Default admin found, but password does not match. Updating hash...');
             await client.query('UPDATE admins SET password_hash = $1 WHERE id = $2', [dynamicallyGeneratedHash, admin.id]);
@@ -152,9 +151,8 @@ export async function initializeDatabase(): Promise<DbInitResult> {
         dbClient = await pool.connect();
         log.push('SUCCESS: DB Pool connected.');
 
-        // Start transaction
+        // Phase 1: Apply all schemas in a single transaction
         await dbClient.query('BEGIN');
-
         log.push('SETUP: Ensuring migrations_log table exists...');
         await dbClient.query(`
             CREATE TABLE IF NOT EXISTS migrations_log (
@@ -165,14 +163,15 @@ export async function initializeDatabase(): Promise<DbInitResult> {
         `);
         log.push('SUCCESS: migrations_log table is ready.');
 
-        // Phase 1: Create all schemas
-        await applySchemas(dbClient, log);
-
-        // Phase 2: Seed initial data
-        await seedData(dbClient, log);
-
-        // Commit transaction
+        await applyAllSchemas(dbClient, log);
         await dbClient.query('COMMIT');
+        log.push('SUCCESS: Schema creation phase committed.');
+        
+        // Phase 2: Seed all data in a separate transaction
+        await dbClient.query('BEGIN');
+        await seedAllData(dbClient, log);
+        await dbClient.query('COMMIT');
+        log.push('SUCCESS: Data seeding phase committed.');
         
         migrationsRan = true;
         log.push('END: Migration process completed successfully.');
