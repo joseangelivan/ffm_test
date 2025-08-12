@@ -39,11 +39,8 @@ export function ManageCatalogsDialog() {
                 </DialogHeader>
 
                 <div className="flex-grow overflow-hidden">
-                     <Tabs defaultValue="languages" className="h-full flex flex-col">
+                     <Tabs defaultValue="device_types" className="h-full flex flex-col">
                         <TabsList className="flex-shrink-0 flex flex-wrap h-auto justify-start">
-                             <TabsTrigger value="languages" className="flex items-center gap-2">
-                                <Languages className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.languages.tab')}
-                            </TabsTrigger>
                             <TabsTrigger value="device_types" className="flex items-center gap-2">
                                 <HardDrive className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}
                             </TabsTrigger>
@@ -53,11 +50,11 @@ export function ManageCatalogsDialog() {
                             <TabsTrigger value="maps" className="flex items-center gap-2" disabled>
                                 {t('adminDashboard.settingsGroups.catalogs.maps.tab')}
                             </TabsTrigger>
+                            <TabsTrigger value="languages" className="flex items-center gap-2">
+                                <Languages className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.languages.tab')}
+                            </TabsTrigger>
                         </TabsList>
                         <div className="flex-grow overflow-y-auto mt-4 pr-2">
-                             <TabsContent value="languages">
-                                <LanguageManager />
-                            </TabsContent>
                             <TabsContent value="device_types">
                                 <DeviceTypesManager />
                             </TabsContent>
@@ -70,6 +67,9 @@ export function ManageCatalogsDialog() {
                                 <div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/50 rounded-md">
                                     {t('adminDashboard.settingsGroups.catalogs.wipDescription')}
                                 </div>
+                            </TabsContent>
+                             <TabsContent value="languages">
+                                <LanguageManager />
                             </TabsContent>
                         </div>
                     </Tabs>
@@ -86,5 +86,3 @@ export function ManageCatalogsDialog() {
         </Dialog>
     );
 }
-
-    
