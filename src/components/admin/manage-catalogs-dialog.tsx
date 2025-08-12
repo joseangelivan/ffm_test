@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,11 +19,28 @@ import { Book, HardDrive, Languages, Map } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { LanguageManager } from './language-manager';
 import { CatalogManager } from './catalog-manager';
+import { getLanguages, type Language } from '@/actions/catalogs';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 export function ManageCatalogsDialog() {
     const { t } = useLocale();
     const [isOpen, setIsOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [languages, setLanguages] = useState<Language[]>([]);
+
+    const fetchLanguages = useCallback(async () => {
+        setIsLoading(true);
+        const data = await getLanguages();
+        setLanguages(data);
+        setIsLoading(false);
+    }, []);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchLanguages();
+        }
+    }, [isOpen, fetchLanguages]);
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -45,14 +62,26 @@ export function ManageCatalogsDialog() {
                             <TabsTrigger value="languages" className="flex items-center gap-2"><Languages className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.languages.tab')}</TabsTrigger>
                             <TabsTrigger value="device_types" className="flex items-center gap-2"><HardDrive className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}</TabsTrigger>
                             <TabsTrigger value="protocols" className="flex items-center gap-2" disabled>{t('adminDashboard.settingsGroups.catalogs.protocols.tab')}</TabsTrigger>
-                            <TabsTrigger value="maps" className="flex items-center gap-2" disabled><Map className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.maps.tab')}</TabsTrigger>
+                            <TabsTrigger value="maps" className="flex items-center gap-2" disabled>{t('adminDashboard.settingsGroups.catalogs.maps.tab')}</TabsTrigger>
                         </TabsList>
                         <div className="flex-grow overflow-y-auto mt-4 pr-2">
                              <TabsContent value="languages">
-                                <LanguageManager />
+                                {isLoading ? (
+                                    <div className="space-y-2 p-4">
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                    </div>
+                                ) : (
+                                    <LanguageManager
+                                        languages={languages}
+                                        onRefresh={fetchLanguages}
+                                        t={t}
+                                    />
+                                )}
                             </TabsContent>
                             <TabsContent value="device_types">
-                                <CatalogManager />
+                                <CatalogManager title={t('adminDashboard.settingsGroups.catalogs.deviceTypes.title')} data={[]} onRefresh={() => {}} />
                             </TabsContent>
                             <TabsContent value="protocols">
                                <div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/50 rounded-md">
