@@ -213,6 +213,16 @@
             "protocols": {
               "tab": "Protocolos",
               "title": "Protocolos de Comunicação"
+            },
+            "languages": {
+                "tab": "Idiomas",
+                "title": "Catálogo de Idiomas Padrão",
+                "description": "Esta é a lista de idiomas padrão que a aplicação utiliza para os testes de tradução.",
+                "table": {
+                    "key": "Chave",
+                    "name_es": "Nome (Espanhol)",
+                    "name_pt": "Nome (Português)"
+                }
             }
         },
         "interfaceDescription": "Personalize a aparência e o idioma do aplicativo.",

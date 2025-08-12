@@ -16,10 +16,48 @@ import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useLocale } from '@/lib/i18n';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Book, Smartphone, Wifi, Map as MapIcon, Loader } from 'lucide-react';
+import { Book, Smartphone, Wifi, Map as MapIcon, Loader, Languages } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getDeviceTypes, type DeviceType } from '@/actions/catalogs';
 import { CatalogManager } from './catalog-manager';
+import { supportedLanguages } from '@/lib/languages';
+
+
+function LanguageCatalog() {
+    const { t } = useLocale();
+
+    return (
+        <Card className="border-dashed">
+            <CardHeader>
+                <CardTitle>{t('adminDashboard.settingsGroups.catalogs.languages.title')}</CardTitle>
+                <CardDescription>{t('adminDashboard.settingsGroups.catalogs.languages.description')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="border rounded-lg max-h-96 overflow-y-auto">
+                    <Table>
+                        <TableHeader className="sticky top-0 bg-muted/50">
+                            <TableRow>
+                                <TableHead>{t('adminDashboard.settingsGroups.catalogs.languages.table.key')}</TableHead>
+                                <TableHead>{t('adminDashboard.settingsGroups.catalogs.languages.table.name_es')}</TableHead>
+                                <TableHead>{t('adminDashboard.settingsGroups.catalogs.languages.table.name_pt')}</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {Object.entries(supportedLanguages).map(([key, names]) => (
+                                <TableRow key={key}>
+                                    <TableCell className="font-mono text-xs">{key}</TableCell>
+                                    <TableCell>{names.es}</TableCell>
+                                    <TableCell>{names['pt-BR']}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
 
 
 export function ManageCatalogsDialog() {
@@ -48,9 +86,10 @@ export function ManageCatalogsDialog() {
                     <DialogDescription>{t('adminDashboard.settingsGroups.catalogs.description')}</DialogDescription>
                 </DialogHeader>
                  <Tabs defaultValue="devices" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
+                    <TabsList className="grid w-full grid-cols-4">
                         <TabsTrigger value="devices"><Smartphone className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}</TabsTrigger>
                         <TabsTrigger value="protocols"><Wifi className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.protocols.tab')}</TabsTrigger>
+                        <TabsTrigger value="languages"><Languages className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.languages.tab')}</TabsTrigger>
                         <TabsTrigger value="maps" disabled><MapIcon className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.maps.tab')}</TabsTrigger>
                     </TabsList>
                     <TabsContent value="devices" className="mt-4">
@@ -80,6 +119,9 @@ export function ManageCatalogsDialog() {
                                 </div>
                             </CardContent>
                         </Card>
+                    </TabsContent>
+                    <TabsContent value="languages" className="mt-4">
+                        <LanguageCatalog />
                     </TabsContent>
                     <TabsContent value="maps" className="mt-4">
                        <Card className="border-dashed">
