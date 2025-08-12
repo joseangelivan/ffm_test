@@ -94,7 +94,6 @@ function LanguageForm({
     )
 }
 
-
 function LoadingPlaceholder() {
     return (
         <div className="flex justify-center items-center h-48"><Loader className="h-8 w-8 animate-spin"/></div>
@@ -182,65 +181,65 @@ function LanguagesTab() {
     );
 }
 
-
 export function ManageCatalogsDialog() {
     const { t } = useLocale();
     const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <>
-            <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogTrigger asChild>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                        <Book className="mr-2 h-4 w-4" />
-                        <span>{t('adminDashboard.settingsGroups.catalogs.title')}</span>
-                    </DropdownMenuItem>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-4xl">
-                    <DialogHeader>
-                        <DialogTitle>{t('adminDashboard.settingsGroups.catalogs.title')}</DialogTitle>
-                        <DialogDescription>{t('adminDashboard.settingsGroups.catalogs.description')}</DialogDescription>
-                    </DialogHeader>
-                    <Tabs defaultValue="devices" className="w-full">
-                        <TabsList className="grid w-full grid-cols-4">
-                            <TabsTrigger value="devices"><Smartphone className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}</TabsTrigger>
-                            <TabsTrigger value="languages"><LanguagesIcon className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.languages.tab')}</TabsTrigger>
-                            <TabsTrigger value="protocols"><Wifi className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.protocols.tab')}</TabsTrigger>
-                            <TabsTrigger value="maps" disabled><MapIcon className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.maps.tab')}</TabsTrigger>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Book className="mr-2 h-4 w-4" />
+                    <span>{t('adminDashboard.settingsGroups.catalogs.title')}</span>
+                </DropdownMenuItem>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-4xl flex flex-col h-full max-h-[90svh]">
+                <DialogHeader>
+                    <DialogTitle>{t('adminDashboard.settingsGroups.catalogs.title')}</DialogTitle>
+                    <DialogDescription>{t('adminDashboard.settingsGroups.catalogs.description')}</DialogDescription>
+                </DialogHeader>
+                <div className="flex-grow overflow-hidden">
+                    <Tabs defaultValue="devices" className="w-full h-full flex flex-col">
+                        <TabsList className="flex flex-wrap h-auto">
+                            <TabsTrigger value="devices" className="flex-1"><Smartphone className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}</TabsTrigger>
+                            <TabsTrigger value="languages" className="flex-1"><LanguagesIcon className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.languages.tab')}</TabsTrigger>
+                            <TabsTrigger value="protocols" className="flex-1"><Wifi className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.protocols.tab')}</TabsTrigger>
+                            <TabsTrigger value="maps" className="flex-1" disabled><MapIcon className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.maps.tab')}</TabsTrigger>
                         </TabsList>
                         
-                        <TabsContent value="devices" className="mt-4">
-                            <DeviceTypesTab />
-                        </TabsContent>
-                        
-                        <TabsContent value="languages" className="mt-4">
-                           <LanguagesTab />
-                        </TabsContent>
-                        
-                        <TabsContent value="protocols" className="mt-4">
-                            <Card className="border-dashed">
-                                <CardHeader>
-                                    <CardTitle>{t('adminDashboard.settingsGroups.catalogs.protocols.title')}</CardTitle>
-                                    <CardDescription>{t('adminDashboard.settingsGroups.catalogs.wipDescription')}</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="h-48 w-full rounded-md border-dashed flex items-center justify-center bg-muted/30">
-                                        <span className="text-muted-foreground text-sm">{t('adminDashboard.settingsGroups.manageThemes.editorPlaceholder')}</span>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-
+                        <div className="mt-4 flex-grow overflow-y-auto">
+                            <TabsContent value="devices">
+                                <DeviceTypesTab />
+                            </TabsContent>
+                            
+                            <TabsContent value="languages">
+                               <LanguagesTab />
+                            </TabsContent>
+                            
+                            <TabsContent value="protocols">
+                                <Card className="border-dashed">
+                                    <CardHeader>
+                                        <CardTitle>{t('adminDashboard.settingsGroups.catalogs.protocols.title')}</CardTitle>
+                                        <CardDescription>{t('adminDashboard.settingsGroups.catalogs.wipDescription')}</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="h-48 w-full rounded-md border-dashed flex items-center justify-center bg-muted/30">
+                                            <span className="text-muted-foreground text-sm">{t('adminDashboard.settingsGroups.manageThemes.editorPlaceholder')}</span>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+                        </div>
                     </Tabs>
-                    <DialogFooter>
-                        <DialogClose asChild>
-                            <Button type="button" variant="outline" className="mt-4">
-                                {t('common.close')}
-                            </Button>
-                        </DialogClose>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </>
+                </div>
+                <DialogFooter className="flex-shrink-0 pt-4">
+                    <DialogClose asChild>
+                        <Button type="button" variant="outline">
+                            {t('common.close')}
+                        </Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     )
 }
