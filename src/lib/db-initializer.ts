@@ -3,6 +3,8 @@
 
 import type { PoolClient } from 'pg';
 import { getDbPool } from './db';
+import { supportedLanguages as initialLanguages } from './languages';
+
 
 // This flag prevents the migration from running more than once per server instance lifetime.
 // It's a safeguard, but the core logic relies on the migrations_log table.
@@ -123,6 +125,23 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
         } else {
             log.push('SKIP: Test condominium already exists.');
         }
+
+        log.push('SEED: Checking for default languages...');
+        const langCountResult = await client.query('SELECT COUNT(*) FROM languages');
+        if (parseInt(langCountResult.rows[0].count, 10) === 0) {
+            log.push('SEED: Languages table is empty. Seeding initial languages...');
+            const langEntries = Object.entries(initialLanguages);
+            for (const [code, names] of langEntries) {
+                await client.query(
+                    'INSERT INTO languages (id, name_translations) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
+                    [code, { es: names.es, 'pt-BR': names['pt-BR'] }]
+                );
+            }
+            log.push(`SUCCESS: Seeded ${langEntries.length} languages.`);
+        } else {
+            log.push('SKIP: Languages table already contains data.');
+        }
+
 
         await client.query('COMMIT');
         migrationsRan = true;

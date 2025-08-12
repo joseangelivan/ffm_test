@@ -222,7 +222,10 @@
                     "key": "Clave",
                     "name_es": "Nombre (Español)",
                     "name_pt": "Nombre (Portugués)"
-                }
+                },
+                "createTitle": "Crear Nuevo Idioma",
+                "editTitle": "Editar Idioma",
+                "deleteConfirmation": "Esto eliminará el idioma \"{name}\". Esta acción no puede deshacerse."
             }
         },
         "interfaceDescription": "Personaliza la apariencia y el idioma de la aplicación.",
@@ -412,7 +415,7 @@
               },
               "search": {
                   "title": "Buscar Ícono en Internet",
-                  "description": "Próximamente: Busca y selecciona íconos de la web."
+                  "description": "Próximamente: Busca y seleccieona íconos de la web."
               },
               "pc": {
                   "title": "Subir desde PC",

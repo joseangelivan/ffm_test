@@ -18,62 +18,36 @@ import { useLocale } from '@/lib/i18n';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Book, Smartphone, Wifi, Map as MapIcon, Loader, Languages } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getDeviceTypes, type DeviceType } from '@/actions/catalogs';
+import { getDeviceTypes, getLanguages, type DeviceType, type Language } from '@/actions/catalogs';
 import { CatalogManager } from './catalog-manager';
-import { supportedLanguages } from '@/lib/languages';
-
-
-function LanguageCatalog() {
-    const { t } = useLocale();
-
-    return (
-        <Card className="border-dashed">
-            <CardHeader>
-                <CardTitle>{t('adminDashboard.settingsGroups.catalogs.languages.title')}</CardTitle>
-                <CardDescription>{t('adminDashboard.settingsGroups.catalogs.languages.description')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="border rounded-lg max-h-96 overflow-y-auto">
-                    <Table>
-                        <TableHeader className="sticky top-0 bg-muted/50">
-                            <TableRow>
-                                <TableHead>{t('adminDashboard.settingsGroups.catalogs.languages.table.key')}</TableHead>
-                                <TableHead>{t('adminDashboard.settingsGroups.catalogs.languages.table.name_es')}</TableHead>
-                                <TableHead>{t('adminDashboard.settingsGroups.catalogs.languages.table.name_pt')}</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {Object.entries(supportedLanguages).map(([key, names]) => (
-                                <TableRow key={key}>
-                                    <TableCell className="font-mono text-xs">{key}</TableCell>
-                                    <TableCell>{names.es}</TableCell>
-                                    <TableCell>{names['pt-BR']}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            </CardContent>
-        </Card>
-    )
-}
+import { LanguageManager } from './language-manager';
 
 
 export function ManageCatalogsDialog() {
     const { t } = useLocale();
     const [isLoading, setIsLoading] = useState(true);
     const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
+    const [languages, setLanguages] = useState<Language[]>([]);
+    const [activeTab, setActiveTab] = useState('devices');
 
-    const fetchDeviceTypes = async () => {
+    const fetchDataForTab = async (tab: string) => {
         setIsLoading(true);
-        const data = await getDeviceTypes();
-        setDeviceTypes(data);
+        if (tab === 'devices') {
+            const data = await getDeviceTypes();
+            setDeviceTypes(data);
+        } else if (tab === 'languages') {
+            const data = await getLanguages();
+            setLanguages(data);
+        }
         setIsLoading(false);
     };
 
+    useEffect(() => {
+        fetchDataForTab(activeTab);
+    }, [activeTab]);
+
     return (
-        <Dialog onOpenChange={(open) => { if(open) fetchDeviceTypes() }}>
+        <Dialog onOpenChange={(open) => { if(open) fetchDataForTab(activeTab) }}>
             <DialogTrigger asChild>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                     <Book className="mr-2 h-4 w-4" />
@@ -85,7 +59,7 @@ export function ManageCatalogsDialog() {
                     <DialogTitle>{t('adminDashboard.settingsGroups.catalogs.title')}</DialogTitle>
                     <DialogDescription>{t('adminDashboard.settingsGroups.catalogs.description')}</DialogDescription>
                 </DialogHeader>
-                 <Tabs defaultValue="devices" className="w-full">
+                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="grid w-full grid-cols-4">
                         <TabsTrigger value="devices"><Smartphone className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}</TabsTrigger>
                         <TabsTrigger value="protocols"><Wifi className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.protocols.tab')}</TabsTrigger>
@@ -103,7 +77,7 @@ export function ManageCatalogsDialog() {
                                     name_translations: t('adminDashboard.settingsGroups.catalogs.table.name'),
                                     features_translations: t('adminDashboard.settingsGroups.catalogs.table.features'),
                                 }}
-                                onRefresh={fetchDeviceTypes}
+                                onRefresh={() => fetchDataForTab('devices')}
                             />
                         )}
                     </TabsContent>
@@ -121,7 +95,14 @@ export function ManageCatalogsDialog() {
                         </Card>
                     </TabsContent>
                     <TabsContent value="languages" className="mt-4">
-                        <LanguageCatalog />
+                        {isLoading ? (
+                            <div className="flex justify-center items-center h-48"><Loader className="h-8 w-8 animate-spin"/></div>
+                        ) : (
+                            <LanguageManager
+                                initialLanguages={languages}
+                                onRefresh={() => fetchDataForTab('languages')}
+                            />
+                        )}
                     </TabsContent>
                     <TabsContent value="maps" className="mt-4">
                        <Card className="border-dashed">

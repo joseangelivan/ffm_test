@@ -222,7 +222,10 @@
                     "key": "Chave",
                     "name_es": "Nome (Espanhol)",
                     "name_pt": "Nome (Português)"
-                }
+                },
+                "createTitle": "Criar Novo Idioma",
+                "editTitle": "Editar Idioma",
+                "deleteConfirmation": "Isso excluirá o idioma \"{name}\". Esta ação não pode ser desfeita."
             }
         },
         "interfaceDescription": "Personalize a aparência e o idioma do aplicativo.",

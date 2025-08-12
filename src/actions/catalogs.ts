@@ -15,6 +15,11 @@ export type DeviceType = {
     features_translations: TranslationObject | null;
 };
 
+export type Language = {
+    id: string; // language code
+    name_translations: TranslationObject;
+};
+
 export type CommunicationProtocol = {
     id: string;
     name_translations: TranslationObject;
@@ -38,6 +43,13 @@ const DeviceTypeSchema = z.object({
     features_es: z.string().optional(),
     features_pt: z.string().optional(),
 });
+
+const LanguageSchema = z.object({
+    id: z.string().min(2, "El código de idioma es obligatorio.").max(10),
+    name_es: z.string().min(1, "El nombre en español es obligatorio."),
+    name_pt: z.string().min(1, "O nome em português é obrigatório."),
+});
+
 
 // --- Device Types Actions ---
 
@@ -156,6 +168,109 @@ export async function deleteDeviceType(id: string): Promise<ActionState> {
         return { success: true, message: 'Tipo de dispositivo eliminado con éxito.' };
     } catch (error) {
         console.error("Error deleting device type:", error);
+        return { success: false, message: 'Error del servidor.' };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+
+// --- Language Actions ---
+
+export async function getLanguages(): Promise<Language[]> {
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        const result = await client.query('SELECT id, name_translations FROM languages ORDER BY id');
+        return result.rows;
+    } catch (error) {
+        console.error("Error getting languages:", error);
+        return [];
+    } finally {
+        if (client) client.release();
+    }
+}
+
+export async function createLanguage(prevState: any, formData: FormData): Promise<ActionState> {
+    const validatedFields = LanguageSchema.safeParse({
+        id: formData.get('id'),
+        name_es: formData.get('name_es'),
+        name_pt: formData.get('name_pt'),
+    });
+
+    if (!validatedFields.success) {
+        return { success: false, message: "Error de validación.", errors: validatedFields.error.flatten().fieldErrors };
+    }
+    
+    const { id, name_es, name_pt } = validatedFields.data;
+    const name_translations = { es: name_es, 'pt-BR': name_pt };
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        await client.query(
+            'INSERT INTO languages (id, name_translations) VALUES ($1, $2)',
+            [id, name_translations]
+        );
+        return { success: true, message: 'Idioma creado con éxito.' };
+    } catch (error: any) {
+        console.error("Error creating language:", error);
+        if (error.code === '23505') { // unique_violation
+            return { success: false, message: `El código de idioma '${id}' ya existe.` };
+        }
+        return { success: false, message: 'Error del servidor.' };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+export async function updateLanguage(prevState: any, formData: FormData): Promise<ActionState> {
+    const validatedFields = LanguageSchema.safeParse({
+        id: formData.get('id'),
+        name_es: formData.get('name_es'),
+        name_pt: formData.get('name_pt'),
+    });
+
+    if (!validatedFields.success) {
+        return { success: false, message: "Error de validación.", errors: validatedFields.error.flatten().fieldErrors };
+    }
+
+    const { id, name_es, name_pt } = validatedFields.data;
+    const name_translations = { es: name_es, 'pt-BR': name_pt };
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        await client.query(
+            'UPDATE languages SET name_translations = $1, updated_at = NOW() WHERE id = $2',
+            [name_translations, id]
+        );
+        return { success: true, message: 'Idioma actualizado con éxito.' };
+    } catch (error) {
+        console.error("Error updating language:", error);
+        return { success: false, message: 'Error del servidor.' };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+export async function deleteLanguage(id: string): Promise<ActionState> {
+    if (!id) return { success: false, message: "ID no proporcionado." };
+     if (id === 'es' || id === 'pt-BR') {
+        return { success: false, message: "No se pueden eliminar los idiomas predeterminados de la interfaz." };
+    }
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        await client.query('DELETE FROM languages WHERE id = $1', [id]);
+        return { success: true, message: 'Idioma eliminado con éxito.' };
+    } catch (error) {
+        console.error("Error deleting language:", error);
         return { success: false, message: 'Error del servidor.' };
     } finally {
         if (client) client.release();

@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { getDbPool } from '@/lib/db';
-import { supportedLanguages } from '@/lib/languages';
+import { getLanguages } from '@/actions/catalogs';
 
 export type TranslationService = {
     id: string;
@@ -30,7 +30,8 @@ const ServiceSchema = z.object({
 });
 
 async function runAndSaveLanguageTest(service: TranslationService) {
-    const languagesToTest = Object.keys(supportedLanguages);
+    const dbLanguages = await getLanguages();
+    const languagesToTest = dbLanguages.map(lang => lang.id);
     const supported: string[] = [];
 
     const translationPromises = languagesToTest.map(lang => 
@@ -374,10 +375,11 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         const pool = await getDbPool();
         client = await pool.connect();
         const updatedResult = await client.query('SELECT supported_languages FROM translation_services WHERE id = $1', [id]);
+        const totalLanguagesResult = await client.query('SELECT COUNT(*) FROM languages');
         client.release();
 
         const supported = updatedResult.rows[0]?.supported_languages || [];
-        const totalLanguages = Object.keys(supportedLanguages).length;
+        const totalLanguages = parseInt(totalLanguagesResult.rows[0].count, 10);
         
         if (supported.length > 0) {
             return { 
