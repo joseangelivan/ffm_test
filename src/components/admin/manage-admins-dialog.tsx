@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useActionState, useTransition, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useActionState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
   Dialog,
@@ -58,106 +58,112 @@ import {
 } from 'lucide-react';
 import { LoadingOverlay } from './admin-header';
 
-function AdminFormFields({ admin, onCancel }: { admin?: Admin, onCancel: () => void }) {
+
+function AdminFormDialog({
+    isOpen,
+    onOpenChange,
+    admin,
+    onSuccess,
+}: {
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    admin?: Admin | null;
+    onSuccess: () => void;
+}) {
     const { t, locale } = useLocale();
-    const { pending } = useFormStatus();
+    const { toast } = useToast();
     const isEditMode = !!admin;
+    const formAction = isEditMode ? updateAdmin : createAdmin;
+
     const [pin, setPin] = useState('');
+
+    useEffect(() => {
+        if (!isEditMode) {
+            generatePin();
+        }
+    }, [isEditMode]);
 
     const generatePin = () => {
         const randomPin = Math.floor(100000 + Math.random() * 900000).toString();
         setPin(randomPin);
     };
 
-    const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        if (/^[0-9]*$/.test(value)) {
-            setPin(value);
-        }
-    };
-
-    return (
-         <div className={cn("relative transition-opacity", pending && "opacity-50")}>
-            {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating')} />}
-            <DialogHeader>
-                <DialogTitle>{isEditMode ? t('adminDashboard.manageAdmins.editTitle') : t('adminDashboard.manageAdmins.createTitle')}</DialogTitle>
-                <DialogDescription>{t('adminDashboard.manageAdmins.formDescription')}</DialogDescription>
-            </DialogHeader>
-            <input type="hidden" name="id" value={admin?.id || ''} />
-            <input type="hidden" name="locale" value={locale} />
-             <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                    <Label htmlFor="name">{t('adminDashboard.manageAdmins.nameLabel')}</Label>
-                    <Input id="name" name="name" defaultValue={admin?.name} placeholder="John Doe" required disabled={pending}/>
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="email">{t('adminDashboard.manageAdmins.emailLabel')}</Label>
-                    <Input id="email" name="email" type="email" defaultValue={admin?.email} placeholder="admin@example.com" required autoComplete="email" disabled={pending}/>
-                </div>
-                {!isEditMode && (
-                    <div className="grid gap-2">
-                        <Label htmlFor="pin">{t('adminDashboard.manageAdmins.pinLabel')}</Label>
-                        <div className="flex items-center gap-2">
-                            <Input id="pin" name="pin" type="text" placeholder="123456" required maxLength={6} pattern="\d{6}" disabled={pending} value={pin} onChange={handlePinChange}/>
-                            <Button type="button" variant="outline" onClick={generatePin} disabled={pending}>
-                                <RefreshCw className="mr-2 h-4 w-4"/>
-                                {t('adminDashboard.manageAdmins.generatePinButton')}
-                            </Button>
-                        </div>
-                    </div>
-                )}
-                <div className="flex items-center space-x-2">
-                   <Checkbox id="can_create_admins" name="can_create_admins" defaultChecked={admin?.can_create_admins} disabled={pending}/>
-                   <Label htmlFor="can_create_admins" className="text-sm font-normal">
-                        {t('adminDashboard.manageAdmins.canCreateAdminsLabel')}
-                    </Label>
-                </div>
-            </div>
-            <DialogFooter>
-                <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
-                <Button type="submit" disabled={pending}>
-                    {isEditMode ? t('adminDashboard.editCondoDialog.save') : t('adminDashboard.manageAdmins.createButton')}
-                </Button>
-            </DialogFooter>
-        </div>
-    )
-}
-
-function AdminForm({ admin, onSuccess, onCancel }: { admin?: Admin, onSuccess: () => void, onCancel: () => void }) {
-    const { t } = useLocale();
-    const { toast } = useToast();
-    const isEditMode = !!admin;
-    const formAction = isEditMode ? updateAdmin : createAdmin;
-
     const handleAction = async (prevState: any, formData: FormData) => {
         const result = await formAction(prevState, formData);
-        if (result?.success === false) {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
-        }
-        if (result?.success === true) {
+        if (result?.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
             if (result.data?.emailFailed) {
-                 toast({ title: t('toast.errorTitle'), description: result.data.message, variant: 'destructive' });
+                toast({ title: t('toast.errorTitle'), description: result.data.message, variant: 'destructive' });
             }
             onSuccess();
+        } else if (result) {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
         }
         return result;
     };
-    
-    const [state, dispatch] = useActionState(handleAction, undefined);
-    
+
+    const [state, dispatch, isPending] = useActionState(handleAction, undefined);
+
     return (
-        <form action={dispatch}>
-            <AdminFormFields admin={admin} onCancel={onCancel}/>
-        </form>
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-lg">
+                 <form action={dispatch}>
+                    <div className={cn("relative transition-opacity", isPending && "opacity-50")}>
+                        {isPending && <LoadingOverlay text={isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating')} />}
+                        <DialogHeader>
+                            <DialogTitle>{isEditMode ? t('adminDashboard.manageAdmins.editTitle') : t('adminDashboard.manageAdmins.createTitle')}</DialogTitle>
+                            <DialogDescription>{t('adminDashboard.manageAdmins.formDescription')}</DialogDescription>
+                        </DialogHeader>
+                        <input type="hidden" name="id" value={admin?.id || ''} />
+                        <input type="hidden" name="locale" value={locale} />
+                         <div className="grid gap-4 py-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="name">{t('adminDashboard.manageAdmins.nameLabel')}</Label>
+                                <Input id="name" name="name" defaultValue={admin?.name} placeholder="John Doe" required disabled={isPending}/>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="email">{t('adminDashboard.manageAdmins.emailLabel')}</Label>
+                                <Input id="email" name="email" type="email" defaultValue={admin?.email} placeholder="admin@example.com" required autoComplete="email" disabled={isPending}/>
+                            </div>
+                            {!isEditMode && (
+                                <div className="grid gap-2">
+                                    <Label htmlFor="pin">{t('adminDashboard.manageAdmins.pinLabel')}</Label>
+                                    <div className="flex items-center gap-2">
+                                        <Input id="pin" name="pin" type="text" placeholder="123456" required maxLength={6} pattern="\d{6}" disabled={isPending} value={pin} readOnly/>
+                                        <Button type="button" variant="outline" onClick={generatePin} disabled={isPending}>
+                                            <RefreshCw className="mr-2 h-4 w-4"/>
+                                            {t('adminDashboard.manageAdmins.generatePinButton')}
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                            <div className="flex items-center space-x-2">
+                               <Checkbox id="can_create_admins" name="can_create_admins" defaultChecked={admin?.can_create_admins} disabled={isPending}/>
+                               <Label htmlFor="can_create_admins" className="text-sm font-normal">
+                                    {t('adminDashboard.manageAdmins.canCreateAdminsLabel')}
+                                </Label>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>{t('adminDashboard.newCondoDialog.cancel')}</Button>
+                            <Button type="submit" disabled={isPending}>
+                                {isEditMode ? t('adminDashboard.editCondoDialog.save') : t('adminDashboard.manageAdmins.createButton')}
+                            </Button>
+                        </DialogFooter>
+                    </div>
+                </form>
+            </DialogContent>
+        </Dialog>
     );
 }
+
 
 export function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string }) {
     const { t } = useLocale();
     const { toast } = useToast();
-    const [isOpen, setIsOpen] = useState(false);
-    const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
+    const [isListOpen, setIsListOpen] = useState(false);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+
     const [admins, setAdmins] = useState<Admin[]>([]);
     const [loadingAdmins, setLoadingAdmins] = useState(true);
     const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
@@ -175,10 +181,10 @@ export function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string 
     }, [toast, t]);
 
     useEffect(() => {
-        if (isOpen && view === 'list') {
+        if (isListOpen) {
             fetchAdmins();
         }
-    }, [isOpen, view, fetchAdmins]);
+    }, [isListOpen, fetchAdmins]);
     
     const handleDelete = (admin: Admin) => {
        startSubmitting(async () => {
@@ -204,29 +210,32 @@ export function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string 
     }
 
     const onFormSuccess = () => {
-        setView('list');
+        setIsFormOpen(false);
         fetchAdmins();
     };
 
     const handleEditClick = (admin: Admin) => {
         setSelectedAdmin(admin);
-        setView('edit');
+        setIsFormOpen(true);
+    };
+
+    const handleCreateClick = () => {
+        setSelectedAdmin(null);
+        setIsFormOpen(true);
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <KeyRound className="mr-2 h-4 w-4" />
-                    <span>{t('adminDashboard.manageAdmins.title')}</span>
-                </DropdownMenuItem>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-                 <div className={cn("relative transition-opacity", isSubmitting && "opacity-50")}>
-                    {isSubmitting && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
-                    
-                    {view === 'list' && (
-                        <>
+        <>
+            <Dialog open={isListOpen} onOpenChange={setIsListOpen}>
+                <DialogTrigger asChild>
+                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        <KeyRound className="mr-2 h-4 w-4" />
+                        <span>{t('adminDashboard.manageAdmins.title')}</span>
+                    </DropdownMenuItem>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl">
+                     <div className={cn("relative transition-opacity", isSubmitting && "opacity-50")}>
+                        {isSubmitting && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
                         <DialogHeader>
                             <DialogTitle>{t('adminDashboard.manageAdmins.title')}</DialogTitle>
                             <DialogDescription>{t('adminDashboard.manageAdmins.listDescription')}</DialogDescription>
@@ -282,17 +291,18 @@ export function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string 
                         </div>
                         <DialogFooter className="sm:justify-between">
                             <DialogClose asChild><Button variant="outline">{t('common.close')}</Button></DialogClose>
-                            <Button onClick={() => setView('create')}><UserPlus className="mr-2 h-4 w-4"/>{t('adminDashboard.manageAdmins.createButton')}</Button>
+                            <Button onClick={handleCreateClick}><UserPlus className="mr-2 h-4 w-4"/>{t('adminDashboard.manageAdmins.createButton')}</Button>
                         </DialogFooter>
-                        </>
-                    )}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
-                    {view === 'create' && <AdminForm onSuccess={onFormSuccess} onCancel={() => setView('list')} />}
-                    {view === 'edit' && selectedAdmin && <AdminForm admin={selectedAdmin} onSuccess={onFormSuccess} onCancel={() => setView('list')} />}
-                </div>
-            </DialogContent>
-        </Dialog>
+            <AdminFormDialog
+                isOpen={isFormOpen}
+                onOpenChange={setIsFormOpen}
+                admin={selectedAdmin}
+                onSuccess={onFormSuccess}
+            />
+        </>
     )
 }
-
-    
