@@ -49,8 +49,7 @@ import {
     Loader,
     Edit,
     Trash2,
-    PlusCircle,
-    TestTube2
+    PlusCircle
 } from 'lucide-react';
 import { LoadingOverlay } from './admin-header';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
@@ -129,7 +128,7 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
                         name="response_config"
                         value={responseConfig}
                         onChange={handleJsonChange(setResponseConfig, setIsResponseJsonValid)}
-                        placeholder='{ "path": "...", "statusPath": "...", "detailsPath": "..." }'
+                        placeholder='{\n  "path": "...",\n  "statusPath": "..."\n}'
                         required 
                         disabled={pending}
                         className={cn("min-h-[100px] font-mono text-xs", !isResponseJsonValid && "border-destructive focus-visible:ring-destructive")}
@@ -309,7 +308,15 @@ export function ManageTranslatorDialog() {
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button variant="ghost" size="icon" onClick={() => handleTest(service.id)} disabled={isSubmitting}>
-                                            {testingId === service.id ? <Loader className="h-4 w-4 animate-spin"/> : <TestTube2 className="h-4 w-4"/>}
+                                            {testingId === service.id ? (
+                                                <Loader className="h-4 w-4 animate-spin"/>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                                                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                                                    <path d="M14 2v6h6"></path>
+                                                    <path d="m9 15.5 2 2 4-4"></path>
+                                                </svg>
+                                            )}
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
