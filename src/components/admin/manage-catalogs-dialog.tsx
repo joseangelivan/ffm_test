@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useActionState, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useActionState } from 'react';
 import {
   Dialog,
   DialogContent,
