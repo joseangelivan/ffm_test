@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -19,13 +20,47 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { LanguageManager } from './language-manager';
 import { getLanguages, type Language } from '@/actions/catalogs';
 import { Skeleton } from '../ui/skeleton';
+import { CatalogManager } from './catalog-manager';
+import { getDeviceTypes, DeviceType } from '@/actions/catalogs';
 
 
-function DeviceTypesTab() {
+function DeviceTypesTab({ t }: { t: (key: string) => string }) {
+    const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const data = await getDeviceTypes();
+            setDeviceTypes(data);
+        } catch (error) {
+            console.error("Failed to fetch device types:", error);
+            setDeviceTypes([]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    if (isLoading) {
+        return (
+            <div className="space-y-2 mt-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </div>
+        )
+    }
+    
     return (
-        <div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/50 rounded-md">
-            WIP: Device Types Management
-        </div>
+        <CatalogManager
+            title={t('adminDashboard.settingsGroups.deviceTypes.title')}
+            data={deviceTypes}
+            onRefresh={fetchData}
+        />
     )
 }
 
@@ -37,10 +72,10 @@ function ProtocolsTab() {
     )
 }
 
-function MapsTab() {
+function MapsTab({t}: {t: (key: string) => string}) {
      return (
         <div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/50 rounded-md">
-            WIP: Maps Management
+             {t('adminDashboard.settingsGroups.catalogs.wipDescription')}
         </div>
     )
 }
@@ -107,24 +142,24 @@ export function ManageCatalogsDialog() {
 
                 <div className="flex-grow overflow-hidden">
                      <Tabs defaultValue="languages" className="h-full flex flex-col">
-                        <TabsList className="flex-shrink-0">
+                        <TabsList className="flex-shrink-0 flex flex-wrap h-auto justify-start">
                             <TabsTrigger value="languages" className="flex items-center gap-2"><Languages className="h-4 w-4"/>{t('adminDashboard.settingsGroups.languages.tab')}</TabsTrigger>
                             <TabsTrigger value="device_types" className="flex items-center gap-2"><HardDrive className="h-4 w-4"/>{t('adminDashboard.settingsGroups.deviceTypes.tab')}</TabsTrigger>
                             <TabsTrigger value="protocols" className="flex items-center gap-2" disabled>{t('adminDashboard.settingsGroups.protocols.tab')}</TabsTrigger>
-                            <TabsTrigger value="maps" className="flex items-center gap-2" disabled><Map className="h-4 w-4"/>{t('adminDashboard.settingsGroups.maps.tab')}</TabsTrigger>
+                            <TabsTrigger value="maps" className="flex items-center gap-2" disabled><Map className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.maps.tab')}</TabsTrigger>
                         </TabsList>
                         <div className="flex-grow overflow-y-auto mt-4 pr-2">
                              <TabsContent value="languages">
                                 <LanguagesTab t={t} />
                             </TabsContent>
                             <TabsContent value="device_types">
-                                <DeviceTypesTab />
+                                <DeviceTypesTab t={t} />
                             </TabsContent>
                             <TabsContent value="protocols">
                                <ProtocolsTab />
                             </TabsContent>
                              <TabsContent value="maps">
-                                <MapsTab />
+                                <MapsTab t={t} />
                             </TabsContent>
                         </div>
                     </Tabs>
