@@ -247,6 +247,8 @@ export function CatalogManager({ title, data, onRefresh }: CatalogManagerProps) 
         return translations?.[locale] || translations?.['pt-BR'] || translations?.es || Object.values(translations)[0];
     }
 
+    const safeData = data || [];
+
     return (
         <div>
             <div className="flex justify-between items-center mb-4">
@@ -265,7 +267,7 @@ export function CatalogManager({ title, data, onRefresh }: CatalogManagerProps) 
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {data.map(item => (
+                        {safeData.map(item => (
                             <TableRow key={item.id}>
                                 {Object.keys(columns).map(idx => {
                                     const colKey = columns[parseInt(idx)].key;
