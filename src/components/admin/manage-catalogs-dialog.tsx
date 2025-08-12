@@ -16,8 +16,8 @@ import { Button } from '@/components/ui/button';
 import { useLocale } from '@/lib/i18n';
 import { Book, HardDrive, Languages, Map } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { LanguageManager } from './language-manager';
-import { DeviceTypesManager } from './device-types-manager';
+import LanguageManager from './language-manager';
+import DeviceTypesManager from './device-types-manager';
 
 
 export function ManageCatalogsDialog() {
@@ -47,10 +47,10 @@ export function ManageCatalogsDialog() {
                         </TabsList>
                         <div className="flex-grow overflow-y-auto mt-4 pr-2">
                              <TabsContent value="languages">
-                                <LanguageManager />
+                                <LanguageManager t={t} />
                             </TabsContent>
                             <TabsContent value="device_types">
-                                <DeviceTypesManager />
+                                <DeviceTypesManager t={t} />
                             </TabsContent>
                             <TabsContent value="protocols">
                                <div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/50 rounded-md">
