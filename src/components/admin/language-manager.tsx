@@ -40,12 +40,13 @@ function LanguageForm({
     item,
     onSuccess,
     onCancel,
+    t,
 }: {
     item: Language | null;
     onSuccess: () => void;
     onCancel: () => void;
+    t: (key: string, replacements?: Record<string, string>) => string;
 }) {
-    const { t } = useLocale();
     const { toast } = useToast();
     const isEditMode = !!item;
     const formAction = isEditMode ? updateLanguage : createLanguage;
@@ -210,6 +211,7 @@ export function LanguageManager({ initialLanguages, onRefresh }: LanguageManager
                     item={editingItem} 
                     onSuccess={onFormSuccess}
                     onCancel={() => setIsFormOpen(false)}
+                    t={t}
                 />
             </Dialog>
         </div>
