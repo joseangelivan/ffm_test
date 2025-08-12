@@ -21,6 +21,7 @@ async function applySchemas(client: PoolClient, log: string[]): Promise<void> {
 
     log.push('PHASE: Applying all schemas...');
     
+    // Corrected order: catalogs must be created early on.
     const schemasToApply = [
         'admins/base_schema.sql',
         'themes/base_schema.sql',
@@ -70,22 +71,28 @@ async function seedData(client: PoolClient, log: string[]): Promise<void> {
     log.push('PHASE: Seeding initial data...');
 
     // --- Seed Default Languages ---
-    log.push('SEED: Checking for default languages...');
-    const langCountResult = await client.query('SELECT COUNT(*) FROM languages');
-    if (parseInt(langCountResult.rows[0].count, 10) === 0) {
-        log.push('SEED: Languages table is empty. Seeding initial languages...');
-        const langEntries = Object.entries(initialLanguages);
-        for (const [code, names] of langEntries) {
-            const translations = { es: names.es, 'pt-BR': names['pt-BR'] };
-            await client.query(
-                'INSERT INTO languages (id, name_translations) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
-                [code, translations]
-            );
+    try {
+        log.push('SEED: Checking for default languages...');
+        const langCountResult = await client.query('SELECT COUNT(*) FROM languages');
+        if (parseInt(langCountResult.rows[0].count, 10) === 0) {
+            log.push('SEED: Languages table is empty. Seeding initial languages...');
+            const langEntries = Object.entries(initialLanguages);
+            for (const [code, names] of langEntries) {
+                const translations = { es: names.es, 'pt-BR': names['pt-BR'] };
+                await client.query(
+                    'INSERT INTO languages (id, name_translations) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
+                    [code, translations]
+                );
+            }
+            log.push(`SUCCESS: Seeded ${langEntries.length} languages.`);
+        } else {
+            log.push('SKIP: Languages table already contains data.');
         }
-        log.push(`SUCCESS: Seeded ${langEntries.length} languages.`);
-    } else {
-        log.push('SKIP: Languages table already contains data.');
+    } catch (e: any) {
+         log.push(`ERROR: Failed to seed languages. DB-Error: ${e.message}`);
+        throw new Error(`Migration failed on phase: Seed Languages. DB-Error: ${e.message}`);
     }
+
 
     // --- Seed Default Admin User ---
     log.push('SEED: Checking for default admin user...');
