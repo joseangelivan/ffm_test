@@ -49,6 +49,7 @@ export function LanguageManager({
         { key: 'id', header: t('adminDashboard.settingsGroups.languages.table.key') },
         { key: 'name_es', header: t('adminDashboard.settingsGroups.languages.table.name_es') },
         { key: 'name_pt', header: t('adminDashboard.settingsGroups.languages.table.name_pt') },
+        { key: 'actions', header: t('adminDashboard.table.actions') }
     ], [t]);
 
     const handleDelete = (id: string) => {
@@ -81,7 +82,6 @@ export function LanguageManager({
                         <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
                             <TableRow>
                                 {columns.map(col => <TableHead key={col.key}>{col.header}</TableHead>)}
-                                <TableHead className="text-right">{t('adminDashboard.table.actions')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>

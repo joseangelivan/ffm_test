@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useActionState, Suspense } from 'react';
@@ -72,8 +71,8 @@ function LanguageForm({
                 <div className="py-4 space-y-4">
                     <input type="hidden" name="id" value={item?.id || ''} />
                     <div className="space-y-2">
-                        <Label htmlFor="id">{t('adminDashboard.settingsGroups.languages.table.key')}</Label>
-                        <Input id="id" name="id" defaultValue={item?.id} required disabled={isEditMode} placeholder="ej. en-US" />
+                        <Label htmlFor="id-lang">{t('adminDashboard.settingsGroups.languages.table.key')}</Label>
+                        <Input id="id-lang" name="id" defaultValue={item?.id || ''} required disabled={isEditMode} placeholder="ej. en-US" />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="name_es">{t('adminDashboard.settingsGroups.languages.table.name_es')}</Label>
