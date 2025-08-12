@@ -36,7 +36,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { useLocale } from '@/lib/i18n';
 
 function LanguageForm({ item, onSuccess, onCancel, t }: { item: Language | null, onSuccess: () => void, onCancel: () => void, t: (key: string) => string }) {
     const { toast } = useToast();
@@ -88,8 +87,7 @@ function LanguageForm({ item, onSuccess, onCancel, t }: { item: Language | null,
     );
 }
 
-export function LanguageManager() {
-    const { t } = useLocale();
+export default function LanguageManager({ t }: { t: (key: string) => string }) {
     const [languages, setLanguages] = useState<Language[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
