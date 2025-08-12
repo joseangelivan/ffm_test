@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useActionState, useTransition } from 'react';
@@ -105,7 +106,7 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
             <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                     <Label htmlFor="name">{t('adminDashboard.translator.nameLabel')}</Label>
-                    <Input id="name" name="name" defaultValue={service?.name} placeholder="MyMemory API" required disabled={pending}/>
+                    <Input id="name" name="name" defaultValue={service?.name} placeholder="Translate API" required disabled={pending}/>
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="request_config">{t('adminDashboard.translator.requestConfigLabel')}</Label>
@@ -114,7 +115,7 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
                         name="request_config"
                         value={requestConfig}
                         onChange={handleJsonChange(setRequestConfig, setIsRequestJsonValid)}
-                        placeholder='{ "base_url": "...", "parameters": { ... } }' 
+                        placeholder='{ "api_config": { "base_url": "...", "parameters": { ... } } }' 
                         required 
                         disabled={pending}
                         className={cn("min-h-[150px] font-mono text-xs", !isRequestJsonValid && "border-destructive focus-visible:ring-destructive")}
@@ -128,7 +129,7 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
                         name="response_config"
                         value={responseConfig}
                         onChange={handleJsonChange(setResponseConfig, setIsResponseJsonValid)}
-                        placeholder='{ "path": "responseData.translatedText" }' 
+                        placeholder='{ "path": "...", "statusPath": "...", "detailsPath": "..." }'
                         required 
                         disabled={pending}
                         className={cn("min-h-[100px] font-mono text-xs", !isResponseJsonValid && "border-destructive focus-visible:ring-destructive")}
