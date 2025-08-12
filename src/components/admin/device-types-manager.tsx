@@ -197,7 +197,7 @@ function DeviceTypeForm({
     )
 }
 
-export function DeviceTypesManager({ t }: { t: (key: string) => string }) {
+export default function DeviceTypesManager({ t }: { t: (key: string) => string }) {
     const { toast } = useToast();
     const { locale } = useLocale();
     const [isFormOpen, setIsFormOpen] = useState(false);
