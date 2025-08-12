@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useTransition, useActionState, useRef, useMemo, useCallback, useEffect } from 'react';
@@ -343,3 +344,4 @@ export default function DeviceTypesManager() {
         </Card>
     );
 }
+    

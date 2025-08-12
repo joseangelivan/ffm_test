@@ -208,7 +208,8 @@
             },
             "deviceTypes": {
               "tab": "Dispositivos",
-              "title": "Tipos de Dispositivo"
+              "title": "Tipos de Dispositivo",
+              "description": "Gestiona los diferentes tipos de dispositivos que la plataforma puede rastrear."
             },
             "protocols": {
               "tab": "Protocolos",
@@ -577,3 +578,5 @@
         "logTitle": "Registro de Inicialización"
     }
   }
+
+    
