@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,108 +18,7 @@ import { useLocale } from '@/lib/i18n';
 import { Book, HardDrive, Languages, Map } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { LanguageManager } from './language-manager';
-import { getLanguages, type Language } from '@/actions/catalogs';
-import { Skeleton } from '../ui/skeleton';
 import { CatalogManager } from './catalog-manager';
-import { getDeviceTypes, DeviceType } from '@/actions/catalogs';
-
-
-function DeviceTypesTab({ t }: { t: (key: string) => string }) {
-    const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-
-    const fetchData = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            const data = await getDeviceTypes();
-            setDeviceTypes(data);
-        } catch (error) {
-            console.error("Failed to fetch device types:", error);
-            setDeviceTypes([]);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    if (isLoading) {
-        return (
-            <div className="space-y-2 mt-4">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-            </div>
-        )
-    }
-    
-    return (
-        <CatalogManager
-            title={t('adminDashboard.settingsGroups.deviceTypes.title')}
-            data={deviceTypes}
-            onRefresh={fetchData}
-        />
-    )
-}
-
-function ProtocolsTab() {
-     return (
-        <div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/50 rounded-md">
-            WIP: Communication Protocols Management
-        </div>
-    )
-}
-
-function MapsTab({t}: {t: (key: string) => string}) {
-     return (
-        <div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/50 rounded-md">
-             {t('adminDashboard.settingsGroups.catalogs.wipDescription')}
-        </div>
-    )
-}
-
-
-function LanguagesTab({ t }: { t: (key: string) => string }) {
-    const [languages, setLanguages] = useState<Language[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-
-    const fetchData = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            const data = await getLanguages();
-            setLanguages(data);
-        } catch (error) {
-            console.error("Failed to fetch languages:", error);
-            setLanguages([]);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    if (isLoading) {
-        return (
-            <div className="space-y-2 mt-4">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-            </div>
-        )
-    }
-
-    return (
-        <LanguageManager 
-            languages={languages} 
-            onRefresh={fetchData} 
-            t={t}
-        />
-    )
-}
 
 
 export function ManageCatalogsDialog() {
@@ -143,23 +42,27 @@ export function ManageCatalogsDialog() {
                 <div className="flex-grow overflow-hidden">
                      <Tabs defaultValue="languages" className="h-full flex flex-col">
                         <TabsList className="flex-shrink-0 flex flex-wrap h-auto justify-start">
-                            <TabsTrigger value="languages" className="flex items-center gap-2"><Languages className="h-4 w-4"/>{t('adminDashboard.settingsGroups.languages.tab')}</TabsTrigger>
-                            <TabsTrigger value="device_types" className="flex items-center gap-2"><HardDrive className="h-4 w-4"/>{t('adminDashboard.settingsGroups.deviceTypes.tab')}</TabsTrigger>
-                            <TabsTrigger value="protocols" className="flex items-center gap-2" disabled>{t('adminDashboard.settingsGroups.protocols.tab')}</TabsTrigger>
+                            <TabsTrigger value="languages" className="flex items-center gap-2"><Languages className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.languages.tab')}</TabsTrigger>
+                            <TabsTrigger value="device_types" className="flex items-center gap-2"><HardDrive className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}</TabsTrigger>
+                            <TabsTrigger value="protocols" className="flex items-center gap-2" disabled>{t('adminDashboard.settingsGroups.catalogs.protocols.tab')}</TabsTrigger>
                             <TabsTrigger value="maps" className="flex items-center gap-2" disabled><Map className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.maps.tab')}</TabsTrigger>
                         </TabsList>
                         <div className="flex-grow overflow-y-auto mt-4 pr-2">
                              <TabsContent value="languages">
-                                <LanguagesTab t={t} />
+                                <LanguageManager />
                             </TabsContent>
                             <TabsContent value="device_types">
-                                <DeviceTypesTab t={t} />
+                                <CatalogManager />
                             </TabsContent>
                             <TabsContent value="protocols">
-                               <ProtocolsTab />
+                               <div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/50 rounded-md">
+                                    {t('adminDashboard.settingsGroups.catalogs.wipDescription')}
+                                </div>
                             </TabsContent>
                              <TabsContent value="maps">
-                                <MapsTab t={t} />
+                                <div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/50 rounded-md">
+                                    {t('adminDashboard.settingsGroups.catalogs.wipDescription')}
+                                </div>
                             </TabsContent>
                         </div>
                     </Tabs>
