@@ -63,21 +63,21 @@ function LanguageForm({ item, onSuccess, onCancel }: { item: Language | null, on
             <form action={dispatch}>
                 <DialogHeader>
                     <DialogTitle>
-                        {isEditMode ? t('adminDashboard.settingsGroups.languages.editTitle') : t('adminDashboard.settingsGroups.languages.createTitle')}
+                        {isEditMode ? t('adminDashboard.settingsGroups.catalogs.languages.editTitle') : t('adminDashboard.settingsGroups.catalogs.languages.createTitle')}
                     </DialogTitle>
                 </DialogHeader>
                  <input type="hidden" name="id" value={item?.id || ''} />
                 <div className="py-4 space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="id">{t('adminDashboard.settingsGroups.languages.table.key')}</Label>
+                        <Label htmlFor="id">{t('adminDashboard.settingsGroups.catalogs.languages.table.key')}</Label>
                         <Input id="id" name="id" defaultValue={item?.id} required disabled={isEditMode}/>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="name_es">{t('adminDashboard.settingsGroups.languages.table.name_es')}</Label>
+                        <Label htmlFor="name_es">{t('adminDashboard.settingsGroups.catalogs.languages.table.name_es')}</Label>
                         <Input id="name_es" name="name_es" defaultValue={item?.name_translations.es} required />
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor="name_pt">{t('adminDashboard.settingsGroups.languages.table.name_pt')}</Label>
+                        <Label htmlFor="name_pt">{t('adminDashboard.settingsGroups.catalogs.languages.table.name_pt')}</Label>
                         <Input id="name_pt" name="name_pt" defaultValue={item?.name_translations['pt-BR']} required />
                     </div>
                 </div>
@@ -135,9 +135,9 @@ export default function LanguageManager() {
     }
 
     const columns = useMemo(() => [
-        { key: 'id', header: t('adminDashboard.settingsGroups.languages.table.key') },
-        { key: 'name_es', header: t('adminDashboard.settingsGroups.languages.table.name_es') },
-        { key: 'name_pt', header: t('adminDashboard.settingsGroups.languages.table.name_pt') },
+        { key: 'id', header: t('adminDashboard.settingsGroups.catalogs.languages.table.key') },
+        { key: 'name_es', header: t('adminDashboard.settingsGroups.catalogs.languages.table.name_es') },
+        { key: 'name_pt', header: t('adminDashboard.settingsGroups.catalogs.languages.table.name_pt') },
         { key: 'actions', header: t('adminDashboard.table.actions') },
     ], [t]);
     
@@ -156,8 +156,8 @@ export default function LanguageManager() {
             <CardHeader>
                  <div className="flex justify-between items-center">
                     <div>
-                        <CardTitle>{t('adminDashboard.settingsGroups.languages.title')}</CardTitle>
-                        <CardDescription>{t('adminDashboard.settingsGroups.languages.description')}</CardDescription>
+                        <CardTitle>{t('adminDashboard.settingsGroups.catalogs.languages.title')}</CardTitle>
+                        <CardDescription>{t('adminDashboard.settingsGroups.catalogs.languages.description')}</CardDescription>
                     </div>
                      <Button size="sm" onClick={() => { setEditingItem(null); setIsFormOpen(true); }}>
                         <PlusCircle className="mr-2 h-4 w-4" />
@@ -180,7 +180,7 @@ export default function LanguageManager() {
                             {languages.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={columns.length} className="h-24 text-center">
-                                        {t('adminDashboard.settingsGroups.languages.noLanguages')}
+                                        {t('adminDashboard.settingsGroups.catalogs.languages.noLanguages')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -203,7 +203,7 @@ export default function LanguageManager() {
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                        {t('adminDashboard.settingsGroups.languages.deleteConfirmation', {name: lang.name_translations['pt-BR'] || lang.id})}
+                                                        {t('adminDashboard.settingsGroups.catalogs.languages.deleteConfirmation', {name: lang.name_translations['pt-BR'] || lang.id})}
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
@@ -230,5 +230,3 @@ export default function LanguageManager() {
         </Card>
     );
 }
-
-    
