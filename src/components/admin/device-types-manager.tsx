@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useTransition, useActionState, useRef, useMemo, useCallback, useEffect } from 'react';
@@ -42,6 +41,7 @@ import { translateTextAction } from '@/actions/translation';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
+import { ScrollArea } from '../ui/scroll-area';
 
 function DeviceTypeForm({
     item,
@@ -282,60 +282,62 @@ export default function DeviceTypesManager() {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="border rounded-lg">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                {columns.map(col => <TableHead key={col.key}>{col.header}</TableHead>)}
-                                <TableHead className="text-right">{t('adminDashboard.settingsGroups.catalogs.table.actions')}</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                             {deviceTypes.length === 0 ? (
+                <ScrollArea className="h-72">
+                    <div className="border rounded-lg">
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell colSpan={columns.length + 1} className="h-24 text-center">
-                                        {t('adminDashboard.settingsGroups.catalogs.deviceTypes.noData')}
-                                    </TableCell>
+                                    {columns.map(col => <TableHead key={col.key}>{col.header}</TableHead>)}
+                                    <TableHead className="text-right">{t('adminDashboard.settingsGroups.catalogs.table.actions')}</TableHead>
                                 </TableRow>
-                            ) : deviceTypes.map(item => (
-                                <TableRow key={item.id}>
-                                    {Object.keys(columns).map(idx => {
-                                        const colKey = columns[parseInt(idx)].key;
-                                        return (
-                                            <TableCell key={colKey}>
-                                                {getTranslatedValue(item[colKey as keyof typeof item] as TranslationObject | null)}
-                                            </TableCell>
-                                        )
-                                    })}
-                                    <TableCell className="text-right">
-                                        <AlertDialog>
-                                            <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                                    <Trash2 className="h-4 w-4" />
+                            </TableHeader>
+                            <TableBody>
+                                {deviceTypes.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={columns.length + 1} className="h-24 text-center">
+                                            {t('adminDashboard.settingsGroups.catalogs.deviceTypes.noData')}
+                                        </TableCell>
+                                    </TableRow>
+                                ) : deviceTypes.map(item => (
+                                    <TableRow key={item.id}>
+                                        {Object.keys(columns).map(idx => {
+                                            const colKey = columns[parseInt(idx)].key;
+                                            return (
+                                                <TableCell key={colKey}>
+                                                    {getTranslatedValue(item[colKey as keyof typeof item] as TranslationObject | null)}
+                                                </TableCell>
+                                            )
+                                        })}
+                                        <TableCell className="text-right">
+                                            <AlertDialog>
+                                                <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
+                                                    <Edit className="h-4 w-4" />
                                                 </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                    {t('adminDashboard.settingsGroups.catalogs.deviceTypes.deleteConfirmation', {name: getTranslatedValue(item.name_translations)})}
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDelete(item.id)}>{t('common.delete')}</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                        {t('adminDashboard.settingsGroups.catalogs.deviceTypes.deleteConfirmation', {name: getTranslatedValue(item.name_translations)})}
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDelete(item.id)}>{t('common.delete')}</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </ScrollArea>
 
                 <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                     <DeviceTypeForm 
@@ -348,6 +350,3 @@ export default function DeviceTypesManager() {
         </Card>
     );
 }
-    
-
-    

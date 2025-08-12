@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useActionState, useTransition, useRef } from 'react';
@@ -41,6 +40,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '../ui/tooltip';
 import { translateTextAction } from '@/actions/translation';
 import { useFormStatus } from 'react-dom';
+import { ScrollArea } from '../ui/scroll-area';
 
 function LanguageForm({ item, onSuccess, onCancel }: { item: Language | null, onSuccess: () => void, onCancel: () => void }) {
     const { t } = useLocale();
@@ -239,57 +239,59 @@ export default function LanguageManager() {
                 </div>
             </CardHeader>
             <CardContent>
-                 <div className="border rounded-lg overflow-hidden">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[30%] truncate">{t('adminDashboard.settingsGroups.catalogs.languages.table.key')}</TableHead>
-                                <TableHead className="w-[50%] truncate">{t('adminDashboard.settingsGroups.catalogs.languages.table.name')}</TableHead>
-                                <TableHead className="w-auto text-right">{t('adminDashboard.table.actions')}</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {languages.length === 0 ? (
+                <ScrollArea className="h-72">
+                    <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell colSpan={3} className="h-24 text-center">
-                                        {t('adminDashboard.settingsGroups.catalogs.languages.noLanguages')}
-                                    </TableCell>
+                                    <TableHead className="w-[30%] truncate">{t('adminDashboard.settingsGroups.catalogs.languages.table.key')}</TableHead>
+                                    <TableHead className="w-[50%] truncate">{t('adminDashboard.settingsGroups.catalogs.languages.table.name')}</TableHead>
+                                    <TableHead className="w-auto text-right">{t('adminDashboard.table.actions')}</TableHead>
                                 </TableRow>
-                            ) : (
-                                languages.map((lang) => (
-                                    <TableRow key={lang.id}>
-                                        <TableCell className="font-medium truncate">{lang.id}</TableCell>
-                                        <TableCell className="truncate">{getTranslatedValue(lang.name_translations)}</TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" onClick={() => { setEditingItem(lang); setIsFormOpen(true); }} disabled={lang.id === 'es' || lang.id === 'pt-BR'}>
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                             <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={isDeleting || lang.id === 'es' || lang.id === 'pt-BR'}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                        {t('adminDashboard.settingsGroups.catalogs.languages.deleteConfirmation', {name: getTranslatedValue(lang.name_translations) || lang.id})}
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleDelete(lang)}>{t('common.delete')}</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
+                            </TableHeader>
+                            <TableBody>
+                                {languages.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="h-24 text-center">
+                                            {t('adminDashboard.settingsGroups.catalogs.languages.noLanguages')}
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+                                ) : (
+                                    languages.map((lang) => (
+                                        <TableRow key={lang.id}>
+                                            <TableCell className="font-medium truncate">{lang.id}</TableCell>
+                                            <TableCell className="truncate">{getTranslatedValue(lang.name_translations)}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="icon" onClick={() => { setEditingItem(lang); setIsFormOpen(true); }} disabled={lang.id === 'es' || lang.id === 'pt-BR'}>
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={isDeleting || lang.id === 'es' || lang.id === 'pt-BR'}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                            {t('adminDashboard.settingsGroups.catalogs.languages.deleteConfirmation', {name: getTranslatedValue(lang.name_translations) || lang.id})}
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDelete(lang)}>{t('common.delete')}</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                 </ScrollArea>
                  <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                     <LanguageForm 
                         item={editingItem}
