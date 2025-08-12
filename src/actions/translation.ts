@@ -166,13 +166,32 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
 
 /**
  * Safely navigates a nested object using a string path.
+ * Supports conditional logic in the path.
  * @param obj The object to navigate.
- * @param path The path to the desired value (e.g., 'data.translations.0.translatedText').
+ * @param path The path to the desired value (e.g., 'data.translations.0.translatedText' or 'status{value > 200 ? "ERROR" : "OK"}').
  * @returns The value if found, otherwise undefined.
  */
 function getNestedValue(obj: any, path: string): any {
-    // Handles paths like "data.translations[0].translatedText"
-    return path.replace(/\[(\d+)\]/g, '.$1').split('.').reduce((o, k) => (o || {})[k], obj);
+  // Extraer y procesar condicionales tipo "path{(condición)?valorTrue:valorFalse}"
+  const conditionalMatch = path.match(/^(.+)\{(.*)\}$/);
+  
+  if (conditionalMatch) {
+    const [_, basePath, condition] = conditionalMatch;
+    // For paths like "object[0]", we need to support it. But for empty base path (e.g. "{value.length > 0}"), we should handle it.
+    const value = basePath ? basePath.replace(/\[(\d+)\]/g, '.$1').split('.').reduce((o, k) => (o || {})[k], obj) : obj;
+    
+    // Ejecutar el ternario seguro
+    try {
+      const ternario = condition.replace(/"/g, "'"); // Normalizar comillas
+      const expresion = `return ${ternario.replace(/value/g, JSON.stringify(value))}`;
+      return new Function('value', expresion)(value);
+    } catch {
+      return value; // Si falla el ternario, devolver valor crudo
+    }
+  }
+  
+  // Path normal sin condicional, with support for array indexing
+  return path.replace(/\[(\d+)\]/g, '.$1').split('.').reduce((o, k) => (o || {})[k], obj);
 }
 
 async function translateText(
@@ -278,8 +297,8 @@ async function translateText(
             return { success: true, data: translatedText };
         } else {
             // Handle API-specific error messages if possible
-            const apiErrorStatus = getNestedValue(responseData, responseConfig.statusPath || 'responseStatus');
-            const apiErrorDetails = getNestedValue(responseData, responseConfig.detailsPath || 'responseDetails');
+            const apiErrorStatus = responseConfig.statusPath ? getNestedValue(responseData, responseConfig.statusPath) : `HTTP ${response.status}`;
+            const apiErrorDetails = responseConfig.detailsPath ? getNestedValue(responseData, responseConfig.detailsPath) : 'Sin detalles';
             
             let errorMessage = `No se pudo encontrar un texto válido en la ruta especificada: '${responsePath}'.`;
             if (apiErrorStatus) {
