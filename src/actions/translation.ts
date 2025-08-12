@@ -44,6 +44,9 @@ async function runAndSaveLanguageTest(service: TranslationService) {
             supported.push(languagesToTest[index]);
         }
     });
+    
+    // Ensure 'es' and 'pt-BR' are always included as they are UI default languages
+    const finalSupported = Array.from(new Set([...supported, 'es', 'pt-BR']));
 
     let client;
     try {
@@ -51,9 +54,9 @@ async function runAndSaveLanguageTest(service: TranslationService) {
         client = await pool.connect();
         await client.query(
             'UPDATE translation_services SET supported_languages = $1, updated_at = NOW() WHERE id = $2',
-            [JSON.stringify(supported), service.id]
+            [JSON.stringify(finalSupported), service.id]
         );
-        console.log(`Updated supported languages for service ${service.id}: ${supported.join(', ')}`);
+        console.log(`Updated supported languages for service ${service.id}: ${finalSupported.join(', ')}`);
     } catch (error) {
         console.error(`Failed to save supported languages for service ${service.id}:`, error);
     } finally {
