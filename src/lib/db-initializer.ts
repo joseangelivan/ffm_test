@@ -16,10 +16,10 @@ export type DbInitResult = {
 };
 
 const SCHEMAS_TO_APPLY = [
+    'catalogs/base_schema.sql', // MUST be first
     'admins/base_schema.sql',
     'themes/base_schema.sql',
     'settings/base_schema.sql',
-    'catalogs/base_schema.sql',
     'condominiums/base_schema.sql',
     'residents/base_schema.sql',
     'gatekeepers/base_schema.sql',
@@ -29,9 +29,10 @@ const SCHEMAS_TO_APPLY = [
     'translation/base_schema.sql'
 ];
 
-async function applyAllSchemas(client: PoolClient, log: string[]): Promise<void> {
+async function runMigrations(client: PoolClient, log: string[]): Promise<void> {
     const fs = (await import('fs/promises')).default;
     const path = (await import('path')).default;
+    const bcryptjs = (await import('bcryptjs')).default;
 
     log.push('PHASE: Applying all schemas...');
     
@@ -60,13 +61,8 @@ async function applyAllSchemas(client: PoolClient, log: string[]): Promise<void>
             throw migrationError;
         }
     }
-    
     log.push('SUCCESS: All schemas applied.');
-}
 
-async function seedAllData(client: PoolClient, log: string[]): Promise<void> {
-    const bcryptjs = (await import('bcryptjs')).default;
-    
     log.push('PHASE: Seeding all initial data...');
 
     // --- Seed Default Languages ---
@@ -137,6 +133,7 @@ async function seedAllData(client: PoolClient, log: string[]): Promise<void> {
     log.push('SUCCESS: Data seeding phase completed.');
 }
 
+
 export async function initializeDatabase(): Promise<DbInitResult> {
     if (migrationsRan) {
         return { success: true, message: 'Migrations already ran.', log: ['INFO: Migrations already ran in this instance. Skipping.'] };
@@ -151,7 +148,7 @@ export async function initializeDatabase(): Promise<DbInitResult> {
         dbClient = await pool.connect();
         log.push('SUCCESS: DB Pool connected.');
 
-        // Phase 1: Apply all schemas in a single transaction
+        // Run all migrations and seeding in a single transaction
         await dbClient.query('BEGIN');
         log.push('SETUP: Ensuring migrations_log table exists...');
         await dbClient.query(`
@@ -163,15 +160,10 @@ export async function initializeDatabase(): Promise<DbInitResult> {
         `);
         log.push('SUCCESS: migrations_log table is ready.');
 
-        await applyAllSchemas(dbClient, log);
-        await dbClient.query('COMMIT');
-        log.push('SUCCESS: Schema creation phase committed.');
+        await runMigrations(dbClient, log);
         
-        // Phase 2: Seed all data in a separate transaction
-        await dbClient.query('BEGIN');
-        await seedAllData(dbClient, log);
         await dbClient.query('COMMIT');
-        log.push('SUCCESS: Data seeding phase committed.');
+        log.push('SUCCESS: All migrations and seeding committed.');
         
         migrationsRan = true;
         log.push('END: Migration process completed successfully.');
@@ -184,8 +176,8 @@ export async function initializeDatabase(): Promise<DbInitResult> {
             try {
                 await dbClient.query('ROLLBACK');
                 log.push('INFO: Transaction rolled back.');
-            } catch (rbError) {
-                log.push(`CRITICAL: Failed to rollback transaction. Error: ${rbError}`);
+            } catch (rbError: any) {
+                log.push(`CRITICAL: Failed to rollback transaction. Error: ${rbError.message}`);
             }
         }
         
