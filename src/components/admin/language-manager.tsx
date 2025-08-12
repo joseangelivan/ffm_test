@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useTransition, useMemo } from 'react';
@@ -32,12 +33,14 @@ type LanguageManagerProps = {
     languages: Language[];
     onRefresh: () => void;
     onEdit: (language: Language) => void;
+    onCreate: () => void;
 };
 
 export function LanguageManager({ 
     languages,
     onRefresh,
     onEdit,
+    onCreate,
 }: LanguageManagerProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -72,24 +75,24 @@ export function LanguageManager({
             </CardHeader>
             <CardContent>
                 <div className="border rounded-lg max-h-96 overflow-y-auto">
-                    <Table>
+                    <Table className="table-auto">
                         <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm z-10">
                             <TableRow>
-                                <TableHead className="w-1/4">{columns[0].header}</TableHead>
+                                <TableHead className="truncate">{columns[0].header}</TableHead>
                                 <TableHead>{columns[1].header}</TableHead>
                                 <TableHead>{columns[2].header}</TableHead>
                                 <TableHead className="w-auto text-right whitespace-nowrap">{columns[3].header}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {languages.length === 0 ? (
+                            {(languages || []).length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={columns.length} className="h-24 text-center">
                                         No languages found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                languages.map(item => {
+                                (languages || []).map(item => {
                                     const isDefault = item.id === 'es' || item.id === 'pt-BR';
                                     return (
                                         <TableRow key={item.id}>
