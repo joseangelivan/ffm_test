@@ -1,0 +1,565 @@
+
+{
+    "login": {
+      "welcome": "Bem-vindo de Volta",
+      "description": "Insira suas credenciais para acessar seu painel.",
+      "password": "Senha",
+      "forgotPassword": "Esqueceu a senha?",
+      "loginButton": "Entrar",
+      "loggingIn": "Entrando...",
+      "loggingOut": "Saindo...",
+      "userType": "Tipo de Usuário",
+      "selectUserType": "Selecione o tipo de usuário",
+      "resident": "Residente",
+      "gatekeeper": "Portaria",
+      "adminLogin": "Acesso de Administrador",
+      "showPassword": "Mostrar senha",
+      "hidePassword": "Ocultar senha"
+    },
+    "dashboard": {
+        "title": "Painel de Controle",
+        "language": "Idioma",
+        "profile": "Perfil",
+        "settings": "Configurações",
+        "logout": "Sair",
+        "logoutConfirmation": {
+            "title": "Você tem certeza?",
+            "description": "Você está prestes a sair da sua sessão. Deseja continuar?",
+            "cancel": "Cancelar",
+            "confirm": "Sair"
+        },
+        "theme": {
+            "title": "Tema",
+            "light": "Claro",
+            "dark": "Escuro"
+        }
+    },
+    "addDeviceDialog": {
+      "title": "Registrar um Novo Dispositivo",
+      "description": "Insira os detalhes do seu novo dispositivo para começar a rastrear.",
+      "nameLabel": "Nome",
+      "typeLabel": "Tipo",
+      "selectTypePlaceholder": "Selecione um tipo de dispositivo",
+      "registerButton": "Registrar Dispositivo"
+    },
+    "deviceTypes": {
+        "smartphone": "Smartphone",
+        "watch": "Relógio",
+        "laptop": "Laptop",
+        "car": "Carro",
+        "esp32": "Dispositivo ESP32/IoT",
+        "other": "Outro"
+    },
+    "deviceTable": {
+      "device": "Dispositivo",
+      "status": "Status",
+      "actions": "Ações",
+      "battery": "Bateria",
+      "viewOnMap": "Ver no mapa",
+      "delete": "Excluir",
+      "noDevices": "Nenhum dispositivo registrado ainda."
+    },
+    "deviceStatus": {
+        "online": "Online",
+        "offline": "Offline",
+        "live": "Ao vivo"
+    },
+    "toast": {
+        "errorTitle": "Erro",
+        "successTitle": "Sucesso",
+        "addDeviceError": "Por favor, preencha todos os campos.",
+        "addDeviceSuccess": "O dispositivo \"{name}\" foi registrado.",
+        "deviceRemovedTitle": "Dispositivo Removido",
+        "deviceRemovedDescription": "O dispositivo foi removido da sua lista com sucesso.",
+        "deviceSelectedTitle": "Dispositivo Selecionado",
+        "deviceSelectedDescription": "Agora rastreando \"{name}\" no mapa.",
+        "preloadError": "Falha ao carregar dados de localização para edição.",
+        "copied": {
+            "title": "Copiado",
+            "description": "Mensagem de erro copiada para a área de transferência."
+        },
+        "adminLogin": {
+          "invalidCredentials": "Credenciais inválidas.",
+          "missingCredentials": "E-mail e senha são obrigatórios.",
+          "sessionError": "Ocorreu um erro ao criar a sessão.",
+          "serverError": "Ocorreu um erro no servidor.",
+           "firstLoginRequired": "Esta é a sua primeira vez fazendo login. Por favor, ative sua conta.",
+           "invalidUser": "Nenhum administrador encontrado com esse e-mail."
+        },
+        "firstLogin": {
+            "missingFields": "Por favor, preencha todos os campos.",
+            "passwordMismatch": "As senhas não coincidem.",
+            "invalidUser": "Nenhum administrador encontrado com esse e-mail.",
+            "alreadyActive": "Esta conta já foi ativada. Por favor, faça login normalmente.",
+            "pinExpired": "Seu PIN expirou. Por favor, entre em contato com quem criou sua conta.",
+            "invalidPin": "O PIN está incorreto."
+        }
+    },
+    "adminLogin": {
+      "title": "Portal do Administrador",
+      "description": "Insira seu e-mail para continuar.",
+      "email": "Email de Administrador",
+      "password": "Senha",
+      "loginButton": "Entrar como Admin",
+      "continueButton": "Continuar",
+      "returnToMainLogin": "Voltar para o login principal",
+      "firstLoginLink": "Primeiro login / Ativar conta",
+      "verifying": "Verificando...",
+      "wrongEmail": "E-mail incorreto? Voltar",
+      "enterPasswordDescription": "Bem-vindo de volta. Insira sua senha para {email}.",
+      "twoFactorAuth": {
+        "title": "Verificação em duas etapas",
+        "description": "Abra seu aplicativo de autenticação e insira o código para continuar.",
+        "codeLabel": "Código de 6 dígitos",
+        "verifyButton": "Verificar"
+      }
+    },
+    "adminDashboard": {
+      "title": "Painel de Administração",
+      "condoListTitle": "Condomínios Registrados",
+      "condoListDescription": "Gerencie todos os condomínios a partir daqui.",
+      "createCondoButton": "Criar Condomínio",
+      "noCondos": "Nenhum condomínio registrado ainda.",
+      "newCondoDialog": {
+        "title": "Criar Novo Condomínio",
+        "description": "Insira os detalhes do novo condominio.",
+        "nameLabel": "Nome do Condomínio",
+        "addressLabel": "Endereço",
+        "countryLabel": "País",
+        "stateLabel": "Estado",
+        "cityLabel": "Cidade",
+        "streetLabel": "Rua",
+        "numberLabel": "Número",
+        "cancel": "Cancelar",
+        "create": "Criar"
+      },
+      "editCondoDialog": {
+        "title": "Editar Condomínio",
+        "description": "Atualize os detalhes do condomínio.",
+        "save": "Salvar Alterações"
+      },
+      "deleteCondoDialog": {
+        "title": "Você tem certeza?",
+        "description": "Esta ação não pode ser desfeita. Isto irá apagar permanentemente o condomínio \"{name}\" e todos os seus dados associados."
+      },
+      "table": {
+        "condo": "Condomínio",
+        "devices": "Dispositivos",
+        "residents": "Moradores",
+        "gatekeepers": "Portarias",
+        "actions": "Ações",
+        "toggleMenu": "Menu",
+        "manage": "Gerenciar",
+        "edit": "Editar",
+        "delete": "Excluir"
+      },
+      "manageAdmins": {
+        "title": "Gerenciar Administradores",
+        "listDescription": "Veja, crie, edite e exclua contas de administrador.",
+        "createTitle": "Criar Novo Administrador",
+        "editTitle": "Editar Administrador",
+        "formDescription": "Defina um PIN de 6 dígitos para o novo administrador. Você deverá compartilhar este PIN pessoalmente para que ele possa ativar sua conta.",
+        "nameLabel": "Nome Completo",
+        "emailLabel": "Endereço de E-mail",
+        "pinLabel": "PIN de Ativação (6 dígitos)",
+        "canCreateAdminsLabel": "Pode criar administradores",
+        "createButton": "Criar Administrador",
+        "deleteConfirmation": "Esta ação não pode ser desfeita. Isso excluirá permanentemente a conta de administrador de {name}.",
+        "table": {
+            "name": "Nome",
+            "email": "Email",
+            "permissions": "Permissões"
+        },
+        "resendActivation": "Reenviar Email de Ativação",
+        "generatePinButton": "Gerar PIN"
+      },
+      "loadingOverlay": {
+          "creating": "Criando...",
+          "updating": "Atualizando...",
+          "preparingEdit": "Preparando edição...",
+          "loading": "Carregando dados...",
+          "processing": "Processando..."
+      },
+      "settingsGroups": {
+        "interface": "Interface",
+        "systemConfiguration": "Configuração do Sistema",
+        "catalogs": {
+            "title": "Gestão de Catálogos",
+            "description": "Gerencie os dados globais que são utilizados em toda a aplicação, como tipos de dispositivo e protocolos.",
+            "wipDescription": "Gerenciamento completo para este catálogo em breve.",
+            "table": {
+                "name": "Nome",
+                "features": "Características",
+                "actions": "Ações"
+            },
+            "form": {
+                "tab_es": "Espanhol",
+                "tab_pt": "Português",
+                "nameLabel": "Nome",
+                "featuresLabel": "Características",
+                "createTitle": "Criar Novo Tipo de Dispositivo",
+                "editTitle": "Editar Tipo de Dispositivo"
+            },
+            "maps": {
+              "tab": "Mapas",
+              "title": "Configuração de Mapas",
+              "apiKeyMissing": "A chave de API para o Google Maps não está configurada.",
+              "apiKeyInstructions": "Por favor, defina a variável de ambiente NEXT_PUBLIC_GOOGLE_MAPS_API_KEY em seu projeto."
+            },
+            "deviceTypes": {
+              "tab": "Dispositivos",
+              "title": "Tipos de Dispositivo"
+            },
+            "protocols": {
+              "tab": "Protocolos",
+              "title": "Protocolos de Comunicação"
+            }
+        },
+        "interfaceDescription": "Personalize a aparência e o idioma do aplicativo.",
+        "languageDescription": "Selecione o idioma para a interface de administração.",
+        "themeDescription": "Escolha entre um tema claro ou escuro para o painel.",
+        "domainConfig": "Configurar Domínio",
+        "domainConfigTitle": "Configurar Domínio da Aplicação",
+        "domainConfigDescription": "Define o domínio base que será usado para gerar links, como os de ativação de conta.",
+        "domainConfigLabel": "Domínio da Aplicação (URL Base)",
+        "extractButton": "Extrair",
+        "manageLanguages": {
+            "title": "Gerenciar Idiomas",
+            "description": "Adicione ou importe novos idiomas para o aplicativo. Esta funcionalidade está em desenvolvimento.",
+            "addTab": "Adicionar Idioma",
+            "importTab": "Importar Modelo",
+            "addDescription": "Defina um novo idioma e sua chave (ex. 'en' para Inglês).",
+            "langName": "Nome do Idioma",
+            "langKey": "Chave do Idioma",
+            "importDescription": "Faça o upload de um arquivo JSON com as traduções.",
+            "templateFile": "Arquivo de Modelo (.json)",
+            "saveButton": "Salvar Idioma"
+        },
+        "manageThemes": {
+            "title": "Gerenciar Temas",
+            "description": "Adicione, edite ou importe novos temas para o aplicativo. Esta funcionalidade está em desenvolvimento.",
+            "availableThemes": "Temas Disponíveis",
+            "createButton": "Criar Novo Tema",
+            "editorTitle": "Editor de Tema",
+            "editorDescription": "Aqui será exibido um editor para as cores e estilos do tema selecionado.",
+            "editorPlaceholder": "Editor de Tema (Em breve)"
+        }
+      },
+       "account": {
+        "myAccount": "Minha Conta",
+        "title": "Minha Conta",
+        "description": "Gerencie suas informações pessoais e de segurança.",
+        "profileTab": "Perfil",
+        "securityTab": "Segurança",
+        "profileTitle": "Informações do Perfil",
+        "nameLabel": "Nome",
+        "emailLabel": "Endereço de E-mail",
+        "pinVerificationTitle": "Verificação Necessária",
+        "pinVerificationDescription": "Para alterar seu e-mail, você deve primeiro verificar o novo endereço.",
+        "sendPinButton": "Enviar Pin",
+        "pinPlaceholder": "PIN de 6 dígitos",
+        "verifyPinButton": "Verificar Pin",
+        "pinValidation": {
+            "initial": "A verificação do PIN é necessária para salvar.",
+            "sent": "PIN enviado. Verifique seu novo e-mail.",
+            "success": "PIN verificado com sucesso. Agora você pode salvar as alterações.",
+            "error": "O PIN está incorreto ou expirou."
+        },
+        "passwordTitle": "Alterar Senha",
+        "currentPasswordLabel": "Senha Atual",
+        "newPasswordLabel": "Nova Senha",
+        "confirmPasswordLabel": "Confirmar Nova Senha",
+        "updateSuccess": "Dados atualizados. Para ver as alterações, a sessão será encerrada automaticamente.",
+        "updateSuccessToast": "Dados atualizados com sucesso!",
+        "noChangesMade": "Nenhuma alteração foi feita.",
+        "logoutDialog": {
+            "title": "Reinicialização de Sessão Necessária",
+            "description": "Seus dados foram atualizados. Para que as alterações fiquem visíveis, é necessário reiniciar a sessão.",
+            "confirm": "OK"
+        },
+        "twoFactorAuth": {
+            "tab": "2FA",
+            "title": "Autenticação de dois fatores",
+            "setupPrompt": "Adicione uma camada extra de segurança à sua conta usando um autenticador.",
+            "activateButton": "Ativar 2FA",
+            "setupTitle": "Configurar Autenticação de Dois Fatores",
+            "setupDescription": "Escaneie este código QR com seu aplicativo de autenticação (ex. Google Authenticator, Authy).",
+            "secretKeyLabel": "Ou insira esta chave manualmente",
+            "verificationCodeLabel": "Insira o código de verificação",
+            "enableButton": "Verificar e Ativar",
+            "manageDescription": "A autenticação de dois fatores está ativa.",
+            "activeTitle": "2FA Está Ativo",
+            "activeDescription": "Será necessário um código do seu aplicativo de autenticação para fazer login.",
+            "disableButton": "Desativar 2FA",
+            "disableConfirmTitle": "Desativar 2FA?",
+            "disableConfirmDescription": "Isso reduzirá a segurança da sua conta. Tem certeza de que deseja continuar?"
+        },
+        "secretCopied": "Chave secreta copiada para a área de transferência."
+      },
+      "smtp": {
+          "title": "Configurar SMTP",
+          "description": "Gerencie os servidores de e-mail para o envio de notificações. Arraste para reordenar a prioridade de envio.",
+          "noConfigs": "Não há configurações SMTP.",
+          "addButton": "Adicionar Configuração",
+          "editTitle": "Editar Configuração SMTP",
+          "newTitle": "Nova Configuração SMTP",
+          "nameLabel": "Nome",
+          "hostLabel": "Host SMTP",
+          "portLabel": "Porta",
+          "userLabel": "Usuário (Email)",
+          "passwordLabel": "Senha",
+          "passwordPlaceholderEdit": "Deixe em branco para não alterar",
+          "secureConnectionLabel": "Usar Conexão Segura (TLS)",
+          "deleteConfirmation": "Isso excluirá permanentemente a configuração SMTP \"{name}\"."
+      },
+      "translator": {
+        "title": "Configurar Tradutor",
+        "description": "Gerencie os serviços de tradução para a aplicação.",
+        "noServices": "Não há serviços de tradução configurados.",
+        "addButton": "Adicionar Serviço",
+        "editTitle": "Editar Serviço de Tradução",
+        "newTitle": "Novo Serviço de Tradução",
+        "formDescription": "Defina um nome e forneça a configuração para a API do serviço.",
+        "nameLabel": "Nome do Serviço",
+        "requestConfigLabel": "Configuração da Solicitação (Request)",
+        "responseConfigLabel": "Configuração da Resposta (Response)",
+        "invalidJson": "O formato JSON é inválido.",
+        "setAsDefault": "Definir como padrão",
+        "test": "Testar Serviço",
+        "deleteConfirmation": "Isso excluirá permanentemente o serviço de tradução \"{name}\"."
+      }
+    },
+    "condoDashboard": {
+      "backToAdmin": "Voltar ao Painel de Administração",
+      "tabs": {
+        "users": "Usuários",
+        "devices": "Dispositivos",
+        "map": "Mapa"
+      },
+      "map": {
+        "title": "Mapa do Condomínio",
+        "description": "Visualize o mapa e a distribuição do condomínio.",
+        "loadingMap": "Carregando mapa...",
+        "undo": "Desfazer",
+        "redo": "Refazer",
+        "modules": {
+            "title": "Módulos do Mapa",
+            "selectPlaceholder": "Selecionar módulo",
+            "geofence": "Geocerca",
+            "elements": "Elementos do mapa"
+        },
+        "geofence": {
+            "defaultLabel": "Geocerca Padrão",
+            "viewAll": "Ver Todas",
+            "none": "Nenhuma",
+            "editMode": "Edição",
+            "selectPlaceholder": "Selecionar geocerca",
+            "setAsDefault": "Definir como Padrão",
+            "draw": "Desenhar",
+            "defaultName": "Geocerca",
+            "saveButton": "Salvar Geocerca"
+        },
+        "shapes": {
+            "polygon": "Polígono",
+            "rectangle": "Retângulo",
+            "circle": "Círculo"
+        },
+        "elements": {
+            "title": "Gestão de Elementos",
+            "description": "Adicione e gerencie elementos como câmeras, portarias ou áreas de moradia.",
+            "editMode": "Edição de Elementos",
+            "elementTypeLabel": "Tipo de Elemento",
+            "selectTypePlaceholder": "Selecionar tipo de elemento",
+            "drawArea": "Desenhar Área",
+            "addElement": "Adicionar Elemento",
+            "addTypeDialog": {
+                "title": "Adicionar Novo Tipo de Elemento",
+                "description": "Defina um novo tipo de elemento para usar no mapa.",
+                "typeNameLabel": "Nome do Tipo",
+                "typeNamePlaceholder": "Ex: Playground",
+                "iconLabel": "Ícone do Elemento",
+                "tabs": {
+                    "collection": "Coleção",
+                    "ai": "IA",
+                    "search": "Buscar",
+                    "pc": "PC",
+                    "link": "Link"
+                },
+                "collection": {
+                    "title": "Coleção de Ícones",
+                    "description": "Em breve: Busque em uma coleção de ícones predefinidos."
+                },
+                "ai": {
+                    "title": "Gerar Ícone com IA",
+                    "description": "Descreva o ícone que você precisa. A IA irá gerar uma imagem minimalista em preto e branco.",
+                    "placeholder": "Ex: um balanço simples, uma quadra de basquete...",
+                    "preview": "Pré-visualização"
+                },
+                "search": {
+                    "title": "Buscar Ícone na Internet",
+                    "description": "Em breve: Busque e selecione ícones da web."
+                },
+                "pc": {
+                    "title": "Carregar do PC",
+                    "description": "Em breve: Carregue um arquivo de ícone (SVG, PNG) do seu computador."
+                },
+                "link": {
+                    "title": "Importar de um Link",
+                    "description": "Em breve: Cole um link direto para uma imagem de ícone."
+                }
+            },
+            "manageTypesDialog": {
+                "title": "Gerenciar Tipos de Elemento",
+                "description": "Adicione, edite ou exclua os tipos de elementos que podem ser colocados no mapa.",
+                "addButton": "Adicionar Novo Tipo"
+            }
+        },
+        "elementTypes": {
+            "camera": "Câmera de Vigilância",
+            "gatehouse": "Portaria / Guarita",
+            "housing_area": "Área de Moradia",
+            "other": "Outro"
+        },
+        "toast": {
+            "shapeDrawn": {
+                "title": "Forma Desenhada",
+                "description": "Agora você pode salvar a geocerca para este condomínio."
+            },
+            "shapeCloneError": "Não foi possível clonar a forma para editar.",
+            "geofenceSaved": {
+                "title": "Geocerca Salva",
+                "description": "A geocerca \"{name}\" foi salva."
+            },
+            "geofenceUpdated": "Geocerca Atualizada",
+            "geofenceDeleted": "Geocerca Excluída",
+            "defaultSet": {
+                "title": "Geocerca Padrão",
+                "description": "A geocerca selecionada foi definida como padrão."
+            }
+        }
+      },
+      "users": {
+        "title": "Gerenciar Usuários",
+        "description": "Adicione, remova ou edite moradores e portarias.",
+        "addUserButton": "Adicionar Usuário",
+        "table": {
+          "name": "Nome",
+          "type": "Tipo",
+          "email": "Email",
+          "actions": "Ações",
+          "resetPassword": "Resetar senha",
+          "delete": "Excluir"
+        },
+        "editDialog": {
+            "title": "Editar Usuário",
+            "description": "Modifique as informações básicas do usuário."
+        },
+        "manageDialog": {
+            "title": "Gerenciar Usuário",
+            "description": "Gerenciar detalhes e permissões para {name}.",
+            "additionalInfo": "Informações Adicionais",
+            "location": "Localização",
+            "housing": "Moradia",
+            "phone": "Telefone"
+        },
+        "toast": {
+            "userDeleted": "Usuário excluído com sucesso.",
+            "userUpdated": "Usuário atualizado com sucesso.",
+            "passwordReset": "Um link para redefinir a senha foi enviado para {name}."
+        }
+      },
+      "devices": {
+        "title": "Gerenciar Dispositivos",
+        "description": "Adicione ou remova dispositivos de rastreamento para este condomínio.",
+        "addDeviceButton": "Adicionar Dispositivo",
+        "table": {
+          "name": "Nome",
+          "type": "Tipo",
+          "status": "Status",
+          "actions": "Ações"
+        },
+        "manageDialog": {
+            "title": "Gerenciar Dispositivo: {name}",
+            "description": "Configure os parâmetros de comunicação para o dispositivo.",
+            "serverConfigTitle": "Configuração do Servidor",
+            "websocketUrl": "URL do Servidor WebSocket",
+            "deviceTokenTitle": "Configuração do Dispositivo",
+            "deviceToken": "Token de Autenticação do Dispositivo (ID Hasheado)"
+        },
+        "toast": {
+            "deviceDeleted": "Dispositivo excluído com sucesso.",
+            "tokenCopied": "Token copiado para a área de transferência."
+        }
+      }
+    },
+    "addressVerification": {
+        "checkButton": "Verificar",
+        "title": "Resultados da Verificação de Endereço",
+        "description": "Encontramos os seguintes endereços. Selecione o correto para preencher automaticamente.",
+        "loading": "Procurando endereços...",
+        "notFound": "Endereço não encontrado.",
+        "selectButton": "Selecionar",
+        "error": {
+            "missingInfo": "Por favor, selecione continente, país, estado e cidade antes de verificar a rua."
+        }
+    },
+     "userTypes": {
+        "residente": "Residente",
+        "portería": "Portaria"
+    },
+     "common": {
+        "close": "Fechar",
+        "cancel": "Cancelar",
+        "save": "Salvar",
+        "saveChanges": "Salvar Alterações",
+        "you": "você",
+        "edit": "Editar",
+        "delete": "Excluir",
+        "create": "Criar",
+        "default": "padrão",
+        "areYouSure": "Você tem certeza?"
+    },
+    "emails": {
+        "adminFirstLogin": {
+            "subject": "Ative sua conta de Administrador da Follow For Me",
+            "title": "Ative sua Conta de Administrador",
+            "hello": "Olá",
+            "intro": "Uma conta de administrador foi criada para você. Para ativar sua conta, navegue até a seguinte URL.",
+            "pinInfo": "Por favor, use o PIN que lhe foi fornecido pessoalmente para ativar sua conta.",
+            "thanks": "Obrigado,",
+            "teamName": "A Equipe Follow For Me"
+        },
+        "verifyNewEmail": {
+            "subject": "Seu PIN de Verificação da Follow For Me",
+            "title": "Verifique seu novo e-mail",
+            "hello": "Olá",
+            "intro": "Você solicitou a alteração do seu e-mail na Follow For Me para este endereço.",
+            "pinPrompt": "Para confirmar la alteração, use o seguinte PIN de verificação:",
+            "expiration": "Este PIN expirará em 10 minutos.",
+            "thanks": "A Equipe Follow For Me"
+        }
+    },
+    "firstLogin": {
+        "title": "Primeiro Login",
+        "description": "Bem-vindo. Ative sua conta definindo sua senha.",
+        "emailLabel": "Email",
+        "pinLabel": "PIN de Ativação",
+        "newPasswordLabel": "Nova Senha",
+        "confirmPasswordLabel": "Confirmar Nova Senha",
+        "activateButton": "Ativar Conta",
+        "activating": "Ativando...",
+        "backToLogin": "Voltar para o login"
+    },
+    "dbInitializer": {
+        "title": "Inicialização do Banco de Dados",
+        "description": "Esta é uma ação sensível que irá reiniciar as migrações. Isso pode ser útil se houve um erro, mas também pode causar problemas se não for usado com cuidado.",
+        "loading": "Inicializando...",
+        "successTitle": "Sucesso!",
+        "successDescription": "O processo de inicialização do banco de dados foi concluído.",
+        "button": "Inicializar Banco de Dados",
+        "goBack": "Voltar para o Login de Administrador",
+        "confirmationDescription": "Isso tentará executar novamente todas as migrações do banco de dados. Esta ação geralmente é segura, mas só deve ser feita se houver suspeita de um problema com o esquema do banco de dados. Tem certeza de que deseja continuar?",
+        "confirmButton": "Sim, inicializar",
+        "logTitle": "Registro de Inicialização"
+    }
+  }

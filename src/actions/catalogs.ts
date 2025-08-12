@@ -6,7 +6,7 @@ import { getDbPool } from '@/lib/db';
 
 export type TranslationObject = {
     es: string;
-    pt: string;
+    'pt-BR': string;
 };
 
 export type DeviceType = {
@@ -29,7 +29,7 @@ type ActionState<T = null> = {
 
 const TranslationsSchema = z.object({
     es: z.string().min(1, "La traducción al español es obligatoria."),
-    pt: z.string().min(1, "A tradução para o português é obrigatória."),
+    'pt-BR': z.string().min(1, "A tradução para o português é obrigatória."),
 });
 
 const DeviceTypeSchema = z.object({
@@ -79,8 +79,8 @@ export async function createDeviceType(prevState: any, formData: FormData): Prom
     
     const { name_es, name_pt, features_es, features_pt } = validatedFields.data;
     
-    const name_translations = { es: name_es, pt: name_pt };
-    const features_translations = (features_es || features_pt) ? { es: features_es || '', pt: features_pt || '' } : null;
+    const name_translations = { es: name_es, 'pt-BR': name_pt };
+    const features_translations = (features_es || features_pt) ? { es: features_es || '', 'pt-BR': features_pt || '' } : null;
 
     let client;
     try {
@@ -125,8 +125,8 @@ export async function updateDeviceType(prevState: any, formData: FormData): Prom
 
     const { name_es, name_pt, features_es, features_pt } = validatedFields.data;
 
-    const name_translations = { es: name_es, pt: name_pt };
-    const features_translations = (features_es || features_pt) ? { es: features_es || '', pt: features_pt || '' } : null;
+    const name_translations = { es: name_es, 'pt-BR': name_pt };
+    const features_translations = (features_es || features_pt) ? { es: features_es || '', 'pt-BR': features_pt || '' } : null;
 
     let client;
     try {

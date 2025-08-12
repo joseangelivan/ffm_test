@@ -28,13 +28,13 @@ export function ManageLanguageDialog() {
             </CardHeader>
             <CardContent className="p-1 pt-4">
                 <div className="flex items-center gap-2">
-                    <Select value={locale} onValueChange={(value) => handleSetLocale(value as 'es' | 'pt')}>
+                    <Select value={locale} onValueChange={(value) => handleSetLocale(value as 'es' | 'pt-BR')}>
                         <SelectTrigger>
                             <SelectValue placeholder="Seleccionar idioma" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="es">Español</SelectItem>
-                            <SelectItem value="pt">Português</SelectItem>
+                            <SelectItem value="pt-BR">Português (Brasil)</SelectItem>
                         </SelectContent>
                     </Select>
                      <Dialog>

@@ -67,7 +67,7 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
 
 const AdminDashboardContext = React.createContext<{ 
     session: SessionPayload,
-    handleSetLocale: (locale: 'es' | 'pt') => void,
+    handleSetLocale: (locale: 'es' | 'pt-BR') => void,
     handleSetTheme: (theme: string) => void,
     theme: string,
 } | null>(null);
@@ -160,7 +160,7 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
     checkSession();
   }, [initialSettings, setLocale, applyTheme, router, session]);
 
-  const handleSetLocale = async (newLocale: 'es' | 'pt') => {
+  const handleSetLocale = async (newLocale: 'es' | 'pt-BR') => {
       setLocale(newLocale);
       await updateSettings({ language: newLocale }, session);
   }

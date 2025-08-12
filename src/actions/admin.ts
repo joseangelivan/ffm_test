@@ -13,7 +13,7 @@ import { getThemeById, getThemes } from '@/actions/themes';
 import { getAppSetting } from '@/actions/settings';
 
 import es from '@/locales/es.json';
-import pt from '@/locales/pt.json';
+import pt from '@/locales/pt-BR.json';
 
 // --- Internal Session Helper ---
 async function getSession(): Promise<SessionPayload | null> {
@@ -35,7 +35,7 @@ export type Admin = {
 
 export type UserSettings = {
     theme: string;
-    language: 'es' | 'pt';
+    language: 'es' | 'pt-BR';
 }
 
 type ActionState = {
@@ -90,7 +90,7 @@ export async function getSettings(session: SessionPayload | null): Promise<UserS
             return result.rows[0] as UserSettings;
         }
 
-        const defaultSettings: UserSettings = { theme: 'light', language: 'pt' };
+        const defaultSettings: UserSettings = { theme: 'light', language: 'pt-BR' };
         await client.query(`INSERT INTO ${tableName} (${userIdColumn}, theme, language) VALUES ($1, $2, $3) ON CONFLICT (${userIdColumn}) DO UPDATE SET theme = EXCLUDED.theme, language = EXCLUDED.language`, [session.id, defaultSettings.theme, defaultSettings.language]);
         return defaultSettings;
 
@@ -324,7 +324,7 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
         const email = formData.get('email') as string;
         const canCreateAdmins = formData.get('can_create_admins') === 'on';
         const pin = formData.get('pin') as string;
-        const locale = formData.get('locale') as 'es' | 'pt' || 'pt';
+        const locale = formData.get('locale') as 'es' | 'pt-BR' || 'pt-BR';
 
         if (!name || !email) {
             return { success: false, message: 'Nombre y email son obligatorios.' };
@@ -506,7 +506,7 @@ export async function requestEmailChange(newEmail: string): Promise<ActionState>
         );
         
         const settingsResult = await client.query('SELECT language FROM admin_settings WHERE admin_id = $1', [session.id]);
-        const locale = settingsResult.rows[0]?.language === 'es' ? 'es' : 'pt';
+        const locale = settingsResult.rows[0]?.language === 'es' ? 'es' : 'pt-BR';
         
         return await sendEmailChangePin(session.name, newEmail, pin, locale);
 
@@ -560,7 +560,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         return { success: false, message: "No autorizado." };
     }
 
-    const locale = formData.get('locale') as 'es' | 'pt' || 'pt';
+    const locale = formData.get('locale') as 'es' | 'pt-BR' || 'pt-BR';
     const t = locale === 'es' ? es : pt;
 
     let client;

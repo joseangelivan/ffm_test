@@ -200,7 +200,7 @@ export function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string 
 
     const handleSendEmail = (admin: Admin) => {
         startSubmitting(async () => {
-            const result = await sendAdminFirstLoginEmail(admin);
+            const result = await sendAdminFirstLoginEmail({ ...admin, language: 'pt-BR'});
              if (result.success) {
                toast({ title: t('toast.successTitle'), description: result.message });
            } else {

@@ -4,7 +4,7 @@
 import { getSmtpConfigsForMailer } from '@/actions/smtp';
 import { getAppSetting } from '@/actions/settings';
 import es from '@/locales/es.json';
-import pt from '@/locales/pt.json';
+import pt from '@/locales/pt-BR.json';
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<{success: boolean, message: string}> {
     const nodemailer = (await import('nodemailer')).default;
@@ -47,7 +47,7 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
 }
 
 
-export async function sendAdminFirstLoginEmail({ name, email, language = 'pt' }: { name: string, email: string, language?: 'es' | 'pt'}) {
+export async function sendAdminFirstLoginEmail({ name, email, language = 'pt-BR' }: { name: string, email: string, language?: 'es' | 'pt-BR'}) {
     try {
         const appDomain = await getAppSetting('app_domain');
         const appUrl = appDomain || 'http://localhost:9003';
@@ -75,7 +75,7 @@ export async function sendAdminFirstLoginEmail({ name, email, language = 'pt' }:
     }
 }
 
-export async function sendEmailChangePin(name: string, newEmail: string, pin: string, language: 'es' | 'pt' = 'pt') {
+export async function sendEmailChangePin(name: string, newEmail: string, pin: string, language: 'es' | 'pt-BR' = 'pt-BR') {
     const t = language === 'es' ? es : pt;
     
     const emailHtml = `

@@ -281,7 +281,7 @@ export default function DashboardClient({
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
   }
 
-  const handleSetLocale = async (newLocale: 'es' | 'pt') => {
+  const handleSetLocale = async (newLocale: 'es' | 'pt-BR') => {
       // This would require a server action to persist locale for a user
       setLocale(newLocale);
   }
@@ -420,8 +420,8 @@ export default function DashboardClient({
                                         <DropdownMenuItem onClick={() => handleSetLocale('es')}>
                                         Español {locale === 'es' && <span className="ml-auto">✓</span>}
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleSetLocale('pt')}>
-                                        Português {locale === 'pt' && <span className="ml-auto">✓</span>}
+                                        <DropdownMenuItem onClick={() => handleSetLocale('pt-BR')}>
+                                        Português {locale === 'pt-BR' && <span className="ml-auto">✓</span>}
                                         </DropdownMenuItem>
                                     </DropdownMenuSubContent>
                                 </DropdownMenuPortal>
