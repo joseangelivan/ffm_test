@@ -117,11 +117,11 @@ export function LanguageManager({ initialLanguages, onRefresh }: LanguageManager
     const [editingItem, setEditingItem] = useState<Language | null>(null);
     const [isDeleting, startDeleteTransition] = useTransition();
 
-    const columns = useMemo(() => ([
+    const columns = [
         { key: 'id', header: t('adminDashboard.settingsGroups.languages.table.key') },
         { key: 'name_es', header: t('adminDashboard.settingsGroups.languages.table.name_es') },
         { key: 'name_pt', header: t('adminDashboard.settingsGroups.languages.table.name_pt') },
-    ]), [t]);
+    ];
 
     const handleEdit = (item: Language) => {
         setEditingItem(item);
