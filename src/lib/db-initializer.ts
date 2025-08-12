@@ -86,6 +86,29 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
             }
         }
         
+        // --- SEEDING PHASE ---
+        log.push('SEED: Starting data seeding phase...');
+        
+        // Seed Default Languages
+        currentMigrationFile = 'Seed Languages';
+        log.push('SEED: Checking for default languages...');
+        const langCountResult = await client.query('SELECT COUNT(*) FROM languages');
+        if (parseInt(langCountResult.rows[0].count, 10) === 0) {
+            log.push('SEED: Languages table is empty. Seeding initial languages...');
+            const langEntries = Object.entries(initialLanguages);
+            for (const [code, names] of langEntries) {
+                await client.query(
+                    'INSERT INTO languages (id, name_translations) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
+                    [code, { es: names.es, 'pt-BR': names['pt-BR'] }]
+                );
+            }
+            log.push(`SUCCESS: Seeded ${langEntries.length} languages.`);
+        } else {
+            log.push('SKIP: Languages table already contains data.');
+        }
+
+        // Seed Default Admin User
+        currentMigrationFile = 'Seed Admin';
         log.push('SEED: Checking for default admin user...');
         const adminEmail = 'angelivan34@gmail.com';
         const correctPassword = 'adminivan123';
@@ -112,6 +135,8 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
             }
         }
 
+        // Seed Test Condominium
+        currentMigrationFile = 'Seed Condominium';
         log.push('SEED: Checking for test condominium...');
         const condoName = 'Condomínio de Teste';
         const condoExists = await client.query('SELECT 1 FROM condominiums WHERE name = $1', [condoName]);
@@ -126,29 +151,13 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
             log.push('SKIP: Test condominium already exists.');
         }
 
-        log.push('SEED: Checking for default languages...');
-        const langCountResult = await client.query('SELECT COUNT(*) FROM languages');
-        if (parseInt(langCountResult.rows[0].count, 10) === 0) {
-            log.push('SEED: Languages table is empty. Seeding initial languages...');
-            const langEntries = Object.entries(initialLanguages);
-            for (const [code, names] of langEntries) {
-                await client.query(
-                    'INSERT INTO languages (id, name_translations) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
-                    [code, { es: names.es, 'pt-BR': names['pt-BR'] }]
-                );
-            }
-            log.push(`SUCCESS: Seeded ${langEntries.length} languages.`);
-        } else {
-            log.push('SKIP: Languages table already contains data.');
-        }
-
 
         await client.query('COMMIT');
         migrationsRan = true;
         log.push('END: Migration process completed successfully.');
         return { success: true, message: 'O processo de inicialização do banco de dados foi concluído.', log };
     } catch(error: any) {
-         log.push(`FATAL: Error during migration of file "${currentMigrationFile}". Attempting ROLLBACK.`);
+         log.push(`FATAL: Error during migration or seed of "${currentMigrationFile}". Attempting ROLLBACK.`);
          await client.query('ROLLBACK');
          throw new Error(`Migration failed on file: ${currentMigrationFile}. DB-Error: ${error.message}`);
     }
