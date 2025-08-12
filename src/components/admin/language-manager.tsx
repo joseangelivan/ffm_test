@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useTransition } from 'react';
+import React, { useTransition, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -45,11 +44,11 @@ export function LanguageManager({
     const { toast } = useToast();
     const [isDeleting, startDeleteTransition] = useTransition();
 
-    const columns = [
+    const columns = useMemo(() => [
         { key: 'id', header: t('adminDashboard.settingsGroups.languages.table.key') },
         { key: 'name_es', header: t('adminDashboard.settingsGroups.languages.table.name_es') },
         { key: 'name_pt', header: t('adminDashboard.settingsGroups.languages.table.name_pt') },
-    ];
+    ], [t]);
 
     const handleDelete = (id: string) => {
         startDeleteTransition(async () => {
