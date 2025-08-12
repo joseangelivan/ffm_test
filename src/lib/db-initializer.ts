@@ -17,27 +17,13 @@ export type DbInitResult = {
 };
 
 
-async function runMigrations(client: PoolClient): Promise<DbInitResult> {
+async function applySchemas(client: PoolClient, log: string[]): Promise<void> {
     const fs = (await import('fs/promises')).default;
     const path = (await import('path')).default;
-    const bcrypt = (await import('bcryptjs')).default;
-    
-    const log: string[] = [];
-    
-    if (migrationsRan) {
-        log.push('INFO: Migrations already ran in this instance. Skipping.');
-        return { success: true, message: 'Migrations already ran.', log };
-    }
-    
-    log.push('START: Starting migration process...');
-    let currentPhase = 'N/A';
+
+    log.push('PHASE: Schema Creation');
+    await client.query('BEGIN');
     try {
-        await client.query('BEGIN');
-        
-        // --- PHASE 1: SCHEMA CREATION ---
-        currentPhase = 'Schema Creation';
-        log.push(`PHASE: ${currentPhase}`);
-        
         log.push('SETUP: Ensuring migrations_log table exists...');
         await client.query(`
             CREATE TABLE IF NOT EXISTS migrations_log (
@@ -52,7 +38,7 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
             'admins/base_schema.sql',
             'themes/base_schema.sql',
             'settings/base_schema.sql',
-            'catalogs/base_schema.sql', // Creates languages table, must be early.
+            'catalogs/base_schema.sql',
             'condominiums/base_schema.sql',
             'residents/base_schema.sql',
             'gatekeepers/base_schema.sql',
@@ -63,9 +49,7 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
         ];
         
         for (const schemaFile of schemasToApply) {
-            currentPhase = `Schema: ${schemaFile}`;
             log.push(`CHECK: Checking migration: ${schemaFile}`);
-            
             const hasRunResult = await client.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [schemaFile]);
             if (hasRunResult.rows.length > 0) {
                 log.push(`SKIP: Migration already applied: ${schemaFile}`);
@@ -89,22 +73,32 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
                 throw migrationError;
             }
         }
-        
-        // --- PHASE 2: DATA SEEDING ---
-        currentPhase = 'Data Seeding';
-        log.push(`PHASE: ${currentPhase}`);
-        
-        // Seed Default Languages
-        currentPhase = 'Seed Languages';
+        await client.query('COMMIT');
+        log.push('SUCCESS: Schema creation phase completed.');
+    } catch (error) {
+        log.push(`FATAL: Error during Schema Creation phase. Rolling back.`);
+        await client.query('ROLLBACK');
+        throw error;
+    }
+}
+
+async function seedData(client: PoolClient, log: string[]): Promise<void> {
+    const bcrypt = (await import('bcryptjs')).default;
+    
+    log.push('PHASE: Data Seeding');
+    await client.query('BEGIN');
+    try {
+        // --- Seed Default Languages ---
         log.push('SEED: Checking for default languages...');
         const langCountResult = await client.query('SELECT COUNT(*) FROM languages');
         if (parseInt(langCountResult.rows[0].count, 10) === 0) {
             log.push('SEED: Languages table is empty. Seeding initial languages...');
             const langEntries = Object.entries(initialLanguages);
             for (const [code, names] of langEntries) {
+                const translations = { es: names.es, 'pt-BR': names['pt-BR'] };
                 await client.query(
                     'INSERT INTO languages (id, name_translations) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
-                    [code, { es: names.es, 'pt-BR': names['pt-BR'] }]
+                    [code, translations]
                 );
             }
             log.push(`SUCCESS: Seeded ${langEntries.length} languages.`);
@@ -112,24 +106,22 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
             log.push('SKIP: Languages table already contains data.');
         }
 
-        // Seed Default Admin User
-        currentPhase = 'Seed Admin';
+        // --- Seed Default Admin User ---
         log.push('SEED: Checking for default admin user...');
         const adminEmail = 'angelivan34@gmail.com';
         const correctPassword = 'adminivan123';
         const dynamicallyGeneratedHash = await bcrypt.hash(correctPassword, 10);
 
         const adminResult = await client.query('SELECT id, password_hash FROM admins WHERE email = $1', [adminEmail]);
-
         if (adminResult.rows.length === 0) {
-            log.push('SEED: Default admin not found. Seeding with dynamically generated hash...');
+            log.push('SEED: Default admin not found. Seeding...');
             await client.query(
                 "INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, TRUE) ON CONFLICT (email) DO NOTHING",
                 ['José Angel Iván Rubianes Silva', adminEmail, dynamicallyGeneratedHash]
             );
             log.push('SUCCESS: Default admin user seeded.');
         } else {
-            const admin = adminResult.rows[0];
+             const admin = adminResult.rows[0];
             const passwordMatch = await bcrypt.compare(correctPassword, admin.password_hash);
             if (!passwordMatch) {
                 log.push('SEED: Default admin found, but password does not match. Updating hash...');
@@ -139,9 +131,8 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
                 log.push('SKIP: Default admin user found and password is correct.');
             }
         }
-
-        // Seed Test Condominium
-        currentPhase = 'Seed Condominium';
+        
+        // --- Seed Test Condominium ---
         log.push('SEED: Checking for test condominium...');
         const condoName = 'Condomínio de Teste';
         const condoExists = await client.query('SELECT 1 FROM condominiums WHERE name = $1', [condoName]);
@@ -156,15 +147,36 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
             log.push('SKIP: Test condominium already exists.');
         }
 
-
         await client.query('COMMIT');
+        log.push('SUCCESS: Data seeding phase completed.');
+    } catch (error) {
+        log.push(`FATAL: Error during Data Seeding phase. Rolling back.`);
+        await client.query('ROLLBACK');
+        throw error;
+    }
+}
+
+
+async function runMigrations(client: PoolClient): Promise<DbInitResult> {
+    const log: string[] = [];
+    
+    if (migrationsRan) {
+        log.push('INFO: Migrations already ran in this instance. Skipping.');
+        return { success: true, message: 'Migrations already ran.', log };
+    }
+    
+    log.push('START: Starting migration process...');
+    
+    try {
+        await applySchemas(client, log);
+        await seedData(client, log);
+
         migrationsRan = true;
         log.push('END: Migration process completed successfully.');
         return { success: true, message: 'O processo de inicialização do banco de dados foi concluído.', log };
-    } catch(error: any) {
-         log.push(`FATAL: Error during phase "${currentPhase}". Attempting ROLLBACK.`);
-         await client.query('ROLLBACK');
-         throw new Error(`Migration failed on phase: ${currentPhase}. DB-Error: ${error.message}`);
+    } catch (error: any) {
+         log.push(`CRITICAL: Migration process failed. Error: ${error.message}`);
+         throw error;
     }
 }
 
