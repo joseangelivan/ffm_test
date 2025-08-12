@@ -17,7 +17,7 @@ import pt from '@/locales/pt.json';
 
 // --- Internal Session Helper ---
 async function getSession(): Promise<SessionPayload | null> {
-    const sessionToken = cookies().get('session')?.value;
+    const sessionToken = (await cookies()).get('session')?.value;
     if (!sessionToken) return null;
     return await verifySession(sessionToken);
 }
@@ -131,7 +131,7 @@ export async function updateSettings(settings: Partial<UserSettings>, session: S
         }
 
         values.push(session.id);
-        const query = `UPDATE ${tableName} SET ${setClauses.join(', ')}, updated_at = NOW() WHERE ${userIdColumn} = $${valueIndex}`;
+        const query = `UPDATE ${tableName} SET ${setClauses.join(', ')}, updated_at = NOW() WHERE ${userIdColumn} = $${values.length}`;
         
         await client.query(query, values);
         
@@ -623,7 +623,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         
         updateClauses.push(`updated_at = NOW()`);
         values.push(session.id);
-        const query = `UPDATE admins SET ${updateClauses.join(', ')} WHERE id = $${valueIndex}`;
+        const query = `UPDATE admins SET ${updateClauses.join(', ')} WHERE id = $${values.length}`;
         
         await client.query(query, values);
         
