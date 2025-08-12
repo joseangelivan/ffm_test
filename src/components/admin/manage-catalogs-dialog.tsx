@@ -136,7 +136,7 @@ function LanguagesTab() {
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         const data = await getLanguages();
-        setLanguages(data);
+        setLanguages(data || []);
         setIsLoading(false);
     }, []);
 
@@ -165,7 +165,7 @@ function LanguagesTab() {
     return (
         <>
             <LanguageManager
-                initialLanguages={languages}
+                languages={languages}
                 onRefresh={fetchData}
                 onEdit={handleEditLanguage}
                 onCreate={handleCreateLanguage}

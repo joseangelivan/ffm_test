@@ -75,13 +75,13 @@ export function LanguageManager({
             </CardHeader>
             <CardContent>
                 <div className="border rounded-lg max-h-96 overflow-y-auto">
-                    <Table className="table-auto">
+                    <Table className="table-fixed w-full">
                         <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm z-10">
                             <TableRow>
-                                <TableHead className="truncate">{columns[0].header}</TableHead>
-                                <TableHead>{columns[1].header}</TableHead>
-                                <TableHead>{columns[2].header}</TableHead>
-                                <TableHead className="w-auto text-right whitespace-nowrap">{columns[3].header}</TableHead>
+                                <TableHead className="w-1/4 truncate">{columns[0].header}</TableHead>
+                                <TableHead className="w-1/4">{columns[1].header}</TableHead>
+                                <TableHead className="w-1/4">{columns[2].header}</TableHead>
+                                <TableHead className="w-auto min-w-[120px] text-right whitespace-nowrap">{columns[3].header}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -96,7 +96,7 @@ export function LanguageManager({
                                     const isDefault = item.id === 'es' || item.id === 'pt-BR';
                                     return (
                                         <TableRow key={item.id}>
-                                            <TableCell className="font-mono text-xs truncate">{item.id}</TableCell>
+                                            <TableCell className="font-mono text-xs truncate" title={item.id}>{item.id}</TableCell>
                                             <TableCell className="truncate" title={item.name_translations.es}>{item.name_translations.es}</TableCell>
                                             <TableCell className="truncate" title={item.name_translations['pt-BR']}>{item.name_translations['pt-BR']}</TableCell>
                                             <TableCell className="text-right whitespace-nowrap">
