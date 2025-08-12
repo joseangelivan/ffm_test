@@ -17,7 +17,7 @@ import { useLocale } from '@/lib/i18n';
 import { Book, HardDrive, Languages, Map } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { LanguageManager } from './language-manager';
-import { DeviceTypesManager } from './catalog-manager';
+import { DeviceTypesManager } from './device-types-manager';
 
 
 export function ManageCatalogsDialog() {
