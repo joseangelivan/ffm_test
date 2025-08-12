@@ -22,23 +22,22 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Edit, Trash2, PlusCircle } from 'lucide-react';
+import { Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { deleteLanguage, type Language } from '@/actions/catalogs';
 import { useLocale } from '@/lib/i18n';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card';
+import { cn } from '@/lib/utils';
 
 type LanguageManagerProps = {
-    initialLanguages: Language[];
+    languages: Language[];
     onRefresh: () => void;
-    onCreate: () => void;
     onEdit: (language: Language) => void;
 };
 
 export function LanguageManager({ 
-    initialLanguages, 
+    languages,
     onRefresh,
-    onCreate,
     onEdit,
 }: LanguageManagerProps) {
     const { t } = useLocale();
@@ -71,34 +70,33 @@ export function LanguageManager({
                     <CardTitle>{t('adminDashboard.settingsGroups.languages.title')}</CardTitle>
                     <CardDescription>{t('adminDashboard.settingsGroups.languages.description')}</CardDescription>
                 </div>
-                <Button size="sm" onClick={onCreate}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    {t('common.create')}
-                </Button>
             </CardHeader>
             <CardContent>
                 <div className="border rounded-lg max-h-96 overflow-y-auto">
                     <Table>
                         <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm z-10">
                             <TableRow>
-                                {columns.map(col => <TableHead key={col.key}>{col.header}</TableHead>)}
+                                <TableHead className="w-[150px]">{columns[0].header}</TableHead>
+                                <TableHead>{columns[1].header}</TableHead>
+                                <TableHead>{columns[2].header}</TableHead>
+                                <TableHead className="w-[120px] text-right">{columns[3].header}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {initialLanguages.length === 0 ? (
+                            {languages.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={columns.length} className="h-24 text-center">
                                         No languages found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                initialLanguages.map(item => {
+                                languages.map(item => {
                                     const isDefault = item.id === 'es' || item.id === 'pt-BR';
                                     return (
                                         <TableRow key={item.id}>
-                                            <TableCell className="font-mono text-xs">{item.id}</TableCell>
-                                            <TableCell>{item.name_translations.es}</TableCell>
-                                            <TableCell>{item.name_translations['pt-BR']}</TableCell>
+                                            <TableCell className="font-mono text-xs truncate">{item.id}</TableCell>
+                                            <TableCell className="truncate" title={item.name_translations.es}>{item.name_translations.es}</TableCell>
+                                            <TableCell className="truncate" title={item.name_translations['pt-BR']}>{item.name_translations['pt-BR']}</TableCell>
                                             <TableCell className="text-right">
                                                 <Button variant="ghost" size="icon" onClick={() => onEdit(item)}>
                                                     <Edit className="h-4 w-4" />
