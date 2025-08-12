@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useActionState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,23 +11,98 @@ import {
   DialogTrigger,
   DialogFooter
 } from '@/components/ui/dialog';
+import { useFormStatus } from 'react-dom';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useLocale } from '@/lib/i18n';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Book, Smartphone, Wifi, Map as MapIcon, Loader, Languages as LanguagesIcon } from 'lucide-react';
+import { Book, Smartphone, Wifi, Map as MapIcon, Loader, Languages as LanguagesIcon, Edit, Trash2, PlusCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { getDeviceTypes, getLanguages, type DeviceType, type Language } from '@/actions/catalogs';
+import { getDeviceTypes, getLanguages, type DeviceType, type Language, createLanguage, updateLanguage, deleteLanguage } from '@/actions/catalogs';
 import { CatalogManager } from './catalog-manager';
 import { LanguageManager } from './language-manager';
+import { useToast } from '@/hooks/use-toast';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+
+function LanguageForm({
+    item,
+    onSuccess,
+    onCancel,
+}: {
+    item: Language | null;
+    onSuccess: () => void;
+    onCancel: () => void;
+}) {
+    const { t } = useLocale();
+    const { toast } = useToast();
+    const isEditMode = !!item;
+    const formAction = isEditMode ? updateLanguage : createLanguage;
+
+    const handleAction = async (prevState: any, formData: FormData) => {
+        const result = await formAction(prevState, formData);
+        if (result?.success) {
+            toast({ title: t('toast.successTitle'), description: result.message });
+            onSuccess();
+        } else {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+        }
+        return result;
+    }
+    
+    const [state, dispatch] = useActionState(handleAction, undefined);
+    const { pending } = useFormStatus();
+
+    return (
+        <DialogContent>
+            <form action={dispatch}>
+                 {pending && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+                        <Loader className="h-8 w-8 animate-spin" />
+                        <span className="ml-2">{isEditMode ? 'Actualizando...' : 'Creando...'}</span>
+                    </div>
+                )}
+                <DialogHeader>
+                    <DialogTitle>
+                        {isEditMode ? t('adminDashboard.settingsGroups.languages.editTitle') : t('adminDashboard.settingsGroups.languages.createTitle')}
+                    </DialogTitle>
+                </DialogHeader>
+                
+                <div className="py-4 space-y-4">
+                    <input type="hidden" name="id" value={item?.id || ''} />
+                    <div className="space-y-2">
+                        <Label htmlFor="id">{t('adminDashboard.settingsGroups.languages.table.key')}</Label>
+                        <Input id="id" name="id" defaultValue={item?.id} required disabled={isEditMode} placeholder="ej. en-US" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="name_es">{t('adminDashboard.settingsGroups.languages.table.name_es')}</Label>
+                        <Input id="name_es" name="name_es" defaultValue={item?.name_translations.es} required placeholder="Inglés (EE.UU.)" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="name_pt">{t('adminDashboard.settingsGroups.languages.table.name_pt')}</Label>
+                        <Input id="name_pt" name="name_pt" defaultValue={item?.name_translations['pt-BR']} required placeholder="Inglês (EUA)" />
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                    <Button type="button" variant="outline" onClick={onCancel}>{t('common.cancel')}</Button>
+                    <Button type="submit">{t('common.save')}</Button>
+                </div>
+            </form>
+        </DialogContent>
+    )
+}
 
 
 export function ManageCatalogsDialog() {
     const { t } = useLocale();
+    const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
     const [languages, setLanguages] = useState<Language[]>([]);
     const [activeTab, setActiveTab] = useState('devices');
+    const [isLangFormOpen, setIsLangFormOpen] = useState(false);
+    const [editingLang, setEditingLang] = useState<Language | null>(null);
 
     const fetchDataForTab = useCallback(async (tab: string) => {
         setIsLoading(true);
@@ -47,87 +122,114 @@ export function ManageCatalogsDialog() {
     }, []);
 
     useEffect(() => {
-        if(activeTab) {
+        if(isOpen) {
             fetchDataForTab(activeTab);
         }
-    }, [activeTab, fetchDataForTab]);
+    }, [activeTab, fetchDataForTab, isOpen]);
+
+    const handleCreateLanguage = () => {
+        setEditingLang(null);
+        setIsLangFormOpen(true);
+    };
+
+    const handleEditLanguage = (lang: Language) => {
+        setEditingLang(lang);
+        setIsLangFormOpen(true);
+    };
+
+    const onLangFormSuccess = () => {
+        setIsLangFormOpen(false);
+        setEditingLang(null);
+        fetchDataForTab('languages');
+    }
 
     return (
-        <Dialog onOpenChange={(open) => { if(open) fetchDataForTab(activeTab) }}>
-            <DialogTrigger asChild>
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Book className="mr-2 h-4 w-4" />
-                    <span>{t('adminDashboard.settingsGroups.catalogs.title')}</span>
-                </DropdownMenuItem>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-4xl">
-                <DialogHeader>
-                    <DialogTitle>{t('adminDashboard.settingsGroups.catalogs.title')}</DialogTitle>
-                    <DialogDescription>{t('adminDashboard.settingsGroups.catalogs.description')}</DialogDescription>
-                </DialogHeader>
-                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-4">
-                        <TabsTrigger value="devices"><Smartphone className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}</TabsTrigger>
-                        <TabsTrigger value="languages"><LanguagesIcon className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.languages.tab')}</TabsTrigger>
-                        <TabsTrigger value="protocols"><Wifi className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.protocols.tab')}</TabsTrigger>
-                        <TabsTrigger value="maps" disabled><MapIcon className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.maps.tab')}</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="devices" className="mt-4">
-                        {isLoading ? (
-                            <div className="flex justify-center items-center h-48"><Loader className="h-8 w-8 animate-spin"/></div>
-                        ) : (
-                            <CatalogManager
-                                title={t('adminDashboard.settingsGroups.catalogs.deviceTypes.title')}
-                                data={deviceTypes}
-                                onRefresh={() => fetchDataForTab('devices')}
-                            />
-                        )}
-                    </TabsContent>
-                    <TabsContent value="languages" className="mt-4">
-                        {isLoading ? (
-                             <div className="flex justify-center items-center h-48"><Loader className="h-8 w-8 animate-spin"/></div>
-                        ) : (
-                            <LanguageManager
-                                initialLanguages={languages}
-                                onRefresh={() => fetchDataForTab('languages')}
-                            />
-                        )}
-                    </TabsContent>
-                     <TabsContent value="protocols" className="mt-4">
+        <>
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                <DialogTrigger asChild>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        <Book className="mr-2 h-4 w-4" />
+                        <span>{t('adminDashboard.settingsGroups.catalogs.title')}</span>
+                    </DropdownMenuItem>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-4xl">
+                    <DialogHeader>
+                        <DialogTitle>{t('adminDashboard.settingsGroups.catalogs.title')}</DialogTitle>
+                        <DialogDescription>{t('adminDashboard.settingsGroups.catalogs.description')}</DialogDescription>
+                    </DialogHeader>
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                        <TabsList className="grid w-full grid-cols-4">
+                            <TabsTrigger value="devices"><Smartphone className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}</TabsTrigger>
+                            <TabsTrigger value="languages"><LanguagesIcon className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.languages.tab')}</TabsTrigger>
+                            <TabsTrigger value="protocols"><Wifi className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.protocols.tab')}</TabsTrigger>
+                            <TabsTrigger value="maps" disabled><MapIcon className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.maps.tab')}</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="devices" className="mt-4">
+                            {isLoading ? (
+                                <div className="flex justify-center items-center h-48"><Loader className="h-8 w-8 animate-spin"/></div>
+                            ) : (
+                                <CatalogManager
+                                    title={t('adminDashboard.settingsGroups.catalogs.deviceTypes.title')}
+                                    data={deviceTypes}
+                                    onRefresh={() => fetchDataForTab('devices')}
+                                />
+                            )}
+                        </TabsContent>
+                        <TabsContent value="languages" className="mt-4">
+                            {isLoading ? (
+                                <div className="flex justify-center items-center h-48"><Loader className="h-8 w-8 animate-spin"/></div>
+                            ) : (
+                                <LanguageManager
+                                    initialLanguages={languages}
+                                    onRefresh={() => fetchDataForTab('languages')}
+                                    onEdit={handleEditLanguage}
+                                    onCreate={handleCreateLanguage}
+                                />
+                            )}
+                        </TabsContent>
+                        <TabsContent value="protocols" className="mt-4">
+                            <Card className="border-dashed">
+                                <CardHeader>
+                                    <CardTitle>{t('adminDashboard.settingsGroups.catalogs.protocols.title')}</CardTitle>
+                                    <CardDescription>{t('adminDashboard.settingsGroups.catalogs.wipDescription')}</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="h-48 w-full rounded-md border-dashed flex items-center justify-center bg-muted/30">
+                                        <span className="text-muted-foreground text-sm">{t('adminDashboard.settingsGroups.manageThemes.editorPlaceholder')}</span>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                        <TabsContent value="maps" className="mt-4">
                         <Card className="border-dashed">
-                            <CardHeader>
-                                <CardTitle>{t('adminDashboard.settingsGroups.catalogs.protocols.title')}</CardTitle>
-                                <CardDescription>{t('adminDashboard.settingsGroups.catalogs.wipDescription')}</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="h-48 w-full rounded-md border-dashed flex items-center justify-center bg-muted/30">
-                                    <span className="text-muted-foreground text-sm">{t('adminDashboard.settingsGroups.manageThemes.editorPlaceholder')}</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                    <TabsContent value="maps" className="mt-4">
-                       <Card className="border-dashed">
-                            <CardHeader>
-                                <CardTitle>{t('adminDashboard.settingsGroups.catalogs.maps.title')}</CardTitle>
-                                <CardDescription>{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyMissing')}</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center text-center p-4">
-                                    <p className="text-sm text-muted-foreground">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                </Tabs>
-                <DialogFooter>
-                    <DialogClose asChild>
-                        <Button type="button" variant="outline" className="mt-4">
-                            {t('common.close')}
-                        </Button>
-                    </DialogClose>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                                <CardHeader>
+                                    <CardTitle>{t('adminDashboard.settingsGroups.catalogs.maps.title')}</CardTitle>
+                                    <CardDescription>{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyMissing')}</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center text-center p-4">
+                                        <p className="text-sm text-muted-foreground">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                    </Tabs>
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button type="button" variant="outline" className="mt-4">
+                                {t('common.close')}
+                            </Button>
+                        </DialogClose>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <Dialog open={isLangFormOpen} onOpenChange={setIsLangFormOpen}>
+                 <LanguageForm 
+                    item={editingLang}
+                    onSuccess={onLangFormSuccess}
+                    onCancel={() => setIsLangFormOpen(false)}
+                 />
+            </Dialog>
+        </>
     )
 }
