@@ -40,10 +40,18 @@ export function ManageCatalogsDialog() {
                 <div className="flex-grow overflow-hidden">
                      <Tabs defaultValue="languages" className="h-full flex flex-col">
                         <TabsList className="flex-shrink-0 flex flex-wrap h-auto justify-start">
-                            <TabsTrigger value="languages" className="flex items-center gap-2"><Languages className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.languages.tab')}</TabsTrigger>
-                            <TabsTrigger value="device_types" className="flex items-center gap-2"><HardDrive className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}</TabsTrigger>
-                            <TabsTrigger value="protocols" className="flex items-center gap-2" disabled>{t('adminDashboard.settingsGroups.catalogs.protocols.tab')}</TabsTrigger>
-                            <TabsTrigger value="maps" className="flex items-center gap-2" disabled>{t('adminDashboard.settingsGroups.catalogs.maps.tab')}</TabsTrigger>
+                             <TabsTrigger value="languages" className="flex items-center gap-2">
+                                <Languages className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.languages.tab')}
+                            </TabsTrigger>
+                            <TabsTrigger value="device_types" className="flex items-center gap-2">
+                                <HardDrive className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}
+                            </TabsTrigger>
+                            <TabsTrigger value="protocols" className="flex items-center gap-2" disabled>
+                                {t('adminDashboard.settingsGroups.catalogs.protocols.tab')}
+                            </TabsTrigger>
+                            <TabsTrigger value="maps" className="flex items-center gap-2" disabled>
+                                {t('adminDashboard.settingsGroups.catalogs.maps.tab')}
+                            </TabsTrigger>
                         </TabsList>
                         <div className="flex-grow overflow-y-auto mt-4 pr-2">
                              <TabsContent value="languages">
