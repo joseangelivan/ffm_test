@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useEffect, useCallback, useActionState } from 'react';
+import React, { useState, useEffect, useCallback, useActionState, Suspense } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -93,39 +94,55 @@ function LanguageForm({
     )
 }
 
+function LoadingPlaceholder() {
+    return (
+        <div className="flex justify-center items-center h-48"><Loader className="h-8 w-8 animate-spin"/></div>
+    )
+}
 
-export function ManageCatalogsDialog() {
+function DeviceTypesTab() {
     const { t } = useLocale();
-    const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
-    const [languages, setLanguages] = useState<Language[]>([]);
-    const [activeTab, setActiveTab] = useState('devices');
-    const [isLangFormOpen, setIsLangFormOpen] = useState(false);
-    const [editingLang, setEditingLang] = useState<Language | null>(null);
 
-    const fetchDataForTab = useCallback(async (tab: string) => {
+    const fetchData = useCallback(async () => {
         setIsLoading(true);
-        try {
-            if (tab === 'devices') {
-                const data = await getDeviceTypes();
-                setDeviceTypes(data);
-            } else if (tab === 'languages') {
-                const data = await getLanguages();
-                setLanguages(data);
-            }
-        } catch (error) {
-            console.error(`Failed to fetch data for tab ${tab}:`, error);
-        } finally {
-            setIsLoading(false);
-        }
+        const data = await getDeviceTypes();
+        setDeviceTypes(data);
+        setIsLoading(false);
     }, []);
 
     useEffect(() => {
-        if(isOpen) {
-            fetchDataForTab(activeTab);
-        }
-    }, [activeTab, fetchDataForTab, isOpen]);
+        fetchData();
+    }, [fetchData]);
+
+    if (isLoading) return <LoadingPlaceholder />;
+
+    return (
+        <CatalogManager
+            title={t('adminDashboard.settingsGroups.catalogs.deviceTypes.title')}
+            data={deviceTypes}
+            onRefresh={fetchData}
+        />
+    )
+}
+
+function LanguagesTab() {
+    const [isLoading, setIsLoading] = useState(true);
+    const [languages, setLanguages] = useState<Language[]>([]);
+    const [isLangFormOpen, setIsLangFormOpen] = useState(false);
+    const [editingLang, setEditingLang] = useState<Language | null>(null);
+
+    const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        const data = await getLanguages();
+        setLanguages(data);
+        setIsLoading(false);
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const handleCreateLanguage = () => {
         setEditingLang(null);
@@ -140,8 +157,34 @@ export function ManageCatalogsDialog() {
     const onLangFormSuccess = () => {
         setIsLangFormOpen(false);
         setEditingLang(null);
-        fetchDataForTab('languages');
+        fetchData();
     }
+
+    if (isLoading) return <LoadingPlaceholder />;
+
+    return (
+        <>
+            <LanguageManager
+                initialLanguages={languages}
+                onRefresh={fetchData}
+                onEdit={handleEditLanguage}
+                onCreate={handleCreateLanguage}
+            />
+             <Dialog open={isLangFormOpen} onOpenChange={setIsLangFormOpen}>
+                 <LanguageForm 
+                    item={editingLang}
+                    onSuccess={onLangFormSuccess}
+                    onCancel={() => setIsLangFormOpen(false)}
+                 />
+            </Dialog>
+        </>
+    );
+}
+
+
+export function ManageCatalogsDialog() {
+    const { t } = useLocale();
+    const [isOpen, setIsOpen] = useState(false);
 
     return (
         <>
@@ -157,36 +200,22 @@ export function ManageCatalogsDialog() {
                         <DialogTitle>{t('adminDashboard.settingsGroups.catalogs.title')}</DialogTitle>
                         <DialogDescription>{t('adminDashboard.settingsGroups.catalogs.description')}</DialogDescription>
                     </DialogHeader>
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <Tabs defaultValue="devices" className="w-full">
                         <TabsList className="grid w-full grid-cols-4">
                             <TabsTrigger value="devices"><Smartphone className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}</TabsTrigger>
                             <TabsTrigger value="languages"><LanguagesIcon className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.languages.tab')}</TabsTrigger>
                             <TabsTrigger value="protocols"><Wifi className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.protocols.tab')}</TabsTrigger>
                             <TabsTrigger value="maps" disabled><MapIcon className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.maps.tab')}</TabsTrigger>
                         </TabsList>
+                        
                         <TabsContent value="devices" className="mt-4">
-                            {isLoading ? (
-                                <div className="flex justify-center items-center h-48"><Loader className="h-8 w-8 animate-spin"/></div>
-                            ) : (
-                                <CatalogManager
-                                    title={t('adminDashboard.settingsGroups.catalogs.deviceTypes.title')}
-                                    data={deviceTypes}
-                                    onRefresh={() => fetchDataForTab('devices')}
-                                />
-                            )}
+                            <DeviceTypesTab />
                         </TabsContent>
+                        
                         <TabsContent value="languages" className="mt-4">
-                            {isLoading ? (
-                                <div className="flex justify-center items-center h-48"><Loader className="h-8 w-8 animate-spin"/></div>
-                            ) : (
-                                <LanguageManager
-                                    initialLanguages={languages}
-                                    onRefresh={() => fetchDataForTab('languages')}
-                                    onEdit={handleEditLanguage}
-                                    onCreate={handleCreateLanguage}
-                                />
-                            )}
+                           <LanguagesTab />
                         </TabsContent>
+                        
                         <TabsContent value="protocols" className="mt-4">
                             <Card className="border-dashed">
                                 <CardHeader>
@@ -200,19 +229,7 @@ export function ManageCatalogsDialog() {
                                 </CardContent>
                             </Card>
                         </TabsContent>
-                        <TabsContent value="maps" className="mt-4">
-                        <Card className="border-dashed">
-                                <CardHeader>
-                                    <CardTitle>{t('adminDashboard.settingsGroups.catalogs.maps.title')}</CardTitle>
-                                    <CardDescription>{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyMissing')}</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center text-center p-4">
-                                        <p className="text-sm text-muted-foreground">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
+
                     </Tabs>
                     <DialogFooter>
                         <DialogClose asChild>
@@ -222,13 +239,6 @@ export function ManageCatalogsDialog() {
                         </DialogClose>
                     </DialogFooter>
                 </DialogContent>
-            </Dialog>
-            <Dialog open={isLangFormOpen} onOpenChange={setIsLangFormOpen}>
-                 <LanguageForm 
-                    item={editingLang}
-                    onSuccess={onLangFormSuccess}
-                    onCancel={() => setIsLangFormOpen(false)}
-                 />
             </Dialog>
         </>
     )
