@@ -225,8 +225,7 @@
                 "description": "Esta é a lista de idiomas padrão que a aplicação utiliza para os testes de tradução.",
                 "table": {
                     "key": "Chave",
-                    "name_es": "Nome (Espanhol)",
-                    "name_pt": "Nome (Português)"
+                    "name": "Nome"
                 },
                 "createTitle": "Criar Novo Idioma",
                 "editTitle": "Editar Idioma",

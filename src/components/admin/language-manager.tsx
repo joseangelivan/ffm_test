@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect, useActionState, useTransition } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useActionState, useTransition, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -12,8 +12,8 @@ import {
 } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, PlusCircle } from 'lucide-react';
-import { getLanguages, createLanguage, updateLanguage, deleteLanguage, type Language } from '@/actions/catalogs';
+import { Edit, Trash2, PlusCircle, Languages, Loader } from 'lucide-react';
+import { getLanguages, createLanguage, updateLanguage, deleteLanguage, type Language, type TranslationObject } from '@/actions/catalogs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -22,7 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogClose,
 } from '@/components/ui/dialog';
 import {
     AlertDialog,
@@ -38,12 +37,22 @@ import {
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { useLocale } from '@/lib/i18n';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '../ui/tooltip';
+import { translateTextAction } from '@/actions/translation';
+import { useFormStatus } from 'react-dom';
 
 function LanguageForm({ item, onSuccess, onCancel }: { item: Language | null, onSuccess: () => void, onCancel: () => void }) {
     const { t } = useLocale();
     const { toast } = useToast();
     const isEditMode = !!item;
     const formAction = isEditMode ? updateLanguage : createLanguage;
+
+    const [selectedLang, setSelectedLang] = useState<'es' | 'pt-BR'>('pt-BR');
+    const nameEsRef = useRef<HTMLInputElement>(null);
+    const namePtRef = useRef<HTMLInputElement>(null);
+
+    const [isTranslating, startTranslateTransition] = useTransition();
 
     const handleAction = async (prevState: any, formData: FormData) => {
         const result = await formAction(prevState, formData);
@@ -57,10 +66,40 @@ function LanguageForm({ item, onSuccess, onCancel }: { item: Language | null, on
     };
     
     const [state, dispatch] = useActionState(handleAction, undefined);
+    const { pending } = useFormStatus();
+
+     const handleTranslate = () => {
+        startTranslateTransition(async () => {
+            const sourceLang = selectedLang === 'pt-BR' ? 'pt' : 'es';
+            const targetLang = selectedLang === 'pt-BR' ? 'es' : 'pt';
+
+            const nameRef = sourceLang === 'es' ? nameEsRef : namePtRef;
+            const targetNameRef = targetLang === 'es' ? nameEsRef : namePtRef;
+
+            const nameToTranslate = nameRef.current?.value || '';
+
+            try {
+                const nameResult = await translateTextAction({ text: nameToTranslate, sourceLang, targetLang });
+                if (nameResult.success && nameResult.data && targetNameRef.current) {
+                    targetNameRef.current.value = nameResult.data;
+                } else if (!nameResult.success) {
+                     toast({ title: t('toast.errorTitle'), description: nameResult.message, variant: 'destructive' });
+                }
+            } catch (error) {
+                 toast({ title: t('toast.errorTitle'), description: t('toast.adminLogin.serverError'), variant: 'destructive' });
+            }
+        });
+    }
 
     return (
         <DialogContent>
             <form action={dispatch}>
+                 {(pending || isTranslating) && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+                        <Loader className="h-8 w-8 animate-spin" />
+                        <span className="ml-2">{isTranslating ? t('adminDashboard.settingsGroups.catalogs.form.translating') : (isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating'))}</span>
+                    </div>
+                )}
                 <DialogHeader>
                     <DialogTitle>
                         {isEditMode ? t('adminDashboard.settingsGroups.catalogs.languages.editTitle') : t('adminDashboard.settingsGroups.catalogs.languages.createTitle')}
@@ -70,20 +109,56 @@ function LanguageForm({ item, onSuccess, onCancel }: { item: Language | null, on
                 <div className="py-4 space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="id">{t('adminDashboard.settingsGroups.catalogs.languages.table.key')}</Label>
-                        <Input id="id" name="id" defaultValue={item?.id} required disabled={isEditMode}/>
+                        <Input id="id" name="id" defaultValue={item?.id} required disabled={isEditMode || pending}/>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="name_es">{t('adminDashboard.settingsGroups.catalogs.languages.table.name_es')}</Label>
-                        <Input id="name_es" name="name_es" defaultValue={item?.name_translations.es} required />
+
+                    <div className="flex justify-between items-center gap-2">
+                        <div className="space-y-2 flex-grow">
+                            <Label>{t('dashboard.language')}</Label>
+                            <Select value={selectedLang} onValueChange={(value) => setSelectedLang(value as 'es' | 'pt-BR')}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar idioma"/>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="es">{t('adminDashboard.settingsGroups.catalogs.form.tab_es')}</SelectItem>
+                                    <SelectItem value="pt-BR">{t('adminDashboard.settingsGroups.catalogs.form.tab_pt')}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="pt-6">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button type="button" variant="outline" size="icon" onClick={handleTranslate} disabled={pending || isTranslating}>
+                                            <Languages className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{t('adminDashboard.settingsGroups.catalogs.form.translateTooltip')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
                     </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="name_pt">{t('adminDashboard.settingsGroups.catalogs.languages.table.name_pt')}</Label>
-                        <Input id="name_pt" name="name_pt" defaultValue={item?.name_translations['pt-BR']} required />
+                    
+                    <div className={`${selectedLang === 'es' ? 'block' : 'hidden'}`}>
+                         <div className="space-y-2">
+                            <Label htmlFor="name_es">{t('adminDashboard.settingsGroups.catalogs.languages.table.name')}</Label>
+                            <Input ref={nameEsRef} id="name_es" name="name_es" defaultValue={item?.name_translations?.es} disabled={pending} />
+                        </div>
                     </div>
+
+                    <div className={`${selectedLang === 'pt-BR' ? 'block' : 'hidden'}`}>
+                         <div className="space-y-2">
+                            <Label htmlFor="name_pt">{t('adminDashboard.settingsGroups.catalogs.languages.table.name')}</Label>
+                            <Input ref={namePtRef} id="name_pt" name="name_pt" defaultValue={item?.name_translations?.['pt-BR']} disabled={pending} />
+                        </div>
+                    </div>
+
                 </div>
                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={onCancel}>{t('common.cancel')}</Button>
-                    <Button type="submit">{t('common.save')}</Button>
+                    <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
+                    <Button type="submit" disabled={pending}>{t('common.save')}</Button>
                 </DialogFooter>
             </form>
         </DialogContent>
@@ -91,7 +166,7 @@ function LanguageForm({ item, onSuccess, onCancel }: { item: Language | null, on
 }
 
 export default function LanguageManager() {
-    const { t } = useLocale();
+    const { t, locale } = useLocale();
     const [languages, setLanguages] = useState<Language[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -134,12 +209,10 @@ export default function LanguageManager() {
         });
     }
 
-    const columns = useMemo(() => [
-        { key: 'id', header: t('adminDashboard.settingsGroups.catalogs.languages.table.key') },
-        { key: 'name_es', header: t('adminDashboard.settingsGroups.catalogs.languages.table.name_es') },
-        { key: 'name_pt', header: t('adminDashboard.settingsGroups.catalogs.languages.table.name_pt') },
-        { key: 'actions', header: t('adminDashboard.table.actions') },
-    ], [t]);
+    const getTranslatedValue = (translations: TranslationObject | null) => {
+        if (!translations) return '—';
+        return translations[locale as 'es' | 'pt-BR'] || translations['pt-BR'] || translations.es || Object.values(translations)[0];
+    }
     
     if (isLoading) {
         return (
@@ -167,19 +240,18 @@ export default function LanguageManager() {
             </CardHeader>
             <CardContent>
                  <div className="border rounded-lg overflow-hidden">
-                    <Table className="table-fixed w-full">
+                    <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-1/4 truncate">{columns[0].header}</TableHead>
-                                <TableHead className="w-1/4 truncate">{columns[1].header}</TableHead>
-                                <TableHead className="w-1/4 truncate">{columns[2].header}</TableHead>
-                                <TableHead className="w-auto min-w-[120px] text-right">{columns[3].header}</TableHead>
+                                <TableHead className="w-[30%] truncate">{t('adminDashboard.settingsGroups.catalogs.languages.table.key')}</TableHead>
+                                <TableHead className="w-[50%] truncate">{t('adminDashboard.settingsGroups.catalogs.languages.table.name')}</TableHead>
+                                <TableHead className="w-auto text-right">{t('adminDashboard.table.actions')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {languages.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                                    <TableCell colSpan={3} className="h-24 text-center">
                                         {t('adminDashboard.settingsGroups.catalogs.languages.noLanguages')}
                                     </TableCell>
                                 </TableRow>
@@ -187,8 +259,7 @@ export default function LanguageManager() {
                                 languages.map((lang) => (
                                     <TableRow key={lang.id}>
                                         <TableCell className="font-medium truncate">{lang.id}</TableCell>
-                                        <TableCell className="truncate">{lang.name_translations.es}</TableCell>
-                                        <TableCell className="truncate">{lang.name_translations['pt-BR']}</TableCell>
+                                        <TableCell className="truncate">{getTranslatedValue(lang.name_translations)}</TableCell>
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="icon" onClick={() => { setEditingItem(lang); setIsFormOpen(true); }} disabled={lang.id === 'es' || lang.id === 'pt-BR'}>
                                                 <Edit className="h-4 w-4" />
@@ -203,7 +274,7 @@ export default function LanguageManager() {
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                        {t('adminDashboard.settingsGroups.catalogs.languages.deleteConfirmation', {name: lang.name_translations['pt-BR'] || lang.id})}
+                                                        {t('adminDashboard.settingsGroups.catalogs.languages.deleteConfirmation', {name: getTranslatedValue(lang.name_translations) || lang.id})}
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
