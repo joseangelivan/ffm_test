@@ -30,9 +30,13 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
     }
     
     log.push('START: Starting migration process...');
-    let currentMigrationFile = 'N/A';
+    let currentPhase = 'N/A';
     try {
         await client.query('BEGIN');
+        
+        // --- PHASE 1: SCHEMA CREATION ---
+        currentPhase = 'Schema Creation';
+        log.push(`PHASE: ${currentPhase}`);
         
         log.push('SETUP: Ensuring migrations_log table exists...');
         await client.query(`
@@ -51,15 +55,15 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
             'gatekeepers/base_schema.sql',
             'sessions/base_schema.sql',
             'themes/base_schema.sql',
+            'catalogs/base_schema.sql', // Creates languages table
             'settings/base_schema.sql',
             'devices/base_schema.sql',
-            'catalogs/base_schema.sql',
             'maps/base_schema.sql',
             'translation/base_schema.sql'
         ];
         
         for (const schemaFile of schemasToApply) {
-            currentMigrationFile = schemaFile;
+            currentPhase = `Schema: ${schemaFile}`;
             log.push(`CHECK: Checking migration: ${schemaFile}`);
             
             const hasRunResult = await client.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [schemaFile]);
@@ -86,11 +90,12 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
             }
         }
         
-        // --- SEEDING PHASE ---
-        log.push('SEED: Starting data seeding phase...');
+        // --- PHASE 2: DATA SEEDING ---
+        currentPhase = 'Data Seeding';
+        log.push(`PHASE: ${currentPhase}`);
         
         // Seed Default Languages
-        currentMigrationFile = 'Seed Languages';
+        currentPhase = 'Seed Languages';
         log.push('SEED: Checking for default languages...');
         const langCountResult = await client.query('SELECT COUNT(*) FROM languages');
         if (parseInt(langCountResult.rows[0].count, 10) === 0) {
@@ -108,7 +113,7 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
         }
 
         // Seed Default Admin User
-        currentMigrationFile = 'Seed Admin';
+        currentPhase = 'Seed Admin';
         log.push('SEED: Checking for default admin user...');
         const adminEmail = 'angelivan34@gmail.com';
         const correctPassword = 'adminivan123';
@@ -136,7 +141,7 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
         }
 
         // Seed Test Condominium
-        currentMigrationFile = 'Seed Condominium';
+        currentPhase = 'Seed Condominium';
         log.push('SEED: Checking for test condominium...');
         const condoName = 'Condomínio de Teste';
         const condoExists = await client.query('SELECT 1 FROM condominiums WHERE name = $1', [condoName]);
@@ -157,9 +162,9 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
         log.push('END: Migration process completed successfully.');
         return { success: true, message: 'O processo de inicialização do banco de dados foi concluído.', log };
     } catch(error: any) {
-         log.push(`FATAL: Error during migration or seed of "${currentMigrationFile}". Attempting ROLLBACK.`);
+         log.push(`FATAL: Error during phase "${currentPhase}". Attempting ROLLBACK.`);
          await client.query('ROLLBACK');
-         throw new Error(`Migration failed on file: ${currentMigrationFile}. DB-Error: ${error.message}`);
+         throw new Error(`Migration failed on phase: ${currentPhase}. DB-Error: ${error.message}`);
     }
 }
 
