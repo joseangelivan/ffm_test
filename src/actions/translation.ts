@@ -31,6 +31,10 @@ const ServiceSchema = z.object({
 
 async function runAndSaveLanguageTest(service: TranslationService) {
     const dbLanguages = await getLanguages();
+    if (!dbLanguages || dbLanguages.length === 0) {
+        console.error(`Skipping language test for service ${service.id}: No languages found in catalog.`);
+        return;
+    }
     const languagesToTest = dbLanguages.map(lang => lang.id);
     const supported: string[] = [];
 

@@ -1,27 +1,36 @@
 
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
 CREATE TABLE IF NOT EXISTS device_types (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name_translations JSONB NOT NULL,
+    name_translations JSONB,
     features_translations JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS communication_protocols (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name_translations JSONB NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
 CREATE TABLE IF NOT EXISTS languages (
-    id VARCHAR(10) PRIMARY KEY, -- Language code, e.g., 'en', 'pt-BR'
-    name_translations JSONB NOT NULL,
+    id VARCHAR(10) PRIMARY KEY,
+    name_translations JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_device_types_name_translations ON device_types USING GIN (name_translations);
-CREATE INDEX IF NOT EXISTS idx_communication_protocols_name_translations ON communication_protocols USING GIN (name_translations);
-CREATE INDEX IF NOT EXISTS idx_languages_name_translations ON languages USING GIN (name_translations);
+
+DROP TRIGGER IF EXISTS update_device_types_updated_at ON device_types;
+CREATE TRIGGER update_device_types_updated_at
+BEFORE UPDATE ON device_types
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_languages_updated_at ON languages;
+CREATE TRIGGER update_languages_updated_at
+BEFORE UPDATE ON languages
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
