@@ -42,23 +42,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
 
-type DataItem = DeviceType;
-
-type CatalogManagerProps = {
-    title: string;
-    data: DataItem[];
-    onRefresh: () => void;
-    locale: string;
-    t: (key: string) => string;
-};
-
-function CatalogForm({
+function DeviceTypeForm({
     item,
     onSuccess,
     onCancel,
     t
 }: {
-    item: DataItem | null;
+    item: DeviceType | null;
     onSuccess: () => void;
     onCancel: () => void;
     t: (key: string) => string;
@@ -207,12 +197,33 @@ function CatalogForm({
     )
 }
 
-
-export function CatalogManager({ title, data, onRefresh, locale, t }: CatalogManagerProps) {
+export function DeviceTypesManager({ t }: { t: (key: string) => string }) {
     const { toast } = useToast();
+    const { locale } = useLocale();
     const [isFormOpen, setIsFormOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState<DataItem | null>(null);
+    const [editingItem, setEditingItem] = useState<DeviceType | null>(null);
     const [isDeleting, startDeleteTransition] = useTransition();
+
+    const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const data = await getDeviceTypes();
+            setDeviceTypes(data);
+        } catch (error) {
+            console.error("Failed to fetch device types:", error);
+            setDeviceTypes([]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
 
     const columns = useMemo(() => [
         { key: 'name_translations', header: t('adminDashboard.settingsGroups.catalogs.table.name') },
@@ -220,7 +231,7 @@ export function CatalogManager({ title, data, onRefresh, locale, t }: CatalogMan
     ], [t]);
 
 
-    const handleEdit = (item: DataItem) => {
+    const handleEdit = (item: DeviceType) => {
         setEditingItem(item);
         setIsFormOpen(true);
     };
@@ -230,7 +241,7 @@ export function CatalogManager({ title, data, onRefresh, locale, t }: CatalogMan
             const result = await deleteDeviceType(id);
              if (result?.success) {
                 toast({ title: t('toast.successTitle'), description: result.message });
-                onRefresh();
+                fetchData();
             } else {
                 toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
             }
@@ -240,22 +251,30 @@ export function CatalogManager({ title, data, onRefresh, locale, t }: CatalogMan
     const onFormSuccess = () => {
         setIsFormOpen(false);
         setEditingItem(null);
-        onRefresh();
+        fetchData();
     };
 
     const getTranslatedValue = (translations: TranslationObject) => {
         if (!translations) return '—';
         return translations[locale as 'es' | 'pt-BR'] || translations['pt-BR'] || translations.es || Object.values(translations)[0];
     }
-
-    const safeData = data || [];
+    
+    if (isLoading) {
+        return (
+            <div className="space-y-2 mt-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </div>
+        )
+    }
 
     return (
         <Card>
             <CardHeader>
                 <div className="flex justify-between items-center">
                     <div>
-                        <CardTitle>{title}</CardTitle>
+                        <CardTitle>{t('adminDashboard.settingsGroups.catalogs.deviceTypes.title')}</CardTitle>
                         <CardDescription>{t('adminDashboard.settingsGroups.catalogs.deviceTypes.description')}</CardDescription>
                     </div>
                     <Button size="sm" onClick={() => { setEditingItem(null); setIsFormOpen(true); }}>
@@ -274,7 +293,7 @@ export function CatalogManager({ title, data, onRefresh, locale, t }: CatalogMan
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {safeData.map(item => (
+                            {(deviceTypes || []).map(item => (
                                 <TableRow key={item.id}>
                                     {Object.keys(columns).map(idx => {
                                         const colKey = columns[parseInt(idx)].key;
@@ -315,7 +334,7 @@ export function CatalogManager({ title, data, onRefresh, locale, t }: CatalogMan
                 </div>
 
                 <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                    <CatalogForm 
+                    <DeviceTypeForm 
                         item={editingItem} 
                         onSuccess={onFormSuccess}
                         onCancel={() => setIsFormOpen(false)}
@@ -325,47 +344,4 @@ export function CatalogManager({ title, data, onRefresh, locale, t }: CatalogMan
             </CardContent>
         </Card>
     );
-}
-
-export function DeviceTypesManager({ t }: { t: (key: string) => string }) {
-    const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const { locale } = useLocale();
-
-    const fetchData = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            const data = await getDeviceTypes();
-            setDeviceTypes(data);
-        } catch (error) {
-            console.error("Failed to fetch device types:", error);
-            setDeviceTypes([]);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    if (isLoading) {
-        return (
-            <div className="space-y-2 mt-4">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-            </div>
-        )
-    }
-    
-    return (
-        <CatalogManager
-            title={t('adminDashboard.settingsGroups.catalogs.deviceTypes.title')}
-            data={deviceTypes}
-            onRefresh={fetchData}
-            locale={locale}
-            t={t}
-        />
-    )
 }

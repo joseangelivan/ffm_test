@@ -37,6 +37,10 @@ import {
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 
+type LanguageManagerProps = {
+    t: (key: string) => string;
+}
+
 function LanguageForm({ item, onSuccess, onCancel, t }: { item: Language | null, onSuccess: () => void, onCancel: () => void, t: (key: string) => string }) {
     const { toast } = useToast();
     const isEditMode = !!item;
@@ -87,7 +91,7 @@ function LanguageForm({ item, onSuccess, onCancel, t }: { item: Language | null,
     );
 }
 
-export function LanguageManager({ t }: { t: (key: string) => string }) {
+export function LanguageManager({ t }: LanguageManagerProps) {
     const [languages, setLanguages] = useState<Language[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -199,7 +203,7 @@ export function LanguageManager({ t }: { t: (key: string) => string }) {
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                        {t('adminDashboard.settingsGroups.languages.deleteConfirmation', {name: lang.name_translations[t.locale as 'es' | 'pt-BR'] || lang.id})}
+                                                        {t('adminDashboard.settingsGroups.languages.deleteConfirmation', {name: lang.name_translations['pt-BR'] || lang.id})}
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
