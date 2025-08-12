@@ -116,6 +116,12 @@ export function LanguageManager({ initialLanguages, onRefresh }: LanguageManager
     const [editingItem, setEditingItem] = useState<Language | null>(null);
     const [isDeleting, startDeleteTransition] = useTransition();
 
+    const columns = useMemo(() => ([
+        { key: 'id', header: t('adminDashboard.settingsGroups.languages.table.key') },
+        { key: 'name_es', header: t('adminDashboard.settingsGroups.languages.table.name_es') },
+        { key: 'name_pt', header: t('adminDashboard.settingsGroups.languages.table.name_pt') },
+    ]), [t]);
+
     const handleEdit = (item: Language) => {
         setEditingItem(item);
         setIsFormOpen(true);
@@ -142,12 +148,6 @@ export function LanguageManager({ initialLanguages, onRefresh }: LanguageManager
      React.useEffect(() => {
         setLanguages(initialLanguages);
     }, [initialLanguages]);
-
-    const columns = useMemo(() => ([
-        { key: 'id', header: t('adminDashboard.settingsGroups.languages.table.key') },
-        { key: 'name_es', header: t('adminDashboard.settingsGroups.languages.table.name_es') },
-        { key: 'name_pt', header: t('adminDashboard.settingsGroups.languages.table.name_pt') },
-    ]), [t]);
 
     return (
         <div>
