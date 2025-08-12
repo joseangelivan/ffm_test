@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useActionState, useTransition } from 'react';
@@ -37,10 +36,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-
-type LanguageManagerProps = {
-    t: (key: string) => string;
-}
+import { useLocale } from '@/lib/i18n';
 
 function LanguageForm({ item, onSuccess, onCancel, t }: { item: Language | null, onSuccess: () => void, onCancel: () => void, t: (key: string) => string }) {
     const { toast } = useToast();
@@ -92,7 +88,8 @@ function LanguageForm({ item, onSuccess, onCancel, t }: { item: Language | null,
     );
 }
 
-export function LanguageManager({ t }: LanguageManagerProps) {
+export function LanguageManager() {
+    const { t } = useLocale();
     const [languages, setLanguages] = useState<Language[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);

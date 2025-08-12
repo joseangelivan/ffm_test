@@ -28,7 +28,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { MoreVertical, Edit, Trash2, PlusCircle, Loader, Languages } from 'lucide-react';
+import { Edit, Trash2, PlusCircle, Loader, Languages } from 'lucide-react';
 import { useLocale } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
@@ -197,9 +197,9 @@ function DeviceTypeForm({
     )
 }
 
-export function DeviceTypesManager({ t }: { t: (key: string) => string }) {
+export function DeviceTypesManager() {
+    const { t, locale } = useLocale();
     const { toast } = useToast();
-    const { locale } = useLocale();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<DeviceType | null>(null);
     const [isDeleting, startDeleteTransition] = useTransition();
