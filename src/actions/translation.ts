@@ -70,12 +70,21 @@ export async function createTranslationService(prevState: any, formData: FormDat
         const pool = await getDbPool();
         client = await pool.connect();
         
+        await client.query('BEGIN');
+
+        // Check if it's the first service
+        const countResult = await client.query('SELECT COUNT(*) FROM translation_services');
+        const isFirstService = parseInt(countResult.rows[0].count, 10) === 0;
+
         await client.query(
-            'INSERT INTO translation_services (name, config_json) VALUES ($1, $2)',
-            [name, combinedConfig]
+            'INSERT INTO translation_services (name, config_json, is_default) VALUES ($1, $2, $3)',
+            [name, combinedConfig, isFirstService]
         );
+        
+        await client.query('COMMIT');
         return { success: true, message: `Servicio "${name}" creado con éxito.` };
     } catch (error) {
+        if (client) await client.query('ROLLBACK');
         console.error("Error creating translation service:", error);
         return { success: false, message: 'Error del servidor.' };
     } finally {
@@ -173,7 +182,7 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
  */
 function getNestedValue(obj: any, path: string): any {
   // Extraer y procesar condicionales tipo "path{(condición)?valorTrue:valorFalse}"
-  const conditionalMatch = path.match(/^(.+)\{(.*)\}$/);
+  const conditionalMatch = path.match(/^(.*)\{(.*)\}$/);
   
   if (conditionalMatch) {
     const [_, basePath, condition] = conditionalMatch;
