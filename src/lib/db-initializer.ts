@@ -50,13 +50,13 @@ async function runMigrations(client: PoolClient): Promise<DbInitResult> {
 
         const schemasToApply = [
             'admins/base_schema.sql',
+            'themes/base_schema.sql',
+            'settings/base_schema.sql',
+            'catalogs/base_schema.sql', // Creates languages table, must be early.
             'condominiums/base_schema.sql',
             'residents/base_schema.sql',
             'gatekeepers/base_schema.sql',
             'sessions/base_schema.sql',
-            'themes/base_schema.sql',
-            'catalogs/base_schema.sql', // Creates languages table
-            'settings/base_schema.sql',
             'devices/base_schema.sql',
             'maps/base_schema.sql',
             'translation/base_schema.sql'
