@@ -317,3 +317,5 @@ export function CatalogManager({ title, data, onRefresh }: CatalogManagerProps) 
         </div>
     );
 }
+
+    
