@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useTransition, useActionState, useMemo } from 'react';
+import React, { useTransition, useActionState, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,12 +29,13 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Edit, Trash2, Loader } from 'lucide-react';
+import { Edit, Trash2, Loader, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { createLanguage, updateLanguage, deleteLanguage, type Language } from '@/actions/catalogs';
 import { useLocale } from '@/lib/i18n';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card';
 
 function LanguageForm({
     item,
@@ -80,6 +81,7 @@ function LanguageForm({
                 </DialogHeader>
                 
                 <div className="py-4 space-y-4">
+                    <input type="hidden" name="id" value={item?.id || ''} />
                     <div className="space-y-2">
                         <Label htmlFor="id">{t('adminDashboard.settingsGroups.languages.table.key')}</Label>
                         <Input id="id" name="id" defaultValue={item?.id} required disabled={isEditMode} placeholder="ej. en-US" />
@@ -106,22 +108,16 @@ function LanguageForm({
 type LanguageManagerProps = {
     initialLanguages: Language[];
     onRefresh: () => void;
-    isFormOpen: boolean;
-    setIsFormOpen: (open: boolean) => void;
-    editingItem: Language | null;
-    setEditingItem: (item: Language | null) => void;
 };
 
 export function LanguageManager({ 
     initialLanguages, 
     onRefresh,
-    isFormOpen,
-    setIsFormOpen,
-    editingItem,
-    setEditingItem
 }: LanguageManagerProps) {
     const { t } = useLocale();
     const { toast } = useToast();
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState<Language | null>(null);
     const [isDeleting, startDeleteTransition] = useTransition();
 
     const columns = [
@@ -155,52 +151,66 @@ export function LanguageManager({
 
     return (
         <div>
-            <div className="border rounded-lg max-h-96 overflow-y-auto">
-                <Table>
-                    <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
-                        <TableRow>
-                            {columns.map(col => <TableHead key={col.key}>{col.header}</TableHead>)}
-                            <TableHead className="text-right">{t('adminDashboard.settingsGroups.catalogs.table.actions')}</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {initialLanguages.map(item => {
-                            const isDefault = item.id === 'es' || item.id === 'pt-BR';
-                            return (
-                                <TableRow key={item.id}>
-                                    <TableCell className="font-mono text-xs">{item.id}</TableCell>
-                                    <TableCell>{item.name_translations.es}</TableCell>
-                                    <TableCell>{item.name_translations['pt-BR']}</TableCell>
-                                    <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={isDefault}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                       {t('adminDashboard.settingsGroups.languages.deleteConfirmation', {name: item.name_translations.es})}
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDelete(item.id)}>{t('common.delete')}</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </TableCell>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>{t('adminDashboard.settingsGroups.languages.title')}</CardTitle>
+                        <CardDescription>{t('adminDashboard.settingsGroups.languages.description')}</CardDescription>
+                    </div>
+                    <Button size="sm" onClick={() => { setEditingItem(null); setIsFormOpen(true); }}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        {t('common.create')}
+                    </Button>
+                </CardHeader>
+                <CardContent>
+                    <div className="border rounded-lg max-h-96 overflow-y-auto">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
+                                <TableRow>
+                                    {columns.map(col => <TableHead key={col.key}>{col.header}</TableHead>)}
+                                    <TableHead className="text-right">{t('adminDashboard.settingsGroups.catalogs.table.actions')}</TableHead>
                                 </TableRow>
-                            )
-                        })}
-                    </TableBody>
-                </Table>
-            </div>
+                            </TableHeader>
+                            <TableBody>
+                                {initialLanguages.map(item => {
+                                    const isDefault = item.id === 'es' || item.id === 'pt-BR';
+                                    return (
+                                        <TableRow key={item.id}>
+                                            <TableCell className="font-mono text-xs">{item.id}</TableCell>
+                                            <TableCell>{item.name_translations.es}</TableCell>
+                                            <TableCell>{item.name_translations['pt-BR']}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={isDefault}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                            {t('adminDashboard.settingsGroups.languages.deleteConfirmation', {name: item.name_translations.es})}
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDelete(item.id)}>{t('common.delete')}</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </TableCell>
+                                        </TableRow>
+                                    )
+                                })}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
 
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                 <LanguageForm 
