@@ -73,7 +73,7 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
         isEditMode ? getInitialJson(service.config_json?.request) : ''
     );
     const [responseConfig, setResponseConfig] = useState(
-        isEditMode ? getInitialJson(service.config_json?.response) : ''
+        isEditMode ? getInitialJson(service.config_json?.response) : '{\n  "path": "...",\n  "statusPath": "..."\n}'
     );
 
     const [isRequestJsonValid, setIsRequestJsonValid] = useState(true);
