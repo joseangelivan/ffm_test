@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useState, useTransition, useActionState, useRef, useMemo } from 'react';
+import React, { useState, useTransition, useActionState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,32 +35,34 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createDeviceType, updateDeviceType, deleteDeviceType } from '@/actions/catalogs';
+import { getDeviceTypes, createDeviceType, updateDeviceType, deleteDeviceType, type DeviceType } from '@/actions/catalogs';
 import type { TranslationObject } from '@/actions/catalogs';
 import { translateTextAction } from '@/actions/translation';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
+import { Skeleton } from '../ui/skeleton';
 
-type DataItem = {
-    id: string;
-    [key: string]: any;
-};
+type DataItem = DeviceType;
 
 type CatalogManagerProps = {
     title: string;
     data: DataItem[];
     onRefresh: () => void;
+    locale: string;
+    t: (key: string) => string;
 };
 
 function CatalogForm({
     item,
     onSuccess,
     onCancel,
+    t
 }: {
     item: DataItem | null;
     onSuccess: () => void;
     onCancel: () => void;
+    t: (key: string) => string;
 }) {
-    const { t } = useLocale();
     const { toast } = useToast();
     const isEditMode = !!item;
     const formAction = isEditMode ? updateDeviceType : createDeviceType;
@@ -180,7 +181,7 @@ function CatalogForm({
                         </div>
                         <div className="space-y-2 mt-4">
                             <Label htmlFor="features_es">{t('adminDashboard.settingsGroups.catalogs.form.featuresLabel')}</Label>
-                            <Textarea ref={featuresEsRef} id="features_es" name="features_es" defaultValue={item?.features_translations?.es} />
+                            <Textarea ref={featuresEsRef} id="features_es" name="features_es" defaultValue={item?.features_translations?.es || ''} />
                         </div>
                     </div>
 
@@ -192,7 +193,7 @@ function CatalogForm({
                         </div>
                         <div className="space-y-2 mt-4">
                             <Label htmlFor="features_pt">{t('adminDashboard.settingsGroups.catalogs.form.featuresLabel')}</Label>
-                            <Textarea ref={featuresPtRef} id="features_pt" name="features_pt" defaultValue={item?.features_translations?.['pt-BR']} />
+                            <Textarea ref={featuresPtRef} id="features_pt" name="features_pt" defaultValue={item?.features_translations?.['pt-BR'] || ''} />
                         </div>
                     </div>
                 </div>
@@ -207,8 +208,7 @@ function CatalogForm({
 }
 
 
-export function CatalogManager({ title, data, onRefresh }: CatalogManagerProps) {
-    const { t, locale } = useLocale();
+export function CatalogManager({ title, data, onRefresh, locale, t }: CatalogManagerProps) {
     const { toast } = useToast();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<DataItem | null>(null);
@@ -244,78 +244,128 @@ export function CatalogManager({ title, data, onRefresh }: CatalogManagerProps) 
     };
 
     const getTranslatedValue = (translations: TranslationObject) => {
-        return translations?.[locale] || translations?.['pt-BR'] || translations?.es || Object.values(translations)[0];
+        if (!translations) return '—';
+        return translations[locale as 'es' | 'pt-BR'] || translations['pt-BR'] || translations.es || Object.values(translations)[0];
     }
 
     const safeData = data || [];
 
     return (
-        <div>
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold">{title}</h3>
-                <Button size="sm" onClick={() => { setEditingItem(null); setIsFormOpen(true); }}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    {t('common.create')}
-                </Button>
-            </div>
-            <div className="border rounded-lg">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            {columns.map(col => <TableHead key={col.key}>{col.header}</TableHead>)}
-                            <TableHead className="text-right">{t('adminDashboard.settingsGroups.catalogs.table.actions')}</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {safeData.map(item => (
-                            <TableRow key={item.id}>
-                                {Object.keys(columns).map(idx => {
-                                    const colKey = columns[parseInt(idx)].key;
-                                    return (
-                                        <TableCell key={colKey}>
-                                            {item[colKey] ? getTranslatedValue(item[colKey]) : '—'}
-                                        </TableCell>
-                                    )
-                                })}
-                                <TableCell className="text-right">
-                                    <AlertDialog>
-                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                   {t('adminDashboard.deleteCondoDialog.description', {name: getTranslatedValue(item.name_translations)})}
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDelete(item.id)}>{t('common.delete')}</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </TableCell>
+        <Card>
+            <CardHeader>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>{title}</CardTitle>
+                        <CardDescription>{t('adminDashboard.settingsGroups.catalogs.deviceTypes.description')}</CardDescription>
+                    </div>
+                    <Button size="sm" onClick={() => { setEditingItem(null); setIsFormOpen(true); }}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        {t('common.create')}
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <div className="border rounded-lg">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                {columns.map(col => <TableHead key={col.key}>{col.header}</TableHead>)}
+                                <TableHead className="text-right">{t('adminDashboard.settingsGroups.catalogs.table.actions')}</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </div>
+                        </TableHeader>
+                        <TableBody>
+                            {safeData.map(item => (
+                                <TableRow key={item.id}>
+                                    {Object.keys(columns).map(idx => {
+                                        const colKey = columns[parseInt(idx)].key;
+                                        return (
+                                            <TableCell key={colKey}>
+                                                {getTranslatedValue(item[colKey as keyof typeof item])}
+                                            </TableCell>
+                                        )
+                                    })}
+                                    <TableCell className="text-right">
+                                        <AlertDialog>
+                                            <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                    {t('adminDashboard.deleteCondoDialog.description', {name: getTranslatedValue(item.name_translations)})}
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDelete(item.id)}>{t('common.delete')}</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
 
-            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                <CatalogForm 
-                    item={editingItem} 
-                    onSuccess={onFormSuccess}
-                    onCancel={() => setIsFormOpen(false)}
-                />
-            </Dialog>
-        </div>
+                <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                    <CatalogForm 
+                        item={editingItem} 
+                        onSuccess={onFormSuccess}
+                        onCancel={() => setIsFormOpen(false)}
+                        t={t}
+                    />
+                </Dialog>
+            </CardContent>
+        </Card>
     );
 }
 
+export function DeviceTypesManager({ t }: { t: (key: string) => string }) {
+    const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { locale } = useLocale();
+
+    const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const data = await getDeviceTypes();
+            setDeviceTypes(data);
+        } catch (error) {
+            console.error("Failed to fetch device types:", error);
+            setDeviceTypes([]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    if (isLoading) {
+        return (
+            <div className="space-y-2 mt-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </div>
+        )
+    }
     
+    return (
+        <CatalogManager
+            title={t('adminDashboard.settingsGroups.catalogs.deviceTypes.title')}
+            data={deviceTypes}
+            onRefresh={fetchData}
+            locale={locale}
+            t={t}
+        />
+    )
+}
