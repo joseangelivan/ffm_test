@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useTransition, useActionState, useMemo } from 'react';
+import React, { useTransition, useActionState, useMemo } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,7 +29,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Edit, Trash2, PlusCircle, Loader } from 'lucide-react';
+import { Edit, Trash2, Loader } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -40,13 +40,12 @@ function LanguageForm({
     item,
     onSuccess,
     onCancel,
-    t,
 }: {
     item: Language | null;
     onSuccess: () => void;
     onCancel: () => void;
-    t: (key: string, replacements?: Record<string, string>) => string;
 }) {
+    const { t } = useLocale();
     const { toast } = useToast();
     const isEditMode = !!item;
     const formAction = isEditMode ? updateLanguage : createLanguage;
@@ -107,14 +106,22 @@ function LanguageForm({
 type LanguageManagerProps = {
     initialLanguages: Language[];
     onRefresh: () => void;
+    isFormOpen: boolean;
+    setIsFormOpen: (open: boolean) => void;
+    editingItem: Language | null;
+    setEditingItem: (item: Language | null) => void;
 };
 
-export function LanguageManager({ initialLanguages, onRefresh }: LanguageManagerProps) {
+export function LanguageManager({ 
+    initialLanguages, 
+    onRefresh,
+    isFormOpen,
+    setIsFormOpen,
+    editingItem,
+    setEditingItem
+}: LanguageManagerProps) {
     const { t } = useLocale();
     const { toast } = useToast();
-    const [languages, setLanguages] = useState(initialLanguages);
-    const [isFormOpen, setIsFormOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState<Language | null>(null);
     const [isDeleting, startDeleteTransition] = useTransition();
 
     const columns = [
@@ -145,20 +152,9 @@ export function LanguageManager({ initialLanguages, onRefresh }: LanguageManager
         setEditingItem(null);
         onRefresh();
     };
-    
-     React.useEffect(() => {
-        setLanguages(initialLanguages);
-    }, [initialLanguages]);
 
     return (
         <div>
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold">{t('adminDashboard.settingsGroups.languages.title')}</h3>
-                <Button size="sm" onClick={() => { setEditingItem(null); setIsFormOpen(true); }}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    {t('common.create')}
-                </Button>
-            </div>
             <div className="border rounded-lg max-h-96 overflow-y-auto">
                 <Table>
                     <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
@@ -168,7 +164,7 @@ export function LanguageManager({ initialLanguages, onRefresh }: LanguageManager
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {languages.map(item => {
+                        {initialLanguages.map(item => {
                             const isDefault = item.id === 'es' || item.id === 'pt-BR';
                             return (
                                 <TableRow key={item.id}>
@@ -211,7 +207,6 @@ export function LanguageManager({ initialLanguages, onRefresh }: LanguageManager
                     item={editingItem} 
                     onSuccess={onFormSuccess}
                     onCancel={() => setIsFormOpen(false)}
-                    t={t}
                 />
             </Dialog>
         </div>

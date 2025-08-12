@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   DialogContent,
   DialogDescription,
@@ -11,17 +11,38 @@ import {
   DialogClose
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlusCircle } from 'lucide-react';
 import { useLocale } from '@/lib/i18n';
+import { getLanguages, type Language } from '@/actions/catalogs';
+import { LanguageManager } from './language-manager';
+import { Skeleton } from '../ui/skeleton';
 
 export function ManageLanguageListDialog() {
     const { t } = useLocale();
-    // This is a placeholder for future functionality
+    const [isLoading, setIsLoading] = useState(true);
+    const [languages, setLanguages] = useState<Language[]>([]);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState<Language | null>(null);
+
+    const fetchLanguages = useCallback(async () => {
+        setIsLoading(true);
+        const data = await getLanguages();
+        setLanguages(data);
+        setIsLoading(false);
+    }, []);
+
+    useEffect(() => {
+        fetchLanguages();
+    }, [fetchLanguages]);
+
+    const onFormSuccess = () => {
+        setIsFormOpen(false);
+        setEditingItem(null);
+        fetchLanguages();
+    }
+    
     return (
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
                 <DialogTitle>{t('adminDashboard.settingsGroups.manageLanguages.title')}</DialogTitle>
                 <DialogDescription>
@@ -29,44 +50,32 @@ export function ManageLanguageListDialog() {
                 </DialogDescription>
             </DialogHeader>
 
-            <Tabs defaultValue="add">
-                 <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="add">{t('adminDashboard.settingsGroups.manageLanguages.addTab')}</TabsTrigger>
-                    <TabsTrigger value="import">{t('adminDashboard.settingsGroups.manageLanguages.importTab')}</TabsTrigger>
-                </TabsList>
-                <TabsContent value="add" className="pt-4">
-                     <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">{t('adminDashboard.settingsGroups.manageLanguages.addDescription')}</p>
-                        <div className="grid grid-cols-2 gap-4">
-                             <div>
-                                <Label htmlFor="lang-name">{t('adminDashboard.settingsGroups.manageLanguages.langName')}</Label>
-                                <Input id="lang-name" placeholder="English" disabled />
-                            </div>
-                            <div>
-                                <Label htmlFor="lang-key">{t('adminDashboard.settingsGroups.manageLanguages.langKey')}</Label>
-                                <Input id="lang-key" placeholder="en" disabled/>
-                            </div>
-                        </div>
-                     </div>
-                </TabsContent>
-                 <TabsContent value="import" className="pt-4">
-                     <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">{t('adminDashboard.settingsGroups.manageLanguages.importDescription')}</p>
-                        <div>
-                            <Label htmlFor="import-file">{t('adminDashboard.settingsGroups.manageLanguages.templateFile')}</Label>
-                            <Input id="import-file" type="file" disabled/>
-                        </div>
+            <div className="py-4">
+                {isLoading ? (
+                    <div className="space-y-2">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
                     </div>
-                </TabsContent>
-            </Tabs>
-            
-            <DialogFooter className="pt-4">
-                <DialogClose asChild>
+                ) : (
+                    <LanguageManager 
+                        initialLanguages={languages} 
+                        onRefresh={fetchLanguages}
+                        isFormOpen={isFormOpen}
+                        setIsFormOpen={setIsFormOpen}
+                        editingItem={editingItem}
+                        setEditingItem={setEditingItem}
+                    />
+                )}
+            </div>
+
+            <DialogFooter className="sm:justify-between pt-4">
+                 <DialogClose asChild>
                     <Button type="button" variant="outline">{t('common.close')}</Button>
                 </DialogClose>
-                <Button type="button" disabled>
+                <Button onClick={() => { setEditingItem(null); setIsFormOpen(true); }}>
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    {t('adminDashboard.settingsGroups.manageLanguages.saveButton')}
+                    {t('adminDashboard.settingsGroups.manageLanguages.addButton')}
                 </Button>
             </DialogFooter>
         </DialogContent>

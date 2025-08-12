@@ -238,15 +238,8 @@
         "extractButton": "Extraer",
         "manageLanguages": {
             "title": "Gestionar Idiomas",
-            "description": "Agrega o importa nuevos idiomas para la aplicación. Esta funcionalidad está en desarrollo.",
-            "addTab": "Agregar Idioma",
-            "importTab": "Importar Plantilla",
-            "addDescription": "Define un nuevo idioma y su clave (ej. 'en' para Inglés).",
-            "langName": "Nombre del Idioma",
-            "langKey": "Clave del Idioma",
-            "importDescription": "Sube un archivo JSON con las traducciones.",
-            "templateFile": "Archivo de Plantilla (.json)",
-            "saveButton": "Guardar Idioma"
+            "description": "Agrega o importa nuevos idiomas para la aplicación.",
+            "addButton": "Agregar Nuevo Idioma"
         },
         "manageThemes": {
             "title": "Gestionar Temas",

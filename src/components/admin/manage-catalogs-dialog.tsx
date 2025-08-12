@@ -16,18 +16,17 @@ import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useLocale } from '@/lib/i18n';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Book, Smartphone, Wifi, Map as MapIcon, Loader, Languages } from 'lucide-react';
+import { Book, Smartphone, Wifi, Map as MapIcon, Loader } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { getDeviceTypes, getLanguages, type DeviceType, type Language } from '@/actions/catalogs';
+import { getDeviceTypes, type DeviceType } from '@/actions/catalogs';
 import { CatalogManager } from './catalog-manager';
-import { LanguageManager } from './language-manager';
+import { ManageLanguageListDialog } from './manage-language-list-dialog';
 
 
 export function ManageCatalogsDialog() {
     const { t } = useLocale();
     const [isLoading, setIsLoading] = useState(true);
     const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
-    const [languages, setLanguages] = useState<Language[]>([]);
     const [activeTab, setActiveTab] = useState('devices');
 
     const fetchDataForTab = useCallback(async (tab: string) => {
@@ -36,9 +35,6 @@ export function ManageCatalogsDialog() {
             if (tab === 'devices') {
                 const data = await getDeviceTypes();
                 setDeviceTypes(data);
-            } else if (tab === 'languages') {
-                const data = await getLanguages();
-                setLanguages(data);
             }
         } catch (error) {
             console.error(`Failed to fetch data for tab ${tab}:`, error);
@@ -70,7 +66,7 @@ export function ManageCatalogsDialog() {
                     <TabsList className="grid w-full grid-cols-4">
                         <TabsTrigger value="devices"><Smartphone className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}</TabsTrigger>
                         <TabsTrigger value="protocols"><Wifi className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.protocols.tab')}</TabsTrigger>
-                        <TabsTrigger value="languages"><Languages className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.languages.tab')}</TabsTrigger>
+                        <TabsTrigger value="languages" disabled><Book className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.languages.tab')}</TabsTrigger>
                         <TabsTrigger value="maps" disabled><MapIcon className="mr-2 h-4 w-4" />{t('adminDashboard.settingsGroups.catalogs.maps.tab')}</TabsTrigger>
                     </TabsList>
                     <TabsContent value="devices" className="mt-4">
@@ -96,16 +92,6 @@ export function ManageCatalogsDialog() {
                                 </div>
                             </CardContent>
                         </Card>
-                    </TabsContent>
-                    <TabsContent value="languages" className="mt-4">
-                        {isLoading ? (
-                            <div className="flex justify-center items-center h-48"><Loader className="h-8 w-8 animate-spin"/></div>
-                        ) : (
-                            <LanguageManager
-                                initialLanguages={languages}
-                                onRefresh={() => fetchDataForTab('languages')}
-                            />
-                        )}
                     </TabsContent>
                     <TabsContent value="maps" className="mt-4">
                        <Card className="border-dashed">
