@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -55,7 +56,7 @@ export function ManageCatalogsDialog() {
                         </TabsList>
                         <div className="flex-grow overflow-y-auto mt-4 pr-2">
                              <TabsContent value="languages">
-                                <LanguageManager t={t} />
+                                <LanguageManager />
                             </TabsContent>
                             <TabsContent value="device_types">
                                 <DeviceTypesManager />
@@ -85,3 +86,5 @@ export function ManageCatalogsDialog() {
         </Dialog>
     );
 }
+
+    

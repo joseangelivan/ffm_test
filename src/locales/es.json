@@ -198,7 +198,9 @@
                 "nameLabel": "Nombre",
                 "featuresLabel": "Características",
                 "createTitle": "Crear Nuevo Tipo de Dispositivo",
-                "editTitle": "Editar Tipo de Dispositivo"
+                "editTitle": "Editar Tipo de Dispositivo",
+                "translating": "Traduciendo...",
+                "translateTooltip": "Traducir a otros idiomas"
             },
             "maps": {
               "tab": "Mapas",
@@ -209,7 +211,9 @@
             "deviceTypes": {
               "tab": "Dispositivos",
               "title": "Tipos de Dispositivo",
-              "description": "Gestiona los diferentes tipos de dispositivos que la plataforma puede rastrear."
+              "description": "Gestiona los diferentes tipos de dispositivos que la plataforma puede rastrear.",
+              "noData": "No se encontraron tipos de dispositivo.",
+              "deleteConfirmation": "Esto eliminará permanentemente el tipo de dispositivo \"{name}\". Esta acción no puede deshacerse."
             },
             "protocols": {
               "tab": "Protocolos",
@@ -226,7 +230,8 @@
                 },
                 "createTitle": "Crear Nuevo Idioma",
                 "editTitle": "Editar Idioma",
-                "deleteConfirmation": "Esto eliminará el idioma \"{name}\". Esta acción no puede deshacerse."
+                "deleteConfirmation": "Esto eliminará el idioma \"{name}\". Esta acción no puede deshacerse.",
+                "noLanguages": "No se encontraron idiomas."
             }
         },
         "interfaceDescription": "Personaliza la apariencia y el idioma de la aplicación.",
@@ -578,5 +583,7 @@
         "logTitle": "Registro de Inicialización"
     }
   }
+
+    
 
     

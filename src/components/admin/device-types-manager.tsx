@@ -56,7 +56,7 @@ function DeviceTypeForm({
     const { t } = useLocale();
     const isEditMode = !!item;
     const formAction = isEditMode ? updateDeviceType : createDeviceType;
-    const [selectedLang, setSelectedLang] = useState<'es' | 'pt'>('es');
+    const [selectedLang, setSelectedLang] = useState<'es' | 'pt-BR'>('pt-BR');
     
     const nameEsRef = useRef<HTMLInputElement>(null);
     const featuresEsRef = useRef<HTMLTextAreaElement>(null);
@@ -81,8 +81,8 @@ function DeviceTypeForm({
 
     const handleTranslate = () => {
         startTranslateTransition(async () => {
-            const sourceLang = selectedLang;
-            const targetLang = selectedLang === 'es' ? 'pt' : 'es';
+            const sourceLang = selectedLang === 'pt-BR' ? 'pt' : 'es';
+            const targetLang = selectedLang === 'pt-BR' ? 'es' : 'pt';
 
             const nameRef = sourceLang === 'es' ? nameEsRef : namePtRef;
             const featuresRef = sourceLang === 'es' ? featuresEsRef : featuresPtRef;
@@ -123,7 +123,7 @@ function DeviceTypeForm({
                  {(pending || isTranslating) && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
                         <Loader className="h-8 w-8 animate-spin" />
-                        <span className="ml-2">{isTranslating ? 'Traduciendo...' : (isEditMode ? 'Actualizando...' : 'Creando...')}</span>
+                        <span className="ml-2">{isTranslating ? t('adminDashboard.settingsGroups.catalogs.form.translating') : (isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating'))}</span>
                     </div>
                 )}
                 <DialogHeader>
@@ -137,13 +137,13 @@ function DeviceTypeForm({
                     <div className="flex justify-between items-center gap-2">
                         <div className="space-y-2 flex-grow">
                             <Label>{t('dashboard.language')}</Label>
-                            <Select value={selectedLang} onValueChange={(value) => setSelectedLang(value as 'es' | 'pt')}>
+                            <Select value={selectedLang} onValueChange={(value) => setSelectedLang(value as 'es' | 'pt-BR')}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Seleccionar idioma"/>
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="es">{t('adminDashboard.settingsGroups.catalogs.form.tab_es')}</SelectItem>
-                                    <SelectItem value="pt">{t('adminDashboard.settingsGroups.catalogs.form.tab_pt')}</SelectItem>
+                                    <SelectItem value="pt-BR">{t('adminDashboard.settingsGroups.catalogs.form.tab_pt')}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -156,14 +156,13 @@ function DeviceTypeForm({
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p>Traducir a otros idiomas</p>
+                                        <p>{t('adminDashboard.settingsGroups.catalogs.form.translateTooltip')}</p>
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
                         </div>
                     </div>
 
-                    {/* Spanish Fields - Always in DOM for form submission */}
                     <div className={`${selectedLang === 'es' ? 'block' : 'hidden'}`}>
                          <div className="space-y-2">
                             <Label htmlFor="name_es">{t('adminDashboard.settingsGroups.catalogs.form.nameLabel')}</Label>
@@ -175,8 +174,7 @@ function DeviceTypeForm({
                         </div>
                     </div>
 
-                    {/* Portuguese Fields - Always in DOM for form submission */}
-                    <div className={`${selectedLang === 'pt' ? 'block' : 'hidden'}`}>
+                    <div className={`${selectedLang === 'pt-BR' ? 'block' : 'hidden'}`}>
                          <div className="space-y-2">
                             <Label htmlFor="name_pt">{t('adminDashboard.settingsGroups.catalogs.form.nameLabel')}</Label>
                             <Input ref={namePtRef} id="name_pt" name="name_pt" defaultValue={item?.name_translations?.['pt-BR']} />
@@ -293,7 +291,13 @@ export default function DeviceTypesManager() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {(deviceTypes || []).map(item => (
+                             {deviceTypes.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={columns.length + 1} className="h-24 text-center">
+                                        {t('adminDashboard.settingsGroups.catalogs.deviceTypes.noData')}
+                                    </TableCell>
+                                </TableRow>
+                            ) : deviceTypes.map(item => (
                                 <TableRow key={item.id}>
                                     {Object.keys(columns).map(idx => {
                                         const colKey = columns[parseInt(idx)].key;
@@ -317,7 +321,7 @@ export default function DeviceTypesManager() {
                                                 <AlertDialogHeader>
                                                     <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
                                                     <AlertDialogDescription>
-                                                    {t('adminDashboard.deleteCondoDialog.description', {name: getTranslatedValue(item.name_translations)})}
+                                                    {t('adminDashboard.settingsGroups.catalogs.deviceTypes.deleteConfirmation', {name: getTranslatedValue(item.name_translations)})}
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
@@ -344,4 +348,6 @@ export default function DeviceTypesManager() {
         </Card>
     );
 }
+    
+
     

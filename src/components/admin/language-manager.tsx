@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useActionState, useTransition } from 'react';
@@ -36,8 +37,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { useLocale } from '@/lib/i18n';
 
-function LanguageForm({ item, onSuccess, onCancel, t }: { item: Language | null, onSuccess: () => void, onCancel: () => void, t: (key: string) => string }) {
+function LanguageForm({ item, onSuccess, onCancel }: { item: Language | null, onSuccess: () => void, onCancel: () => void }) {
+    const { t } = useLocale();
     const { toast } = useToast();
     const isEditMode = !!item;
     const formAction = isEditMode ? updateLanguage : createLanguage;
@@ -87,7 +90,8 @@ function LanguageForm({ item, onSuccess, onCancel, t }: { item: Language | null,
     );
 }
 
-export default function LanguageManager({ t }: { t: (key: string) => string }) {
+export default function LanguageManager() {
+    const { t } = useLocale();
     const [languages, setLanguages] = useState<Language[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -173,14 +177,14 @@ export default function LanguageManager({ t }: { t: (key: string) => string }) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {(languages || []).length === 0 ? (
+                            {languages.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={columns.length} className="h-24 text-center">
-                                        No languages found.
+                                        {t('adminDashboard.settingsGroups.languages.noLanguages')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                (languages || []).map((lang) => (
+                                languages.map((lang) => (
                                     <TableRow key={lang.id}>
                                         <TableCell className="font-medium truncate">{lang.id}</TableCell>
                                         <TableCell className="truncate">{lang.name_translations.es}</TableCell>
@@ -220,10 +224,11 @@ export default function LanguageManager({ t }: { t: (key: string) => string }) {
                         item={editingItem}
                         onSuccess={onFormSuccess}
                         onCancel={() => setIsFormOpen(false)}
-                        t={t}
                     />
                 </Dialog>
             </CardContent>
         </Card>
     );
 }
+
+    
