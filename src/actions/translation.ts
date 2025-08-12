@@ -295,7 +295,7 @@ async function translateText(
         }
         
         const paramValue = String(rawValue || '')
-            .replace(/\$InputText/g, encodeURIComponent(text))
+            .replace(/\$InputText/g, text)
             .replace(/\$InputLang/g, inputLang)
             .replace(/\$OutputLang/g, outputLang);
 
@@ -433,3 +433,5 @@ export async function translateTextAction(data: {
     if (client) client.release();
   }
 }
+
+    
