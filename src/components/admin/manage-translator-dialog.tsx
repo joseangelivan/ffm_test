@@ -128,7 +128,7 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
                         name="response_config"
                         value={responseConfig}
                         onChange={handleJsonChange(setResponseConfig, setIsResponseJsonValid)}
-                        placeholder='{\n  "path": "...",\n  "statusPath": "..."\n}'
+                        placeholder='{\n  "path": "..."\n}'
                         required 
                         disabled={pending}
                         className={cn("min-h-[100px] font-mono text-xs", !isResponseJsonValid && "border-destructive focus-visible:ring-destructive")}
@@ -145,7 +145,7 @@ function ServiceFormFields({ service, onCancel }: { service: TranslationService 
 }
 
 
-function ServiceFormDialog({ service, onSuccess, onCancel }: { service: TranslationService | null, onSuccess: () => void, onCancel: () => void }) {
+function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpen: boolean, onOpenChange: (open: boolean) => void, service: TranslationService | null, onSuccess: () => void }) {
     const { t } = useLocale();
     const { toast } = useToast();
     const isEditMode = !!service;
@@ -170,11 +170,13 @@ function ServiceFormDialog({ service, onSuccess, onCancel }: { service: Translat
     const [state, dispatch] = useActionState(handleAction, undefined);
     
     return (
-        <DialogContent className="sm:max-w-lg">
-            <form action={dispatch}>
-                 <ServiceFormFields service={service} onCancel={onCancel} />
-            </form>
-        </DialogContent>
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-lg">
+                <form action={dispatch}>
+                    <ServiceFormFields service={service} onCancel={() => onOpenChange(false)} />
+                </form>
+            </DialogContent>
+        </Dialog>
     )
 }
 
@@ -220,6 +222,11 @@ export function ManageTranslatorDialog() {
       setIsFormOpen(true);
   };
   
+    const handleCreateClick = () => {
+        setEditingService(null);
+        setIsFormOpen(true);
+    };
+
   const handleDelete = (id: string) => {
     startSubmitting(async () => {
        const result = await deleteTranslationService(id);
@@ -361,7 +368,7 @@ export function ManageTranslatorDialog() {
                 
                 <DialogFooter className="sm:justify-between">
                     <DialogClose asChild><Button variant="outline">{t('common.close')}</Button></DialogClose>
-                    <Button onClick={() => { setEditingService(null); setIsFormOpen(true); }}>
+                    <Button onClick={handleCreateClick}>
                         <PlusCircle className="mr-2 h-4 w-4"/>{t('adminDashboard.translator.addButton')}
                     </Button>
                 </DialogFooter>
@@ -369,9 +376,12 @@ export function ManageTranslatorDialog() {
         </DialogContent>
       </Dialog>
       
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-          <ServiceFormDialog service={editingService} onSuccess={onFormSuccess} onCancel={() => setIsFormOpen(false)} />
-      </Dialog>
+      <ServiceFormDialog 
+        isOpen={isFormOpen} 
+        onOpenChange={setIsFormOpen} 
+        service={editingService} 
+        onSuccess={onFormSuccess} 
+      />
     </>
   );
 }
