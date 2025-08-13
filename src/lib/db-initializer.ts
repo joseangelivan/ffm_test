@@ -81,7 +81,7 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
     try {
         const name_translations = { es: 'Teléfono Inteligente', 'pt-BR': 'Smartphone' };
         await client.query(
-            'INSERT INTO device_types (name_translations) VALUES ($1) ON CONFLICT (name_translations) DO NOTHING',
+            'INSERT INTO device_types (name_translations) VALUES ($1) ON CONFLICT ((name_translations->>\'pt-BR\')) DO NOTHING',
             [name_translations]
         );
         log.push('SUCCESS: Default device type data seeded.');
@@ -161,9 +161,27 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
                 "INSERT INTO gatekeepers (condominium_id, name, email, password_hash) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING",
                 [condoId, 'Pedro arias', 'pedro.arias@email.com', gatekeeperPassword]
             );
-             log.push('SUCCESS: Test data (condo, resident, gatekeeper) seeded.');
+            log.push('SUCCESS: Test data (condo, resident, gatekeeper) seeded.');
+
+            // Seed devices for the test condominium
+            const deviceTypeResult = await client.query("SELECT id FROM device_types WHERE name_translations->>'pt-BR' = 'Smartphone'");
+            const deviceTypeId = deviceTypeResult.rows[0]?.id;
+
+            if (deviceTypeId) {
+                await client.query(
+                    "INSERT INTO devices (name, condominium_id, device_type_id, token) VALUES ($1, $2, $3, $4), ($5, $6, $7, $8) ON CONFLICT (token) DO NOTHING",
+                    [
+                        'iPhone de Juan', condoId, deviceTypeId, 'token_iphone_juan_123',
+                        'Galaxy de Pedro', condoId, deviceTypeId, 'token_galaxy_pedro_456'
+                    ]
+                );
+                log.push('SUCCESS: Test devices seeded for Condominio Paraíso.');
+            } else {
+                log.push('WARNING: Could not find "Smartphone" device type to seed test devices.');
+            }
+
         } else {
-             log.push('INFO: Test condominium already exists, skipping test user creation.');
+             log.push('INFO: Test condominium already exists, skipping test user and device creation.');
         }
     } catch (e: any) {
         log.push(`ERROR: Seeding test data failed: ${e.message}`);
