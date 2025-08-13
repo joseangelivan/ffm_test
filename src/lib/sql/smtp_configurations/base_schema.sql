@@ -1,17 +1,19 @@
-CREATE TABLE IF NOT EXISTS smtp_configurations (
+
+CREATE TABLE IF NOT EXISTS public.smtp_configurations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL UNIQUE,
-    host TEXT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    host VARCHAR(255) NOT NULL,
     port INTEGER NOT NULL,
-    secure BOOLEAN NOT NULL DEFAULT TRUE,
-    auth_user TEXT NOT NULL,
+    secure BOOLEAN DEFAULT TRUE,
+    auth_user VARCHAR(255) NOT NULL,
     auth_pass TEXT NOT NULL,
-    priority INTEGER NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    priority INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TRIGGER update_smtp_configurations_updated_at
-BEFORE UPDATE ON smtp_configurations
+DROP TRIGGER IF EXISTS set_updated_at ON public.smtp_configurations;
+CREATE TRIGGER set_updated_at
+BEFORE UPDATE ON public.smtp_configurations
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+EXECUTE FUNCTION public.update_updated_at_column();

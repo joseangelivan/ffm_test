@@ -1,30 +1,32 @@
-CREATE TABLE IF NOT EXISTS themes (
+
+CREATE TABLE IF NOT EXISTS public.themes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL UNIQUE,
-    background_hsl TEXT NOT NULL,
-    foreground_hsl TEXT NOT NULL,
-    card_hsl TEXT NOT NULL,
-    card_foreground_hsl TEXT NOT NULL,
-    popover_hsl TEXT NOT NULL,
-    popover_foreground_hsl TEXT NOT NULL,
-    primary_hsl TEXT NOT NULL,
-    primary_foreground_hsl TEXT NOT NULL,
-    secondary_hsl TEXT NOT NULL,
-    secondary_foreground_hsl TEXT NOT NULL,
-    muted_hsl TEXT NOT NULL,
-    muted_foreground_hsl TEXT NOT NULL,
-    accent_hsl TEXT NOT NULL,
-    accent_foreground_hsl TEXT NOT NULL,
-    destructive_hsl TEXT NOT NULL,
-    destructive_foreground_hsl TEXT NOT NULL,
-    border_hsl TEXT NOT NULL,
-    input_hsl TEXT NOT NULL,
-    ring_hsl TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    name VARCHAR(255) UNIQUE NOT NULL,
+    background_hsl VARCHAR(50) NOT NULL,
+    foreground_hsl VARCHAR(50) NOT NULL,
+    card_hsl VARCHAR(50) NOT NULL,
+    card_foreground_hsl VARCHAR(50) NOT NULL,
+    popover_hsl VARCHAR(50) NOT NULL,
+    popover_foreground_hsl VARCHAR(50) NOT NULL,
+    primary_hsl VARCHAR(50) NOT NULL,
+    primary_foreground_hsl VARCHAR(50) NOT NULL,
+    secondary_hsl VARCHAR(50) NOT NULL,
+    secondary_foreground_hsl VARCHAR(50) NOT NULL,
+    muted_hsl VARCHAR(50) NOT NULL,
+    muted_foreground_hsl VARCHAR(50) NOT NULL,
+    accent_hsl VARCHAR(50) NOT NULL,
+    accent_foreground_hsl VARCHAR(50) NOT NULL,
+    destructive_hsl VARCHAR(50) NOT NULL,
+    destructive_foreground_hsl VARCHAR(50) NOT NULL,
+    border_hsl VARCHAR(50) NOT NULL,
+    input_hsl VARCHAR(50) NOT NULL,
+    ring_hsl VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TRIGGER update_themes_updated_at
-BEFORE UPDATE ON themes
+DROP TRIGGER IF EXISTS set_updated_at ON public.themes;
+CREATE TRIGGER set_updated_at
+BEFORE UPDATE ON public.themes
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+EXECUTE FUNCTION public.update_updated_at_column();

@@ -1,16 +1,16 @@
--- src/lib/sql/translation_services/base_schema.sql
 
-CREATE TABLE IF NOT EXISTS translation_services (
+CREATE TABLE IF NOT EXISTS public.translation_services (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     config_json JSONB NOT NULL,
     is_default BOOLEAN DEFAULT FALSE,
     supported_languages JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE OR REPLACE TRIGGER set_updated_at
-BEFORE UPDATE ON translation_services
+DROP TRIGGER IF EXISTS set_updated_at ON public.translation_services;
+CREATE TRIGGER set_updated_at
+BEFORE UPDATE ON public.translation_services
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+EXECUTE FUNCTION public.update_updated_at_column();

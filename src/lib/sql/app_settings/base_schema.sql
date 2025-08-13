@@ -1,11 +1,13 @@
-CREATE TABLE IF NOT EXISTS app_settings (
-    id TEXT PRIMARY KEY,
+
+CREATE TABLE IF NOT EXISTS public.app_settings (
+    id VARCHAR(255) PRIMARY KEY,
     value TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TRIGGER update_app_settings_updated_at
-BEFORE UPDATE ON app_settings
+DROP TRIGGER IF EXISTS set_updated_at ON public.app_settings;
+CREATE TRIGGER set_updated_at
+BEFORE UPDATE ON public.app_settings
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+EXECUTE FUNCTION public.update_updated_at_column();
