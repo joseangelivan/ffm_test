@@ -5,6 +5,7 @@ import type { PoolClient } from 'pg';
 import { getDbPool } from './db';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import bcryptjs from 'bcryptjs';
 
 // This flag prevents the migration from running more than once per server instance lifetime.
 // It's a safeguard, but the core logic relies on the migrations_log table.
@@ -101,6 +102,78 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
         }
     }
     log.push('SUCCESS: Non-destructive migrations phase completed.');
+
+    // --- Phase 3: Seed initial required data ---
+    log.push('PHASE: Seeding all initial data...');
+    try {
+        const adminEmail = 'angelivan34@gmail.com';
+        const correctPassword = 'adminivan123';
+        const dynamicallyGeneratedHash = await bcryptjs.hash(correctPassword, 10);
+        
+        await client.query(
+            "INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, TRUE) ON CONFLICT (email) DO NOTHING",
+            ['José Angel Iván Rubianes Silva', adminEmail, dynamicallyGeneratedHash]
+        );
+        log.push('SUCCESS: Default admin user seeded.');
+    } catch (e: any) {
+        log.push(`ERROR: Could not seed default admin. Error: ${e.message}`);
+        throw e;
+    }
+
+    try {
+        await client.query(
+            "INSERT INTO device_types (name_translations, features_translations) VALUES ('{ \"es\": \"Teléfono Inteligente\", \"pt-BR\": \"Smartphone\" }', NULL) ON CONFLICT (id) DO NOTHING"
+        );
+        log.push('SUCCESS: Default device type seeded.');
+    } catch (e: any) {
+        log.push(`ERROR: Could not seed device types. Error: ${e.message}`);
+        throw e;
+    }
+    log.push('SUCCESS: Initial data seeding completed.');
+
+
+    // --- Phase 4: Seed Test Data ---
+    log.push('PHASE: Seeding test data...');
+    let testCondoId = '';
+    try {
+        const res = await client.query(
+            "INSERT INTO condominiums (name, address, continent, country, state, city, street, number) VALUES ('Condominio Paraíso', 'Av. del Edén 123, Jardines, Ciudad Capital, Capital', 'Americas', 'Brazil', 'Sao Paulo', 'Sao Paulo', 'Av. del Edén', '123') ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id"
+        );
+        if (res.rows.length > 0) {
+            testCondoId = res.rows[0].id;
+            log.push('SUCCESS: Test condominium seeded.');
+        } else {
+            const existing = await client.query("SELECT id FROM condominiums WHERE name = 'Condominio Paraíso'");
+            testCondoId = existing.rows[0].id;
+             log.push('SKIP: Test condominium already exists.');
+        }
+    } catch (e: any) {
+        log.push(`ERROR: Could not seed test condominium. Error: ${e.message}`);
+        throw e;
+    }
+
+    if (testCondoId) {
+        try {
+            const residentPassword = await bcryptjs.hash('password123', 10);
+            const gatekeeperPassword = await bcryptjs.hash('portero123', 10);
+
+            await client.query(
+                "INSERT INTO residents (condominium_id, name, email, password_hash, location, housing, phone) VALUES ($1, 'Juan Pérez', 'juan.perez@email.com', $2, 'Torre A', 'Apto 101', '+5511987654321') ON CONFLICT (email) DO NOTHING",
+                [testCondoId, residentPassword]
+            );
+             await client.query(
+                "INSERT INTO gatekeepers (condominium_id, name, email, password_hash, location, housing, phone) VALUES ($1, 'Pedro arias', 'pedro.arias@email.com', $2, 'portaria 1', 'portaria 1', '+5511987654321') ON CONFLICT (email) DO NOTHING",
+                [testCondoId, gatekeeperPassword]
+            );
+            log.push('SUCCESS: Test users (resident and gatekeeper) seeded.');
+        } catch (e: any) {
+            log.push(`ERROR: Could not seed test users. Error: ${e.message}`);
+            throw e;
+        }
+    } else {
+        log.push('WARN: Skipping test user seeding because test condominium could not be created or found.');
+    }
+    log.push('SUCCESS: Test data seeding completed.');
 }
 
 
