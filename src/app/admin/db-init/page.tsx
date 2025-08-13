@@ -1,13 +1,12 @@
 
 "use client";
 
-import React, { useActionState, useRef, useState, useTransition, useEffect } from 'react';
-import { useFormStatus } from 'react-dom';
+import React, { useActionState, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Database, AlertCircle, Loader, CheckCircle, ListChecks, ServerCrash, Terminal } from 'lucide-react';
-import { initializeDatabase, type DbInitResult } from '@/lib/db-initializer';
+import { Database, AlertCircle, Loader, CheckCircle, ListChecks, ServerCrash, Terminal, Trash2 } from 'lucide-react';
+import { initializeDatabase, clearDatabase, type DbInitResult } from '@/lib/db-initializer';
 import { useLocale } from '@/lib/i18n';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -62,89 +61,124 @@ function DbInitForm() {
     const { t } = useLocale();
     const initialState: DbInitResult = { success: false, message: '', log: [] };
     
-    const [state, formAction, isPending] = useActionState(initializeDatabase, initialState);
-    const [isAlertOpen, setIsAlertOpen] = useState(false);
-    const formRef = useRef<HTMLFormElement>(null);
+    const [initState, initAction, isInitPending] = useActionState(initializeDatabase, initialState);
+    const [clearState, clearAction, isClearPending] = useActionState(clearDatabase, initialState);
+
+    const [isInitAlertOpen, setIsInitAlertOpen] = useState(false);
+    const [isClearAlertOpen, setIsClearAlertOpen] = useState(false);
+
+    const initFormRef = useRef<HTMLFormElement>(null);
+    const clearFormRef = useRef<HTMLFormElement>(null);
 
     useEffect(() => {
-        // When the form submission starts, close the dialog.
-        if (isPending) {
-            setIsAlertOpen(false);
-        }
-    }, [isPending]);
+        if (isInitPending) setIsInitAlertOpen(false);
+    }, [isInitPending]);
 
-    const handleFormSubmit = () => {
-        formRef.current?.requestSubmit();
-    }
+     useEffect(() => {
+        if (isClearPending) setIsClearAlertOpen(false);
+    }, [isClearPending]);
+
+    const handleInitSubmit = () => initFormRef.current?.requestSubmit();
+    const handleClearSubmit = () => clearFormRef.current?.requestSubmit();
+
+    const isPending = isInitPending || isClearPending;
+    const finalState = initState.log.length > clearState.log.length ? initState : clearState;
 
     return (
         <Card className="w-full max-w-2xl shadow-xl">
-            <form ref={formRef} action={formAction}>
-                <CardHeader>
-                    <div className="flex justify-center pb-4">
-                        <Logo />
-                    </div>
-                    <CardTitle className="text-center text-2xl">{t('dbInitializer.title')}</CardTitle>
-                    <CardDescription className="text-center">
-                        {t('dbInitializer.description')}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {state && state.log.length > 0 ? (
-                        <div className="space-y-4">
-                            <Alert variant={state.success ? 'default' : 'destructive'} className={cn(state.success && "border-green-500/50 text-green-900 dark:border-green-500/30 dark:text-green-200 [&>svg]:text-green-600")}>
-                                {state.success ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                                <AlertTitle>{state.success ? t('dbInitializer.successTitle') : t('toast.errorTitle')}</AlertTitle>
-                                <AlertDescription>
-                                    {state.message}
-                                </AlertDescription>
-                            </Alert>
+            <CardHeader>
+                <div className="flex justify-center pb-4">
+                    <Logo />
+                </div>
+                <CardTitle className="text-center text-2xl">{t('dbInitializer.title')}</CardTitle>
+                <CardDescription className="text-center">
+                    {t('dbInitializer.description')}
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {finalState.log.length > 0 ? (
+                    <div className="space-y-4">
+                        <Alert variant={finalState.success ? 'default' : 'destructive'} className={cn(finalState.success && "border-green-500/50 text-green-900 dark:border-green-500/30 dark:text-green-200 [&>svg]:text-green-600")}>
+                            {finalState.success ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                            <AlertTitle>{finalState.success ? t('dbInitializer.successTitle') : t('toast.errorTitle')}</AlertTitle>
+                            <AlertDescription>
+                                {finalState.message}
+                            </AlertDescription>
+                        </Alert>
 
-                            <div className="rounded-lg border bg-muted/50">
-                                <div className="flex items-center gap-2 p-3 border-b">
-                                    <Terminal className="h-5 w-5" />
-                                    <h3 className="font-semibold">{t('dbInitializer.logTitle')}</h3>
-                                </div>
-                                <ScrollArea className="h-60 p-2">
-                                    {state.log.map((line, index) => <LogEntry key={index} logLine={line} />)}
-                                </ScrollArea>
+                        <div className="rounded-lg border bg-muted/50">
+                            <div className="flex items-center gap-2 p-3 border-b">
+                                <Terminal className="h-5 w-5" />
+                                <h3 className="font-semibold">{t('dbInitializer.logTitle')}</h3>
                             </div>
+                            <ScrollArea className="h-60 p-2">
+                                {finalState.log.map((line, index) => <LogEntry key={index} logLine={line} />)}
+                            </ScrollArea>
                         </div>
-                    ) : isPending && (
-                        <div className="flex items-center justify-center gap-4 text-muted-foreground py-10">
-                            <Loader className="h-8 w-8 animate-spin" />
-                            <span>{t('dbInitializer.loading')}</span>
-                        </div>
-                    )}
-                </CardContent>
-                <CardFooter className="flex flex-col gap-4">
-                    <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-                        <AlertDialogTrigger asChild>
-                            <Button type="button" className="w-full" disabled={isPending}>
-                                {isPending ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <Database className="mr-2 h-4 w-4" />}
-                                {t('dbInitializer.button')}
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    {t('dbInitializer.confirmationDescription')}
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter className="mt-4">
-                                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleFormSubmit}>
-                                    {t('dbInitializer.confirmButton')}
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                    <Link href="/admin/login" className="text-sm text-muted-foreground hover:underline">
-                        {t('dbInitializer.goBack')}
-                    </Link>
-                </CardFooter>
-            </form>
+                    </div>
+                ) : isPending && (
+                    <div className="flex items-center justify-center gap-4 text-muted-foreground py-10">
+                        <Loader className="h-8 w-8 animate-spin" />
+                        <span>{isInitPending ? t('dbInitializer.loading') : t('dbInitializer.clearing')}</span>
+                    </div>
+                )}
+            </CardContent>
+            <CardFooter className="flex flex-col gap-4">
+                <div className="grid grid-cols-2 gap-4 w-full">
+                    {/* Clear DB Action */}
+                    <form ref={clearFormRef} action={clearAction} className="w-full">
+                        <AlertDialog open={isClearAlertOpen} onOpenChange={setIsClearAlertOpen}>
+                            <AlertDialogTrigger asChild>
+                                <Button type="button" variant="destructive" className="w-full" disabled={isPending}>
+                                    {isClearPending ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <Trash2 className="mr-2 h-4 w-4" />}
+                                    {t('dbInitializer.clearButton')}
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
+                                    <AlertDialogDescription>{t('dbInitializer.clearConfirmationDescription')}</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter className="mt-4">
+                                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleClearSubmit} className={buttonVariants({ variant: "destructive" })}>
+                                        {t('dbInitializer.clearConfirmButton')}
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </form>
+
+                    {/* Initialize DB Action */}
+                    <form ref={initFormRef} action={initAction} className="w-full">
+                        <AlertDialog open={isInitAlertOpen} onOpenChange={setIsInitAlertOpen}>
+                            <AlertDialogTrigger asChild>
+                                <Button type="button" className="w-full" disabled={isPending}>
+                                    {isInitPending ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : <Database className="mr-2 h-4 w-4" />}
+                                    {t('dbInitializer.button')}
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        {t('dbInitializer.confirmationDescription')}
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter className="mt-4">
+                                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleInitSubmit}>
+                                        {t('dbInitializer.confirmButton')}
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </form>
+                </div>
+                <Link href="/admin/login" className="text-sm text-muted-foreground hover:underline">
+                    {t('dbInitializer.goBack')}
+                </Link>
+            </CardFooter>
         </Card>
     );
 }

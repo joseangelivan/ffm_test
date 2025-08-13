@@ -573,12 +573,16 @@
         "title": "Inicialização do Banco de Dados",
         "description": "Esta é uma ação sensível que irá reiniciar as migrações. Isso pode ser útil se houve um erro, mas também pode causar problemas se não for usado com cuidado.",
         "loading": "Inicializando...",
+        "clearing": "Limpando banco de dados...",
         "successTitle": "Sucesso!",
         "successDescription": "O processo de inicialização do banco de dados foi concluído.",
         "button": "Inicializar Banco de Dados",
+        "clearButton": "Limpar Tabelas e Dados",
         "goBack": "Voltar para o Login de Administrador",
         "confirmationDescription": "Isso tentará executar novamente todas as migrações do banco de dados. Esta ação geralmente é segura, mas só deve ser feita se houver suspeita de um problema com o esquema do banco de dados. Tem certeza de que deseja continuar?",
+        "clearConfirmationDescription": "Esta ação excluirá permanentemente TODAS as tabelas e dados do banco de dados. Esta ação não pode ser desfeita. Você tem certeza absoluta?",
         "confirmButton": "Sim, inicializar",
+        "clearConfirmButton": "Sim, excluir tudo",
         "logTitle": "Registro de Inicialização"
     }
   }

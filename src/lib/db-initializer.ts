@@ -267,4 +267,61 @@ export async function initializeDatabase(
     }
 }
 
-    
+
+export async function clearDatabase(
+    prevState: DbInitResult | undefined,
+    formData: FormData
+): Promise<DbInitResult> {
+    let dbClient;
+    const log: string[] = [];
+
+    try {
+        log.push('INFO: Obtaining database pool connection for clearing...');
+        const pool = await getDbPool();
+        dbClient = await pool.connect();
+        log.push('SUCCESS: Database pool connected.');
+
+        await dbClient.query('BEGIN');
+        log.push('INFO: Transaction started for clearing database.');
+
+        const tablesResult = await dbClient.query(`
+            SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+        `);
+        const tables = tablesResult.rows;
+
+        if (tables.length === 0) {
+            log.push('INFO: No tables found in public schema to delete.');
+        } else {
+            for (const table of tables) {
+                const tableName = table.tablename;
+                log.push(`EXECUTE: Dropping table "${tableName}"...`);
+                await dbClient.query(`DROP TABLE IF EXISTS "${tableName}" CASCADE`);
+                log.push(`SUCCESS: Table "${tableName}" dropped.`);
+            }
+        }
+
+        await dbClient.query('COMMIT');
+        log.push('SUCCESS: Database cleared successfully.');
+        
+        return { success: true, message: 'Todas as tabelas foram removidas com sucesso.', log };
+
+    } catch (error: any) {
+        log.push(`CRITICAL: Database clearing process failed. Error: ${error.message}`);
+        console.error("CRITICAL: Database clearing process failed.", error);
+
+        if (dbClient) {
+            try {
+                await dbClient.query('ROLLBACK');
+                log.push('INFO: Transaction rolled back due to error.');
+            } catch (rbError: any) {
+                log.push(`CRITICAL: Failed to rollback transaction. Error: ${rbError.message}`);
+            }
+        }
+        
+        return { success: false, message: `Erro ao limpar banco de dados: ${error.message}`, log };
+    } finally {
+        if (dbClient) {
+            dbClient.release();
+        }
+    }
+}

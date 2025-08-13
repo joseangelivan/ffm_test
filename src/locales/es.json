@@ -578,12 +578,16 @@
         "title": "Inicialización de la Base de Datos",
         "description": "Esta es una acción sensible que reiniciará las migraciones. Esto podría ser útil si hubo un error, pero también podría causar problemas si no se usa con cuidado.",
         "loading": "Inicializando...",
+        "clearing": "Limpiando banco de dados...",
         "successTitle": "¡Éxito!",
         "successDescription": "O processo de inicialização do banco de dados foi concluído.",
         "button": "Inicializar Base de Datos",
+        "clearButton": "Limpar Tabelas e Dados",
         "goBack": "Volver al Login de Administrador",
         "confirmationDescription": "Esto intentará ejecutar de nuevo todas las migraciones de la base de datos. Esta acción generalmente es segura, pero solo debe realizarse si se sospecha un problema con el esquema de la base de datos. ¿Estás seguro de que quieres continuar?",
+        "clearConfirmationDescription": "Esta acción eliminará permanentemente TODAS las tablas y datos de la base de datos. Esta acción no se puede deshacer. ¿Estás absolutamente seguro?",
         "confirmButton": "Sí, inicializar",
+        "clearConfirmButton": "Sí, eliminar todo",
         "logTitle": "Registro de Inicialización"
     }
   }
