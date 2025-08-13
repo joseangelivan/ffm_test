@@ -1,7 +1,7 @@
-
-CREATE TABLE IF NOT EXISTS public.themes (
+-- Tabla para almacenar temas de la interfaz
+CREATE TABLE IF NOT EXISTS themes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(100) UNIQUE NOT NULL,
     background_hsl VARCHAR(50) NOT NULL,
     foreground_hsl VARCHAR(50) NOT NULL,
     card_hsl VARCHAR(50) NOT NULL,
@@ -25,8 +25,9 @@ CREATE TABLE IF NOT EXISTS public.themes (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Trigger para actualizar el campo updated_at
 DROP TRIGGER IF EXISTS set_updated_at ON public.themes;
 CREATE TRIGGER set_updated_at
-BEFORE UPDATE ON public.themes
+BEFORE UPDATE ON themes
 FOR EACH ROW
-EXECUTE FUNCTION public.update_updated_at_column();
+EXECUTE FUNCTION update_updated_at_column();
