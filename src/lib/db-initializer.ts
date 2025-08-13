@@ -4,6 +4,8 @@
 import type { PoolClient } from 'pg';
 import { getDbPool } from './db';
 import { supportedLanguages as initialLanguages } from './languages';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 // This flag prevents the migration from running more than once per server instance lifetime.
 // It's a safeguard, but the core logic relies on the migrations_log table.
@@ -15,274 +17,42 @@ export type DbInitResult = {
     log: string[];
 };
 
-// The SQL definitions are now external and will be read from files.
-// For simplicity in this refactor, we are representing them as if they were read.
-// A more robust solution would involve fs.readFile in a real Node.js environment.
-const SCHEMAS_SQL: { [key: string]: string } = {
-    'migrations_log': `
-        CREATE TABLE IF NOT EXISTS migrations_log (
-            id SERIAL PRIMARY KEY,
-            file_name VARCHAR(255) UNIQUE NOT NULL,
-            applied_at TIMESTAMPTZ DEFAULT NOW()
-        );
-    `,
-    'catalogs': `
-        CREATE TABLE IF NOT EXISTS device_types (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name_translations JSONB NOT NULL,
-            features_translations JSONB,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-        CREATE TABLE IF NOT EXISTS languages (
-            id VARCHAR(10) PRIMARY KEY,
-            name_translations JSONB NOT NULL,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-    `,
-    'admins': `
-        CREATE TABLE IF NOT EXISTS admins (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name VARCHAR(255) NOT NULL,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            password_hash VARCHAR(255),
-            can_create_admins BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-        CREATE TABLE IF NOT EXISTS admin_first_login_pins (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
-            pin_hash VARCHAR(255) NOT NULL,
-            expires_at TIMESTAMPTZ NOT NULL,
-            UNIQUE(admin_id)
-        );
-        CREATE TABLE IF NOT EXISTS admin_verification_pins (
-            admin_id UUID PRIMARY KEY REFERENCES admins(id) ON DELETE CASCADE,
-            pin VARCHAR(6) NOT NULL,
-            email VARCHAR(255) NOT NULL,
-            expires_at TIMESTAMPTZ NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS admin_totp_secrets (
-            admin_id UUID PRIMARY KEY REFERENCES admins(id) ON DELETE CASCADE,
-            secret VARCHAR(255) NOT NULL
-        );
-    `,
-    'themes': `
-        CREATE TABLE IF NOT EXISTS themes (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name TEXT NOT NULL UNIQUE,
-            background_hsl TEXT NOT NULL,
-            foreground_hsl TEXT NOT NULL,
-            card_hsl TEXT NOT NULL,
-            card_foreground_hsl TEXT NOT NULL,
-            popover_hsl TEXT NOT NULL,
-            popover_foreground_hsl TEXT NOT NULL,
-            primary_hsl TEXT NOT NULL,
-            primary_foreground_hsl TEXT NOT NULL,
-            secondary_hsl TEXT NOT NULL,
-            secondary_foreground_hsl TEXT NOT NULL,
-            muted_hsl TEXT NOT NULL,
-            muted_foreground_hsl TEXT NOT NULL,
-            accent_hsl TEXT NOT NULL,
-            accent_foreground_hsl TEXT NOT NULL,
-            destructive_hsl TEXT NOT NULL,
-            destructive_foreground_hsl TEXT NOT NULL,
-            border_hsl TEXT NOT NULL,
-            input_hsl TEXT NOT NULL,
-            ring_hsl TEXT NOT NULL,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-    `,
-    'settings': `
-        CREATE TABLE IF NOT EXISTS app_settings (
-            id VARCHAR(255) PRIMARY KEY,
-            value TEXT,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-        CREATE TABLE IF NOT EXISTS admin_settings (
-            admin_id UUID PRIMARY KEY REFERENCES admins(id) ON DELETE CASCADE,
-            theme VARCHAR(255) DEFAULT 'light',
-            language VARCHAR(10) DEFAULT 'pt-BR',
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-    `,
-     'smtp': `
-        CREATE TABLE IF NOT EXISTS smtp_configurations (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name VARCHAR(255) NOT NULL,
-            host VARCHAR(255) NOT NULL,
-            port INTEGER NOT NULL,
-            secure BOOLEAN DEFAULT TRUE,
-            auth_user VARCHAR(255) NOT NULL,
-            auth_pass TEXT NOT NULL,
-            priority INTEGER NOT NULL,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-    `,
-    'condominiums': `
-        CREATE TABLE IF NOT EXISTS condominiums (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name VARCHAR(255) NOT NULL UNIQUE,
-            continent VARCHAR(255),
-            country VARCHAR(255),
-            state VARCHAR(255),
-            city VARCHAR(255),
-            street VARCHAR(255),
-            "number" VARCHAR(50),
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-    `,
-    'users_setup': `
-        CREATE OR REPLACE FUNCTION update_timestamp()
-        RETURNS TRIGGER AS $$
-        BEGIN
-            NEW.updated_at = NOW();
-            RETURN NEW;
-        END;
-        $$ language 'plpgsql';
+// The order in which the SQL files should be executed.
+const SCHEMA_FILES_ORDER = [
+    'system/migrations_log.sql',
+    'system/sessions.sql',
+    'functions/update_timestamp.sql',
+    'catalogs/base_schema.sql',
+    'themes/base_schema.sql',
+    'admins/base_schema.sql',
+    'settings/base_schema.sql',
+    'smtp/base_schema.sql',
+    'condominiums/base_schema.sql',
+    'residents/base_schema.sql',
+    'gatekeepers/base_schema.sql',
+    'devices/base_schema.sql',
+    'maps/base_schema.sql',
+    'translation/base_schema.sql'
+];
 
-        CREATE TABLE IF NOT EXISTS residents (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
-            name VARCHAR(255) NOT NULL,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            password_hash VARCHAR(255) NOT NULL,
-            location TEXT,
-            housing TEXT,
-            phone TEXT,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS gatekeepers (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
-            name VARCHAR(255) NOT NULL,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            password_hash VARCHAR(255) NOT NULL,
-            location TEXT,
-            housing TEXT,
-            phone TEXT,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-
-        DROP TRIGGER IF EXISTS residents_update_trigger ON residents;
-        CREATE TRIGGER residents_update_trigger
-        BEFORE UPDATE ON residents
-        FOR EACH ROW
-        EXECUTE FUNCTION update_timestamp();
-
-        DROP TRIGGER IF EXISTS gatekeepers_update_trigger ON gatekeepers;
-        CREATE TRIGGER gatekeepers_update_trigger
-        BEFORE UPDATE ON gatekeepers
-        FOR EACH ROW
-        EXECUTE FUNCTION update_timestamp();
-    `,
-    'sessions': `
-        CREATE TABLE IF NOT EXISTS sessions (
-            id UUID PRIMARY KEY,
-            user_id UUID NOT NULL,
-            user_type VARCHAR(50) NOT NULL,
-            token TEXT NOT NULL,
-            expires_at TIMESTAMPTZ NOT NULL,
-            created_at TIMESTAMPTZ DEFAULT NOW()
-        );
-    `,
-    'devices': `
-        CREATE TABLE IF NOT EXISTS devices (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
-            resident_id UUID REFERENCES residents(id) ON DELETE SET NULL,
-            device_type_id UUID REFERENCES device_types(id) ON DELETE SET NULL,
-            name VARCHAR(255) NOT NULL,
-            token TEXT NOT NULL UNIQUE,
-            last_location POINT,
-            last_seen TIMESTAMPTZ,
-            battery_level INTEGER,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-    `,
-    'maps': `
-        CREATE TABLE IF NOT EXISTS geofences (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
-            name VARCHAR(255) NOT NULL,
-            geometry JSONB NOT NULL,
-            is_default BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-        CREATE TABLE IF NOT EXISTS map_element_types (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
-            name VARCHAR(255) NOT NULL,
-            icon_svg TEXT,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-    `,
-    'translation': `
-        CREATE TABLE IF NOT EXISTS translation_services (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name TEXT NOT NULL,
-            config_json JSONB NOT NULL,
-            is_default BOOLEAN DEFAULT FALSE,
-            supported_languages JSONB,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-    `
-};
-
-// NON-DESTRUCTIVE MIGRATIONS
-const MIGRATIONS: { [key: string]: (client: PoolClient, log: string[]) => Promise<void> } = {
-    // This is now handled by the base schema creation, but we keep the structure for future migrations.
-};
-
-
-async function applyAndLogSchema(client: PoolClient, key: string, sql: string, log: string[]): Promise<void> {
-    log.push(`CHECK: Checking schema: ${key}`);
-    const hasRunResult = await client.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [key]);
+async function applyAndLogSchema(client: PoolClient, filePath: string, log: string[]): Promise<void> {
+    const fileName = path.basename(filePath);
+    log.push(`CHECK: Checking schema file: ${fileName}`);
+    const hasRunResult = await client.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [fileName]);
+    
     if (hasRunResult.rows.length > 0) {
-        log.push(`SKIP: Schema group already applied: ${key}`);
+        log.push(`SKIP: Schema file already applied: ${fileName}`);
         return;
     }
 
     try {
-        log.push(`APPLY: Applying schema group: ${key}`);
-        await client.query(sql);
-        await client.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [key]);
-        log.push(`SUCCESS: Successfully applied and logged: ${key}`);
+        log.push(`APPLY: Applying schema file: ${fileName}`);
+        const sqlContent = await fs.readFile(path.join(process.cwd(), 'src/lib/sql', filePath), 'utf8');
+        await client.query(sqlContent);
+        await client.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [fileName]);
+        log.push(`SUCCESS: Successfully applied and logged: ${fileName}`);
     } catch (migrationError: any) {
-        log.push(`ERROR: FAILED to apply schema group "${key}". Error: ${migrationError.message}`);
-        throw migrationError;
-    }
-}
-
-async function applyAndLogMigration(client: PoolClient, key: string, migrationFunc: (client: PoolClient, log: string[]) => Promise<void>, log: string[]): Promise<void> {
-    log.push(`CHECK: Checking migration: ${key}`);
-    const hasRunResult = await client.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [key]);
-    if (hasRunResult.rows.length > 0) {
-        log.push(`SKIP: Migration already applied: ${key}`);
-        return;
-    }
-
-    try {
-        log.push(`APPLY: Applying migration: ${key}`);
-        await migrationFunc(client, log);
-        await client.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [key]);
-        log.push(`SUCCESS: Successfully applied and logged migration: ${key}`);
-    } catch (migrationError: any) {
-        log.push(`ERROR: FAILED to apply migration "${key}". Error: ${migrationError.message}`);
+        log.push(`ERROR: FAILED to apply schema file "${fileName}". Error: ${migrationError.message}`);
         throw migrationError;
     }
 }
@@ -291,23 +61,17 @@ async function applyAndLogMigration(client: PoolClient, key: string, migrationFu
 async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void> {
     const bcryptjs = (await import('bcryptjs')).default;
 
-    // --- Phase 1: Apply all base table schemas ---
-    log.push('PHASE: Applying all schemas...');
-    const schemaOrder = [
-        'migrations_log', 'catalogs', 'admins', 'themes', 'settings', 'smtp', 'condominiums', 
-        'users_setup', 'sessions', 'devices', 'maps', 'translation'
-    ];
-    for (const key of schemaOrder) {
-        await applyAndLogSchema(client, key, SCHEMAS_SQL[key], log);
+    // --- Phase 1: Apply all base table schemas from files ---
+    log.push('PHASE: Applying all schemas from .sql files...');
+    for (const filePath of SCHEMA_FILES_ORDER) {
+        await applyAndLogSchema(client, filePath, log);
     }
     log.push('SUCCESS: All base schemas applied.');
 
     // --- Phase 2: Apply all non-destructive migrations ---
-    log.push('PHASE: Applying non-destructive migrations...');
-    for (const key in MIGRATIONS) {
-        await applyAndLogMigration(client, key, MIGRATIONS[key], log);
-    }
-    log.push('SUCCESS: All non-destructive migrations applied.');
+    log.push('PHASE: Applying non-destructive migrations (if any)...');
+    // Add any future ALTER TABLE scripts here
+    log.push('SUCCESS: Non-destructive migrations phase completed.');
 
 
     // --- Phase 3: Seed all initial data ---
@@ -338,8 +102,8 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
 
     // Seed Default Admin User
     log.push('SEED: Checking for default admin user...');
-    const adminEmail = 'angelivan34@gmail.com';
-    const correctPassword = 'adminivan123';
+    const adminEmail = 'admin@followforme.com';
+    const correctPassword = 'admin';
     
     const adminResult = await client.query('SELECT id, password_hash FROM admins WHERE email = $1', [adminEmail]);
     if (adminResult.rows.length === 0) {
@@ -347,7 +111,7 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
         const dynamicallyGeneratedHash = await bcryptjs.hash(correctPassword, 10);
         await client.query(
             "INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, TRUE) ON CONFLICT (email) DO NOTHING",
-            ['José Angel Iván Rubianes Silva', adminEmail, dynamicallyGeneratedHash]
+            ['Admin', adminEmail, dynamicallyGeneratedHash]
         );
         log.push('SUCCESS: Default admin user seeded.');
     } else {

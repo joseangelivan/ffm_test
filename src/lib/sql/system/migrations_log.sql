@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS migrations_log (
+    id SERIAL PRIMARY KEY,
+    file_name VARCHAR(255) UNIQUE NOT NULL,
+    applied_at TIMESTAMPTZ DEFAULT NOW()
+);
