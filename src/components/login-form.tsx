@@ -59,21 +59,6 @@ function LoginFormContent({ formState }: { formState: any }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
     const [showPassword, setShowPassword] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        setIsLoading(false);
-    }, []);
-
-    if (isLoading) {
-        return (
-             <div className="relative h-[480px]">
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg">
-                    <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-            </div>
-        )
-    }
 
     return (
         <div className={cn('relative transition-opacity', pending && 'opacity-50')}>
