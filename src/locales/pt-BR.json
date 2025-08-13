@@ -456,6 +456,7 @@
         "title": "Gerenciar Usuários",
         "description": "Adicione, remova ou edite moradores e portarias.",
         "addUserButton": "Adicionar Usuário",
+        "noUsers": "Ainda não há usuários para este condomínio.",
         "table": {
           "name": "Nome",
           "type": "Tipo",
@@ -468,14 +469,18 @@
             "title": "Editar Usuário",
             "description": "Modifique as informações básicas do usuário."
         },
+         "createDialog": {
+            "description": "Insira os detalhes para criar um novo usuário neste condomínio."
+        },
         "manageDialog": {
             "title": "Gerenciar Usuário",
             "description": "Gerenciar detalhes e permissões para {name}.",
             "additionalInfo": "Informações Adicionais",
-            "location": "Localização",
-            "housing": "Moradia",
+            "location": "Localização (ex: Bloco, Setor)",
+            "housing": "Moradia (ex: Apto, Casa Nro)",
             "phone": "Telefone"
         },
+        "deleteConfirmation": "Isso excluirá permanentemente o usuário \"{name}\". Esta ação não pode ser desfeita.",
         "toast": {
             "userDeleted": "Usuário excluído com sucesso.",
             "userUpdated": "Usuário atualizado com sucesso.",
@@ -518,8 +523,8 @@
         }
     },
      "userTypes": {
-        "residente": "Residente",
-        "portería": "Portaria"
+        "resident": "Residente",
+        "gatekeeper": "Portaria"
     },
      "common": {
         "close": "Fechar",

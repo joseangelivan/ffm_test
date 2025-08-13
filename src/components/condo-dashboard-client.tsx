@@ -31,12 +31,6 @@ const mockDevices = [
   { id: 'dev-03', name: 'Relógio Segurança', type: 'watch', status: 'Offline', token: 'c3d4e5f6-g7h8-9012-i3j4-k5l6m7n8o9p0' },
 ];
 
-const mockUsers = [
-  { id: 'user-01', name: 'João da Silva', type: 'Residente', email: 'joao@email.com', location: 'Torre A, Sección 2', housing: 'Apto 101', phone: '+55 11 98765-4321' },
-  { id: 'user-02', name: 'Maria Oliveira', type: 'Residente', email: 'maria@email.com', location: 'Casa 15', housing: 'Lote 3', phone: '+55 21 91234-5678' },
-  { id: 'user-03', name: 'Carlos-Portería', type: 'Portería', email: 'porteria.jardins@email.com', location: 'Garita Principal', housing: 'N/A', phone: '+55 11 99999-8888' },
-];
-
 type Coords = { lat: number; lng: number };
 
 export default function CondoDashboardClient({ condoId }: { condoId: string }) {
@@ -118,14 +112,14 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
                 </div>
             </div>
           </div>
-          <Tabs defaultValue="map">
+          <Tabs defaultValue="users">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="users" className="flex items-center gap-2"><Users className="h-4 w-4"/>{t('condoDashboard.tabs.users')}</TabsTrigger>
               <TabsTrigger value="devices" className="flex items-center gap-2"><Smartphone className="h-4 w-4"/>{t('condoDashboard.tabs.devices')}</TabsTrigger>
               <TabsTrigger value="map" className="flex items-center gap-2"><Map className="h-4 w-4"/>{t('condoDashboard.tabs.map')}</TabsTrigger>
             </TabsList>
             <TabsContent value="users" className="mt-4">
-              <ManageUsersTab initialUsers={mockUsers} />
+              <ManageUsersTab condoId={condo.id} />
             </TabsContent>
             <TabsContent value="devices" className="mt-4">
               <ManageDevicesTab initialDevices={mockDevices} />

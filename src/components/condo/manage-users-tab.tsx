@@ -1,7 +1,8 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useActionState, useTransition } from 'react';
+import { useFormStatus } from 'react-dom';
 import {
   Users,
   ShieldCheck,
@@ -10,9 +11,10 @@ import {
   Edit,
   KeyRound,
   Trash2,
-  UserPlus
+  UserPlus,
+  Loader,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -42,66 +44,167 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
   DialogClose
 } from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getUsersbyCondoId, createUser, updateUser, deleteUser, type CondoUser } from '@/actions/users';
+import { Skeleton } from '../ui/skeleton';
+import { cn } from '@/lib/utils';
+import { LoadingOverlay } from '../admin/admin-header';
 
-type User = {
-    id: string;
-    name: string;
-    type: string;
-    email: string;
-    location: string;
-    housing: string;
-    phone: string;
-};
-
-export default function ManageUsersTab({ initialUsers }: { initialUsers: User[] }) {
+function UserForm({ 
+    condoId, 
+    user, 
+    onSuccess 
+}: { 
+    condoId: string, 
+    user: CondoUser | null, 
+    onSuccess: () => void 
+}) {
     const { t } = useLocale();
     const { toast } = useToast();
-    const [users, setUsers] = useState(initialUsers);
-    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
-    const [editedUser, setEditedUser] = useState<Partial<User>>({});
+    const isEditMode = !!user;
+    const formAction = isEditMode ? updateUser : createUser;
 
-    const handleOpenEditDialog = (user: User) => {
+    const handleAction = async (prevState: any, formData: FormData) => {
+        const result = await formAction(prevState, formData);
+        if (result.success) {
+            toast({ title: t('toast.successTitle'), description: result.message });
+            onSuccess();
+        } else {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+        }
+        return result;
+    }
+
+    const [state, dispatch] = useActionState(handleAction, null);
+    const { pending } = useFormStatus();
+
+    return (
+        <DialogContent className="sm:max-w-md">
+            <form action={dispatch}>
+                <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+                    {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating')} />}
+                    <DialogHeader>
+                        <DialogTitle>{isEditMode ? t('condoDashboard.users.editDialog.title') : t('condoDashboard.users.addUserButton')}</DialogTitle>
+                        <DialogDescription>
+                            {isEditMode ? t('condoDashboard.users.editDialog.description') : t('condoDashboard.users.createDialog.description')}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <input type="hidden" name="condominium_id" value={condoId} />
+                    <input type="hidden" name="id" value={user?.id || ''} />
+
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="name">{t('condoDashboard.users.table.name')}</Label>
+                            <Input id="name" name="name" defaultValue={user?.name} required disabled={pending} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="email">{t('condoDashboard.users.table.email')}</Label>
+                            <Input id="email" name="email" type="email" defaultValue={user?.email} required disabled={pending} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="type">{t('condoDashboard.users.table.type')}</Label>
+                            <Select name="type" defaultValue={user?.type || 'resident'} required disabled={pending}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder={t('login.selectUserType')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="resident">{t('userTypes.resident')}</SelectItem>
+                                    <SelectItem value="gatekeeper">{t('userTypes.gatekeeper')}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="password">{t('login.password')}</Label>
+                            <Input id="password" name="password" type="password" required={!isEditMode} placeholder={isEditMode ? t('adminDashboard.smtp.passwordPlaceholderEdit') : ''} disabled={pending} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="location">{t('condoDashboard.users.manageDialog.location')}</Label>
+                            <Input id="location" name="location" defaultValue={user?.location || ''} placeholder="Torre A, Sección 2" disabled={pending} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="housing">{t('condoDashboard.users.manageDialog.housing')}</Label>
+                            <Input id="housing" name="housing" defaultValue={user?.housing || ''} placeholder="Apto 101" disabled={pending} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="phone">{t('condoDashboard.users.manageDialog.phone')}</Label>
+                            <Input id="phone" name="phone" defaultValue={user?.phone || ''} placeholder="+55 11 98765-4321" disabled={pending} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="outline" type="button" disabled={pending}>{t('common.cancel')}</Button></DialogClose>
+                        <Button type="submit" disabled={pending}>{t('common.saveChanges')}</Button>
+                    </DialogFooter>
+                </div>
+            </form>
+        </DialogContent>
+    );
+}
+
+export default function ManageUsersTab({ condoId }: { condoId: string }) {
+    const { t } = useLocale();
+    const { toast } = useToast();
+    const [users, setUsers] = useState<CondoUser[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<CondoUser | null>(null);
+    const [isDeleting, startDeleteTransition] = useTransition();
+
+    const fetchUsers = useCallback(async () => {
+        setIsLoading(true);
+        const fetchedUsers = await getUsersbyCondoId(condoId);
+        setUsers(fetchedUsers);
+        setIsLoading(false);
+    }, [condoId]);
+
+    useEffect(() => {
+        fetchUsers();
+    }, [fetchUsers]);
+    
+    const handleOpenDialog = (user: CondoUser | null) => {
         setSelectedUser(user);
-        setEditedUser({ name: user.name, type: user.type, email: user.email });
-        setIsEditDialogOpen(true);
+        setIsFormOpen(true);
     };
 
-    const handleOpenManageDialog = (user: User) => {
-        setSelectedUser(user);
-        setEditedUser({ 
-            location: user.location, 
-            housing: user.housing, 
-            phone: user.phone 
-        });
-        setIsManageDialogOpen(true);
-    };
-
-    const handleSaveChanges = () => {
-        if (!selectedUser) return;
-        setUsers(users.map(u => u.id === selectedUser.id ? { ...u, ...editedUser } as User : u));
-        toast({
-            title: t('toast.successTitle'),
-            description: t('condoDashboard.users.toast.userUpdated')
-        });
-        setIsEditDialogOpen(false);
-        setIsManageDialogOpen(false);
+    const onFormSuccess = () => {
+        setIsFormOpen(false);
         setSelectedUser(null);
+        fetchUsers();
     };
 
-    const handleDeleteUser = (userId: string) => {
-        setUsers(prev => prev.filter(u => u.id !== userId));
-        toast({
-            title: t('toast.successTitle'),
-            description: t('condoDashboard.users.toast.userDeleted'),
+    const handleDeleteUser = (user: CondoUser) => {
+        startDeleteTransition(async () => {
+            const result = await deleteUser(user.id, user.type);
+            if (result.success) {
+                toast({
+                    title: t('toast.successTitle'),
+                    description: t('condoDashboard.users.toast.userDeleted'),
+                });
+                fetchUsers();
+            } else {
+                 toast({
+                    title: t('toast.errorTitle'),
+                    description: result.message,
+                    variant: 'destructive',
+                });
+            }
         });
     }
 
@@ -119,7 +222,7 @@ export default function ManageUsersTab({ initialUsers }: { initialUsers: User[] 
                     <CardTitle>{t('condoDashboard.users.title')}</CardTitle>
                     <CardDescription>{t('condoDashboard.users.description')}</CardDescription>
                 </div>
-                <Button size="sm" className="gap-1">
+                <Button size="sm" className="gap-1" onClick={() => handleOpenDialog(null)}>
                     <UserPlus className="h-4 w-4" />
                     {t('condoDashboard.users.addUserButton')}
                 </Button>
@@ -135,117 +238,71 @@ export default function ManageUsersTab({ initialUsers }: { initialUsers: User[] 
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {users.map(user => (
+                        {isLoading ? (
+                             Array.from({ length: 3 }).map((_, i) => (
+                                <TableRow key={`skel-${i}`}>
+                                    <TableCell colSpan={4}><Skeleton className="h-8 w-full"/></TableCell>
+                                </TableRow>
+                            ))
+                        ) : users.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={4} className="h-24 text-center">{t('condoDashboard.users.noUsers')}</TableCell>
+                            </TableRow>
+                        ) : (
+                            users.map(user => (
                             <TableRow key={user.id}>
                                 <TableCell className="font-medium">{user.name}</TableCell>
                                 <TableCell>
-                                    <span className={`flex items-center gap-2 ${user.type === 'Portería' ? 'text-blue-600' : 'text-gray-600'}`}>
-                                        {user.type === 'Portería' ? <ShieldCheck className="h-4 w-4" /> : <Users className="h-4 w-4" />}
-                                        {t(`userTypes.${user.type.toLowerCase()}`)}
+                                    <span className={`flex items-center gap-2 ${user.type === 'gatekeeper' ? 'text-blue-600' : 'text-gray-600'}`}>
+                                        {user.type === 'gatekeeper' ? <ShieldCheck className="h-4 w-4" /> : <Users className="h-4 w-4" />}
+                                        {t(`userTypes.${user.type}`)}
                                     </span>
                                 </TableCell>
                                 <TableCell>{user.email}</TableCell>
                                 <TableCell className="text-right">
                                      <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button size="icon" variant="ghost"><MoreVertical className="h-4 w-4"/></Button>
+                                            <Button size="icon" variant="ghost" disabled={isDeleting}><MoreVertical className="h-4 w-4"/></Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
-                                            <DropdownMenuItem onSelect={() => handleOpenManageDialog(user)}>
-                                                <Settings className="h-4 w-4 mr-2"/>{t('adminDashboard.table.manage')}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => handleOpenEditDialog(user)}>
+                                            <DropdownMenuItem onSelect={() => handleOpenDialog(user)}>
                                                 <Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem onClick={() => handleResetPassword(user.name)}><KeyRound className="h-4 w-4 mr-2"/>{t('condoDashboard.users.table.resetPassword')}</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleDeleteUser(user.id)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2"/>{t('condoDashboard.users.table.delete')}</DropdownMenuItem>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}><Trash2 className="h-4 w-4 mr-2"/>{t('condoDashboard.users.table.delete')}</DropdownMenuItem>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                             {t('condoDashboard.users.deleteConfirmation', {name: user.name})}
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDeleteUser(user)} className={buttonVariants({variant: 'destructive'})}>
+                                                            {t('common.delete')}
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        )))}
                     </TableBody>
                 </Table>
             </CardContent>
 
-            {/* Edit User Dialog */}
-            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{t('condoDashboard.users.editDialog.title')}</DialogTitle>
-                        <DialogDescription>
-                            {t('condoDashboard.users.editDialog.description')}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="name">{t('condoDashboard.users.table.name')}</Label>
-                            <Input id="name" value={editedUser.name || ''} onChange={(e) => setEditedUser({...editedUser, name: e.target.value})} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="email">{t('condoDashboard.users.table.email')}</Label>
-                            <Input id="email" type="email" value={editedUser.email || ''} onChange={(e) => setEditedUser({...editedUser, email: e.target.value})} />
-                        </div>
-                         <div className="grid gap-2">
-                            <Label htmlFor="type">{t('condoDashboard.users.table.type')}</Label>
-                            <Select value={editedUser.type || ''} onValueChange={(value) => setEditedUser({...editedUser, type: value})}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder={t('login.selectUserType')} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Residente">{t('userTypes.residente')}</SelectItem>
-                                    <SelectItem value="Portería">{t('userTypes.portería')}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <DialogClose asChild><Button variant="outline">{t('common.cancel')}</Button></DialogClose>
-                        <Button onClick={handleSaveChanges}>{t('common.saveChanges')}</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Manage User Dialog */}
-            <Dialog open={isManageDialogOpen} onOpenChange={setIsManageDialogOpen}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>{t('condoDashboard.users.manageDialog.title')}</DialogTitle>
-                        <DialogDescription>
-                            {t('condoDashboard.users.manageDialog.description', { name: selectedUser?.name || '' })}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                         <div className="space-y-4">
-                            <h3 className="font-semibold text-lg">{t('condoDashboard.users.manageDialog.additionalInfo')}</h3>
-                            <div className="grid gap-2">
-                                <Label htmlFor="location">{t('condoDashboard.users.manageDialog.location')}</Label>
-                                <Input id="location" value={editedUser.location || ''} onChange={(e) => setEditedUser({...editedUser, location: e.target.value})} placeholder="Torre A, Sección 2" />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="housing">{t('condoDashboard.users.manageDialog.housing')}</Label>
-                                <Input id="housing" value={editedUser.housing || ''} onChange={(e) => setEditedUser({...editedUser, housing: e.target.value})} placeholder="Apto 101" />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="phone">{t('condoDashboard.users.manageDialog.phone')}</Label>
-                                <Input id="phone" value={editedUser.phone || ''} onChange={(e) => setEditedUser({...editedUser, phone: e.target.value})} placeholder="+55 11 98765-4321" />
-                            </div>
-                         </div>
-                         <div className="space-y-4 pt-4 mt-4 border-t">
-                            <h3 className="font-semibold text-lg">{t('condoDashboard.users.table.actions')}</h3>
-                             <Button variant="outline" className="w-full justify-start" onClick={() => selectedUser && handleResetPassword(selectedUser.name)}>
-                                <KeyRound className="h-4 w-4 mr-2"/>
-                                {t('condoDashboard.users.table.resetPassword')}
-                            </Button>
-                         </div>
-                    </div>
-                    <DialogFooter>
-                        <DialogClose asChild><Button variant="outline">{t('common.cancel')}</Button></DialogClose>
-                        <Button onClick={handleSaveChanges}>{t('common.saveChanges')}</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            {isFormOpen && (
+                 <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                    <UserForm condoId={condoId} user={selectedUser} onSuccess={onFormSuccess} />
+                </Dialog>
+            )}
         </Card>
     );
 }

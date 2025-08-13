@@ -813,5 +813,3 @@ export async function getActiveTheme(settings: UserSettings | null) {
 }
 
     
-
-    

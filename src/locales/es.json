@@ -461,6 +461,7 @@
         "title": "Gestionar Usuarios",
         "description": "Añade, elimina o edita residentes y porterías.",
         "addUserButton": "Añadir Usuario",
+        "noUsers": "Aún no hay usuarios para este condominio.",
         "table": {
           "name": "Nombre",
           "type": "Tipo",
@@ -473,14 +474,18 @@
             "title": "Editar Usuario",
             "description": "Modifica la información básica del usuario."
         },
+        "createDialog": {
+            "description": "Introduce los detalles para crear un nuevo usuario en este condominio."
+        },
         "manageDialog": {
             "title": "Gestionar Usuario",
             "description": "Administrar detalles y permisos para {name}.",
             "additionalInfo": "Información Adicional",
-            "location": "Ubicación",
-            "housing": "Vivienda",
+            "location": "Ubicación (ej: Torre, Sección)",
+            "housing": "Vivienda (ej: Apto, Casa Nro)",
             "phone": "Teléfono"
         },
+        "deleteConfirmation": "Esto eliminará permanentemente al usuario \"{name}\". Esta acción no puede deshacerse.",
         "toast": {
             "userDeleted": "Usuario eliminado con éxito.",
             "userUpdated": "Usuario actualizado con éxito.",
@@ -523,8 +528,8 @@
         }
     },
     "userTypes": {
-        "residente": "Residente",
-        "portería": "Portería"
+        "resident": "Residente",
+        "gatekeeper": "Portería"
     },
     "common": {
         "close": "Cerrar",
