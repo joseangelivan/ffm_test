@@ -44,9 +44,6 @@ export function ManageCatalogsDialog() {
                             <TabsTrigger value="device_types" className="flex items-center gap-2">
                                 <HardDrive className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}
                             </TabsTrigger>
-                            <TabsTrigger value="protocols" className="flex items-center gap-2" disabled>
-                                {t('adminDashboard.settingsGroups.catalogs.protocols.tab')}
-                            </TabsTrigger>
                             <TabsTrigger value="maps" className="flex items-center gap-2" disabled>
                                 {t('adminDashboard.settingsGroups.catalogs.maps.tab')}
                             </TabsTrigger>
@@ -57,11 +54,6 @@ export function ManageCatalogsDialog() {
                         <div className="flex-grow overflow-y-auto mt-4 pr-2">
                             <TabsContent value="device_types">
                                 <DeviceTypesManager />
-                            </TabsContent>
-                            <TabsContent value="protocols">
-                               <div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/50 rounded-md">
-                                    {t('adminDashboard.settingsGroups.catalogs.wipDescription')}
-                                </div>
                             </TabsContent>
                              <TabsContent value="maps">
                                 <div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/50 rounded-md">
@@ -86,3 +78,5 @@ export function ManageCatalogsDialog() {
         </Dialog>
     );
 }
+
+    

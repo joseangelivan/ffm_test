@@ -20,11 +20,6 @@ export type Language = {
     name_translations: TranslationObject;
 };
 
-export type CommunicationProtocol = {
-    id: string;
-    name_translations: TranslationObject;
-};
-
 type ActionState<T = null> = {
     success: boolean;
     message: string;
@@ -276,3 +271,5 @@ export async function deleteLanguage(id: string): Promise<ActionState> {
         if (client) client.release();
     }
 }
+
+    
