@@ -17,6 +17,7 @@ export type DbInitResult = {
 
 const SCHEMA_FILES_ORDER = [
     'system/migrations_log.sql',
+    'system/update_timestamp_function.sql',
     'admins/base_schema.sql',
     'condominiums/base_schema.sql',
     'residents/base_schema.sql',
@@ -79,7 +80,7 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
     try {
         const name_translations = { es: 'Teléfono Inteligente', 'pt-BR': 'Smartphone' };
         await client.query(
-            'INSERT INTO device_types (name_translations) VALUES ($1) ON CONFLICT ((name_translations->>\'pt-BR\')) DO NOTHING',
+            'INSERT INTO device_types (name_translations) VALUES ($1) ON CONFLICT ON CONSTRAINT device_types_name_translations_pt_br_key DO NOTHING',
             [name_translations]
         );
         log.push('SUCCESS: Default device type data seeded.');

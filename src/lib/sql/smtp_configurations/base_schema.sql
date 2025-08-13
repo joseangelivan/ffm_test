@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS smtp_configurations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
@@ -7,8 +9,11 @@ CREATE TABLE IF NOT EXISTS smtp_configurations (
     auth_user VARCHAR(255) NOT NULL,
     auth_pass TEXT NOT NULL,
     priority INTEGER NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_smtp_configurations_priority ON smtp_configurations(priority);
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON smtp_configurations
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
