@@ -34,8 +34,8 @@ const SCHEMA_FILES_ORDER = [
     'themes/base_schema.sql',
     'app_settings/base_schema.sql',
     'translation_services/base_schema.sql',
-    'geofences/base_schema.sql',
-    'map_element_types/base_schema.sql'
+    'maps/geofences.sql',
+    'maps/map_element_types.sql'
 ];
 
 async function executeSqlFiles(client: PoolClient, log: string[]): Promise<void> {
