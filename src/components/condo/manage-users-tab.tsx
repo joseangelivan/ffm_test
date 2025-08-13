@@ -63,7 +63,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getUsersbyCondoId, createUser, updateUser, deleteUser, type CondoUser } from '@/actions/users';
+import { getUsersByCondoId, createUser, updateUser, deleteUser, type CondoUser } from '@/actions/users';
 import { Skeleton } from '../ui/skeleton';
 import { cn } from '@/lib/utils';
 import { LoadingOverlay } from '../admin/admin-header';
@@ -169,7 +169,7 @@ export default function ManageUsersTab({ condoId }: { condoId: string }) {
 
     const fetchUsers = useCallback(async () => {
         setIsLoading(true);
-        const fetchedUsers = await getUsersbyCondoId(condoId);
+        const fetchedUsers = await getUsersByCondoId(condoId);
         setUsers(fetchedUsers);
         setIsLoading(false);
     }, [condoId]);
