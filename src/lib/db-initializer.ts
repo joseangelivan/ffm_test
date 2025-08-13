@@ -133,8 +133,8 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
 
     // Seed Default Admin User
     log.push('SEED: Checking for default admin user...');
-    const adminEmail = 'joseivan@email.com';
-    const correctPassword = '123456';
+    const adminEmail = 'angelivan34@gmail.com';
+    const correctPassword = 'adminivan123';
     
     const adminResult = await client.query('SELECT id, password_hash FROM admins WHERE email = $1', [adminEmail]);
     if (adminResult.rows.length === 0) {
@@ -142,7 +142,7 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
         const dynamicallyGeneratedHash = await bcryptjs.hash(correctPassword, 10);
         await client.query(
             "INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, TRUE) ON CONFLICT (email) DO NOTHING",
-            ['Jose Angel Ivan', adminEmail, dynamicallyGeneratedHash]
+            ['José Angel Iván Rubianes Silva', adminEmail, dynamicallyGeneratedHash]
         );
         log.push('SUCCESS: Default admin user seeded.');
     } else {
