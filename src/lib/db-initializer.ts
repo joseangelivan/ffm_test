@@ -136,8 +136,9 @@ const SCHEMAS: { [key: string]: string } = {
             updated_at TIMESTAMPTZ DEFAULT NOW()
         );
     `,
-    'residents': `
-        CREATE TABLE IF NOT EXISTS residents (
+    'users': `
+        DROP TABLE IF EXISTS residents, gatekeepers CASCADE;
+        CREATE TABLE residents (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
             name VARCHAR(255) NOT NULL,
@@ -149,9 +150,7 @@ const SCHEMAS: { [key: string]: string } = {
             created_at TIMESTAMPTZ DEFAULT NOW(),
             updated_at TIMESTAMPTZ DEFAULT NOW()
         );
-    `,
-    'gatekeepers': `
-        CREATE TABLE IF NOT EXISTS gatekeepers (
+        CREATE TABLE gatekeepers (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
             name VARCHAR(255) NOT NULL,
@@ -225,7 +224,7 @@ const SCHEMAS: { [key: string]: string } = {
 async function applyAndLogSchema(client: PoolClient, key: string, sql: string, log: string[]): Promise<void> {
     log.push(`CHECK: Checking schema: ${key}`);
     const hasRunResult = await client.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [key]);
-    if (hasRunResult.rows.length > 0) {
+    if (hasRunResult.rows.length > 0 && key !== 'users') { // Force 'users' to be re-runnable
         log.push(`SKIP: Schema already applied: ${key}`);
         return;
     }
@@ -233,6 +232,9 @@ async function applyAndLogSchema(client: PoolClient, key: string, sql: string, l
     try {
         log.push(`APPLY: Applying schema: ${key}`);
         await client.query(sql);
+        if (key === 'users') {
+            await client.query('DELETE FROM migrations_log WHERE file_name = $1', [key]);
+        }
         await client.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [key]);
         log.push(`SUCCESS: Successfully applied and logged: ${key}`);
     } catch (migrationError: any) {
@@ -249,7 +251,7 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
     log.push('PHASE: Applying all schemas...');
     const schemaOrder = [
         'migrations_log', 'catalogs', 'admins', 'themes', 'settings', 'smtp', 'condominiums', 
-        'residents', 'gatekeepers', 'sessions', 'devices', 'maps', 'translation'
+        'users', 'sessions', 'devices', 'maps', 'translation' // 'users' is now re-runnable
     ];
     for (const key of schemaOrder) {
         await applyAndLogSchema(client, key, SCHEMAS[key], log);
