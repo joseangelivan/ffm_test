@@ -86,11 +86,20 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
 
     try {
         await client.query(
-            "INSERT INTO device_types (name_translations, features_translations) VALUES ('{ \"es\": \"Teléfono Inteligente\", \"pt-BR\": \"Smartphone\" }', NULL) ON CONFLICT (id) DO NOTHING"
+            "INSERT INTO device_types (name_translations) VALUES ('{ \"es\": \"Teléfono Inteligente\", \"pt-BR\": \"Smartphone\" }') ON CONFLICT (id) DO NOTHING"
         );
         log.push('SUCCESS: Default device type seeded.');
+
+        await client.query(
+            "INSERT INTO languages (id, name_translations) VALUES ('es', '{ \"es\": \"Español\", \"pt-BR\": \"Espanhol\" }') ON CONFLICT (id) DO NOTHING"
+        );
+        await client.query(
+            "INSERT INTO languages (id, name_translations) VALUES ('pt-BR', '{ \"es\": \"Portugués (Brasil)\", \"pt-BR\": \"Português (Brasil)\" }') ON CONFLICT (id) DO NOTHING"
+        );
+        log.push('SUCCESS: Default UI languages seeded.');
+
     } catch (e: any) {
-        log.push(`ERROR: Could not seed device types. Error: ${e.message}`);
+        log.push(`ERROR: Could not seed catalogs. Error: ${e.message}`);
         throw e;
     }
     log.push('SUCCESS: Initial data seeding completed.');
