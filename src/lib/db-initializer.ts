@@ -69,20 +69,6 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
 
     // --- Phase 2: Seed initial required data (as a backup) ---
     log.push('PHASE: Seeding all initial data...');
-    try {
-        const adminEmail = 'angelivan34@gmail.com';
-        const correctPassword = 'adminivan123';
-        const dynamicallyGeneratedHash = await bcryptjs.hash(correctPassword, 10);
-        
-        await client.query(
-            "INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, TRUE) ON CONFLICT (email) DO NOTHING",
-            ['José Angel Iván Rubianes Silva', adminEmail, dynamicallyGeneratedHash]
-        );
-        log.push('SUCCESS: Default admin user seeded.');
-    } catch (e: any) {
-        log.push(`ERROR: Could not seed default admin. Error: ${e.message}`);
-        throw e;
-    }
 
     try {
         await client.query(
