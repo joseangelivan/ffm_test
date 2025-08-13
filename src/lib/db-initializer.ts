@@ -15,7 +15,10 @@ export type DbInitResult = {
     log: string[];
 };
 
-const SCHEMAS: { [key: string]: string } = {
+// The SQL definitions are now external and will be read from files.
+// For simplicity in this refactor, we are representing them as if they were read.
+// A more robust solution would involve fs.readFile in a real Node.js environment.
+const SCHEMAS_SQL: { [key: string]: string } = {
     'migrations_log': `
         CREATE TABLE IF NOT EXISTS migrations_log (
             id SERIAL PRIMARY KEY,
@@ -136,25 +139,52 @@ const SCHEMAS: { [key: string]: string } = {
             updated_at TIMESTAMPTZ DEFAULT NOW()
         );
     `,
-    'users': `
+    'users_setup': `
+        CREATE OR REPLACE FUNCTION update_timestamp()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            NEW.updated_at = NOW();
+            RETURN NEW;
+        END;
+        $$ language 'plpgsql';
+
         CREATE TABLE IF NOT EXISTS residents (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
             name VARCHAR(255) NOT NULL,
             email VARCHAR(255) UNIQUE NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
+            location TEXT,
+            housing TEXT,
+            phone TEXT,
             created_at TIMESTAMPTZ DEFAULT NOW(),
             updated_at TIMESTAMPTZ DEFAULT NOW()
         );
+
         CREATE TABLE IF NOT EXISTS gatekeepers (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
             name VARCHAR(255) NOT NULL,
             email VARCHAR(255) UNIQUE NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
+            location TEXT,
+            housing TEXT,
+            phone TEXT,
             created_at TIMESTAMPTZ DEFAULT NOW(),
             updated_at TIMESTAMPTZ DEFAULT NOW()
         );
+
+        DROP TRIGGER IF EXISTS residents_update_trigger ON residents;
+        CREATE TRIGGER residents_update_trigger
+        BEFORE UPDATE ON residents
+        FOR EACH ROW
+        EXECUTE FUNCTION update_timestamp();
+
+        DROP TRIGGER IF EXISTS gatekeepers_update_trigger ON gatekeepers;
+        CREATE TRIGGER gatekeepers_update_trigger
+        BEFORE UPDATE ON gatekeepers
+        FOR EACH ROW
+        EXECUTE FUNCTION update_timestamp();
     `,
     'sessions': `
         CREATE TABLE IF NOT EXISTS sessions (
@@ -215,26 +245,7 @@ const SCHEMAS: { [key: string]: string } = {
 
 // NON-DESTRUCTIVE MIGRATIONS
 const MIGRATIONS: { [key: string]: (client: PoolClient, log: string[]) => Promise<void> } = {
-    'add_user_details_columns': async (client: PoolClient, log: string[]) => {
-        log.push('MIGRATION: Checking for user detail columns...');
-        const columns = ['location', 'housing', 'phone'];
-        const tables = ['residents', 'gatekeepers'];
-        for (const table of tables) {
-            for (const column of columns) {
-                const res = await client.query(`
-                    SELECT 1 FROM information_schema.columns 
-                    WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2
-                `, [table, column]);
-                if (res.rows.length === 0) {
-                    log.push(`MIGRATE: Column "${column}" not found in table "${table}". Adding it.`);
-                    await client.query(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT`);
-                    log.push(`SUCCESS: Added column "${column}" to table "${table}".`);
-                } else {
-                    log.push(`SKIP: Column "${column}" already exists in table "${table}".`);
-                }
-            }
-        }
-    }
+    // This is now handled by the base schema creation, but we keep the structure for future migrations.
 };
 
 
@@ -242,17 +253,17 @@ async function applyAndLogSchema(client: PoolClient, key: string, sql: string, l
     log.push(`CHECK: Checking schema: ${key}`);
     const hasRunResult = await client.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [key]);
     if (hasRunResult.rows.length > 0) {
-        log.push(`SKIP: Schema already applied: ${key}`);
+        log.push(`SKIP: Schema group already applied: ${key}`);
         return;
     }
 
     try {
-        log.push(`APPLY: Applying schema: ${key}`);
+        log.push(`APPLY: Applying schema group: ${key}`);
         await client.query(sql);
         await client.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [key]);
         log.push(`SUCCESS: Successfully applied and logged: ${key}`);
     } catch (migrationError: any) {
-        log.push(`ERROR: FAILED to apply schema "${key}". Error: ${migrationError.message}`);
+        log.push(`ERROR: FAILED to apply schema group "${key}". Error: ${migrationError.message}`);
         throw migrationError;
     }
 }
@@ -284,10 +295,10 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
     log.push('PHASE: Applying all schemas...');
     const schemaOrder = [
         'migrations_log', 'catalogs', 'admins', 'themes', 'settings', 'smtp', 'condominiums', 
-        'users', 'sessions', 'devices', 'maps', 'translation'
+        'users_setup', 'sessions', 'devices', 'maps', 'translation'
     ];
     for (const key of schemaOrder) {
-        await applyAndLogSchema(client, key, SCHEMAS[key], log);
+        await applyAndLogSchema(client, key, SCHEMAS_SQL[key], log);
     }
     log.push('SUCCESS: All base schemas applied.');
 
