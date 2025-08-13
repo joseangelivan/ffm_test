@@ -59,7 +59,6 @@ function LoginFormContent({ formState }: { formState: any }) {
     const { pending } = useFormStatus();
     const { t } = useLocale();
     const [showPassword, setShowPassword] = useState(false);
-    const [userType, setUserType] = useState<'resident' | 'gatekeeper'>('gatekeeper');
 
     return (
         <div className={cn('relative transition-opacity', pending && 'opacity-50')}>
@@ -81,8 +80,7 @@ function LoginFormContent({ formState }: { formState: any }) {
                         <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Select
                           name="user_type"
-                          value={userType}
-                          onValueChange={(value: 'resident' | 'gatekeeper') => setUserType(value)}
+                          defaultValue="gatekeeper"
                           disabled={pending}
                         >
                         <SelectTrigger id="user-type" className="pl-10">
