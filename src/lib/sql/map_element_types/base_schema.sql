@@ -1,12 +1,10 @@
-CREATE TABLE IF NOT EXISTS gatekeepers (
+CREATE TABLE IF NOT EXISTS map_element_types (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    location VARCHAR(255),
-    housing VARCHAR(255),
-    phone VARCHAR(50),
+    icon_svg TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_map_element_types_condominium_id ON map_element_types(condominium_id);

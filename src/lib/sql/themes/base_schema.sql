@@ -1,7 +1,6 @@
--- Base schema for the themes table
 CREATE TABLE IF NOT EXISTS themes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL UNIQUE,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) UNIQUE NOT NULL,
     background_hsl VARCHAR(50) NOT NULL,
     foreground_hsl VARCHAR(50) NOT NULL,
     card_hsl VARCHAR(50) NOT NULL,
@@ -24,9 +23,3 @@ CREATE TABLE IF NOT EXISTS themes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
--- Trigger to update 'updated_at' column upon modification
-CREATE OR REPLACE TRIGGER set_themes_updated_at
-BEFORE UPDATE ON themes
-FOR EACH ROW
-EXECUTE FUNCTION trigger_set_timestamp();
