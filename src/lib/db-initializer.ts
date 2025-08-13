@@ -16,6 +16,7 @@ export type DbInitResult = {
 };
 
 const SCHEMA_FILES_ORDER = [
+    'system/migrations_log.sql',
     'admins/base_schema.sql',
     'condominiums/base_schema.sql',
     'residents/base_schema.sql',
@@ -32,8 +33,7 @@ const SCHEMA_FILES_ORDER = [
     'app_settings/base_schema.sql',
     'translation_services/base_schema.sql',
     'geofences/base_schema.sql',
-    'map_element_types/base_schema.sql',
-    'system/migrations_log.sql'
+    'map_element_types/base_schema.sql'
 ];
 
 async function executeSqlFiles(client: PoolClient, log: string[]): Promise<void> {
@@ -45,9 +45,8 @@ async function executeSqlFiles(client: PoolClient, log: string[]): Promise<void>
             const sqlContent = await fs.readFile(filePath, 'utf8');
             await client.query(sqlContent);
             
-            if (fileName.includes('/')) {
-                 await client.query('INSERT INTO migrations_log (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING', [fileName]);
-            }
+            // Log base files as migrations
+            await client.query('INSERT INTO migrations_log (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING', [fileName]);
 
             log.push(`SUCCESS: Applied and logged schema: ${fileName}`);
         } catch (e: any) {
