@@ -67,7 +67,7 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
     }
     log.push('SUCCESS: All base schemas applied.');
 
-    // --- Phase 2: Seed initial required data ---
+    // --- Phase 2: Seed initial required data (as a backup) ---
     log.push('PHASE: Seeding all initial data...');
     try {
         const adminEmail = 'angelivan34@gmail.com';
@@ -96,7 +96,7 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
     log.push('SUCCESS: Initial data seeding completed.');
 
 
-    // --- Phase 3: Seed Test Data ---
+    // --- Phase 3: Seed Test Data (as a backup) ---
     log.push('PHASE: Seeding test data...');
     let testCondoId = '';
     try {
@@ -108,8 +108,12 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
             log.push('SUCCESS: Test condominium seeded.');
         } else {
             const existing = await client.query("SELECT id FROM condominiums WHERE name = 'Condominio Paraíso'");
-            testCondoId = existing.rows[0].id;
-             log.push('SKIP: Test condominium already exists.');
+            if (existing.rows.length > 0) {
+                testCondoId = existing.rows[0].id;
+                log.push('SKIP: Test condominium already exists.');
+            } else {
+                 log.push('WARN: Test condominium does not exist and could not be created.');
+            }
         }
     } catch (e: any) {
         log.push(`ERROR: Could not seed test condominium. Error: ${e.message}`);
