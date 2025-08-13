@@ -80,7 +80,7 @@ function LoginFormContent({ formState }: { formState: any }) {
                         <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Select
                         name="user_type"
-                        defaultValue="resident"
+                        defaultValue="gatekeeper"
                         disabled={pending}
                         >
                         <SelectTrigger id="user-type" className="pl-10">
