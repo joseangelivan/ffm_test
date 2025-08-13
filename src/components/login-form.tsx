@@ -80,18 +80,18 @@ function LoginFormContent({ formState }: { formState: any }) {
                         <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Select
                         name="user_type"
-                        defaultValue="residente"
+                        defaultValue="resident"
                         disabled={pending}
                         >
                         <SelectTrigger id="user-type" className="pl-10">
                             <SelectValue placeholder={t('login.selectUserType')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="residente">
-                            {t('userTypes.residente')}
+                            <SelectItem value="resident">
+                                {t('login.resident')}
                             </SelectItem>
-                            <SelectItem value="porteria">
-                            {t('userTypes.portería')}
+                            <SelectItem value="gatekeeper">
+                                {t('login.gatekeeper')}
                             </SelectItem>
                         </SelectContent>
                         </Select>
