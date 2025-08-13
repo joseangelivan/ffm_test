@@ -162,6 +162,25 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
                 [condoId, 'Pedro arias', 'pedro.arias@email.com', gatekeeperPassword]
             );
             log.push('SUCCESS: Test data (condo, resident, gatekeeper) seeded.');
+            
+            // Seed devices for the new test condo
+            const smartphoneTypeResult = await client.query("SELECT id FROM device_types WHERE name_translations->>'pt-BR' = 'Smartphone'");
+            const smartphoneTypeId = smartphoneTypeResult.rows[0]?.id;
+
+            if (smartphoneTypeId) {
+                const { randomUUID } = (await import('crypto'));
+                await client.query(
+                    `INSERT INTO devices (condominium_id, device_type_id, name, token) VALUES ($1, $2, $3, $4) ON CONFLICT (token) DO NOTHING`,
+                    [condoId, smartphoneTypeId, 'iPhone de Juan', randomUUID()]
+                );
+                 await client.query(
+                    `INSERT INTO devices (condominium_id, device_type_id, name, token) VALUES ($1, $2, $3, $4) ON CONFLICT (token) DO NOTHING`,
+                    [condoId, smartphoneTypeId, 'Galaxy de Pedro', randomUUID()]
+                );
+                log.push('SUCCESS: Test devices seeded.');
+            } else {
+                log.push('WARNING: Could not find "Smartphone" device type to seed test devices.');
+            }
 
         } else {
              log.push('INFO: Test condominium already exists, skipping test user and device creation.');
