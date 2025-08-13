@@ -67,43 +67,7 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
     }
     log.push('SUCCESS: All base schemas applied.');
 
-    // --- Phase 2: Apply all non-destructive migrations ---
-    log.push('PHASE: Applying non-destructive migrations (if any)...');
-    
-    // Check and add columns to 'residents' table if they don't exist
-    const residentColumns = ['location', 'housing', 'phone'];
-    for (const col of residentColumns) {
-        const colExists = await client.query(`
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_name = 'residents' AND column_name = $1
-        `, [col]);
-        if (colExists.rows.length === 0) {
-            log.push(`ALTER: Column "${col}" does not exist in "residents". Adding it.`);
-            await client.query(`ALTER TABLE residents ADD COLUMN ${col} VARCHAR(255)`);
-            log.push(`SUCCESS: Column "${col}" added to "residents".`);
-        } else {
-            log.push(`SKIP: Column "${col}" already exists in "residents".`);
-        }
-    }
-    
-    // Check and add columns to 'gatekeepers' table if they don't exist
-    const gatekeeperColumns = ['location', 'housing', 'phone'];
-    for (const col of gatekeeperColumns) {
-        const colExists = await client.query(`
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_name = 'gatekeepers' AND column_name = $1
-        `, [col]);
-        if (colExists.rows.length === 0) {
-            log.push(`ALTER: Column "${col}" does not exist in "gatekeepers". Adding it.`);
-            await client.query(`ALTER TABLE gatekeepers ADD COLUMN ${col} VARCHAR(255)`);
-            log.push(`SUCCESS: Column "${col}" added to "gatekeepers".`);
-        } else {
-            log.push(`SKIP: Column "${col}" already exists in "gatekeepers".`);
-        }
-    }
-    log.push('SUCCESS: Non-destructive migrations phase completed.');
-
-    // --- Phase 3: Seed initial required data ---
+    // --- Phase 2: Seed initial required data ---
     log.push('PHASE: Seeding all initial data...');
     try {
         const adminEmail = 'angelivan34@gmail.com';
@@ -132,7 +96,7 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
     log.push('SUCCESS: Initial data seeding completed.');
 
 
-    // --- Phase 4: Seed Test Data ---
+    // --- Phase 3: Seed Test Data ---
     log.push('PHASE: Seeding test data...');
     let testCondoId = '';
     try {
