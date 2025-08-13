@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useTransition, useActionState, useRef, useMemo, useCallback, useEffect } from 'react';
@@ -209,7 +210,7 @@ export default function DeviceTypesManager() {
         setIsLoading(true);
         try {
             const data = await getDeviceTypes();
-            setDeviceTypes(data);
+            setDeviceTypes(data || []);
         } catch (error) {
             console.error("Failed to fetch device types:", error);
             setDeviceTypes([]);
