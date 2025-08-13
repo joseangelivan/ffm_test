@@ -90,12 +90,45 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
         );
         log.push('SUCCESS: Default device type seeded.');
 
-        await client.query(
-            "INSERT INTO languages (id, name_translations) VALUES ('es', '{ \"es\": \"Español\", \"pt-BR\": \"Espanhol\" }') ON CONFLICT (id) DO NOTHING"
-        );
-        await client.query(
-            "INSERT INTO languages (id, name_translations) VALUES ('pt-BR', '{ \"es\": \"Portugués (Brasil)\", \"pt-BR\": \"Português (Brasil)\" }') ON CONFLICT (id) DO NOTHING"
-        );
+        const languages = [
+            { id: 'en', es: 'Inglés', pt: 'Inglês' },
+            { id: 'es', es: 'Español', pt: 'Espanhol' },
+            { id: 'fr', es: 'Francés', pt: 'Francês' },
+            { id: 'de', es: 'Alemán', pt: 'Alemão' },
+            { id: 'it', es: 'Italiano', pt: 'Italiano' },
+            { id: 'pt', es: 'Portugués', pt: 'Português' },
+            { id: 'pt-BR', es: 'Portugués (Brasil)', pt: 'Português (Brasil)' },
+            { id: 'ru', es: 'Ruso', pt: 'Russo' },
+            { id: 'zh', es: 'Chino', pt: 'Chinês' },
+            { id: 'ja', es: 'Japonés', pt: 'Japonês' },
+            { id: 'ko', es: 'Coreano', pt: 'Coreano' },
+            { id: 'ar', es: 'Árabe', pt: 'Árabe' },
+            { id: 'hi', es: 'Hindi', pt: 'Híndi' },
+            { id: 'bn', es: 'Bengalí', pt: 'Bengali' },
+            { id: 'nl', es: 'Holandés', pt: 'Holandês' },
+            { id: 'sv', es: 'Sueco', pt: 'Sueco' },
+            { id: 'fi', es: 'Finlandés', pt: 'Finlandês' },
+            { id: 'da', es: 'Danés', pt: 'Dinamarquês' },
+            { id: 'pl', es: 'Polaco', pt: 'Polonês' },
+            { id: 'uk', es: 'Ucraniano', pt: 'Ucraniano' },
+            { id: 'tr', es: 'Turco', pt: 'Turco' },
+            { id: 'el', es: 'Griego', pt: 'Grego' },
+            { id: 'he', es: 'Hebreo', pt: 'Hebraico' },
+            { id: 'th', es: 'Tailandés', pt: 'Tailandês' },
+            { id: 'vi', es: 'Vietnamita', pt: 'Vietnamita' },
+            { id: 'cs', es: 'Checo', pt: 'Tcheco' },
+            { id: 'hu', es: 'Húngaro', pt: 'Húngaro' },
+            { id: 'ro', es: 'Rumano', pt: 'Romeno' },
+            { id: 'id', es: 'Indonesio', pt: 'Indonésio' }
+        ];
+
+        for (const lang of languages) {
+            const translations = JSON.stringify({ es: lang.es, 'pt-BR': lang.pt });
+            await client.query(
+                "INSERT INTO languages (id, name_translations) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+                [lang.id, translations]
+            );
+        }
         log.push('SUCCESS: Default UI languages seeded.');
 
     } catch (e: any) {
