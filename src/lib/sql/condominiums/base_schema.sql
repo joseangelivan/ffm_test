@@ -1,30 +1,30 @@
 
--- Condominiums Table
+-- condominiums/base_schema.sql
+
 CREATE TABLE IF NOT EXISTS condominiums (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL UNIQUE,
     address TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
     continent VARCHAR(255),
     country VARCHAR(255),
     state VARCHAR(255),
     city VARCHAR(255),
     street VARCHAR(255),
-    number VARCHAR(50),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    "number" VARCHAR(50)
 );
 
--- Function to update 'updated_at' timestamp
-CREATE OR REPLACE FUNCTION trigger_set_timestamp()
+CREATE OR REPLACE FUNCTION update_condominiums_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
+   NEW.updated_at = NOW();
+   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ language 'plpgsql';
 
--- Trigger to update 'updated_at' timestamp
-CREATE OR REPLACE TRIGGER set_timestamp
+CREATE TRIGGER tr_condominiums_updated_at
 BEFORE UPDATE ON condominiums
 FOR EACH ROW
-EXECUTE PROCEDURE trigger_set_timestamp();
+EXECUTE FUNCTION update_condominiums_updated_at();
+

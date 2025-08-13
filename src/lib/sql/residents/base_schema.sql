@@ -1,24 +1,33 @@
 
--- Residents Table
+-- residents/base_schema.sql
+
 CREATE TABLE IF NOT EXISTS residents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    location VARCHAR(255), -- e.g., 'Block A', 'Tower 2'
-    housing VARCHAR(255), -- e.g., 'Apt 101', 'House 25'
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash TEXT,
     phone VARCHAR(50),
+    location VARCHAR(255), -- Bloco, setor, etc.
+    housing VARCHAR(255), -- Apartamento, casa, etc.
+    is_active BOOLEAN DEFAULT TRUE,
+    is_verified BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Indexes for faster lookups
 CREATE INDEX IF NOT EXISTS idx_residents_condominium_id ON residents(condominium_id);
-CREATE INDEX IF NOT EXISTS idx_residents_email ON residents(email);
 
--- Trigger to update 'updated_at' timestamp
-CREATE OR REPLACE TRIGGER set_timestamp
+CREATE OR REPLACE FUNCTION update_residents_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = NOW();
+   RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER tr_residents_updated_at
 BEFORE UPDATE ON residents
 FOR EACH ROW
-EXECUTE PROCEDURE trigger_set_timestamp();
+EXECUTE FUNCTION update_residents_updated_at();
+
