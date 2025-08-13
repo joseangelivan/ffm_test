@@ -66,23 +66,33 @@ function DbInitForm() {
 
     const [isInitAlertOpen, setIsInitAlertOpen] = useState(false);
     const [isClearAlertOpen, setIsClearAlertOpen] = useState(false);
+    
+    const [lastAction, setLastAction] = useState<'init' | 'clear' | null>(null);
 
     const initFormRef = useRef<HTMLFormElement>(null);
     const clearFormRef = useRef<HTMLFormElement>(null);
 
     useEffect(() => {
-        if (isInitPending) setIsInitAlertOpen(false);
+        if (isInitPending) {
+            setLastAction('init');
+            setIsInitAlertOpen(false);
+        }
     }, [isInitPending]);
 
      useEffect(() => {
-        if (isClearPending) setIsClearAlertOpen(false);
+        if (isClearPending) {
+            setLastAction('clear');
+            setIsClearAlertOpen(false);
+        }
     }, [isClearPending]);
 
     const handleInitSubmit = () => initFormRef.current?.requestSubmit();
     const handleClearSubmit = () => clearFormRef.current?.requestSubmit();
 
     const isPending = isInitPending || isClearPending;
-    const finalState = initState.log.length > clearState.log.length ? initState : clearState;
+    
+    const finalState = lastAction === 'init' ? initState : (lastAction === 'clear' ? clearState : initialState);
+    const hasLog = finalState && finalState.log.length > 0;
 
     return (
         <Card className="w-full max-w-2xl shadow-xl">
@@ -96,7 +106,7 @@ function DbInitForm() {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                {finalState.log.length > 0 ? (
+                {hasLog ? (
                     <div className="space-y-4">
                         <Alert variant={finalState.success ? 'default' : 'destructive'} className={cn(finalState.success && "border-green-500/50 text-green-900 dark:border-green-500/30 dark:text-green-200 [&>svg]:text-green-600")}>
                             {finalState.success ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
@@ -191,3 +201,5 @@ export default function DbInitPage() {
         </div>
     )
 }
+
+    
