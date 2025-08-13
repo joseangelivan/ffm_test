@@ -70,7 +70,38 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
 
     // --- Phase 2: Apply all non-destructive migrations ---
     log.push('PHASE: Applying non-destructive migrations (if any)...');
-    // Add any future ALTER TABLE scripts here
+    
+    // Check and add columns to 'residents' table if they don't exist
+    const residentColumns = ['location', 'housing', 'phone'];
+    for (const col of residentColumns) {
+        const colExists = await client.query(`
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'residents' AND column_name = $1
+        `, [col]);
+        if (colExists.rows.length === 0) {
+            log.push(`ALTER: Column "${col}" does not exist in "residents". Adding it.`);
+            await client.query(`ALTER TABLE residents ADD COLUMN ${col} VARCHAR(255)`);
+            log.push(`SUCCESS: Column "${col}" added to "residents".`);
+        } else {
+            log.push(`SKIP: Column "${col}" already exists in "residents".`);
+        }
+    }
+    
+    // Check and add columns to 'gatekeepers' table if they don't exist
+    const gatekeeperColumns = ['location', 'housing', 'phone'];
+    for (const col of gatekeeperColumns) {
+        const colExists = await client.query(`
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'gatekeepers' AND column_name = $1
+        `, [col]);
+        if (colExists.rows.length === 0) {
+            log.push(`ALTER: Column "${col}" does not exist in "gatekeepers". Adding it.`);
+            await client.query(`ALTER TABLE gatekeepers ADD COLUMN ${col} VARCHAR(255)`);
+            log.push(`SUCCESS: Column "${col}" added to "gatekeepers".`);
+        } else {
+            log.push(`SKIP: Column "${col}" already exists in "gatekeepers".`);
+        }
+    }
     log.push('SUCCESS: Non-destructive migrations phase completed.');
 
 
@@ -102,8 +133,8 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
 
     // Seed Default Admin User
     log.push('SEED: Checking for default admin user...');
-    const adminEmail = 'admin@example.com';
-    const correctPassword = 'password';
+    const adminEmail = 'joseivan@email.com';
+    const correctPassword = '123456';
     
     const adminResult = await client.query('SELECT id, password_hash FROM admins WHERE email = $1', [adminEmail]);
     if (adminResult.rows.length === 0) {
@@ -111,7 +142,7 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
         const dynamicallyGeneratedHash = await bcryptjs.hash(correctPassword, 10);
         await client.query(
             "INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, TRUE) ON CONFLICT (email) DO NOTHING",
-            ['Admin User', adminEmail, dynamicallyGeneratedHash]
+            ['Jose Angel Ivan', adminEmail, dynamicallyGeneratedHash]
         );
         log.push('SUCCESS: Default admin user seeded.');
     } else {
@@ -194,42 +225,45 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
 }
 
 
-export async function initializeDatabase(): Promise<DbInitResult> {
+export async function initializeDatabase(
+    prevState: DbInitResult | undefined,
+    formData: FormData
+): Promise<DbInitResult> {
     if (migrationsRan) {
-        return { success: true, message: 'Migrations already ran.', log: ['INFO: Migrations already ran in this instance. Skipping.'] };
+        return { success: true, message: 'As migrações já foram executadas.', log: ['INFO: As migrações já foram executadas nesta instância. Ignorando.'] };
     }
     
     let dbClient;
     const log: string[] = [];
     
     try {
-        log.push('INFO: Ensuring pool exists for initialization...');
+        log.push('INFO: Garantindo que o pool exista para a inicialização...');
         const pool = await getDbPool();
         dbClient = await pool.connect();
-        log.push('SUCCESS: DB Pool connected.');
+        log.push('SUCCESS: Pool do BD conectado.');
 
         await dbClient.query('BEGIN');
-        log.push('INFO: Transaction started.');
+        log.push('INFO: Transação iniciada.');
         
         await runDatabaseSetup(dbClient, log);
         
         await dbClient.query('COMMIT');
-        log.push('SUCCESS: All schemas and data committed.');
+        log.push('SUCCESS: Todos os esquemas e dados foram commitados.');
         
         migrationsRan = true;
-        log.push('END: Migration process completed successfully.');
+        log.push('END: Processo de migração concluído com sucesso.');
         return { success: true, message: 'O processo de inicialização do banco de dados foi concluído.', log };
 
     } catch (error: any) {
-        log.push(`CRITICAL: Database initialization failed. Error: ${error.message}`);
-        console.error("CRITICAL: Database initialization failed.", error);
+        log.push(`CRITICAL: A inicialização do banco de dados falhou. Erro: ${error.message}`);
+        console.error("CRITICAL: A inicialização do banco de dados falhou.", error);
         
         if (dbClient) {
             try {
                 await dbClient.query('ROLLBACK');
-                log.push('INFO: Transaction rolled back due to error.');
+                log.push('INFO: Transação revertida devido a erro.');
             } catch (rbError: any) {
-                log.push(`CRITICAL: Failed to rollback transaction. Error: ${rbError.message}`);
+                log.push(`CRITICAL: Falha ao reverter a transação. Erro: ${rbError.message}`);
             }
         }
         
