@@ -32,7 +32,8 @@ const SCHEMA_FILES_ORDER = [
     'app_settings/base_schema.sql',
     'translation_services/base_schema.sql',
     'geofences/base_schema.sql',
-    'map_element_types/base_schema.sql'
+    'map_element_types/base_schema.sql',
+    'system/migrations_log.sql'
 ];
 
 async function executeSqlFiles(client: PoolClient, log: string[]): Promise<void> {
@@ -43,7 +44,12 @@ async function executeSqlFiles(client: PoolClient, log: string[]): Promise<void>
             const filePath = path.join(process.cwd(), 'src/lib/sql', fileName);
             const sqlContent = await fs.readFile(filePath, 'utf8');
             await client.query(sqlContent);
-            log.push(`SUCCESS: Applied schema: ${fileName}`);
+            
+            if (fileName.includes('/')) {
+                 await client.query('INSERT INTO migrations_log (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING', [fileName]);
+            }
+
+            log.push(`SUCCESS: Applied and logged schema: ${fileName}`);
         } catch (e: any) {
             log.push(`ERROR: Failed to apply schema file "${fileName}". Error: ${e.message}`);
             throw e;
@@ -164,14 +170,46 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
     }
 }
 
+async function runMigrations(client: PoolClient, log: string[]) {
+    log.push("PHASE 4: Checking for new migrations...");
+    const migrationsDir = path.join(process.cwd(), 'src/lib/sql/migrations');
+    
+    try {
+        await fs.mkdir(migrationsDir, { recursive: true });
+        const migrationFiles = (await fs.readdir(migrationsDir))
+            .filter(file => file.endsWith('.sql'))
+            .sort();
+
+        if (migrationFiles.length === 0) {
+            log.push("INFO: No new migration files found.");
+            return;
+        }
+
+        const executedMigrationsResult = await client.query('SELECT filename FROM migrations_log');
+        const executedMigrations = new Set(executedMigrationsResult.rows.map(r => r.filename));
+
+        for (const file of migrationFiles) {
+            if (!executedMigrations.has(file)) {
+                log.push(`EXECUTE: Applying new migration: ${file}`);
+                const filePath = path.join(migrationsDir, file);
+                const sqlContent = await fs.readFile(filePath, 'utf8');
+                await client.query(sqlContent);
+                await client.query('INSERT INTO migrations_log (filename) VALUES ($1)', [file]);
+                log.push(`SUCCESS: Applied and logged new migration: ${file}`);
+            }
+        }
+         log.push("SUCCESS: All new migrations applied.");
+    } catch (e: any) {
+        log.push(`ERROR: Failed to run migrations. Error: ${e.message}`);
+        throw e; // Propagate error to rollback transaction
+    }
+}
+
 
 export async function initializeDatabase(
     prevState: DbInitResult | undefined,
     formData: FormData
 ): Promise<DbInitResult> {
-    if (migrationsRan) {
-        return { success: true, message: 'As migrações já foram executadas nesta instância do servidor.', log: ['INFO: As migrações já foram executadas nesta instância. Ignorando.'] };
-    }
     
     let dbClient;
     const log: string[] = [];
@@ -185,14 +223,26 @@ export async function initializeDatabase(
         await dbClient.query('BEGIN');
         log.push('INFO: Transaction started.');
         
-        await executeSqlFiles(dbClient, log);
-        await seedInitialData(dbClient, log);
-        await seedTestData(dbClient, log);
+        // Check if the base initialization has already run
+        const migrationLogTable = await dbClient.query("SELECT to_regclass('public.migrations_log')");
+        const isInitialSetupDone = migrationLogTable.rows[0].to_regclass !== null;
+
+        if (!isInitialSetupDone) {
+            log.push('INFO: migrations_log table not found. Running initial base setup...');
+            await executeSqlFiles(dbClient, log);
+            await seedInitialData(dbClient, log);
+            await seedTestData(dbClient, log);
+            log.push('SUCCESS: Initial base setup complete.');
+        } else {
+            log.push('INFO: migrations_log table found. Skipping initial base setup.');
+        }
+
+        // Always run pending migrations
+        await runMigrations(dbClient, log);
         
         await dbClient.query('COMMIT');
-        log.push('SUCCESS: All schemas created and initial data seeded.');
+        log.push('SUCCESS: Database is up to date.');
         
-        migrationsRan = true;
         log.push('END: Initialization process completed successfully.');
         return { success: true, message: 'O processo de inicialização do banco de dados foi concluído com sucesso.', log };
 
