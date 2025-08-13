@@ -1,0 +1,1 @@
+-- This file is deprecated and will be removed. Migrations are now handled in /src/lib/sql/migrations.
