@@ -81,7 +81,7 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
     try {
         const name_translations = { es: 'Teléfono Inteligente', 'pt-BR': 'Smartphone' };
         await client.query(
-            'INSERT INTO device_types (name_translations) VALUES ($1) ON CONFLICT ON CONSTRAINT device_types_name_translations_pt_br_key DO NOTHING',
+            'INSERT INTO device_types (name_translations) VALUES ($1) ON CONFLICT (name_translations) DO NOTHING',
             [name_translations]
         );
         log.push('SUCCESS: Default device type data seeded.');
@@ -168,14 +168,13 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
             const smartphoneTypeId = smartphoneTypeResult.rows[0]?.id;
 
             if (smartphoneTypeId) {
-                const { randomUUID } = (await import('crypto'));
                 await client.query(
                     `INSERT INTO devices (condominium_id, device_type_id, name, token) VALUES ($1, $2, $3, $4) ON CONFLICT (token) DO NOTHING`,
-                    [condoId, smartphoneTypeId, 'iPhone de Juan', randomUUID()]
+                    [condoId, smartphoneTypeId, 'iPhone de Juan', 'a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8']
                 );
                  await client.query(
                     `INSERT INTO devices (condominium_id, device_type_id, name, token) VALUES ($1, $2, $3, $4) ON CONFLICT (token) DO NOTHING`,
-                    [condoId, smartphoneTypeId, 'Galaxy de Pedro', randomUUID()]
+                    [condoId, smartphoneTypeId, 'Galaxy de Pedro', 'b2c3d4e5-f6g7-8901-h2i3-j4k5l6m7n8o9']
                 );
                 log.push('SUCCESS: Test devices seeded.');
             } else {
@@ -346,5 +345,3 @@ export async function clearDatabase(
         }
     }
 }
-
-    
