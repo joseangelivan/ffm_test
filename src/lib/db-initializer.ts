@@ -23,6 +23,7 @@ const SCHEMA_FILES_ORDER = [
     'residents/base_schema.sql',
     'gatekeepers/base_schema.sql',
     'device_types/base_schema.sql',
+    'devices/base_schema.sql',
     'languages/base_schema.sql',
     'sessions/base_schema.sql',
     'admin_settings/base_schema.sql',
@@ -80,7 +81,7 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
     try {
         const name_translations = { es: 'Teléfono Inteligente', 'pt-BR': 'Smartphone' };
         await client.query(
-            'INSERT INTO device_types (name_translations) VALUES ($1) ON CONFLICT ON CONSTRAINT device_types_name_translations_pt_br_key DO NOTHING',
+            'INSERT INTO device_types (name_translations) VALUES ($1) ON CONFLICT (name_translations) DO NOTHING',
             [name_translations]
         );
         log.push('SUCCESS: Default device type data seeded.');
