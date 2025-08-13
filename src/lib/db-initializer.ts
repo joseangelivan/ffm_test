@@ -341,14 +341,21 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
         log.push('SUCCESS: Default admin user seeded.');
     } else {
         const admin = adminResult.rows[0];
-        const passwordMatch = await bcryptjs.compare(correctPassword, admin.password_hash);
-        if (!passwordMatch) {
-            log.push('SEED: Default admin found, but password does not match. Updating hash...');
+        if (admin.password_hash) {
+             const passwordMatch = await bcryptjs.compare(correctPassword, admin.password_hash);
+            if (!passwordMatch) {
+                log.push('SEED: Default admin found, but password does not match. Updating hash...');
+                const newHash = await bcryptjs.hash(correctPassword, 10);
+                await client.query('UPDATE admins SET password_hash = $1 WHERE id = $2', [newHash, admin.id]);
+                log.push('SUCCESS: Default admin password hash updated.');
+            } else {
+                log.push('SKIP: Default admin user found and password is correct.');
+            }
+        } else {
+            log.push('SEED: Default admin found, but password not set. Setting it...');
             const newHash = await bcryptjs.hash(correctPassword, 10);
             await client.query('UPDATE admins SET password_hash = $1 WHERE id = $2', [newHash, admin.id]);
-            log.push('SUCCESS: Default admin password hash updated.');
-        } else {
-            log.push('SKIP: Default admin user found and password is correct.');
+            log.push('SUCCESS: Default admin password hash set.');
         }
     }
 
