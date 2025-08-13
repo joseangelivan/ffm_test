@@ -137,28 +137,21 @@ const SCHEMAS: { [key: string]: string } = {
         );
     `,
     'users': `
-        DROP TABLE IF EXISTS residents, gatekeepers CASCADE;
-        CREATE TABLE residents (
+        CREATE TABLE IF NOT EXISTS residents (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
             name VARCHAR(255) NOT NULL,
             email VARCHAR(255) UNIQUE NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
-            location TEXT,
-            housing TEXT,
-            phone TEXT,
             created_at TIMESTAMPTZ DEFAULT NOW(),
             updated_at TIMESTAMPTZ DEFAULT NOW()
         );
-        CREATE TABLE gatekeepers (
+        CREATE TABLE IF NOT EXISTS gatekeepers (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
             name VARCHAR(255) NOT NULL,
             email VARCHAR(255) UNIQUE NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
-            location TEXT,
-            housing TEXT,
-            phone TEXT,
             created_at TIMESTAMPTZ DEFAULT NOW(),
             updated_at TIMESTAMPTZ DEFAULT NOW()
         );
@@ -220,11 +213,35 @@ const SCHEMAS: { [key: string]: string } = {
     `
 };
 
+// NON-DESTRUCTIVE MIGRATIONS
+const MIGRATIONS: { [key: string]: (client: PoolClient, log: string[]) => Promise<void> } = {
+    'add_user_details_columns': async (client: PoolClient, log: string[]) => {
+        log.push('MIGRATION: Checking for user detail columns...');
+        const columns = ['location', 'housing', 'phone'];
+        const tables = ['residents', 'gatekeepers'];
+        for (const table of tables) {
+            for (const column of columns) {
+                const res = await client.query(`
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2
+                `, [table, column]);
+                if (res.rows.length === 0) {
+                    log.push(`MIGRATE: Column "${column}" not found in table "${table}". Adding it.`);
+                    await client.query(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT`);
+                    log.push(`SUCCESS: Added column "${column}" to table "${table}".`);
+                } else {
+                    log.push(`SKIP: Column "${column}" already exists in table "${table}".`);
+                }
+            }
+        }
+    }
+};
+
 
 async function applyAndLogSchema(client: PoolClient, key: string, sql: string, log: string[]): Promise<void> {
     log.push(`CHECK: Checking schema: ${key}`);
     const hasRunResult = await client.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [key]);
-    if (hasRunResult.rows.length > 0 && key !== 'users') { // Force 'users' to be re-runnable
+    if (hasRunResult.rows.length > 0) {
         log.push(`SKIP: Schema already applied: ${key}`);
         return;
     }
@@ -232,9 +249,6 @@ async function applyAndLogSchema(client: PoolClient, key: string, sql: string, l
     try {
         log.push(`APPLY: Applying schema: ${key}`);
         await client.query(sql);
-        if (key === 'users') {
-            await client.query('DELETE FROM migrations_log WHERE file_name = $1', [key]);
-        }
         await client.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [key]);
         log.push(`SUCCESS: Successfully applied and logged: ${key}`);
     } catch (migrationError: any) {
@@ -243,22 +257,49 @@ async function applyAndLogSchema(client: PoolClient, key: string, sql: string, l
     }
 }
 
+async function applyAndLogMigration(client: PoolClient, key: string, migrationFunc: (client: PoolClient, log: string[]) => Promise<void>, log: string[]): Promise<void> {
+    log.push(`CHECK: Checking migration: ${key}`);
+    const hasRunResult = await client.query('SELECT 1 FROM migrations_log WHERE file_name = $1', [key]);
+    if (hasRunResult.rows.length > 0) {
+        log.push(`SKIP: Migration already applied: ${key}`);
+        return;
+    }
+
+    try {
+        log.push(`APPLY: Applying migration: ${key}`);
+        await migrationFunc(client, log);
+        await client.query('INSERT INTO migrations_log (file_name) VALUES ($1)', [key]);
+        log.push(`SUCCESS: Successfully applied and logged migration: ${key}`);
+    } catch (migrationError: any) {
+        log.push(`ERROR: FAILED to apply migration "${key}". Error: ${migrationError.message}`);
+        throw migrationError;
+    }
+}
+
 
 async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void> {
     const bcryptjs = (await import('bcryptjs')).default;
 
-    // --- Phase 1: Apply all schemas in order ---
+    // --- Phase 1: Apply all base table schemas ---
     log.push('PHASE: Applying all schemas...');
     const schemaOrder = [
         'migrations_log', 'catalogs', 'admins', 'themes', 'settings', 'smtp', 'condominiums', 
-        'users', 'sessions', 'devices', 'maps', 'translation' // 'users' is now re-runnable
+        'users', 'sessions', 'devices', 'maps', 'translation'
     ];
     for (const key of schemaOrder) {
         await applyAndLogSchema(client, key, SCHEMAS[key], log);
     }
-    log.push('SUCCESS: All schemas applied.');
+    log.push('SUCCESS: All base schemas applied.');
 
-    // --- Phase 2: Seed all initial data ---
+    // --- Phase 2: Apply all non-destructive migrations ---
+    log.push('PHASE: Applying non-destructive migrations...');
+    for (const key in MIGRATIONS) {
+        await applyAndLogMigration(client, key, MIGRATIONS[key], log);
+    }
+    log.push('SUCCESS: All non-destructive migrations applied.');
+
+
+    // --- Phase 3: Seed all initial data ---
     log.push('PHASE: Seeding all initial data...');
 
     // Seed Default Languages
@@ -311,7 +352,7 @@ async function runDatabaseSetup(client: PoolClient, log: string[]): Promise<void
         }
     }
 
-    // --- Phase 3: Seed Test Data ---
+    // --- Phase 4: Seed Test Data ---
     log.push('PHASE: Seeding test data...');
     try {
         log.push('SEED: Checking for example condominium...');
