@@ -121,7 +121,7 @@ const deviceIcons: { [key: string]: React.ReactNode } = {
 function AddDeviceDialog({
   onDeviceAdd,
 }: {
-  onDeviceAdd: (device: Omit<Device, 'id' | 'status' | 'lastLocation' | 'battery' | 'condominium_id' | 'device_type_id' | 'token' | 'created_at' | 'updated_at' | 'device_type_name'> & { type: string }) => void;
+  onDeviceAdd: (device: Omit<Device, 'id' | 'status' | 'lastLocation' | 'battery' | 'condominium_id' | 'device_type_id' | 'token' | 'created_at' | 'updated_at' | 'device_type_name_translations'> & { type: string }) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -297,7 +297,7 @@ export default function DashboardClient({
     return () => clearInterval(intervalId);
   }, [selectedDevice]);
 
-  const handleAddDevice = (newDevice: Omit<Device, 'id' | 'status' | 'lastLocation' | 'battery' | 'condominium_id' | 'device_type_id' | 'token' | 'created_at' | 'updated_at' | 'device_type_name'> & {type: string}) => {
+  const handleAddDevice = (newDevice: Omit<Device, 'id' | 'status' | 'lastLocation' | 'battery' | 'condominium_id' | 'device_type_id' | 'token' | 'created_at' | 'updated_at' | 'device_type_name_translations'> & {type: string}) => {
     // This should call a server action to create a device
     toast({
       title: "Función no implementada",
@@ -496,38 +496,41 @@ export default function DashboardClient({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {devices.map((device) => (
-                    <TableRow key={device.id} className={cn(selectedDevice?.id === device.id && "bg-accent/10")}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          {deviceIcons[device.device_type_name] || deviceIcons.other}
-                          <div>
-                            <div className="font-medium">{device.name}</div>
-                            
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={'secondary'}
-                        >
-                          {t(`deviceStatus.offline`)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                           <Button variant="ghost" size="icon" onClick={() => handleSetSelectedDevice(device)}>
-                            <Eye className="h-4 w-4" />
-                            <span className="sr-only">{t('deviceTable.viewOnMap')}</span>
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteDevice(device.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                             <span className="sr-only">{t('deviceTable.delete')}</span>
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {devices.map((device) => {
+                    const deviceTypeName = device.device_type_name_translations[locale] || device.device_type_name_translations['pt-BR'];
+                    return (
+                        <TableRow key={device.id} className={cn(selectedDevice?.id === device.id && "bg-accent/10")}>
+                        <TableCell>
+                            <div className="flex items-center gap-3">
+                            {deviceIcons[deviceTypeName] || deviceIcons.other}
+                            <div>
+                                <div className="font-medium">{device.name}</div>
+                                <div className="text-xs text-muted-foreground">{deviceTypeName}</div>
+                            </div>
+                            </div>
+                        </TableCell>
+                        <TableCell>
+                            <Badge
+                            variant={'secondary'}
+                            >
+                            {t(`deviceStatus.offline`)}
+                            </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                            <Button variant="ghost" size="icon" onClick={() => handleSetSelectedDevice(device)}>
+                                <Eye className="h-4 w-4" />
+                                <span className="sr-only">{t('deviceTable.viewOnMap')}</span>
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteDevice(device.id)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                                <span className="sr-only">{t('deviceTable.delete')}</span>
+                            </Button>
+                            </div>
+                        </TableCell>
+                        </TableRow>
+                    )
+                  })}
                    {devices.length === 0 && (
                     <TableRow>
                         <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
