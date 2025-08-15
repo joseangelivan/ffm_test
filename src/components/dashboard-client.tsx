@@ -1,7 +1,8 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, 'use client';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -82,20 +83,13 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import MapComponent, { Marker } from '@/components/map';
+import MapComponent, { type Marker } from '@/components/map';
 import type { SessionPayload } from '@/lib/session';
+import type { Device } from '@/actions/devices';
 
-type Device = {
-  id: string;
-  name: string;
-  type: 'smartphone' | 'watch' | 'laptop' | 'car' | 'esp32' | 'other';
-  status: 'Online' | 'Offline';
-  lastLocation: string;
-  battery: number | null;
-};
-
-const deviceIcons = {
-  smartphone: <Smartphone className="h-5 w-5 text-muted-foreground" />,
+const deviceIcons: { [key: string]: React.ReactNode } = {
+  'Teléfono Inteligente': <Smartphone className="h-5 w-5 text-muted-foreground" />,
+  'Smartphone': <Smartphone className="h-5 w-5 text-muted-foreground" />,
   watch: <Watch className="h-5 w-5 text-muted-foreground" />,
   laptop: <Laptop className="h-5 w-5 text-muted-foreground" />,
   car: <Car className="h-5 w-5 text-muted-foreground" />,
@@ -123,14 +117,15 @@ const deviceIcons = {
   other: <MapPin className="h-5 w-5 text-muted-foreground" />,
 };
 
+
 function AddDeviceDialog({
   onDeviceAdd,
 }: {
-  onDeviceAdd: (device: Omit<Device, 'id' | 'status' | 'lastLocation' | 'battery'>) => void;
+  onDeviceAdd: (device: Omit<Device, 'id' | 'status' | 'lastLocation' | 'battery' | 'condominium_id' | 'device_type_id' | 'token' | 'created_at' | 'updated_at' | 'device_type_name'> & { type: string }) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
-  const [type, setType] = useState<Device['type']>('smartphone');
+  const [type, setType] = useState<string>('smartphone');
   const { toast } = useToast();
   const { t } = useLocale();
 
@@ -186,7 +181,7 @@ function AddDeviceDialog({
               <Label htmlFor="type" className="text-right">
                 {t('addDeviceDialog.typeLabel')}
               </Label>
-              <Select onValueChange={(v: Device['type']) => setType(v)} defaultValue={type}>
+              <Select onValueChange={(v: string) => setType(v)} defaultValue={type}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder={t('addDeviceDialog.selectTypePlaceholder')} />
                 </SelectTrigger>
@@ -253,13 +248,12 @@ export default function DashboardClient({
   user,
   devices: initialDevices,
 }: {
-  user: { name: string; email: string; avatarUrl: string };
+  user: SessionPayload;
   devices: Device[];
 }) {
-  const [session, setSession] = useState<SessionPayload | null>(null);
   const [devices, setDevices] = useState<Device[]>(initialDevices);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(
-    initialDevices.find(d => d.status === 'Online') || initialDevices[0] || null
+    initialDevices[0] || null
   );
   
   const { toast } = useToast();
@@ -270,8 +264,7 @@ export default function DashboardClient({
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   useEffect(() => {
-    // Client-side effect for settings is removed as session logic is complex client-side
-    // This should be handled by passing props from a server component that can access settings.
+    // This effect can be simplified as we now receive props directly
   }, []);
 
 
@@ -287,20 +280,14 @@ export default function DashboardClient({
   }
 
   useEffect(() => {
-    if (!selectedDevice || selectedDevice.status === 'Offline') return;
+    if (!selectedDevice) return;
 
     const intervalId = setInterval(() => {
       setDevices(prevDevices =>
         prevDevices.map(d => {
           if (d.id === selectedDevice.id) {
-            const [lat, lon] = d.lastLocation.split(',').map(s => parseFloat(s.trim()));
-            const newLat = lat + (Math.random() - 0.5) * 0.001;
-            const newLon = lon + (Math.random() - 0.5) * 0.001;
-            const newLocation = `${newLat.toFixed(6)}, ${newLon.toFixed(6)}`;
-            
-            setSelectedDevice(prevSelected => prevSelected && prevSelected.id === d.id ? { ...prevSelected, lastLocation: newLocation } : prevSelected);
-
-            return { ...d, lastLocation: newLocation };
+            // Mocking movement for now
+            return { ...d };
           }
           return d;
         })
@@ -310,26 +297,22 @@ export default function DashboardClient({
     return () => clearInterval(intervalId);
   }, [selectedDevice]);
 
-  const handleAddDevice = (newDevice: Omit<Device, 'id' | 'status' | 'lastLocation' | 'battery'>) => {
-    const deviceToAdd: Device = {
-      ...newDevice,
-      id: `dev-${Math.random().toString(36).substr(2, 9)}`,
-      status: 'Offline',
-      lastLocation: '0, 0',
-      battery: null,
-    };
-    setDevices(prev => [...prev, deviceToAdd]);
+  const handleAddDevice = (newDevice: Omit<Device, 'id' | 'status' | 'lastLocation' | 'battery' | 'condominium_id' | 'device_type_id' | 'token' | 'created_at' | 'updated_at' | 'device_type_name'> & {type: string}) => {
+    // This should call a server action to create a device
+    toast({
+      title: "Función no implementada",
+      description: "La creación de dispositivos se manejará en un próximo paso.",
+      variant: "destructive"
+    });
   };
 
   const handleDeleteDevice = (deviceId: string) => {
-    setDevices(prev => prev.filter(d => d.id !== deviceId));
+    // This should call a server action to delete a device
     toast({
-      title: t('toast.deviceRemovedTitle'),
-      description: t('toast.deviceRemovedDescription'),
+      title: "Función no implementada",
+      description: "La eliminación de dispositivos se manejará en un próximo paso.",
+      variant: "destructive"
     });
-    if (selectedDevice?.id === deviceId) {
-      setSelectedDevice(devices.find(d => d.id !== deviceId) || null);
-    }
   };
 
   const handleSetSelectedDevice = (device: Device) => {
@@ -345,31 +328,22 @@ export default function DashboardClient({
   }
   
   const mapCenter = selectedDevice 
-    ? { 
-        lat: parseFloat(selectedDevice.lastLocation.split(',')[0]), 
-        lng: parseFloat(selectedDevice.lastLocation.split(',')[1]) 
-      }
+    ? { lat: 40.7128, lng: -74.0060 } // Placeholder
     : { lat: 40.7128, lng: -74.0060 }; // Default center if no device selected
 
   const mapMarkers: Marker[] = devices
     .map(device => {
-        try {
-            const [lat, lng] = device.lastLocation.split(',').map(s => parseFloat(s.trim()));
-            if (isNaN(lat) || isNaN(lng)) return null;
-            return {
-                id: device.id,
-                position: { lat, lng },
-                label: device.name,
-                isActive: device.id === selectedDevice?.id
-            };
-        } catch (error) {
-            return null;
-        }
+        return {
+            id: device.id,
+            position: { lat: 40.7128, lng: -74.0060 }, // Placeholder
+            label: device.name,
+            isActive: device.id === selectedDevice?.id
+        };
     })
     .filter((marker): marker is Marker => marker !== null);
 
 
-  if (!user) { // Simplified check as session is handled by parent
+  if (!user) {
     return <DashboardSkeleton />;
   }
 
@@ -386,7 +360,7 @@ export default function DashboardClient({
               <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10">
-                      <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="avatar" />
+                      <AvatarImage src={`https://placehold.co/100x100.png?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="avatar" />
                       <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   </Button>
@@ -483,8 +457,8 @@ export default function DashboardClient({
                   {t('dashboard.mapDescription')}
                   {selectedDevice && (
                     <span className="block font-mono text-sm text-primary mt-1">
-                      {t('dashboard.coords')}: {selectedDevice.lastLocation}
-                       {selectedDevice.status === 'Online' && <span className="ml-2 inline-flex items-center gap-1.5 animate-pulse text-green-600"><span className="h-2 w-2 rounded-full bg-green-500"></span>{t('deviceStatus.live')}</span>}
+                      {t('dashboard.coords')}: { /* selectedDevice.lastLocation */ }
+                       { /* selectedDevice.status === 'Online' && */ <span className="ml-2 inline-flex items-center gap-1.5 animate-pulse text-green-600"><span className="h-2 w-2 rounded-full bg-green-500"></span>{t('deviceStatus.live')}</span>}
                     </span>
                   )}
                 </CardDescription>
@@ -526,23 +500,18 @@ export default function DashboardClient({
                     <TableRow key={device.id} className={cn(selectedDevice?.id === device.id && "bg-accent/10")}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          {deviceIcons[device.type as keyof typeof deviceIcons] || deviceIcons.other}
+                          {deviceIcons[device.device_type_name] || deviceIcons.other}
                           <div>
                             <div className="font-medium">{device.name}</div>
-                            {device.battery !== null && (
-                              <div className="text-sm text-muted-foreground">
-                                {t('deviceTable.battery')}: {device.battery}%
-                              </div>
-                            )}
+                            
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant={device.status === 'Online' ? 'default' : 'secondary'}
-                          className={cn(device.status === 'Online' && "bg-green-500/80 text-white")}
+                          variant={'secondary'}
                         >
-                          {t(`deviceStatus.${device.status.toLowerCase()}`)}
+                          {t(`deviceStatus.offline`)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
