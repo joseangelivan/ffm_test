@@ -2,6 +2,7 @@
 'use server';
 
 import { getDbPool } from '@/lib/db';
+import type { TranslationObject } from '@/actions/catalogs';
 
 export type Device = {
   id: string;
@@ -11,7 +12,7 @@ export type Device = {
   token: string;
   created_at: string;
   updated_at: string;
-  device_type_name: string;
+  device_type_name_translations: TranslationObject;
 };
 
 export async function getDevicesByCondoId(condoId: string): Promise<Device[] | null> {
@@ -30,7 +31,7 @@ export async function getDevicesByCondoId(condoId: string): Promise<Device[] | n
                 d.token,
                 d.created_at,
                 d.updated_at,
-                dt.name_translations->>'pt-BR' as device_type_name 
+                dt.name_translations as device_type_name_translations
             FROM devices d
             JOIN device_types dt ON d.device_type_id = dt.id
             WHERE d.condominium_id = $1

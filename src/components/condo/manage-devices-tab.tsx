@@ -58,7 +58,7 @@ export default function ManageDevicesTab({
     isLoading: boolean,
     condoId: string 
 }) {
-    const { t } = useLocale();
+    const { t, locale } = useLocale();
     const { toast } = useToast();
     const [devices, setDevices] = useState(initialDevices);
 
@@ -114,7 +114,7 @@ export default function ManageDevicesTab({
                         ) : devices.map(device => (
                              <TableRow key={device.id}>
                                 <TableCell className="font-medium">{device.name}</TableCell>
-                                <TableCell>{device.device_type_name}</TableCell>
+                                <TableCell>{device.device_type_name_translations[locale] || device.device_type_name_translations['pt-BR']}</TableCell>
                                 <TableCell>{t(`deviceStatus.offline`)}</TableCell>
                                 <TableCell className="text-right">
                                     <Dialog>
