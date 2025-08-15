@@ -43,7 +43,7 @@
       "registerButton": "Registrar Dispositivo"
     },
     "deviceTypes": {
-        "smartphone": "Smartphone",
+        "smartphone": "Teléfono Inteligente",
         "watch": "Reloj",
         "laptop": "Portátil",
         "car": "Coche",
@@ -506,7 +506,9 @@
             "title": "Gerenciar Dispositivo: {name}",
             "description": "Configura os parâmetros de comunicação para o dispositivo.",
             "serverConfigTitle": "Configuração do Servidor",
-            "websocketUrl": "URL do Servidor WebSocket",
+            "serverUrl": "URL do Servidor",
+            "protocol": "Protocolo de Comunicação",
+            "selectProtocol": "Selecionar protocolo",
             "deviceTokenTitle": "Configuração do Dispositivo",
             "deviceToken": "Token de Autenticação do Dispositivo (ID Hasheado)"
         },

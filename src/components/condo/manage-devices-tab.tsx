@@ -47,6 +47,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import type { Device } from '@/actions/devices';
 import { Skeleton } from '../ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 
 export default function ManageDevicesTab({ 
@@ -140,11 +141,27 @@ export default function ManageDevicesTab({
                                             <div className="grid gap-6 py-4">
                                                 <div>
                                                     <h3 className="font-semibold mb-2">{t('condoDashboard.devices.manageDialog.serverConfigTitle')}</h3>
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor={`websocket-url-${device.id}`}>{t('condoDashboard.devices.manageDialog.websocketUrl')}</Label>
-                                                        <div className="flex items-center gap-2">
-                                                            <Input id={`websocket-url-${device.id}`} value="wss://your-followforme-server.com/ws" readOnly />
-                                                            <Button variant="outline" size="icon" onClick={() => copyToClipboard('wss://your-followforme-server.com/ws')}><Copy className="h-4 w-4" /></Button>
+                                                     <div className="space-y-4">
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor={`protocol-${device.id}`}>{t('condoDashboard.devices.manageDialog.protocol')}</Label>
+                                                            <Select defaultValue="websocket">
+                                                                <SelectTrigger id={`protocol-${device.id}`}>
+                                                                    <SelectValue placeholder={t('condoDashboard.devices.manageDialog.selectProtocol')} />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="websocket">Websocket</SelectItem>
+                                                                    <SelectItem value="mqtt">MQTT</SelectItem>
+                                                                    <SelectItem value="coap">CoAP</SelectItem>
+                                                                    <SelectItem value="http">HTTP</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor={`server-url-${device.id}`}>{t('condoDashboard.devices.manageDialog.serverUrl')}</Label>
+                                                            <div className="flex items-center gap-2">
+                                                                <Input id={`server-url-${device.id}`} value="wss://your-followforme-server.com/ws" readOnly />
+                                                                <Button variant="outline" size="icon" onClick={() => copyToClipboard('wss://your-followforme-server.com/ws')}><Copy className="h-4 w-4" /></Button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>

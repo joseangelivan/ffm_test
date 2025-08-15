@@ -10,7 +10,7 @@
       "loggingOut": "Saindo...",
       "userType": "Tipo de Usuário",
       "selectUserType": "Selecione o tipo de usuário",
-      "resident": "Residente",
+      "resident": "Morador",
       "gatekeeper": "Portaria",
       "adminLogin": "Acesso de Administrador",
       "showPassword": "Mostrar senha",
@@ -501,7 +501,9 @@
             "title": "Gerenciar Dispositivo: {name}",
             "description": "Configure os parâmetros de comunicação para o dispositivo.",
             "serverConfigTitle": "Configuração do Servidor",
-            "websocketUrl": "URL do Servidor WebSocket",
+            "serverUrl": "URL do Servidor",
+            "protocol": "Protocolo de Comunicação",
+            "selectProtocol": "Selecionar protocolo",
             "deviceTokenTitle": "Configuração do Dispositivo",
             "deviceToken": "Token de Autenticação do Dispositivo (ID Hasheado)"
         },
@@ -523,7 +525,7 @@
         }
     },
      "userTypes": {
-        "resident": "Residente",
+        "resident": "Morador",
         "gatekeeper": "Portaria"
     },
      "common": {
