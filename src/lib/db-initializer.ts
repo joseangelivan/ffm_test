@@ -16,8 +16,8 @@ export type DbInitResult = {
 };
 
 const SCHEMA_FILES_ORDER = [
-    'system/update_timestamp_function.sql',
-    'system/migrations_log.sql',
+    // 'system/update_timestamp_function.sql', // Handled separately
+    // 'system/migrations_log.sql', // Handled separately
     'admins/base_schema.sql',
     'condominiums/base_schema.sql',
     'residents/base_schema.sql',
@@ -37,28 +37,49 @@ const SCHEMA_FILES_ORDER = [
     'maps/base_schema.sql'
 ];
 
-async function executeSqlFiles(client: PoolClient, log: string[]): Promise<void> {
-    log.push('PHASE 1: Starting schema creation from SQL files...');
-    for (const fileName of SCHEMA_FILES_ORDER) {
-        log.push(`EXECUTE: Applying schema file: ${fileName}`);
-        try {
-            const filePath = path.join(process.cwd(), 'src/lib/sql', fileName);
-            const sqlContent = await fs.readFile(filePath, 'utf8');
-            await client.query(sqlContent);
-            
-            // Log base files as migrations
-            await client.query('INSERT INTO migrations_log (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING', [fileName]);
-
-            log.push(`SUCCESS: Applied and logged schema: ${fileName}`);
-        } catch (e: any) {
-            log.push(`ERROR: Failed to apply schema file "${fileName}". Error: ${e.message}`);
-            throw e;
-        }
+async function applySqlFile(client: PoolClient, filePath: string, log: string[]): Promise<void> {
+    const fileName = path.basename(filePath);
+    log.push(`EXECUTE: Applying schema file: ${fileName}`);
+    try {
+        const fullPath = path.join(process.cwd(), 'src/lib/sql', filePath);
+        const sqlContent = await fs.readFile(fullPath, 'utf8');
+        await client.query(sqlContent);
+        log.push(`SUCCESS: Applied schema: ${fileName}`);
+    } catch (e: any) {
+        log.push(`ERROR: Failed to apply schema file "${fileName}". Error: ${e.message}`);
+        throw e;
     }
 }
 
+async function ensureSystemObjects(client: PoolClient, log: string[]): Promise<void> {
+    log.push('PHASE 1: Ensuring core system objects exist...');
+    await applySqlFile(client, 'system/update_timestamp_function.sql', log);
+    await applySqlFile(client, 'system/migrations_log.sql', log);
+    log.push('SUCCESS: Core system objects are in place.');
+}
+
+
+async function runBaseSchemas(client: PoolClient, log: string[]): Promise<void> {
+    log.push('PHASE 2: Applying base schemas...');
+    
+    const executedResult = await client.query('SELECT filename FROM migrations_log');
+    const executedFiles = new Set(executedResult.rows.map(r => r.filename));
+
+    for (const fileName of SCHEMA_FILES_ORDER) {
+        if (!executedFiles.has(fileName)) {
+            await applySqlFile(client, fileName, log);
+            await client.query('INSERT INTO migrations_log (filename) VALUES ($1)', [fileName]);
+            log.push(`INFO: Logged base schema "${fileName}" as migrated.`);
+        } else {
+            log.push(`INFO: Base schema "${fileName}" already migrated, skipping.`);
+        }
+    }
+     log.push('SUCCESS: All base schemas are up to date.');
+}
+
+
 async function seedInitialData(client: PoolClient, log: string[]): Promise<void> {
-    log.push('PHASE 2: Seeding all initial data (backup)...');
+    log.push('PHASE 3: Seeding all initial data (backup)...');
 
     // Admin User
     try {
@@ -138,7 +159,7 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
 }
 
 async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
-    log.push('PHASE 3: Seeding test data (backup)...');
+    log.push('PHASE 4: Seeding test data (backup)...');
 
     try {
         const condoResult = await client.query(
@@ -190,7 +211,7 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
 }
 
 async function runMigrations(client: PoolClient, log: string[]) {
-    log.push("PHASE 4: Checking for new migrations...");
+    log.push("PHASE 5: Checking for new migrations...");
     const migrationsDir = path.join(process.cwd(), 'src/lib/sql/migrations');
     
     try {
@@ -208,12 +229,13 @@ async function runMigrations(client: PoolClient, log: string[]) {
         const executedMigrations = new Set(executedMigrationsResult.rows.map(r => r.filename));
 
         for (const file of migrationFiles) {
-            if (!executedMigrations.has(file)) {
+            const migrationLogName = `migrations/${file}`;
+            if (!executedMigrations.has(migrationLogName)) {
                 log.push(`EXECUTE: Applying new migration: ${file}`);
                 const filePath = path.join(migrationsDir, file);
                 const sqlContent = await fs.readFile(filePath, 'utf8');
                 await client.query(sqlContent);
-                await client.query('INSERT INTO migrations_log (filename) VALUES ($1)', [file]);
+                await client.query('INSERT INTO migrations_log (filename) VALUES ($1)', [migrationLogName]);
                 log.push(`SUCCESS: Applied and logged new migration: ${file}`);
             }
         }
@@ -242,21 +264,19 @@ export async function initializeDatabase(
         await dbClient.query('BEGIN');
         log.push('INFO: Transaction started.');
         
-        // Check if the base initialization has already run
-        const migrationLogTable = await dbClient.query("SELECT to_regclass('public.migrations_log')");
-        const isInitialSetupDone = migrationLogTable.rows[0].to_regclass !== null;
+        // Always ensure system objects like migrations_log table exist first.
+        await ensureSystemObjects(dbClient, log);
 
-        if (!isInitialSetupDone) {
-            log.push('INFO: migrations_log table not found. Running initial base setup...');
-            await executeSqlFiles(dbClient, log);
-            await seedInitialData(dbClient, log);
-            await seedTestData(dbClient, log);
-            log.push('SUCCESS: Initial base setup complete.');
-        } else {
-            log.push('INFO: migrations_log table found. Skipping initial base setup.');
-        }
+        // Run base schemas if they haven't been logged yet.
+        await runBaseSchemas(dbClient, log);
 
-        // Always run pending migrations
+        // Seed initial data required for the app to function.
+        await seedInitialData(dbClient, log);
+
+        // Seed optional test data.
+        await seedTestData(dbClient, log);
+        
+        // Always run pending migrations from the migrations folder
         await runMigrations(dbClient, log);
         
         await dbClient.query('COMMIT');
