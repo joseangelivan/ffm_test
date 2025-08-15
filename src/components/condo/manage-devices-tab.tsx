@@ -45,16 +45,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
+import type { Device } from '@/actions/devices';
+import { Skeleton } from '../ui/skeleton';
 
-type Device = {
-    id: string;
-    name: string;
-    type: 'esp32' | 'other' | 'watch';
-    status: string;
-    token: string;
-};
 
-export default function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
+export default function ManageDevicesTab({ 
+    initialDevices, 
+    isLoading,
+    condoId
+}: { 
+    initialDevices: Device[], 
+    isLoading: boolean,
+    condoId: string 
+}) {
     const { t } = useLocale();
     const { toast } = useToast();
     const [devices, setDevices] = useState(initialDevices);
@@ -98,11 +101,21 @@ export default function ManageDevicesTab({ initialDevices }: { initialDevices: D
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {devices.map(device => (
+                        {isLoading ? (
+                             Array.from({ length: 3 }).map((_, i) => (
+                                <TableRow key={`skel-${i}`}>
+                                    <TableCell colSpan={4}><Skeleton className="h-8 w-full"/></TableCell>
+                                </TableRow>
+                            ))
+                        ) : devices.length === 0 ? (
+                             <TableRow>
+                                <TableCell colSpan={4} className="h-24 text-center">{t('deviceTable.noDevices')}</TableCell>
+                            </TableRow>
+                        ) : devices.map(device => (
                              <TableRow key={device.id}>
                                 <TableCell className="font-medium">{device.name}</TableCell>
-                                <TableCell>{t(`deviceTypes.${device.type}`)}</TableCell>
-                                <TableCell>{t(`deviceStatus.${device.status.toLowerCase()}`)}</TableCell>
+                                <TableCell>{device.device_type_name}</TableCell>
+                                <TableCell>{t(`deviceStatus.offline`)}</TableCell>
                                 <TableCell className="text-right">
                                     <Dialog>
                                         <DropdownMenu>

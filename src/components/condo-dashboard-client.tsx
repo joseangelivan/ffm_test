@@ -19,17 +19,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocale } from '@/lib/i18n';
 import { getCondominioById, type Condominio } from '@/actions/condos';
 import { geocodeAddress } from '@/actions/geocoding';
+import { getDevicesByCondoId, type Device } from '@/actions/devices';
 
 import ManageUsersTab from './condo/manage-users-tab';
 import ManageDevicesTab from './condo/manage-devices-tab';
 import CondoMapTab from './condo/condo-map-tab';
-
-// Mock data will be passed to the new components
-const mockDevices = [
-  { id: 'dev-01', name: 'Tracker Portão 1', type: 'esp32', status: 'Online', token: 'a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8' },
-  { id: 'dev-02', name: 'Câmera Corredor A', type: 'other', status: 'Online', token: 'b2c3d4e5-f6g7-8901-h2i3-j4k5l6m7n8o9' },
-  { id: 'dev-03', name: 'Relógio Segurança', type: 'watch', status: 'Offline', token: 'c3d4e5f6-g7h8-9012-i3j4-k5l6m7n8o9p0' },
-];
 
 type Coords = { lat: number; lng: number };
 
@@ -37,7 +31,9 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
   const { t } = useLocale();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const [condo, setCondo] = useState<Condominio | null>(null);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingDevices, setLoadingDevices] = useState(true);
   const [mapCenter, setMapCenter] = useState<Coords | null>(null);
 
   useEffect(() => {
@@ -46,6 +42,17 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
       
       if (result.success && result.data) {
         setCondo(result.data);
+
+        // Fetch devices
+        setLoadingDevices(true);
+        const devicesResult = await getDevicesByCondoId(condoId);
+        if (devicesResult) {
+            setDevices(devicesResult);
+        }
+        setLoadingDevices(false);
+
+
+        // Geocode address
         const geoResult = await geocodeAddress({
           street: result.data.street!,
           city: result.data.city!,
@@ -122,7 +129,7 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
               <ManageUsersTab condoId={condo.id} />
             </TabsContent>
             <TabsContent value="devices" className="mt-4">
-              <ManageDevicesTab initialDevices={mockDevices} />
+              <ManageDevicesTab initialDevices={devices} isLoading={loadingDevices} condoId={condo.id} />
             </TabsContent>
              <TabsContent value="map" className="mt-4">
               {apiKey ? (
