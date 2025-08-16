@@ -16,8 +16,6 @@ export type DbInitResult = {
 };
 
 const SCHEMA_FILES_ORDER = [
-    // 'system/update_timestamp_function.sql', // Handled separately
-    // 'system/migrations_log.sql', // Handled separately
     'admins/base_schema.sql',
     'condominiums/base_schema.sql',
     'residents/base_schema.sql',
@@ -370,5 +368,3 @@ export async function clearDatabase(
         }
     }
 }
-
-    
