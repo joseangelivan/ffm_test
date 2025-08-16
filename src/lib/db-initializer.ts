@@ -81,21 +81,21 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
 
     // Admin User
     try {
-        const adminName = process.env.ADMIN_NAME || 'Default Admin';
-        const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
-        const adminPassword = process.env.ADMIN_PASSWORD || 'password123';
-        
-        if (adminEmail === 'admin@example.com') {
-             log.push('WARNING: Seeding default admin with default credentials. Please set ADMIN_NAME, ADMIN_EMAIL, and ADMIN_PASSWORD in your .env.local file for security.');
+        const adminName = process.env.ADMIN_NAME;
+        const adminEmail = process.env.ADMIN_EMAIL;
+        const adminPassword = process.env.ADMIN_PASSWORD;
+        const canCreateAdmins = process.env.ADMIN_CAN_CREATE_ADMINS === 'true';
+
+        if (!adminName || !adminEmail || !adminPassword) {
+            log.push('WARNING: ADMIN_NAME, ADMIN_EMAIL, or ADMIN_PASSWORD environment variables not set. Skipping default admin creation.');
+        } else {
+            const hashedPassword = await bcryptjs.hash(adminPassword, 10);
+            await client.query(
+                "INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING",
+                [adminName, adminEmail, hashedPassword, canCreateAdmins]
+            );
+            log.push('SUCCESS: Default admin data seeded from environment variables.');
         }
-
-        const hashedPassword = await bcryptjs.hash(adminPassword, 10);
-
-        await client.query(
-            "INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, TRUE) ON CONFLICT (email) DO NOTHING",
-            [adminName, adminEmail, hashedPassword]
-        );
-        log.push('SUCCESS: Default admin data seeded.');
     } catch (e: any) {
         log.push(`ERROR: Seeding admin data failed: ${e.message}`);
         throw e;
