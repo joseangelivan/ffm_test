@@ -83,13 +83,19 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
 
     // Admin User
     try {
-        const adminEmail = 'angelivan34@gmail.com';
-        const correctPassword = 'adminivan123';
-        const dynamicallyGeneratedHash = await bcryptjs.hash(correctPassword, 10);
+        const adminName = process.env.ADMIN_NAME || 'Default Admin';
+        const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+        const adminPassword = process.env.ADMIN_PASSWORD || 'password123';
+        
+        if (adminEmail === 'admin@example.com') {
+             log.push('WARNING: Seeding default admin with default credentials. Please set ADMIN_NAME, ADMIN_EMAIL, and ADMIN_PASSWORD in your .env.local file for security.');
+        }
+
+        const hashedPassword = await bcryptjs.hash(adminPassword, 10);
 
         await client.query(
             "INSERT INTO admins (name, email, password_hash, can_create_admins) VALUES ($1, $2, $3, TRUE) ON CONFLICT (email) DO NOTHING",
-            ['José Angel Iván Rubianes Silva', adminEmail, dynamicallyGeneratedHash]
+            [adminName, adminEmail, hashedPassword]
         );
         log.push('SUCCESS: Default admin data seeded.');
     } catch (e: any) {
@@ -364,3 +370,5 @@ export async function clearDatabase(
         }
     }
 }
+
+    
