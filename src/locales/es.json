@@ -43,7 +43,7 @@
       "registerButton": "Registrar Dispositivo"
     },
     "deviceTypes": {
-        "smartphone": "Smartphone",
+        "smartphone": "Teléfono Inteligente",
         "watch": "Reloj",
         "laptop": "Portátil",
         "car": "Coche",
@@ -183,9 +183,81 @@
       "settingsGroups": {
         "interface": "Interfaz",
         "systemConfiguration": "Configuración del Sistema",
+        "catalogs": {
+            "title": "Gestión de Catálogos",
+            "description": "Gestiona los datos globales que se utilizan en toda la aplicación, como tipos de dispositivo y protocolos.",
+            "wipDescription": "Gestión completa para este catálogo próximamente.",
+            "table": {
+                "name": "Nombre",
+                "features": "Características",
+                "actions": "Acciones"
+            },
+            "form": {
+                "tab_es": "Español",
+                "tab_pt": "Portugués",
+                "nameLabel": "Nombre",
+                "featuresLabel": "Características",
+                "createTitle": "Crear Nuevo Tipo de Dispositivo",
+                "editTitle": "Editar Tipo de Dispositivo",
+                "translating": "Traduciendo...",
+                "translateTooltip": "Traducir a otros idiomas"
+            },
+            "maps": {
+              "tab": "Mapas",
+              "title": "Configuración de Mapas",
+              "apiKeyMissing": "La clave de API para Google Maps no está configurada.",
+              "apiKeyInstructions": "Por favor, defina la variable de entorno NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en tu proyecto."
+            },
+            "deviceTypes": {
+              "tab": "Dispositivos",
+              "title": "Tipos de Dispositivo",
+              "description": "Gestiona los diferentes tipos de dispositivos que la plataforma puede rastrear.",
+              "noData": "No se encontraron tipos de dispositivo.",
+              "deleteConfirmation": "Esto eliminará permanentemente el tipo de dispositivo \"{name}\". Esta acción no puede deshacerse."
+            },
+            "protocols": {
+              "tab": "Protocolos",
+              "title": "Protocolos de Comunicação"
+            },
+            "languages": {
+                "tab": "Idiomas",
+                "title": "Catálogo de Idiomas Estándar",
+                "description": "Esta es la lista de idiomas estándar que la aplicación utiliza para las pruebas de traducción.",
+                "table": {
+                    "key": "Clave",
+                    "name": "Nombre"
+                },
+                "createTitle": "Crear Nuevo Idioma",
+                "editTitle": "Editar Idioma",
+                "deleteConfirmation": "Esto eliminará el idioma \"{name}\". Esta acción no puede deshacerse.",
+                "noLanguages": "No se encontraron idiomas."
+            }
+        },
         "interfaceDescription": "Personaliza la apariencia y el idioma de la aplicación.",
-        "languageDescription": "Selecciona el idioma para la interfaz de administración.",
-        "themeDescription": "Elige entre un tema claro u oscuro para el panel."
+        "languageManagement": {
+          "title": "Idioma de la Interfaz",
+          "description": "Selecciona el idioma para tu panel de administración."
+        },
+        "themeDescription": "Elige entre un tema claro u oscuro para el panel.",
+        "domainConfig": "Configurar Dominio",
+        "domainConfigTitle": "Configurar Dominio de la Aplicación",
+        "domainConfigDescription": "Define el dominio base que se usará para generar enlaces, como los de activación de cuenta.",
+        "domainConfigLabel": "Dominio de la Aplicación (URL Base)",
+        "extractButton": "Extraer",
+        "manageLanguages": {
+            "title": "Gestionar Idiomas",
+            "description": "Agrega o importa nuevos idiomas para la aplicación.",
+            "addButton": "Agregar Nuevo Idioma"
+        },
+        "manageThemes": {
+            "title": "Gestionar Temas",
+            "description": "Agrega, edita o importa nuevos temas para la aplicación. Esta funcionalidad está en desarrollo.",
+            "availableThemes": "Temas Disponibles",
+            "createButton": "Crear Nuevo Tema",
+            "editorTitle": "Editor de Tema",
+            "editorDescription": "Aquí se mostrará un editor para los colores y estilos del tema seleccionado.",
+            "editorPlaceholder": "Editor de Tema (Próximamente)"
+        }
       },
       "account": {
         "myAccount": "Mi Cuenta",
@@ -226,7 +298,7 @@
             "activateButton": "Activar 2FA",
             "setupTitle": "Configurar Autenticación de Dos Factores",
             "setupDescription": "Escanea este código QR con tu aplicación de autenticación (ej. Google Authenticator, Authy).",
-            "secretKeyLabel": "O introduce esta clave manualmente",
+            "secretKeyLabel": "O introduce esta clave manually",
             "verificationCodeLabel": "Introduce el código de verificación",
             "enableButton": "Verificar y Activar",
             "manageDescription": "La autenticación de dos factores está activa.",
@@ -237,6 +309,38 @@
             "disableConfirmDescription": "Esto reducirá la seguridad de tu cuenta. ¿Estás seguro de que quieres continuar?"
         },
         "secretCopied": "Clave secreta copiada al portapapeles."
+      },
+      "smtp": {
+        "title": "Configurar SMTP",
+        "description": "Gestiona los servidores de correo para el envío de notificaciones. Arrastra para reordenar la prioridad de envío.",
+        "noConfigs": "No hay configuraciones SMTP.",
+        "addButton": "Agregar Configuración",
+        "editTitle": "Editar Configuración SMTP",
+        "newTitle": "Nueva Configuración SMTP",
+        "nameLabel": "Nombre",
+        "hostLabel": "Host SMTP",
+        "portLabel": "Puerto",
+        "userLabel": "Usuario (Email)",
+        "passwordLabel": "Contraseña",
+        "passwordPlaceholderEdit": "Dejar en blanco para no cambiar",
+        "secureConnectionLabel": "Usar Conexión Segura (TLS)",
+        "deleteConfirmation": "Esto eliminará permanentemente la configuración SMTP \"{name}\"."
+      },
+       "translator": {
+        "title": "Configurar Traductor",
+        "description": "Gestiona los servicios de traducción para la aplicación.",
+        "noServices": "No hay servicios de traducción configurados.",
+        "addButton": "Agregar Servicio",
+        "editTitle": "Editar Servicio de Traducción",
+        "newTitle": "Nuevo Servicio de Traducción",
+        "formDescription": "Define un nombre y proporciona la configuración para la API del servicio.",
+        "nameLabel": "Nombre del Servicio",
+        "requestConfigLabel": "Configuración de la Solicitud (Request)",
+        "responseConfigLabel": "Configuración de la Respuesta (Response)",
+        "invalidJson": "El formato JSON no es válido.",
+        "setAsDefault": "Establecer como predeterminado",
+        "test": "Probar Servicio",
+        "deleteConfirmation": "Esto eliminará permanentemente el servicio de traducción \"{name}\"."
       }
     },
     "condoDashboard": {
@@ -286,7 +390,54 @@
           "elementTypeLabel": "Tipo de Elemento",
           "selectTypePlaceholder": "Seleccionar tipo de elemento",
           "drawArea": "Dibujar Área",
-          "addElement": "Añadir Elemento"
+          "addElement": "Añadir Elemento",
+          "addTypeDialog": {
+              "title": "Agregar Nuevo Tipo de Elemento",
+              "description": "Define un nuevo tipo de elemento para usar en el mapa.",
+              "typeNameLabel": "Nombre del Tipo",
+              "typeNamePlaceholder": "Ej: Zona de Juegos",
+              "iconLabel": "Ícono del Elemento",
+              "tabs": {
+                  "collection": "Colección",
+                  "ai": "IA",
+                  "search": "Buscar",
+                  "pc": "PC",
+                  "link": "Link"
+              },
+              "collection": {
+                  "title": "Colección de Íconos",
+                  "description": "Próximamente: Busca en una colección de íconos predefinidos."
+              },
+              "ai": {
+                  "title": "Generar Ícono con IA",
+                  "description": "Describe el ícono que necesitas. La IA generará una imagen minimalista en blanco y negro.",
+                  "placeholder": "Ej: un columpio simple, una cancha de baloncesto...",
+                  "preview": "Vista Previa"
+              },
+              "search": {
+                  "title": "Buscar Ícono en Internet",
+                  "description": "Próximamente: Busca y seleccieona íconos de la web."
+              },
+              "pc": {
+                  "title": "Subir desde PC",
+                  "description": "Próximamente: Sube un archivo de ícono (SVG, PNG) desde tu computadora."
+              },
+              "link": {
+                  "title": "Importar desde un Link",
+                  "description": "Próximamente: Pega un enlace directo a una imagen de ícono."
+              }
+          },
+          "manageTypesDialog": {
+              "title": "Gestionar Tipos de Elemento",
+              "description": "Agrega, edita o elimina los tipos de elementos que se pueden colocar en el mapa.",
+              "addButton": "Agregar Nuevo Tipo"
+          }
+        },
+        "elementTypes": {
+            "camera": "Cámara de Vigilancia",
+            "gatehouse": "Portería / Garita",
+            "housing_area": "Área de Vivienda",
+            "other": "Otro"
         },
         "toast": {
           "shapeDrawn": {
@@ -310,16 +461,35 @@
         "title": "Gestionar Usuarios",
         "description": "Añade, elimina o edita residentes y porterías.",
         "addUserButton": "Añadir Usuario",
+        "noUsers": "Aún no hay usuarios para este condominio.",
         "table": {
           "name": "Nombre",
           "type": "Tipo",
           "email": "Email",
-          "actions": "Acciones",
+          "actions": "Ações",
           "resetPassword": "Resetear contraseña",
           "delete": "Eliminar"
         },
+        "editDialog": {
+            "title": "Editar Usuario",
+            "description": "Modifica la información básica del usuario."
+        },
+        "createDialog": {
+            "description": "Introduce los detalles para crear un nuevo usuario en este condominio."
+        },
+        "manageDialog": {
+            "title": "Gestionar Usuario",
+            "description": "Administrar detalles y permisos para {name}.",
+            "additionalInfo": "Información Adicional",
+            "location": "Ubicación (ej: Torre, Sección)",
+            "housing": "Vivienda (ej: Apto, Casa Nro)",
+            "phone": "Teléfono"
+        },
+        "deleteConfirmation": "Esto eliminará permanentemente al usuario \"{name}\". Esta acción no puede deshacerse.",
         "toast": {
-            "userDeleted": "Usuario eliminado con éxito."
+            "userDeleted": "Usuario eliminado con éxito.",
+            "userUpdated": "Usuario actualizado con éxito.",
+            "passwordReset": "Se ha enviado un enlace para restablecer la contraseña a {name}."
         }
       },
       "devices": {
@@ -333,12 +503,14 @@
           "actions": "Ações"
         },
         "manageDialog": {
-            "title": "Gestionar Dispositivo: {name}",
-            "description": "Configura los parámetros de comunicación para el dispositivo.",
-            "serverConfigTitle": "Configuración del Servidor",
-            "websocketUrl": "URL del Servidor WebSocket",
-            "deviceTokenTitle": "Configuración del Dispositivo",
-            "deviceToken": "Token de Autenticación del Dispositivo (ID Hasheado)"
+            "title": "Gerenciar Dispositivo: {name}",
+            "description": "Configura os parâmetros de comunicação para o dispositivo.",
+            "serverConfigTitle": "Configuração do Servidor",
+            "serverUrl": "URL do Servidor",
+            "protocol": "Protocolo de Comunicação",
+            "selectProtocol": "Selecionar protocolo",
+            "deviceTokenTitle": "Configuração do Dispositivo",
+            "deviceToken": "Token de Autenticação do Dispositivo (ID Hasheado)"
         },
         "toast": {
             "deviceDeleted": "Dispositivo eliminado con éxito.",
@@ -358,16 +530,20 @@
         }
     },
     "userTypes": {
-        "residente": "Residente",
-        "portería": "Portería"
+        "resident": "Residente",
+        "gatekeeper": "Portería"
     },
     "common": {
         "close": "Cerrar",
         "cancel": "Cancelar",
+        "save": "Guardar",
         "saveChanges": "Guardar Cambios",
         "you": "tú",
         "edit": "Editar",
-        "delete": "Eliminar"
+        "delete": "Eliminar",
+        "create": "Crear",
+        "default": "por defecto",
+        "areYouSure": "¿Estás seguro?"
     },
     "emails": {
         "adminFirstLogin": {
@@ -399,5 +575,21 @@
         "activateButton": "Activar Cuenta",
         "activating": "Activando...",
         "backToLogin": "Volver al inicio de sesión"
+    },
+    "dbInitializer": {
+        "title": "Inicialización de la Base de Datos",
+        "description": "Esta es una acción sensible que reiniciará las migraciones. Esto podría ser útil si hubo un error, pero también podría causar problemas si no se usa con cuidado.",
+        "loading": "Inicializando...",
+        "clearing": "Limpiando banco de dados...",
+        "successTitle": "¡Éxito!",
+        "successDescription": "O processo de inicialização do banco de dados foi concluído.",
+        "button": "Inicializar Base de Datos",
+        "clearButton": "Limpar Tabelas e Dados",
+        "goBack": "Volver al Login de Administrador",
+        "confirmationDescription": "Esto intentará ejecutar de nuevo todas las migraciones de la base de datos. Esta acción generalmente es segura, pero solo debe realizarse si se sospecha un problema con el esquema de la base de datos. ¿Estás seguro de que quieres continuar?",
+        "clearConfirmationDescription": "Esta acción eliminará permanentemente TODAS las tablas y datos de la base de datos. Esta acción no se puede deshacer. ¿Estás absolutamente seguro?",
+        "confirmButton": "Sí, inicializar",
+        "clearConfirmButton": "Sí, eliminar todo",
+        "logTitle": "Registro de Inicialización"
     }
   }

@@ -1,0 +1,3 @@
+-- This is the initial schema migration.
+-- It is intended to set up the database structure.
+-- Seeding of initial/default data is handled by the db-initializer.ts script.

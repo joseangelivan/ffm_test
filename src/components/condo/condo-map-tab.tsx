@@ -16,8 +16,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MapComponent from '@/components/map';
-import { GeofenceControls } from './map/geofence-controls';
+import { GeofenceControls, type DrawingMode } from './map/geofence-controls';
 import { ElementsControls } from './map/elements-controls';
+import { getGeofencesByCondoId } from '@/actions/maps';
+import type { Geofence } from '@/actions/maps';
 
 
 export type GeofenceObject = {
@@ -34,20 +36,20 @@ export const DEFAULT_COLOR = { fillColor: '#f39c12', strokeColor: '#e67e22', fil
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
     if (!shape) return null;
-    const shapeType = 'getPaths' in shape ? 'polygon' : 'getBounds' in shape ? 'rectangle' : 'getRadius' in shape ? 'circle' : null;
     
-    switch (shapeType) {
-        case 'polygon': {
-            const path = (shape as google.maps.Polygon).getPath();
-            return { type: 'polygon', paths: path.getArray().map((latLng: google.maps.LatLng) => ({ lat: latLng.lat(), lng: latLng.lng() })) };
-        }
-        case 'rectangle':
-            return { type: 'rectangle', bounds: (shape as google.maps.Rectangle).getBounds()?.toJSON() };
-        case 'circle':
-            return { type: 'circle', center: (shape as google.maps.Circle).getCenter()?.toJSON(), radius: (shape as google.maps.Circle).getRadius() };
-        default:
-            return null;
+    // Explicitly check for circle first because a circle also has getBounds()
+    if ('getRadius' in shape) {
+        return { type: 'circle', center: (shape as google.maps.Circle).getCenter()?.toJSON(), radius: (shape as google.maps.Circle).getRadius() };
     }
+    if ('getPaths' in shape) {
+        const path = (shape as google.maps.Polygon).getPath();
+        return { type: 'polygon', paths: path.getArray().map((latLng: google.maps.LatLng) => ({ lat: latLng.lat(), lng: latLng.lng() })) };
+    }
+    if ('getBounds' in shape) {
+        return { type: 'rectangle', bounds: (shape as google.maps.Rectangle).getBounds()?.toJSON() };
+    }
+    
+    return null;
 };
 
 export const createShapeFromGeometry = (geometry: any): google.maps.MVCObject | null => {
@@ -85,9 +87,36 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   const [canRedo, setCanRedo] = useState(false);
 
   const [activeModule, setActiveModule] = useState('geofence');
+  const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
+  
+  const [isEditingEnabled, setIsEditingEnabled] = useState(false);
+  const [viewAll, setViewAll] = useState(false);
+
 
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   const isEditingShape = isEditing || isCreating;
+
+  useEffect(() => {
+    async function fetchGeofences() {
+        const dbGeofences = await getGeofencesByCondoId(condo.id);
+        const gfObjects = dbGeofences.map(dbGf => ({
+            id: dbGf.id,
+            name: dbGf.name,
+            shape: createShapeFromGeometry(dbGf.geometry) as google.maps.MVCObject
+        }));
+        
+        let initialDefaultId: string | null = null;
+        if (dbGeofences.length > 0) {
+            const defaultGf = dbGeofences.find(g => g.is_default);
+            initialDefaultId = defaultGf ? defaultGf.id : (gfObjects[0]?.id || null);
+        }
+        
+        setGeofences(gfObjects);
+        setDefaultGeofenceId(initialDefaultId);
+        setSelectedGeofenceId(initialDefaultId);
+    }
+    fetchGeofences();
+  }, [condo.id]);
 
   const updateHistory = useCallback((geometry: any) => {
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -107,12 +136,14 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     const newShape = createShapeFromGeometry(previousGeometry);
     
     if (newShape) {
+        // @ts-ignore
+        if(activeOverlay) activeOverlay.setMap(null);
         setActiveOverlay(newShape);
     }
     
     setCanUndo(historyIndexRef.current > 0);
     setCanRedo(true);
-  }, [canUndo]);
+  }, [canUndo, activeOverlay]);
 
   const handleRedo = useCallback(() => {
     if (!canRedo) return;
@@ -122,12 +153,14 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     const newShape = createShapeFromGeometry(nextGeometry);
     
     if (newShape) {
+        // @ts-ignore
+        if(activeOverlay) activeOverlay.setMap(null);
         setActiveOverlay(newShape);
     }
 
     setCanUndo(true);
     setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-  }, [canRedo]);
+  }, [canRedo, activeOverlay]);
   
   const clearListeners = useCallback(() => {
     overlayListeners.current.forEach(l => l.remove());
@@ -153,8 +186,8 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
         overlayListeners.current.push(google.maps.event.addListener(path, 'remove_at', updateAndRecordHistory));
     } else {
         overlayListeners.current.push(google.maps.event.addListener(shape, changedEvent, updateAndRecordHistory));
-        overlayListeners.current.push(google.maps.event.addListener(shape, 'dragend', updateAndRecordHistory));
     }
+    overlayListeners.current.push(google.maps.event.addListener(shape, 'dragend', updateAndRecordHistory));
   }, [updateHistory, clearListeners]);
 
   useEffect(() => {
@@ -166,25 +199,58 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   }, [clearListeners, activeOverlay]);
 
   useEffect(() => {
-    geofences.forEach(gf => {
-      // @ts-ignore
-      if (gf.shape) gf.shape.setMap(null);
-    });
-    // @ts-ignore
-    if(activeOverlay) activeOverlay.setMap(null);
+    // Clear all existing shapes from the map to prevent duplicates
+    geofences.forEach(gf => { if (gf.shape) { (gf.shape as any).setMap(null); } });
+    if (activeOverlay) { (activeOverlay as any).setMap(null); }
+    clearListeners();
     
-    if (activeOverlay && isEditingShape) {
-      // @ts-ignore
-      activeOverlay.setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2, suppressUndo: true });
-      // @ts-ignore
-      activeOverlay.setMap(map);
-      setupListeners(activeOverlay);
+    // Show the active overlay for editing/creating
+    if (isEditingShape && activeOverlay) {
+        (activeOverlay as any).setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2, suppressUndo: true });
+        (activeOverlay as any).setMap(map);
+        setupListeners(activeOverlay);
+    } else if (isEditingEnabled) {
+        const refGeofence = geofences.find(g => g.id === selectedGeofenceId);
+        if (refGeofence?.shape) {
+            const isDefault = refGeofence.id === defaultGeofenceId;
+            (refGeofence.shape as any).setOptions({
+                ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR),
+                fillOpacity: isDefault ? 0 : 0.1, 
+                strokeWeight: 2,
+                strokeDasharray: '5,5',
+                zIndex: 1, 
+                editable: false,
+                draggable: false,
+            });
+            (refGeofence.shape as any).setMap(map);
+        }
     } else {
-        clearListeners();
+        // Logic for viewing mode
+        geofences.forEach(gf => {
+            if (!gf.shape) return;
+            const isDefault = gf.id === defaultGeofenceId;
+            const isSelected = gf.id === selectedGeofenceId;
+            let visible = false;
+            let options: any = { editable: false, draggable: false };
+            
+            if (viewAll) {
+                visible = true;
+                options = {
+                    fillColor: isDefault ? DEFAULT_COLOR.fillColor : VIEW_ALL_COLOR.fillColor,
+                    strokeColor: isDefault ? DEFAULT_COLOR.strokeColor : VIEW_ALL_COLOR.strokeColor,
+                    fillOpacity: isDefault ? 0 : 0.2, 
+                    strokeWeight: isDefault ? 3 : 1,
+                    zIndex: isDefault ? 2 : 1
+                };
+            } else if (isSelected) {
+                visible = true;
+                options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), fillOpacity: isDefault ? 0: 0.3, strokeWeight: 2, zIndex: 1 };
+            }
+            // @ts-ignore
+            gf.shape.setOptions({ ...options, map: visible ? map : null });
+        });
     }
-    
-  }, [activeOverlay, isEditingShape, map, setupListeners, clearListeners, geofences]);
-
+  }, [activeOverlay, isEditing, isEditingShape, map, geofences, isEditingEnabled, viewAll, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners]);
   
   return (
     <Card>
@@ -202,7 +268,8 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                  <div className="h-full w-full bg-muted overflow-hidden relative shadow-inner rounded-md border">
                    <MapComponent center={center} zoom={15}>
                        {isDrawing && (
-                           <GeofenceControls.DrawingManager 
+                           <GeofenceControls.DrawingManager
+                                drawingMode={drawingMode}
                                onOverlayComplete={(overlay: google.maps.MVCObject) => {
                                    setIsDrawing(false);
                                    setIsCreating(true);
@@ -247,6 +314,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                         </div>
                         {activeModule === 'geofence' && (
                             <GeofenceControls
+                                condoId={condo.id}
                                 geofences={geofences}
                                 setGeofences={setGeofences}
                                 selectedGeofenceId={selectedGeofenceId}
@@ -268,6 +336,12 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                                 setCanRedo={setCanRedo}
                                 clearListeners={clearListeners}
                                 map={map}
+                                drawingMode={drawingMode}
+                                setDrawingMode={setDrawingMode}
+                                isEditingEnabled={isEditingEnabled}
+                                setIsEditingEnabled={setIsEditingEnabled}
+                                viewAll={viewAll}
+                                setViewAll={setViewAll}
                             />
                         )}
                         {activeModule === 'elements' && (
@@ -281,3 +355,4 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     </Card>
   );
 }
+

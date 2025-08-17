@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react"
@@ -16,24 +15,37 @@ import { useLocale } from "@/lib/i18n";
 export function ThemeSwitcher() {
   const { t } = useLocale();
 
+  // We use this state to avoid a flash of unstyled content.
+  const [mounted, setMounted] = React.useState(false);
+  const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
+
   const handleSetTheme = (newTheme: 'light' | 'dark') => {
+    setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
   }
 
   React.useEffect(() => {
+    setMounted(true);
     const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
      if (storedTheme) {
       handleSetTheme(storedTheme);
     } else {
+        // This part now runs only on the client, after mount.
         const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         handleSetTheme(systemPrefersDark ? 'dark' : 'light');
     }
   }, []);
+  
+  if (!mounted) {
+      // Render a placeholder or null on the server and during the initial client render
+      // to prevent hydration mismatch.
+      return (
+         <Button variant="ghost" size="icon" disabled>
+              <Sun className="h-5 w-5" />
+         </Button>
+      );
+  }
 
   return (
     <DropdownMenu>

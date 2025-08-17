@@ -1,21 +1,23 @@
 
-import { verifySessionIntegrity, getSettings } from '@/actions/admin';
-import { getCurrentSession } from '@/lib/session';
-import AdminDashboardClient from '@/components/admin-dashboard-client';
 import { redirect } from 'next/navigation';
+import { getSettings } from '@/actions/admin';
+import AdminDashboardClient from '@/components/admin-dashboard-client';
+import { getSession } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
-  const session = await getCurrentSession();
+  const session = await getSession();
 
-  if (!session) {
+  if (!session || session.type !== 'admin') {
+    // This check is redundant if middleware is active, but good for safety.
     redirect('/admin/login');
   }
 
-  // Fetch all necessary data on the server before rendering the client component
-  const [{ isValid: isSessionValid }, settings] = await Promise.all([
-    verifySessionIntegrity(),
-    getSettings()
-  ]);
-  
-  return <AdminDashboardClient session={session} isSessionValid={isSessionValid} initialSettings={settings} />;
+  const initialSettings = await getSettings(session);
+
+  // Ensure settings are never null for the client component
+  const settings = initialSettings || { theme: 'light', language: 'pt' };
+
+  return <AdminDashboardClient session={session} initialSettings={settings} />;
 }

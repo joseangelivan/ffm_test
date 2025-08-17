@@ -2,10 +2,9 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import {
   Loader,
-  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,24 +16,11 @@ import {
     AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
-import { cn } from '@/lib/utils';
-import { updateSettings, verifySessionIntegrity } from '@/actions/admin';
-import { handleLogoutAction } from '@/lib/session';
+import { UserSettings, getActiveTheme, updateSettings, verifySessionIntegrity } from '@/actions/admin';
+import { handleLogoutAction, type SessionPayload } from '@/lib/session';
 import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
-
-type Session = {
-    id: string;
-    email: string;
-    name: string;
-    canCreateAdmins: boolean;
-    type: 'admin' | 'resident' | 'gatekeeper';
-}
-
-type UserSettings = {
-    theme: 'light' | 'dark';
-    language: 'es' | 'pt';
-} | null;
+import { type Theme } from '@/actions/themes';
 
 
 function LoadingOverlay({ text }: { text: string }) {
@@ -80,10 +66,10 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
 }
 
 const AdminDashboardContext = React.createContext<{ 
-    session: Session,
-    handleSetLocale: (locale: 'es' | 'pt') => void,
-    handleSetTheme: (theme: 'light' | 'dark') => void,
-    theme: 'light' | 'dark',
+    session: SessionPayload,
+    handleSetLocale: (locale: 'es' | 'pt-BR') => void,
+    handleSetTheme: (theme: string) => void,
+    theme: string,
 } | null>(null);
 
 export const useAdminDashboard = () => {
@@ -94,38 +80,89 @@ export const useAdminDashboard = () => {
     return context;
 };
 
-export default function AdminDashboardClient({ 
-    session, 
-    isSessionValid: initialIsSessionValid,
-    initialSettings 
-}: { 
-    session: Session, 
-    isSessionValid: boolean,
-    initialSettings: UserSettings
-}) {
-  const { setLocale } = useLocale();
-  const [isSessionValid, setIsSessionValid] = useState(initialIsSessionValid);
+type DashboardState = {
+    session: SessionPayload;
+    initialSettings: UserSettings;
+};
+
+
+export default function AdminDashboardClient({ session, initialSettings }: DashboardState) {
+  const { setLocale, t } = useLocale();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState('light');
+  const router = useRouter();
   
-  // Set initial language and theme from server-provided props
-  useEffect(() => {
-    if (initialSettings) {
-      setLocale(initialSettings.language);
-      setTheme(initialSettings.theme);
-      document.documentElement.classList.toggle('dark', initialSettings.theme === 'dark');
+  const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
+    const root = document.documentElement;
+
+    const defaultThemeVars = [
+      'background', 'foreground', 'card', 'card-foreground', 
+      'popover', 'popover-foreground', 'primary', 'primary-foreground', 
+      'secondary', 'secondary-foreground', 'muted', 'muted-foreground', 
+      'accent', 'accent-foreground', 'destructive', 'destructive-foreground', 
+      'border', 'input', 'ring'
+    ];
+
+    // Function to remove custom properties
+    const clearCustomTheme = () => {
+      defaultThemeVars.forEach(v => root.style.removeProperty(`--${v}`));
+    };
+
+    if (newThemeId === 'dark' || newThemeId === 'light') {
+        clearCustomTheme();
+        root.classList.toggle('dark', newThemeId === 'dark');
+    } else if (themeData) {
+        clearCustomTheme();
+        Object.entries(themeData).forEach(([key, value]) => {
+            if (key.endsWith('_hsl') && value) {
+                const cssVar = `--${key.replace('_hsl', '').replace(/_/g, '-')}`;
+                root.style.setProperty(cssVar, value);
+            }
+        });
+        // You might want to decide on a base theme (light/dark) for custom themes
+        // For simplicity, we can assume they are based on the dark theme structure
+        if (!root.classList.contains('dark')) {
+            root.classList.add('dark');
+        }
+    } else {
+        // Fallback to light if theme not found
+        clearCustomTheme();
+        root.classList.remove('dark');
     }
-  }, [initialSettings, setLocale]);
+  }, []);
 
-  const handleSetLocale = async (newLocale: 'es' | 'pt') => {
+  const handleSetTheme = useCallback(async (newThemeId: string) => {
+    setTheme(newThemeId);
+    const updatedSettings = { ...initialSettings, theme: newThemeId };
+    const themeData = await getActiveTheme(updatedSettings as any);
+    applyTheme(themeData, newThemeId);
+    await updateSettings({ theme: newThemeId }, session);
+  }, [applyTheme, initialSettings, session]);
+
+  useEffect(() => {
+    async function applyInitialSettings() {
+        if (initialSettings) {
+            setLocale(initialSettings.language);
+            setTheme(initialSettings.theme);
+            const themeData = await getActiveTheme(initialSettings);
+            applyTheme(themeData, initialSettings.theme);
+        }
+    }
+    applyInitialSettings();
+
+    async function checkSession() {
+        const isSessionValid = await verifySessionIntegrity(session);
+        if (!isSessionValid) {
+            await handleLogoutAction();
+            router.push('/admin/login');
+        }
+    }
+    checkSession();
+  }, [initialSettings, setLocale, applyTheme, router, session]);
+
+  const handleSetLocale = async (newLocale: 'es' | 'pt-BR') => {
       setLocale(newLocale);
-      await updateSettings({ language: newLocale });
-  }
-
-  const handleSetTheme = async (newTheme: 'light' | 'dark') => {
-    setTheme(newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
-    await updateSettings({ theme: newTheme });
+      await updateSettings({ language: newLocale }, session);
   }
 
   const handleAccountUpdateSuccess = useCallback((data: any) => {
@@ -134,22 +171,8 @@ export default function AdminDashboardClient({
     }
   }, []);
 
-  useEffect(() => {
-    if (!initialIsSessionValid) {
-        setShowLogoutDialog(true);
-    }
-  }, [initialIsSessionValid]);
-
-  if (!isSessionValid) {
-    return (
-        <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
-             <LoadingOverlay text="Verificando sesión..." />
-             <ForceLogoutDialog 
-                isOpen={true}
-                onConfirm={handleLogoutAction}
-            />
-        </div>
-    )
+  if (!session || !initialSettings) {
+      return <LoadingOverlay text={t('dashboard.title')} />;
   }
 
   return (

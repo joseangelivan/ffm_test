@@ -42,6 +42,7 @@ import {
     updateAdminAccount,
     verifyAdminEmailChangePin,
     generateTotpSecret,
+    generateQrCodeDataUrl,
     enableTotp,
     disableTotp,
     hasTotpEnabled,
@@ -58,7 +59,6 @@ import {
 } from 'lucide-react';
 import { LoadingOverlay } from './admin-header';
 import { useAdminDashboard } from '../admin-dashboard-client';
-import QRCode from 'qrcode';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // --- 2FA Components ---
@@ -77,7 +77,7 @@ function TwoFactorAuthSetup({ onSetupComplete }: { onSetupComplete: () => void }
             const result = await generateTotpSecret(session.email);
             if (result.success && result.data?.qrCodeUrl && result.data.secret) {
                 setSecret(result.data.secret);
-                const dataUrl = await QRCode.toDataURL(result.data.qrCodeUrl);
+                const dataUrl = await generateQrCodeDataUrl(result.data.qrCodeUrl);
                 setQrCodeUrl(dataUrl);
             } else {
                 toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
@@ -246,16 +246,16 @@ function ManageAccountFields({ formState, isFormPending }: { formState: any, isF
     useEffect(() => {
         async function check2fa() {
             setIsChecking2fa(true);
-            const { enabled } = await hasTotpEnabled();
+            const { enabled } = await hasTotpEnabled(session);
             setIs2faEnabled(enabled);
             setIsChecking2fa(false);
         }
         check2fa();
-    }, []);
+    }, [session]);
 
     const on2faStatusChanged = () => {
         setIsChecking2fa(true);
-        hasTotpEnabled().then(({enabled}) => {
+        hasTotpEnabled(session).then(({enabled}) => {
             setIs2faEnabled(enabled);
             setIsChecking2fa(false);
             setIsSetup2faOpen(false);

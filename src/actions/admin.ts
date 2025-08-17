@@ -2,15 +2,26 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import bcrypt from 'bcrypt';
-import { authenticator } from 'otplib';
+import { cookies } from 'next/headers';
+import bcryptjs from 'bcryptjs';
 
+import { verifySession, type SessionPayload } from '@/lib/session';
+import { createSession } from '@/lib/session';
 import { getDbPool } from '@/lib/db';
-import { createSession, getCurrentSession } from '@/lib/session';
 import { sendAdminFirstLoginEmail, sendEmailChangePin } from '@/lib/mailer';
+import { getThemeById, getThemes } from '@/actions/themes';
+import { getAppSetting } from '@/actions/settings';
 
 import es from '@/locales/es.json';
-import pt from '@/locales/pt.json';
+import pt from '@/locales/pt-BR.json';
+
+// --- Internal Session Helper ---
+async function getSession(): Promise<SessionPayload | null> {
+    const sessionToken = (await cookies()).get('session')?.value;
+    if (!sessionToken) return null;
+    return await verifySession(sessionToken);
+}
+
 
 // --- Types ---
 
@@ -22,9 +33,9 @@ export type Admin = {
     created_at: string;
 };
 
-type UserSettings = {
-    theme: 'light' | 'dark';
-    language: 'es' | 'pt';
+export type UserSettings = {
+    theme: string;
+    language: 'es' | 'pt-BR';
 }
 
 type ActionState = {
@@ -41,13 +52,28 @@ type ActionState = {
 type AuthState = {
   success: boolean;
   message: string;
-  redirectTo?: string;
+  redirect?: string;
 };
 
 // --- Settings ---
+async function ensureAdminSettingsExist(adminId: string) {
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        await client.query(
+            'INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING',
+            [adminId]
+        );
+    } catch (error) {
+        console.error(`Failed to ensure settings exist for admin ${adminId}:`, error);
+    } finally {
+        if (client) client.release();
+    }
+}
 
-export async function getSettings(): Promise<UserSettings | null> {
-    const session = await getCurrentSession();
+
+export async function getSettings(session: SessionPayload | null): Promise<UserSettings | null> {
     if (!session) return null;
     
     let client;
@@ -64,8 +90,8 @@ export async function getSettings(): Promise<UserSettings | null> {
             return result.rows[0] as UserSettings;
         }
 
-        const defaultSettings: UserSettings = { theme: 'light', language: 'pt' };
-        await client.query(`INSERT INTO ${tableName} (${userIdColumn}, theme, language) VALUES ($1, $2, $3) ON CONFLICT (${userIdColumn}) DO NOTHING`, [session.id, defaultSettings.theme, defaultSettings.language]);
+        const defaultSettings: UserSettings = { theme: 'light', language: 'pt-BR' };
+        await client.query(`INSERT INTO ${tableName} (${userIdColumn}, theme, language) VALUES ($1, $2, $3) ON CONFLICT (${userIdColumn}) DO UPDATE SET theme = EXCLUDED.theme, language = EXCLUDED.language`, [session.id, defaultSettings.theme, defaultSettings.language]);
         return defaultSettings;
 
     } catch (error) {
@@ -76,8 +102,7 @@ export async function getSettings(): Promise<UserSettings | null> {
     }
 }
 
-export async function updateSettings(settings: Partial<UserSettings>): Promise<{success: boolean}> {
-    const session = await getCurrentSession();
+export async function updateSettings(settings: Partial<UserSettings>, session: SessionPayload | null): Promise<{success: boolean}> {
     if (!session) return { success: false };
 
     let client;
@@ -106,7 +131,7 @@ export async function updateSettings(settings: Partial<UserSettings>): Promise<{
         }
 
         values.push(session.id);
-        const query = `UPDATE ${tableName} SET ${setClauses.join(', ')}, updated_at = NOW() WHERE ${userIdColumn} = $${valueIndex}`;
+        const query = `UPDATE ${tableName} SET ${setClauses.join(', ')}, updated_at = NOW() WHERE ${userIdColumn} = $${values.length}`;
         
         await client.query(query, values);
         
@@ -123,6 +148,11 @@ export async function updateSettings(settings: Partial<UserSettings>): Promise<{
 // --- Authentication Flow ---
 
 export async function checkAdminEmail(prevState: any, formData: FormData): Promise<AuthState> {
+    const session = await getSession();
+    if (session?.type === 'admin') {
+        redirect('/admin/dashboard');
+    }
+    
     const email = formData.get('email') as string;
     if (!email) {
         return { success: false, message: "toast.adminLogin.missingCredentials" };
@@ -157,50 +187,59 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
         redirectTo = `/admin/enter-password?email=${emailParam}`;
     }
     
-    return { success: true, message: 'Redirecting...', redirectTo };
+    redirect(redirectTo);
 }
 
 export async function authenticateAdmin(prevState: any, formData: FormData): Promise<AuthState> {
-  let client;
-  try {
-    const pool = await getDbPool();
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
 
-    if (!email || !password) {
-      return { success: false, message: "toast.adminLogin.missingCredentials" };
-    }
-    
-    client = await pool.connect();
-    const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
-    if (result.rows.length === 0) {
-      return { success: false, message: "toast.adminLogin.invalidCredentials" };
-    }
-    const admin = result.rows[0];
-    
-    const passwordMatch = await bcrypt.compare(password, admin.password_hash);
-    if (!passwordMatch) {
-      return { success: false, message: "toast.adminLogin.invalidCredentials" };
-    }
-    
-    const sessionResult = await createSession(admin.id, 'admin', {
-        email: admin.email,
-        name: admin.name,
-        canCreateAdmins: admin.can_create_admins,
-    });
+        const email = formData.get('email') as string;
+        const password = formData.get('password') as string;
 
-    if(!sessionResult.success) {
-        return { success: false, message: "toast.adminLogin.sessionError" };
+        if (!email || !password) {
+            return { success: false, message: "toast.adminLogin.missingCredentials" };
+        }
+        
+        const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
+        if (result.rows.length === 0) {
+            return { success: false, message: "toast.adminLogin.invalidUser" };
+        }
+
+        const admin = result.rows[0];
+        
+        if (!admin.password_hash) {
+            return { success: false, message: "toast.firstLogin.alreadyActive" };
+        }
+        
+        const passwordMatch = await bcryptjs.compare(password, admin.password_hash);
+        
+        if (!passwordMatch) {
+            return { success: false, message: "toast.adminLogin.invalidCredentials" };
+        }
+
+        await ensureAdminSettingsExist(admin.id);
+        
+        const sessionResult = await createSession(admin.id, 'admin', {
+            email: admin.email,
+            name: admin.name,
+            canCreateAdmins: !!admin.can_create_admins, // Ensure it's a boolean
+        });
+
+        if(!sessionResult.success) {
+            return { success: false, message: "toast.adminLogin.sessionError" };
+        }
+    
+    } catch (error: any) {
+        console.error('Error during authentication:', error);
+        return { success: false, message: "toast.adminLogin.serverError" };
+    } finally {
+        if (client) client.release();
     }
     
-  } catch (error: any) {
-    console.error('Error during authentication:', error);
-    return { success: false, message: "toast.adminLogin.serverError" };
-  } finally {
-    if (client) client.release();
-  }
-  
-  redirect('/admin/dashboard');
+    redirect('/admin/dashboard');
 }
 
 export async function handleFirstLogin(prevState: any, formData: FormData): Promise<AuthState> {
@@ -237,15 +276,17 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
         }
         const storedPin = pinResult.rows[0];
 
-        const pinMatch = await bcrypt.compare(pin, storedPin.pin_hash);
+        const pinMatch = await bcryptjs.compare(pin, storedPin.pin_hash);
         if (!pinMatch) {
             return { success: false, message: "toast.firstLogin.invalidPin" };
         }
 
-        const newPasswordHash = await bcrypt.hash(password, 10);
+        const newPasswordHash = await bcryptjs.hash(password, 10);
         await client.query('UPDATE admins SET password_hash = $1 WHERE id = $2', [newPasswordHash, admin.id]);
         
         await client.query('DELETE FROM admin_first_login_pins WHERE admin_id = $1', [admin.id]);
+        
+        await ensureAdminSettingsExist(admin.id);
 
         const sessionResult = await createSession(admin.id, 'admin', {
             email: admin.email,
@@ -269,7 +310,7 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
 // --- Admin CRUD ---
 
 export async function createAdmin(prevState: ActionState | undefined, formData: FormData): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const session = await getSession();
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
     }
@@ -280,7 +321,7 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
         const email = formData.get('email') as string;
         const canCreateAdmins = formData.get('can_create_admins') === 'on';
         const pin = formData.get('pin') as string;
-        const locale = formData.get('locale') as 'es' | 'pt' || 'pt';
+        const locale = formData.get('locale') as 'es' | 'pt-BR' || 'pt-BR';
 
         if (!name || !email) {
             return { success: false, message: 'Nombre y email son obligatorios.' };
@@ -306,13 +347,15 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
         );
         const newAdminId = newAdminResult.rows[0].id;
         
-        const pinHash = await bcrypt.hash(pin, 10);
+        const pinHash = await bcryptjs.hash(pin, 10);
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
         await client.query(
           'INSERT INTO admin_first_login_pins (admin_id, pin_hash, expires_at) VALUES ($1, $2, $3)',
           [newAdminId, pinHash, expiresAt]
         );
+        
+        await ensureAdminSettingsExist(newAdminId);
         
         await client.query('COMMIT');
         
@@ -338,7 +381,7 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
 }
 
 export async function getAdmins(): Promise<{admins?: Admin[], error?: string}> {
-    const session = await getCurrentSession();
+    const session = await getSession();
     if (!session || session.type !== 'admin') {
         return { error: "No autorizado." };
     }
@@ -357,7 +400,7 @@ export async function getAdmins(): Promise<{admins?: Admin[], error?: string}> {
 }
 
 export async function updateAdmin(prevState: ActionState | undefined, formData: FormData): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const session = await getSession();
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
     }
@@ -400,7 +443,7 @@ export async function updateAdmin(prevState: ActionState | undefined, formData: 
 }
 
 export async function deleteAdmin(id: string): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const session = await getSession();
     if (!session || !session.canCreateAdmins) {
         return { success: false, message: "No tienes permiso para realizar esta acción." };
     }
@@ -436,7 +479,7 @@ function generateVerificationPin(): string {
 }
 
 export async function requestEmailChange(newEmail: string): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const session = await getSession();
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -460,7 +503,7 @@ export async function requestEmailChange(newEmail: string): Promise<ActionState>
         );
         
         const settingsResult = await client.query('SELECT language FROM admin_settings WHERE admin_id = $1', [session.id]);
-        const locale = settingsResult.rows[0]?.language === 'es' ? 'es' : 'pt';
+        const locale = settingsResult.rows[0]?.language === 'es' ? 'es' : 'pt-BR';
         
         return await sendEmailChangePin(session.name, newEmail, pin, locale);
 
@@ -473,7 +516,7 @@ export async function requestEmailChange(newEmail: string): Promise<ActionState>
 }
 
 export async function verifyAdminEmailChangePin(newEmail: string, pin: string): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const session = await getSession();
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -508,12 +551,12 @@ export async function verifyAdminEmailChangePin(newEmail: string, pin: string): 
 }
 
 export async function updateAdminAccount(prevState: any, formData: FormData): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const session = await getSession();
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
 
-    const locale = formData.get('locale') as 'es' | 'pt' || 'pt';
+    const locale = formData.get('locale') as 'es' | 'pt-BR' || 'pt-BR';
     const t = locale === 'es' ? es : pt;
 
     let client;
@@ -560,12 +603,12 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
                 return { success: false, message: "Las nuevas contraseñas no coinciden." };
             }
 
-            const passwordMatch = await bcrypt.compare(currentPassword, currentAdmin.password_hash);
+            const passwordMatch = await bcryptjs.compare(currentPassword, currentAdmin.password_hash);
             if (!passwordMatch) {
                 return { success: false, message: "La contraseña actual es incorrecta." };
             }
 
-            const newPasswordHash = await bcrypt.hash(newPassword, 10);
+            const newPasswordHash = await bcryptjs.hash(newPassword, 10);
             updateClauses.push(`password_hash = $${valueIndex++}`);
             values.push(newPasswordHash);
         }
@@ -576,7 +619,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
         
         updateClauses.push(`updated_at = NOW()`);
         values.push(session.id);
-        const query = `UPDATE admins SET ${updateClauses.join(', ')} WHERE id = $${valueIndex}`;
+        const query = `UPDATE admins SET ${updateClauses.join(', ')} WHERE id = $${values.length}`;
         
         await client.query(query, values);
         
@@ -591,33 +634,32 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
 }
 
 
-export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
-    const session = await getCurrentSession();
-    if (!session) {
-        return { isValid: false };
-    }
-
+export async function verifySessionIntegrity(session: SessionPayload): Promise<boolean> {
     let client;
     try {
         const pool = await getDbPool();
         client = await pool.connect();
         
-        const result = await client.query('SELECT name, email FROM admins WHERE id = $1', [session.id]);
+        const result = await client.query('SELECT name, email, can_create_admins FROM admins WHERE id = $1', [session.id]);
         if (result.rows.length === 0) {
-            return { isValid: false };
+            return false;
         }
 
         const dbAdmin = result.rows[0];
         
-        if (session.name !== dbAdmin.name || session.email !== dbAdmin.email) {
-            return { isValid: false };
+        // Explicitly cast both to booleans for a safe comparison
+        const dbCanCreateAdmins = !!dbAdmin.can_create_admins;
+        const sessionCanCreateAdmins = !!session.canCreateAdmins;
+
+        if (session.name !== dbAdmin.name || session.email !== dbAdmin.email || sessionCanCreateAdmins !== dbCanCreateAdmins) {
+            return false;
         }
 
-        return { isValid: true };
+        return true;
 
     } catch (error) {
         console.error("Error verifying session integrity:", error);
-        return { isValid: false };
+        return false;
     } finally {
         if (client) client.release();
     }
@@ -627,7 +669,8 @@ export async function verifySessionIntegrity(): Promise<{isValid: boolean}> {
 // --- 2FA (TOTP) Functions ---
 
 export async function generateTotpSecret(email: string): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const { authenticator } = (await import('otplib'));
+    const session = await getSession();
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -637,8 +680,14 @@ export async function generateTotpSecret(email: string): Promise<ActionState> {
     return { success: true, message: 'Secreto generado.', data: { qrCodeUrl: otpauth, secret: secret } };
 }
 
+export async function generateQrCodeDataUrl(otpAuthUrl: string): Promise<string> {
+    const QRCode = (await import('qrcode')).default;
+    return await QRCode.toDataURL(otpAuthUrl);
+}
+
 export async function enableTotp(secret: string, token: string): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const { authenticator } = (await import('otplib'));
+    const session = await getSession();
     if (!session || session.type !== 'admin') {
         return { success: false, message: "No autorizado." };
     }
@@ -666,6 +715,7 @@ export async function enableTotp(secret: string, token: string): Promise<ActionS
 }
 
 export async function verifyTotp(prevState: any, formData: FormData): Promise<AuthState> {
+    const { authenticator } = (await import('otplib'));
     const email = formData.get('email') as string;
     const token = formData.get('token') as string;
     
@@ -708,8 +758,7 @@ export async function verifyTotp(prevState: any, formData: FormData): Promise<Au
     redirect('/admin/dashboard');
 }
 
-export async function hasTotpEnabled(): Promise<{enabled: boolean}> {
-    const session = await getCurrentSession();
+export async function hasTotpEnabled(session: SessionPayload | null): Promise<{enabled: boolean}> {
     if (!session) return { enabled: false };
     
     let client;
@@ -727,7 +776,7 @@ export async function hasTotpEnabled(): Promise<{enabled: boolean}> {
 }
 
 export async function disableTotp(): Promise<ActionState> {
-    const session = await getCurrentSession();
+    const session = await getSession();
     if (!session) return { success: false, message: "No autorizado." };
 
     let client;
@@ -743,3 +792,24 @@ export async function disableTotp(): Promise<ActionState> {
         if (client) client.release();
     }
 }
+
+
+export async function getActiveTheme(settings: UserSettings | null) {
+    let themeId = settings?.theme;
+
+    if (!themeId) {
+        const defaultThemeId = await getAppSetting('default_theme_id');
+        themeId = defaultThemeId || 'light';
+    }
+    
+    // Check built-in themes first
+    if (themeId === 'light' || themeId === 'dark') {
+        return null; // Indicates a built-in theme
+    }
+
+    const customTheme = await getThemeById(themeId);
+    
+    return customTheme;
+}
+
+    

@@ -11,30 +11,29 @@ import {
   DialogClose
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useLocale } from '@/lib/i18n';
 
 export function ManageThemeListDialog() {
+    const { t } = useLocale();
     // This is a placeholder for future functionality
     const mockThemes = [
-        { id: 'light', name: 'Claro (por defecto)' },
-        { id: 'dark', name: 'Oscuro (por defecto)' },
+        { id: 'light', name: `${t('dashboard.theme.light')} (${t('common.default')})` },
+        { id: 'dark', name: `${t('dashboard.theme.dark')} (${t('common.default')})` },
     ];
     
     return (
         <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-                <DialogTitle>Gestionar Temas</DialogTitle>
+                <DialogTitle>{t('adminDashboard.settingsGroups.manageThemes.title')}</DialogTitle>
                 <DialogDescription>
-                    Agrega, edita o importa nuevos temas para la aplicación. Esta funcionalidad está en desarrollo.
+                    {t('adminDashboard.settingsGroups.manageThemes.description')}
                 </DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-6 pt-4">
                 <div className="flex flex-col gap-4">
-                    <h3 className="font-semibold text-lg">Temas Disponibles</h3>
+                    <h3 className="font-semibold text-lg">{t('adminDashboard.settingsGroups.manageThemes.availableThemes')}</h3>
                      <ScrollArea className="h-48 w-full rounded-md border p-2">
                         <div className="space-y-2">
                          {mockThemes.map(theme => (
@@ -49,23 +48,23 @@ export function ManageThemeListDialog() {
                      </ScrollArea>
                       <Button variant="outline" disabled>
                         <PlusCircle className="mr-2 h-4 w-4" />
-                        Crear Nuevo Tema
+                        {t('adminDashboard.settingsGroups.manageThemes.createButton')}
                     </Button>
                 </div>
                 <div className="flex flex-col gap-4">
-                    <h3 className="font-semibold text-lg">Editor de Tema</h3>
+                    <h3 className="font-semibold text-lg">{t('adminDashboard.settingsGroups.manageThemes.editorTitle')}</h3>
                     <p className="text-sm text-muted-foreground">
-                        Aquí se mostrará un editor para los colores y estilos del tema seleccionado.
+                        {t('adminDashboard.settingsGroups.manageThemes.editorDescription')}
                     </p>
                     <div className="h-48 w-full rounded-md border border-dashed flex items-center justify-center bg-muted/30">
-                        <span className="text-muted-foreground text-sm">Editor de Tema (Próximamente)</span>
+                        <span className="text-muted-foreground text-sm">{t('adminDashboard.settingsGroups.manageThemes.editorPlaceholder')}</span>
                     </div>
-                     <Button disabled>Guardar Tema</Button>
+                     <Button disabled>{t('common.save')}</Button>
                 </div>
             </div>
              <DialogFooter className="pt-6">
                 <DialogClose asChild>
-                    <Button type="button" variant="outline">Cerrar</Button>
+                    <Button type="button" variant="outline">{t('common.close')}</Button>
                 </DialogClose>
             </DialogFooter>
         </DialogContent>

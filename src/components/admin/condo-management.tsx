@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -377,9 +378,11 @@ function CondoFormFields({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" type="button" onClick={() => (document.querySelector('[data-radix-dialog-close]') as HTMLElement)?.click()} disabled={isFormPending}>
-              {t('adminDashboard.newCondoDialog.cancel')}
-            </Button>
+            <DialogClose asChild>
+                <Button variant="outline" type="button" disabled={isFormPending}>
+                    {t('adminDashboard.newCondoDialog.cancel')}
+                </Button>
+            </DialogClose>
             <Button type="submit" disabled={isFormPending}>
               {isEditMode
                 ? t('adminDashboard.editCondoDialog.save')
@@ -525,7 +528,7 @@ function CondoFormWrapper({
                     <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                         <Loader className="h-12 w-12 animate-spin" />
                         <span>
-                            {isLocationLoading ? t('adminDashboard.loadingOverlay.loading') : (isEditMode ? t('adminDashboard.editCondoDialog.save') + '...' : t('adminDashboard.loadingOverlay.creating'))}
+                            {isLocationLoading ? t('adminDashboard.loadingOverlay.loading') : (isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating'))}
                         </span>
                     </div>
                 </div>
@@ -589,10 +592,12 @@ export function CondoManagement() {
     const fetchCondos = useCallback(async () => {
         setLoading(true);
         const result = await getCondominios();
-        if(result.success && result.data) {
+        if (result?.success && result.data) {
             setCondominios(result.data);
-        } else {
+        } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+        } else {
+            toast({ title: t('toast.errorTitle'), description: t('toast.adminLogin.serverError'), variant: 'destructive' });
         }
         setLoading(false);
     }, [toast, t]);
@@ -825,5 +830,3 @@ export function CondoManagement() {
         </div>
     );
 }
-
-    

@@ -45,17 +45,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
+import type { Device } from '@/actions/devices';
+import { Skeleton } from '../ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
-type Device = {
-    id: string;
-    name: string;
-    type: 'esp32' | 'other' | 'watch';
-    status: string;
-    token: string;
-};
 
-export default function ManageDevicesTab({ initialDevices }: { initialDevices: Device[] }) {
-    const { t } = useLocale();
+export default function ManageDevicesTab({ 
+    initialDevices, 
+    isLoading,
+    condoId
+}: { 
+    initialDevices: Device[], 
+    isLoading: boolean,
+    condoId: string 
+}) {
+    const { t, locale } = useLocale();
     const { toast } = useToast();
     const [devices, setDevices] = useState(initialDevices);
 
@@ -98,11 +102,21 @@ export default function ManageDevicesTab({ initialDevices }: { initialDevices: D
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {devices.map(device => (
+                        {isLoading ? (
+                             Array.from({ length: 3 }).map((_, i) => (
+                                <TableRow key={`skel-${i}`}>
+                                    <TableCell colSpan={4}><Skeleton className="h-8 w-full"/></TableCell>
+                                </TableRow>
+                            ))
+                        ) : devices.length === 0 ? (
+                             <TableRow>
+                                <TableCell colSpan={4} className="h-24 text-center">{t('deviceTable.noDevices')}</TableCell>
+                            </TableRow>
+                        ) : devices.map(device => (
                              <TableRow key={device.id}>
                                 <TableCell className="font-medium">{device.name}</TableCell>
-                                <TableCell>{device.type}</TableCell>
-                                <TableCell>{device.status}</TableCell>
+                                <TableCell>{device.device_type_name_translations[locale] || device.device_type_name_translations['pt-BR']}</TableCell>
+                                <TableCell>{t(`deviceStatus.offline`)}</TableCell>
                                 <TableCell className="text-right">
                                     <Dialog>
                                         <DropdownMenu>
@@ -127,11 +141,27 @@ export default function ManageDevicesTab({ initialDevices }: { initialDevices: D
                                             <div className="grid gap-6 py-4">
                                                 <div>
                                                     <h3 className="font-semibold mb-2">{t('condoDashboard.devices.manageDialog.serverConfigTitle')}</h3>
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor={`websocket-url-${device.id}`}>{t('condoDashboard.devices.manageDialog.websocketUrl')}</Label>
-                                                        <div className="flex items-center gap-2">
-                                                            <Input id={`websocket-url-${device.id}`} value="wss://your-followforme-server.com/ws" readOnly />
-                                                            <Button variant="outline" size="icon" onClick={() => copyToClipboard('wss://your-followforme-server.com/ws')}><Copy className="h-4 w-4" /></Button>
+                                                     <div className="space-y-4">
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor={`protocol-${device.id}`}>{t('condoDashboard.devices.manageDialog.protocol')}</Label>
+                                                            <Select defaultValue="websocket">
+                                                                <SelectTrigger id={`protocol-${device.id}`}>
+                                                                    <SelectValue placeholder={t('condoDashboard.devices.manageDialog.selectProtocol')} />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="websocket">Websocket</SelectItem>
+                                                                    <SelectItem value="mqtt">MQTT</SelectItem>
+                                                                    <SelectItem value="coap">CoAP</SelectItem>
+                                                                    <SelectItem value="http">HTTP</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor={`server-url-${device.id}`}>{t('condoDashboard.devices.manageDialog.serverUrl')}</Label>
+                                                            <div className="flex items-center gap-2">
+                                                                <Input id={`server-url-${device.id}`} value="wss://your-followforme-server.com/ws" readOnly />
+                                                                <Button variant="outline" size="icon" onClick={() => copyToClipboard('wss://your-followforme-server.com/ws')}><Copy className="h-4 w-4" /></Button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>

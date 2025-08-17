@@ -3,14 +3,14 @@
 
 import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
 import es from '../locales/es.json';
-import pt from '../locales/pt.json';
+import ptBR from '../locales/pt-BR.json';
 
-type Locale = 'es' | 'pt';
+type Locale = 'es' | 'pt-BR';
 type Translations = typeof es;
 
 const translations: Record<Locale, Translations> = {
   es,
-  pt,
+  'pt-BR': ptBR,
 };
 
 interface LocaleContextType {
@@ -26,8 +26,8 @@ function getNestedValue(obj: any, path: string): string | undefined {
 }
 
 export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Always default to 'pt' on initial render for both server and client to avoid hydration mismatch.
-  const [locale, setLocale] = useState<Locale>('pt');
+  // Always default to 'pt-BR' on initial render for both server and client to avoid hydration mismatch.
+  const [locale, setLocale] = useState<Locale>('pt-BR');
 
   useEffect(() => {
     // This effect runs only on the client, after the initial render.
@@ -40,7 +40,7 @@ export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const t = useCallback((key: string, replacements?: Record<string, string>) => {
-    const translation = getNestedValue(translations[locale], key) || getNestedValue(translations['pt'], key) || key;
+    const translation = getNestedValue(translations[locale], key) || getNestedValue(translations['pt-BR'], key) || key;
 
     if (replacements) {
         return Object.entries(replacements).reduce((acc, [k, v]) => {

@@ -2,8 +2,6 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { SignJWT, jwtVerify } from 'jose';
-import { JWT_SECRET } from '@/lib/config';
 import { getDbPool } from './db';
 
 const JWT_ALG = 'HS256';
@@ -16,23 +14,18 @@ export type SessionPayload = {
     canCreateAdmins: boolean;
 };
 
-export async function getSession(sessionToken?: string): Promise<SessionPayload | null> {
-    if (!sessionToken) return null;
-
+// This internal function should only be used by other server-side code
+// that already has the token.
+export async function verifySession(sessionToken: string) {
     try {
+        const { jwtVerify } = (await import('jose'));
+        const { JWT_SECRET } = (await import('@/lib/config'));
         const { payload } = await jwtVerify(sessionToken, JWT_SECRET, {
             algorithms: [JWT_ALG],
         });
-        
-        return {
-            id: payload.id as string,
-            email: payload.email as string,
-            name: payload.name as string,
-            type: payload.type as 'admin' | 'resident' | 'gatekeeper',
-            canCreateAdmins: payload.canCreateAdmins as boolean,
-        };
+        return payload as SessionPayload;
     } catch (error: any) {
-        if (error.code !== 'ERR_JWT_EXPIRED' && error.code !== 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED') {
+        if (error.code !== 'ERR_JWT_EXPIRED' && error.code !== 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED' && error.code !== 'ERR_JWS_INVALID') {
            console.error('Error verifying JWT:', error);
         }
         return null;
@@ -40,15 +33,18 @@ export async function getSession(sessionToken?: string): Promise<SessionPayload 
 }
 
 export async function createSession(userId: string, userType: 'admin' | 'resident' | 'gatekeeper', userData: {email: string, name: string, canCreateAdmins?: boolean}) {
+    const { randomUUID } = (await import('crypto'));
+    const { SignJWT } = (await import('jose'));
+    const { JWT_SECRET } = (await import('@/lib/config'));
     let client;
     try {
         const pool = await getDbPool();
         client = await pool.connect();
 
-        const expirationTime = '1h';
-        const expirationDate = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+        const expirationTime = '2h';
+        const expirationDate = new Date(Date.now() + 2 * 60 * 60 * 1000); 
 
-        const sessionPayload = { 
+        const sessionPayload: Omit<SessionPayload, 'iat' | 'exp'> = { 
             id: userId, 
             type: userType,
             email: userData.email,
@@ -62,42 +58,48 @@ export async function createSession(userId: string, userType: 'admin' | 'residen
           .setExpirationTime(expirationTime)
           .sign(JWT_SECRET);
         
-        await client.query(`DELETE FROM sessions WHERE user_id = $1 AND user_type = $2`, [userId, userType]);
-        await client.query('INSERT INTO sessions (user_id, user_type, token, expires_at) VALUES ($1, $2, $3, $4)', [userId, userType, token, expirationDate]);
-
-        if (userType === 'admin') {
-            const settingsTable = `admin_settings`;
-            const userIdColumn = `admin_id`;
-            await client.query(`INSERT INTO ${settingsTable} (${userIdColumn}) VALUES ($1) ON CONFLICT (${userIdColumn}) DO NOTHING;`, [userId]);
-        }
+        await client.query('BEGIN');
         
-        const cookieStore = cookies();
-        cookieStore.set('session', token, {
+        // Remove old sessions for this user to avoid conflicts
+        await client.query(`DELETE FROM sessions WHERE user_id = $1 AND user_type = $2`, [userId, userType]);
+        
+        const sessionId = randomUUID();
+        await client.query(
+            'INSERT INTO sessions (id, user_id, user_type, token, expires_at) VALUES ($1, $2, $3, $4, $5)', 
+            [sessionId, userId, userType, token, expirationDate]
+        );
+        
+        await client.query('COMMIT');
+        
+        (await cookies()).set('session', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            maxAge: 60 * 60, // 1 hour
+            expires: expirationDate,
             path: '/',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            sameSite: 'lax',
         });
 
+        console.log(`[createSession] Session successfully created for ${userType} ${userId}.`);
         return { success: true };
+
     } catch(error) {
-        console.error(`Error creating session for ${userType} ${userId}:`, error);
-        return { success: false };
+        if(client) {
+            try {
+                await client.query('ROLLBACK');
+            } catch (rbError) {
+                console.error('[createSession] Error rolling back transaction:', rbError);
+            }
+        }
+        console.error(`[createSession] CRITICAL: Error creating session for ${userType} ${userId}:`, error);
+        return { success: false, message: 'Failed to create session in database.' };
     } finally {
         if(client) client.release();
     }
 }
 
 
-export async function getCurrentSession(): Promise<SessionPayload | null> {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-  return await getSession(sessionToken?.value);
-}
-
 export async function handleLogoutAction() {
-    const sessionCookie = await cookies().get('session');
+    const sessionCookie = (await cookies()).get('session');
     if (sessionCookie) {
         let client;
         try {
@@ -112,5 +114,5 @@ export async function handleLogoutAction() {
             }
         }
     }
-    cookies().delete('session');
+    (await cookies()).delete('session');
 }

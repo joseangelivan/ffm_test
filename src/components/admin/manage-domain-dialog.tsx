@@ -63,21 +63,21 @@ export function ManageDomainDialog() {
             <DialogTrigger asChild>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                     <Globe className="mr-2 h-4 w-4" />
-                    <span>Configurar Dominio</span>
+                    <span>{t('adminDashboard.settingsGroups.domainConfig')}</span>
                 </DropdownMenuItem>
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg">
                 <div className={cn("relative transition-opacity", isLoading && "opacity-50")}>
-                    {isLoading && <LoadingOverlay text="Cargando..." />}
+                    {isLoading && <LoadingOverlay text={t('adminDashboard.loadingOverlay.loading')} />}
                     <DialogHeader>
-                        <DialogTitle>Configurar Dominio de la Aplicación</DialogTitle>
+                        <DialogTitle>{t('adminDashboard.settingsGroups.domainConfigTitle')}</DialogTitle>
                         <DialogDescription>
-                            Define el dominio base que se usará para generar enlaces, como los de activación de cuenta.
+                            {t('adminDashboard.settingsGroups.domainConfigDescription')}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="domain">Dominio de la Aplicación (URL Base)</Label>
+                            <Label htmlFor="domain">{t('adminDashboard.settingsGroups.domainConfigLabel')}</Label>
                             <div className="flex items-center gap-2">
                                 <Input 
                                     id="domain" 
@@ -88,14 +88,14 @@ export function ManageDomainDialog() {
                                 />
                                 <Button type="button" variant="outline" onClick={handleExtractDomain} disabled={isLoading}>
                                     <LinkIcon className="mr-2 h-4 w-4" />
-                                    Extraer
+                                    {t('adminDashboard.settingsGroups.extractButton')}
                                 </Button>
                             </div>
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isLoading}>Cancelar</Button>
-                        <Button type="button" onClick={handleAction} disabled={isLoading}>Guardar Dominio</Button>
+                        <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isLoading}>{t('common.cancel')}</Button>
+                        <Button type="button" onClick={handleAction} disabled={isLoading}>{t('common.save')}</Button>
                     </DialogFooter>
                 </div>
             </DialogContent>

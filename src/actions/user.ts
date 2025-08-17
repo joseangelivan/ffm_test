@@ -2,9 +2,9 @@
 'use server';
 
 import { redirect } from 'next/navigation'
-import bcrypt from 'bcrypt';
 import { getDbPool } from '@/lib/db';
 import { createSession } from '@/lib/session';
+import bcryptjs from 'bcryptjs';
 
 type AuthState = {
   success: boolean;
@@ -13,11 +13,12 @@ type AuthState = {
 
 export async function authenticateUser(prevState: any, formData: FormData): Promise<AuthState> {
     let client;
+    let redirectPath: string;
     try {
         const pool = await getDbPool();
         const email = formData.get('email') as string;
         const password = formData.get('password') as string;
-        const userType = formData.get('user_type') as 'residente' | 'porteria';
+        const userType = formData.get('user_type') as 'resident' | 'gatekeeper';
         
         if (!email || !password || !userType) {
             return { success: false, message: 'Email, contraseña y tipo de usuario son requeridos.' };
@@ -26,14 +27,13 @@ export async function authenticateUser(prevState: any, formData: FormData): Prom
         client = await pool.connect();
         
         let tableName: string;
-        let redirectPath: string;
         let dbUserType: 'resident' | 'gatekeeper';
 
-        if (userType === 'residente') {
+        if (userType === 'resident') {
             tableName = 'residents';
             redirectPath = '/dashboard';
             dbUserType = 'resident';
-        } else if (userType === 'porteria') {
+        } else if (userType === 'gatekeeper') {
             tableName = 'gatekeepers';
             redirectPath = '/gatekeeper/dashboard';
             dbUserType = 'gatekeeper';
@@ -48,7 +48,7 @@ export async function authenticateUser(prevState: any, formData: FormData): Prom
         }
         
         const user = result.rows[0];
-        const passwordMatch = await bcrypt.compare(password, user.password_hash);
+        const passwordMatch = await bcryptjs.compare(password, user.password_hash);
         
         if (!passwordMatch) {
           return { success: false, message: 'Credenciales inválidas.' };
@@ -69,7 +69,5 @@ export async function authenticateUser(prevState: any, formData: FormData): Prom
         if(client) client.release();
     }
 
-    redirect('/dashboard');
+    redirect(redirectPath);
 }
-
-    

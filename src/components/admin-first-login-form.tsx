@@ -22,7 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
 import { ThemeSwitcher } from './theme-switcher';
-import { handleFirstLogin } from '@/actions/auth';
+import { handleFirstLogin } from '@/actions/admin';
 
 function LoadingOverlay({ text }: { text: string }) {
     return (
@@ -40,6 +40,7 @@ function SubmitButton({ label }: { label: string }) {
 
     return (
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={pending}>
+            {pending && <Loader className="h-4 w-4 animate-spin" />}
             {label}
         </Button>
     );
@@ -63,7 +64,7 @@ function FirstLoginFormContent({ state, initialEmail }: { state: any, initialEma
     }, []);
 
     return (
-        <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+        <div className={cn("relative transition-opacity", pending && "opacity-50 pointer-events-none")}>
             {pending && <LoadingOverlay text={t('firstLogin.activating')} />}
             <CardHeader className="space-y-4 text-center">
               <div className="flex justify-center">

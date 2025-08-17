@@ -1,6 +1,5 @@
 
-
-"use client";
+'use client';
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -23,8 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
 import { ThemeSwitcher } from './theme-switcher';
-import { checkAdminEmail } from '@/actions/auth';
-import { useRouter } from 'next/navigation';
+import { checkAdminEmail } from '@/actions/admin';
 
 function LoadingOverlay({ text }: { text: string }) {
     return (
@@ -42,6 +40,7 @@ function SubmitButton({ label }: { label: string }) {
 
     return (
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={pending}>
+            {pending && <Loader className="h-4 w-4 animate-spin" />}
             {label}
         </Button>
     );
@@ -63,7 +62,7 @@ function LoginFormContent({ state }: { state: any }) {
     }, []);
 
     return (
-        <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+        <div className={cn("relative transition-opacity", pending && "opacity-50 pointer-events-none")}>
             {pending && <LoadingOverlay text={t('adminLogin.verifying')} />}
             <CardHeader className="space-y-4 text-center">
               <div className="flex justify-center">
@@ -124,14 +123,7 @@ function LoginFormContent({ state }: { state: any }) {
 }
 
 export default function AdminLoginForm() {
-  const router = useRouter();
   const [state, formAction] = useActionState(checkAdminEmail, undefined);
-
-  useEffect(() => {
-    if (state?.success && state.redirectTo) {
-        router.push(state.redirectTo);
-    }
-  }, [state, router]);
   
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">

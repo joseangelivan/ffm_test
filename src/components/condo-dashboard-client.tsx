@@ -19,23 +19,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocale } from '@/lib/i18n';
 import { getCondominioById, type Condominio } from '@/actions/condos';
 import { geocodeAddress } from '@/actions/geocoding';
+import { getDevicesByCondoId, type Device } from '@/actions/devices';
 
 import ManageUsersTab from './condo/manage-users-tab';
 import ManageDevicesTab from './condo/manage-devices-tab';
 import CondoMapTab from './condo/condo-map-tab';
-
-// Mock data will be passed to the new components
-const mockDevices = [
-  { id: 'dev-01', name: 'Tracker Portão 1', type: 'esp32', status: 'Online', token: 'a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8' },
-  { id: 'dev-02', name: 'Câmera Corredor A', type: 'other', status: 'Online', token: 'b2c3d4e5-f6g7-8901-h2i3-j4k5l6m7n8o9' },
-  { id: 'dev-03', name: 'Relógio Segurança', type: 'watch', status: 'Offline', token: 'c3d4e5f6-g7h8-9012-i3j4-k5l6m7n8o9p0' },
-];
-
-const mockUsers = [
-  { id: 'user-01', name: 'João da Silva', type: 'Residente', email: 'joao@email.com', location: 'Torre A, Sección 2', housing: 'Apto 101', phone: '+55 11 98765-4321' },
-  { id: 'user-02', name: 'Maria Oliveira', type: 'Residente', email: 'maria@email.com', location: 'Casa 15', housing: 'Lote 3', phone: '+55 21 91234-5678' },
-  { id: 'user-03', name: 'Carlos-Portería', type: 'Portería', email: 'porteria.jardins@email.com', location: 'Garita Principal', housing: 'N/A', phone: '+55 11 99999-8888' },
-];
 
 type Coords = { lat: number; lng: number };
 
@@ -43,14 +31,28 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
   const { t } = useLocale();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const [condo, setCondo] = useState<Condominio | null>(null);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingDevices, setLoadingDevices] = useState(true);
   const [mapCenter, setMapCenter] = useState<Coords | null>(null);
 
   useEffect(() => {
     async function fetchCondoAndCoords() {
       const result = await getCondominioById(condoId);
+      
       if (result.success && result.data) {
         setCondo(result.data);
+
+        // Fetch devices
+        setLoadingDevices(true);
+        const devicesResult = await getDevicesByCondoId(condoId);
+        if (devicesResult) {
+            setDevices(devicesResult);
+        }
+        setLoadingDevices(false);
+
+
+        // Geocode address
         const geoResult = await geocodeAddress({
           street: result.data.street!,
           city: result.data.city!,
@@ -117,17 +119,17 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
                 </div>
             </div>
           </div>
-          <Tabs defaultValue="map">
+          <Tabs defaultValue="users">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="users" className="flex items-center gap-2"><Users className="h-4 w-4"/>{t('condoDashboard.tabs.users')}</TabsTrigger>
               <TabsTrigger value="devices" className="flex items-center gap-2"><Smartphone className="h-4 w-4"/>{t('condoDashboard.tabs.devices')}</TabsTrigger>
               <TabsTrigger value="map" className="flex items-center gap-2"><Map className="h-4 w-4"/>{t('condoDashboard.tabs.map')}</TabsTrigger>
             </TabsList>
             <TabsContent value="users" className="mt-4">
-              <ManageUsersTab initialUsers={mockUsers} />
+              <ManageUsersTab condoId={condo.id} />
             </TabsContent>
             <TabsContent value="devices" className="mt-4">
-              <ManageDevicesTab initialDevices={mockDevices} />
+              <ManageDevicesTab initialDevices={devices} isLoading={loadingDevices} condoId={condo.id} />
             </TabsContent>
              <TabsContent value="map" className="mt-4">
               {apiKey ? (
@@ -154,11 +156,11 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
                 <Card>
                     <CardHeader>
                         <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-                        <CardDescription>API Key for Google Maps is missing.</CardDescription>
+                        <CardDescription>{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyMissing')}</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
-                            <p>Google Maps could not be loaded.</p>
+                        <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center text-center p-4">
+                            <p className="text-sm text-muted-foreground">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
                         </div>
                     </CardContent>
                 </Card>

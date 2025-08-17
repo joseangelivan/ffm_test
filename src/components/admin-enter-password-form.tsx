@@ -2,6 +2,7 @@
 "use client";
 
 import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -22,7 +23,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from './language-switcher';
 import { ThemeSwitcher } from './theme-switcher';
-import { authenticateAdmin } from '@/actions/auth';
+import { authenticateAdmin } from '@/actions/admin';
 
 function LoadingOverlay({ text }: { text: string }) {
     return (
@@ -39,6 +40,7 @@ function SubmitButton({ label }: { label: string }) {
     const { pending } = useFormStatus();
     return (
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={pending}>
+            {pending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
             {label}
         </Button>
     );
@@ -46,22 +48,16 @@ function SubmitButton({ label }: { label: string }) {
 
 function EnterPasswordFormContent({ email, state }: { email: string, state: any }) {
     const { pending } = useFormStatus();
-    const { t } = useLocale();
+    const { t, locale } = useLocale();
     const [showPassword, setShowPassword] = useState(false);
-    const passwordInputRef = useRef<HTMLInputElement>(null);
-    const { locale } = useLocale();
     
     const getErrorMessage = (messageKey: string) => {
         const key = messageKey.replace('toast.adminLogin.', '');
         return t(`toast.adminLogin.${key}`) || "An unexpected error occurred.";
     }
 
-    useEffect(() => {
-        passwordInputRef.current?.focus();
-    }, []);
-
     return (
-        <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+        <div className={cn("relative transition-opacity", pending && "opacity-50 pointer-events-none")}>
             {pending && <LoadingOverlay text={t('login.loggingIn')} />}
             <CardHeader className="space-y-4 text-center">
                 <div className="flex justify-center">
@@ -74,6 +70,7 @@ function EnterPasswordFormContent({ email, state }: { email: string, state: any 
             </CardHeader>
             <CardContent>
                 <div className="space-y-6">
+                    <input type="text" name="username" defaultValue={email} autoComplete="username" className="hidden" />
                     <input type="hidden" name="email" value={email} />
                     <input type="hidden" name="locale" value={locale} />
                     <div className="space-y-2">
@@ -81,7 +78,6 @@ function EnterPasswordFormContent({ email, state }: { email: string, state: any 
                         <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                             <Input
-                                ref={passwordInputRef}
                                 id="password"
                                 name="password"
                                 type={showPassword ? "text" : "password"}
@@ -90,6 +86,7 @@ function EnterPasswordFormContent({ email, state }: { email: string, state: any 
                                 required
                                 autoComplete="current-password"
                                 disabled={pending}
+                                autoFocus
                             />
                             <Button
                                 type="button"
@@ -132,11 +129,28 @@ function EnterPasswordFormContent({ email, state }: { email: string, state: any 
     );
 }
 
-export function AdminEnterPasswordForm({ email }: { email: string }) {
+export function AdminEnterPasswordForm() {
   const [state, formAction] = useActionState(authenticateAdmin, undefined);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const email = searchParams.get('email');
+
+  useEffect(() => {
+    if (!email) {
+      router.replace('/admin/login');
+    }
+  }, [email, router]);
+
+  if (!email) {
+    return (
+        <div className="flex min-h-screen items-center justify-center bg-background">
+            <Loader className="h-12 w-12 animate-spin" />
+        </div>
+    );
+  }
   
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-muted/40 px-4">
         <div className="absolute top-4 right-4 flex items-center gap-2">
             <ThemeSwitcher />
             <LanguageSwitcher />

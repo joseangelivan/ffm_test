@@ -1,46 +1,28 @@
 
-"use client";
-
-import { Suspense, useEffect } from 'react';
-import { useSearchParams, redirect } from 'next/navigation';
-import { getCurrentSession } from '@/lib/session';
+import { Suspense } from 'react';
 import AdminFirstLoginForm from '@/components/admin-first-login-form';
 import Loading from '@/app/loading';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { ThemeSwitcher } from '@/components/theme-switcher';
+import { redirect } from 'next/navigation';
 
-function FirstLoginPageContent() {
-    const searchParams = useSearchParams();
-    const email = searchParams.get('email') || '';
-
-    useEffect(() => {
-      const checkSession = async () => {
-          const session = await getCurrentSession();
-          if (session?.type === 'admin') {
-              redirect('/admin/dashboard');
-          }
-          if (!email) {
-              redirect('/admin/login');
-          }
-      };
-      checkSession();
-    }, [email]);
-
-    if (!email) {
-        return <Loading />;
-    }
+// This is now a simple Server Component.
+// Session checks are handled by middleware or in the layout/actions.
+export default function AdminFirstLoginPage({ searchParams }: { searchParams: { email?: string }}) {
+    const email = searchParams.email || '';
     
-    return <AdminFirstLoginForm initialEmail={email} />;
-}
+    // If email is not in the URL, we can't proceed.
+    if (!email) {
+        redirect('/admin/login');
+    }
 
-export default function AdminFirstLoginPage() {
     return (
         <Suspense fallback={<Loading />}>
              <div className="absolute top-4 right-4 flex items-center gap-2">
                 <ThemeSwitcher />
                 <LanguageSwitcher />
             </div>
-            <FirstLoginPageContent />
+            <AdminFirstLoginForm initialEmail={email} />
         </Suspense>
     );
 }

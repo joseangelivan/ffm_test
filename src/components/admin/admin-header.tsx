@@ -45,6 +45,8 @@ import {
   Moon,
   Palette,
   Server,
+  Book,
+  MessageSquareQuote,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -56,6 +58,8 @@ import { SmtpConfigDialog } from './smtp-config-dialog';
 import { ManageAccountDialog } from './manage-account-dialog';
 import { ManageDomainDialog } from './manage-domain-dialog';
 import { ManageInterfaceDialog } from './manage-interface-dialog';
+import { ManageCatalogsDialog } from './manage-catalogs-dialog';
+import { ManageTranslatorDialog } from './manage-translator-dialog';
 
 
 export function LoadingOverlay({ text }: { text: string }) {
@@ -91,9 +95,11 @@ function LogoutDialogContent() {
             </AlertDialogHeader>
             <AlertDialogFooter className="sm:justify-center pt-4">
                 <AlertDialogCancel disabled={pending}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
-                <Button type="submit" disabled={pending} className="w-40 bg-destructive hover:bg-destructive/90">
-                    {t('dashboard.logoutConfirmation.confirm')}
-                </Button>
+                <form action={handleLogoutAction} className="w-full sm:w-auto">
+                    <Button type="submit" disabled={pending} className="w-full bg-destructive hover:bg-destructive/90">
+                        {t('dashboard.logoutConfirmation.confirm')}
+                    </Button>
+                </form>
             </AlertDialogFooter>
         </div>
     )
@@ -150,6 +156,7 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                         <DropdownMenuPortal>
                             <DropdownMenuSubContent>
                                 <ManageInterfaceDialog />
+                                <ManageCatalogsDialog />
                                 <DropdownMenuSub>
                                     <DropdownMenuSubTrigger>
                                         <Server className="mr-2 h-4 w-4" />
@@ -159,6 +166,7 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                                         <DropdownMenuSubContent>
                                             <SmtpConfigDialog />
                                             <ManageDomainDialog />
+                                            <ManageTranslatorDialog />
                                         </DropdownMenuSubContent>
                                     </DropdownMenuPortal>
                                 </DropdownMenuSub>
@@ -178,9 +186,7 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                         </DropdownMenuItem>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                        <form action={handleLogoutAction}>
-                        <LogoutDialogContent />
-                        </form>
+                       <LogoutDialogContent />
                     </AlertDialogContent>
                     </AlertDialog>
                 </DropdownMenuContent>

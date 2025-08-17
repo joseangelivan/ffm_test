@@ -28,6 +28,10 @@ export function ElementsControls() {
     const [isElementEditing, setIsElementEditing] = useState(false);
     const [selectedElementType, setSelectedElementType] = useState<MapElementType>('camera');
 
+    const getElementTypeLabel = (type: MapElementType) => {
+        return t(`condoDashboard.map.elementTypes.${type}`);
+    }
+
     return (
         <div className="space-y-4 pt-2 border-t">
             <div className="space-y-2">
@@ -62,16 +66,16 @@ export function ElementsControls() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="camera">
-                                        <div className="flex items-center gap-2"><Video className="h-4 w-4" />Cámara de Vigilancia</div>
+                                        <div className="flex items-center gap-2"><Video className="h-4 w-4" />{getElementTypeLabel('camera')}</div>
                                     </SelectItem>
                                     <SelectItem value="gatehouse">
-                                        <div className="flex items-center gap-2"><Building2 className="h-4 w-4" />Portería / Garita</div>
+                                        <div className="flex items-center gap-2"><Building2 className="h-4 w-4" />{getElementTypeLabel('gatehouse')}</div>
                                     </SelectItem>
                                     <SelectItem value="housing_area">
-                                        <div className="flex items-center gap-2"><Home className="h-4 w-4" />Área de Vivienda</div>
+                                        <div className="flex items-center gap-2"><Home className="h-4 w-4" />{getElementTypeLabel('housing_area')}</div>
                                     </SelectItem>
                                     <SelectItem value="other">
-                                        <div className="flex items-center gap-2"><Square className="h-4 w-4" />Otro</div>
+                                        <div className="flex items-center gap-2"><Square className="h-4 w-4" />{getElementTypeLabel('other')}</div>
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
