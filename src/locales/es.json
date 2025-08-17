@@ -158,7 +158,7 @@
         "listDescription": "Ver, crear, editar y eliminar cuentas de administrador.",
         "createTitle": "Crear Nuevo Administrador",
         "editTitle": "Editar Administrador",
-        "formDescription": "Define un PIN de 6 dígitos para el nuevo administrador. Deberás compartir este PIN personalmente para que pueda activar su cuenta.",
+        "formDescription": "Define un PIN de 6 dígitos para el nuevo administrador. Deberás compartir este PIN personally para que pueda activar su cuenta.",
         "nameLabel": "Nombre Completo",
         "emailLabel": "Correo Electrónico",
         "pinLabel": "PIN de Activación (6 dígitos)",
@@ -509,13 +509,11 @@
         },
         "manageDialog": {
             "title": "Gerenciar Dispositivo: {name}",
-            "description": "Configura os parâmetros de comunicação para o dispositivo.",
-            "serverConfigTitle": "Configuração do Servidor",
-            "serverUrl": "URL do Servidor",
-            "protocol": "Protocolo de Comunicação",
-            "selectProtocol": "Selecionar protocolo",
-            "deviceTokenTitle": "Configuração do Dispositivo",
-            "deviceToken": "Token de Autenticação do Dispositivo (ID Hasheado)"
+            "description": "Configura los parámetros de comunicación para el dispositivo.",
+            "serverConfigTitle": "Configuración del Servidor",
+            "protocol": "Protocolo de Comunicación",
+            "selectProtocol": "Seleccionar protocolo",
+            "physicalDeviceId": "ID Físico del Dispositivo"
         },
         "toast": {
             "deviceDeleted": "Dispositivo eliminado con éxito.",

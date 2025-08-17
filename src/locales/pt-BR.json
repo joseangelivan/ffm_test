@@ -505,12 +505,9 @@
         "manageDialog": {
             "title": "Gerenciar Dispositivo: {name}",
             "description": "Configure os parâmetros de comunicação para o dispositivo.",
-            "serverConfigTitle": "Configuração do Servidor",
-            "serverUrl": "URL do Servidor",
             "protocol": "Protocolo de Comunicação",
             "selectProtocol": "Selecionar protocolo",
-            "deviceTokenTitle": "Configuração do Dispositivo",
-            "deviceToken": "Token de Autenticação do Dispositivo (ID Hasheado)"
+            "physicalDeviceId": "ID Físico do Dispositivo"
         },
         "toast": {
             "deviceDeleted": "Dispositivo excluído com sucesso.",

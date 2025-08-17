@@ -21,7 +21,9 @@ const SCHEMA_FILES_ORDER = [
     'residents/base_schema.sql',
     'gatekeepers/base_schema.sql',
     'device_types/base_schema.sql',
+    'protocols/base_schema.sql',
     'devices/base_schema.sql',
+    'devices_communication/base_schema.sql',
     'languages/base_schema.sql',
     'sessions/base_schema.sql',
     'admin_settings/base_schema.sql',
@@ -30,7 +32,6 @@ const SCHEMA_FILES_ORDER = [
     'app_settings/base_schema.sql',
     'translation_services/base_schema.sql',
     'maps/base_schema.sql',
-    'protocols/base_schema.sql'
 ];
 
 async function applySqlFile(client: PoolClient, filePath: string, log: string[]): Promise<void> {
@@ -191,12 +192,12 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
 
             if (smartphoneTypeId) {
                 await client.query(
-                    `INSERT INTO devices (condominium_id, device_type_id, name, token) VALUES ($1, $2, $3, $4) ON CONFLICT (token) DO NOTHING`,
-                    [condoId, smartphoneTypeId, 'iPhone de Juan', 'a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8']
+                    `INSERT INTO devices (condominium_id, device_type_id, name) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING`,
+                    [condoId, smartphoneTypeId, 'iPhone de Juan']
                 );
                  await client.query(
-                    `INSERT INTO devices (condominium_id, device_type_id, name, token) VALUES ($1, $2, $3, $4) ON CONFLICT (token) DO NOTHING`,
-                    [condoId, smartphoneTypeId, 'Galaxy de Pedro', 'b2c3d4e5-f6g7-8901-h2i3-j4k5l6m7n8o9']
+                    `INSERT INTO devices (condominium_id, device_type_id, name) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING`,
+                    [condoId, smartphoneTypeId, 'Galaxy de Pedro']
                 );
                 log.push('SUCCESS: Test devices seeded.');
             } else {
