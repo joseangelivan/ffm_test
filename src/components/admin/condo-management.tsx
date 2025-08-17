@@ -216,11 +216,14 @@ function AddressVerificationDialog({
             country: country!,
         }));
 
-        if (response.success && response.data) {
+        if (response && response.success && response.data) {
             setResults(response.data);
-        } else if (!response.success) {
+        } else if (response && !response.success) {
             setError(response.message);
+        } else if (!response) {
+            setError('La respuesta del servidor de geocodificación fue inválida.');
         }
+
       } catch (err: any) {
          setError(err.message || "An unexpected error occurred.");
       }
