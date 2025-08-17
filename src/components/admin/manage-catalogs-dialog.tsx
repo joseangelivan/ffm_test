@@ -15,10 +15,11 @@ import {
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useLocale } from '@/lib/i18n';
-import { Book, HardDrive, Languages, Map } from 'lucide-react';
+import { Book, HardDrive, Languages, Map, Router } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import LanguageManager from './language-manager';
 import DeviceTypesManager from './device-types-manager';
+import ProtocolManager from './protocol-manager';
 
 
 export function ManageCatalogsDialog() {
@@ -44,6 +45,9 @@ export function ManageCatalogsDialog() {
                             <TabsTrigger value="device_types" className="flex items-center gap-2">
                                 <HardDrive className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.deviceTypes.tab')}
                             </TabsTrigger>
+                             <TabsTrigger value="protocols" className="flex items-center gap-2">
+                                <Router className="h-4 w-4"/>{t('adminDashboard.settingsGroups.catalogs.protocols.tab')}
+                            </TabsTrigger>
                             <TabsTrigger value="maps" className="flex items-center gap-2" disabled>
                                 {t('adminDashboard.settingsGroups.catalogs.maps.tab')}
                             </TabsTrigger>
@@ -54,6 +58,9 @@ export function ManageCatalogsDialog() {
                         <div className="flex-grow overflow-y-auto mt-4 pr-2">
                             <TabsContent value="device_types">
                                 <DeviceTypesManager />
+                            </TabsContent>
+                             <TabsContent value="protocols">
+                                <ProtocolManager />
                             </TabsContent>
                              <TabsContent value="maps">
                                 <div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/50 rounded-md">
@@ -78,5 +85,3 @@ export function ManageCatalogsDialog() {
         </Dialog>
     );
 }
-
-    

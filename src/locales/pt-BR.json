@@ -217,7 +217,12 @@
             },
             "protocols": {
               "tab": "Protocolos",
-              "title": "Protocolos de Comunicação"
+              "title": "Protocolos de Comunicação",
+              "description": "Gerencie os protocolos de comunicação para dispositivos.",
+              "noData": "Nenhum protocolo encontrado.",
+              "createTitle": "Criar Novo Protocolo",
+              "editTitle": "Editar Protocolo",
+              "deleteConfirmation": "Isso excluirá permanentemente o protocolo \"{name}\". Esta ação não pode ser desfeita."
             },
             "languages": {
                 "tab": "Idiomas",

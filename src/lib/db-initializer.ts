@@ -29,7 +29,8 @@ const SCHEMA_FILES_ORDER = [
     'themes/base_schema.sql',
     'app_settings/base_schema.sql',
     'translation_services/base_schema.sql',
-    'maps/base_schema.sql'
+    'maps/base_schema.sql',
+    'protocols/base_schema.sql'
 ];
 
 async function applySqlFile(client: PoolClient, filePath: string, log: string[]): Promise<void> {

@@ -20,6 +20,12 @@ export type Language = {
     name_translations: TranslationObject;
 };
 
+export type Protocol = {
+    id: string;
+    name: string;
+    features_translations: TranslationObject | null;
+};
+
 type ActionState<T = null> = {
     success: boolean;
     message: string;
@@ -43,6 +49,12 @@ const LanguageSchema = z.object({
     id: z.string().min(2, "El código de idioma es obligatorio.").max(10),
     name_es: z.string().min(1, "El nombre en español es obligatorio."),
     name_pt: z.string().min(1, "O nome em português é obrigatório."),
+});
+
+const ProtocolSchema = z.object({
+    name: z.string().min(1, "El nombre es obligatorio."),
+    features_es: z.string().optional(),
+    features_pt: z.string().optional(),
 });
 
 
@@ -272,4 +284,108 @@ export async function deleteLanguage(id: string): Promise<ActionState> {
     }
 }
 
-    
+
+// --- Protocol Actions ---
+
+export async function getProtocols(): Promise<Protocol[]> {
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        const result = await client.query('SELECT id, name, features_translations FROM protocols ORDER BY name');
+        return result.rows;
+    } catch (error) {
+        console.error("Error getting protocols:", error);
+        return [];
+    } finally {
+        if (client) client.release();
+    }
+}
+
+export async function createProtocol(prevState: any, formData: FormData): Promise<ActionState> {
+    const validatedFields = ProtocolSchema.safeParse({
+        name: formData.get('name'),
+        features_es: formData.get('features_es'),
+        features_pt: formData.get('features_pt'),
+    });
+
+    if (!validatedFields.success) {
+        return { success: false, message: "Error de validación.", errors: validatedFields.error.flatten().fieldErrors };
+    }
+
+    const { name, features_es, features_pt } = validatedFields.data;
+    const features_translations = (features_es || features_pt) ? { es: features_es || '', 'pt-BR': features_pt || '' } : null;
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        await client.query(
+            'INSERT INTO protocols (name, features_translations) VALUES ($1, $2)',
+            [name, features_translations]
+        );
+        return { success: true, message: 'Protocolo creado con éxito.' };
+    } catch (error: any) {
+        console.error("Error creating protocol:", error);
+        if (error.code === '23505') { // unique_violation
+            return { success: false, message: `El protocolo '${name}' ya existe.` };
+        }
+        return { success: false, message: 'Error del servidor.' };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+export async function updateProtocol(prevState: any, formData: FormData): Promise<ActionState> {
+    const id = formData.get('id') as string;
+    if (!id) return { success: false, message: "ID no proporcionado." };
+
+    const validatedFields = ProtocolSchema.safeParse({
+        name: formData.get('name'),
+        features_es: formData.get('features_es'),
+        features_pt: formData.get('features_pt'),
+    });
+
+    if (!validatedFields.success) {
+        return { success: false, message: "Error de validación.", errors: validatedFields.error.flatten().fieldErrors };
+    }
+
+    const { name, features_es, features_pt } = validatedFields.data;
+    const features_translations = (features_es || features_pt) ? { es: features_es || '', 'pt-BR': features_pt || '' } : null;
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        await client.query(
+            'UPDATE protocols SET name = $1, features_translations = $2, updated_at = NOW() WHERE id = $3',
+            [name, features_translations, id]
+        );
+        return { success: true, message: 'Protocolo actualizado con éxito.' };
+    } catch (error: any) {
+        console.error("Error updating protocol:", error);
+        if (error.code === '23505') { // unique_violation
+            return { success: false, message: `El protocolo '${name}' ya existe.` };
+        }
+        return { success: false, message: 'Error del servidor.' };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+export async function deleteProtocol(id: string): Promise<ActionState> {
+    if (!id) return { success: false, message: "ID no proporcionado." };
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        await client.query('DELETE FROM protocols WHERE id = $1', [id]);
+        return { success: true, message: 'Protocolo eliminado con éxito.' };
+    } catch (error) {
+        console.error("Error deleting protocol:", error);
+        return { success: false, message: 'Error del servidor.' };
+    } finally {
+        if (client) client.release();
+    }
+}
