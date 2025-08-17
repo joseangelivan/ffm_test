@@ -501,11 +501,14 @@
         "title": "Gestionar Dispositivos",
         "description": "Añade o elimina dispositivos de seguimiento para este condominio.",
         "addDeviceButton": "Añadir Dispositivo",
+        "noDevices": "Aún no hay dispositivos para este condominio.",
         "table": {
           "name": "Nombre",
           "type": "Tipo",
           "status": "Estado",
-          "actions": "Ações"
+          "protocol": "Protocolo",
+          "actions": "Ações",
+          "noProtocol": "No configurado"
         },
         "manageDialog": {
             "title": "Gerenciar Dispositivo: {name}",
@@ -515,6 +518,7 @@
             "selectProtocol": "Seleccionar protocolo",
             "physicalDeviceId": "ID Físico del Dispositivo"
         },
+        "deleteConfirmation": "Esto eliminará permanentemente el dispositivo \"{name}\". Esta acción no puede deshacerse.",
         "toast": {
             "deviceDeleted": "Dispositivo eliminado con éxito.",
             "tokenCopied": "Token copiado al portapapeles."
@@ -581,7 +585,7 @@
     },
     "dbInitializer": {
         "title": "Inicialización de la Base de Datos",
-        "description": "Esta es una acción sensible que reiniciará las migraciones. Esto podría ser útil si hubo un error, pero también podría causar problemas si no se usa con cuidado.",
+        "description": "Esta es una acción sensible que reiniciará las migraciones. Esto podría ser útil si hubo un error, pero también puede causar problemas si no se usa con cuidado.",
         "loading": "Inicializando...",
         "clearing": "Limpando banco de dados...",
         "successTitle": "¡Éxito!",

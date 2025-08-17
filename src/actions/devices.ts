@@ -13,6 +13,9 @@ export type Device = {
   created_at: string;
   updated_at: string;
   device_type_name_translations: TranslationObject;
+  protocol_id: string | null;
+  protocol_name: string | null;
+  physical_device_id: string | null;
 };
 
 export type DeviceCommunication = {
@@ -48,9 +51,14 @@ export async function getDevicesByCondoId(condoId: string): Promise<Device[] | n
                 d.name,
                 d.created_at,
                 d.updated_at,
-                dt.name_translations as device_type_name_translations
+                dt.name_translations as device_type_name_translations,
+                dc.protocol_id,
+                p.name as protocol_name,
+                dc.physical_device_id
             FROM devices d
             JOIN device_types dt ON d.device_type_id = dt.id
+            LEFT JOIN devices_communication dc ON d.id = dc.device_id
+            LEFT JOIN protocols p ON dc.protocol_id = p.id
             WHERE d.condominium_id = $1
             ORDER BY d.name ASC;
         `;
@@ -85,7 +93,7 @@ export async function getDeviceCommunication(deviceId: string): Promise<DeviceCo
 export async function createOrUpdateDeviceCommunication(prevState: any, formData: FormData): Promise<ActionState> {
     const validatedFields = DeviceCommunicationSchema.safeParse({
         device_id: formData.get('device_id'),
-        physical_device_id: formData.get('physical_device_id'),
+        physical_device_id: formData.get('physical_device_id') || null,
         protocol_id: formData.get('protocol_id'),
     });
 
@@ -117,4 +125,3 @@ export async function createOrUpdateDeviceCommunication(prevState: any, formData
         if (client) client.release();
     }
 }
-

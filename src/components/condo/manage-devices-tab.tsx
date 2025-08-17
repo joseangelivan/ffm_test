@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useActionState } from 'react';
+import React, { useState, useEffect, useCallback, useActionState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
   Trash2,
@@ -12,7 +12,7 @@ import {
   Loader,
   Copy
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -44,12 +44,23 @@ import {
   DialogTrigger,
   DialogClose
 } from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
-import type { Device, DeviceCommunication } from '@/actions/devices';
-import { getProtocols, type Protocol } from '@/actions/catalogs';
+import type { Device } from '@/actions/devices';
+import { getProtocols, getDeviceTypes, type Protocol, type DeviceType } from '@/actions/catalogs';
 import { getDeviceCommunication, createOrUpdateDeviceCommunication } from '@/actions/devices';
 import { Skeleton } from '../ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -58,16 +69,12 @@ import { LoadingOverlay } from '../admin/admin-header';
 
 function ManageDeviceForm({
     device,
-    initialCommData,
     protocols,
     onSuccess,
-    onCancel
 }: {
     device: Device;
-    initialCommData: DeviceCommunication | null;
     protocols: Protocol[];
     onSuccess: () => void;
-    onCancel: () => void;
 }) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -99,7 +106,7 @@ function ManageDeviceForm({
                     <div className="grid gap-6 py-4">
                         <div className="space-y-2">
                             <Label htmlFor="protocol_id">{t('condoDashboard.devices.manageDialog.protocol')}</Label>
-                            <Select name="protocol_id" defaultValue={initialCommData?.protocol_id || ''} required>
+                            <Select name="protocol_id" defaultValue={device.protocol_id || ''} required disabled={pending}>
                                 <SelectTrigger id="protocol_id">
                                     <SelectValue placeholder={t('condoDashboard.devices.manageDialog.selectProtocol')} />
                                 </SelectTrigger>
@@ -112,14 +119,12 @@ function ManageDeviceForm({
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="physical_device_id">{t('condoDashboard.devices.manageDialog.physicalDeviceId')}</Label>
-                            <Input id="physical_device_id" name="physical_device_id" defaultValue={initialCommData?.physical_device_id || ''} placeholder="ID físico o MAC address" />
+                            <Input id="physical_device_id" name="physical_device_id" defaultValue={device.physical_device_id || ''} placeholder="ID físico o MAC address" disabled={pending} />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" asChild>
-                           <DialogClose>{t('common.cancel')}</DialogClose>
-                        </Button>
-                         <Button type="submit">{t('common.save')}</Button>
+                        <DialogClose asChild><Button type="button" variant="outline" disabled={pending}>{t('common.cancel')}</Button></DialogClose>
+                         <Button type="submit" disabled={pending}>{t('common.save')}</Button>
                     </DialogFooter>
                 </div>
             </form>
@@ -127,56 +132,133 @@ function ManageDeviceForm({
     )
 }
 
-
-export default function ManageDevicesTab({ 
-    initialDevices, 
-    isLoading,
-    condoId
-}: { 
-    initialDevices: Device[], 
-    isLoading: boolean,
-    condoId: string 
+function CreateDeviceForm({
+    condoId,
+    deviceTypes,
+    onSuccess,
+}: {
+    condoId: string;
+    deviceTypes: DeviceType[];
+    onSuccess: () => void;
 }) {
+    const { t } = useLocale();
+    const { toast } = useToast();
+    
+    // Placeholder for createDevice server action
+    const createDevice = async (prevState: any, formData: FormData) => {
+        // Here you would call a server action to create the device in the database.
+        // For now, we'll just show a success toast.
+        console.log("Form data to be submitted:", Object.fromEntries(formData.entries()));
+        toast({ title: "Función no implementada", description: "La creación de dispositivos se manejará en un próximo paso.", variant: "destructive" });
+        onSuccess(); // Simulate success to close dialog
+        return { success: true, message: "Dispositivo creado (simulado)." };
+    };
+
+    const [state, formAction] = useActionState(createDevice, null);
+    const { pending } = useFormStatus();
+
+    return (
+        <DialogContent>
+             <form action={formAction}>
+                 <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+                    {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.creating')} />}
+                    <DialogHeader>
+                        <DialogTitle>{t('condoDashboard.devices.addDeviceButton')}</DialogTitle>
+                    </DialogHeader>
+                    <input type="hidden" name="condominium_id" value={condoId} />
+                    <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="name">{t('condoDashboard.devices.table.name')}</Label>
+                            <Input id="name" name="name" required disabled={pending} />
+                        </div>
+                        <div className="space-y-2">
+                             <Label htmlFor="device_type_id">{t('condoDashboard.devices.table.type')}</Label>
+                            <Select name="device_type_id" required disabled={pending}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder={t('addDeviceDialog.selectTypePlaceholder')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {deviceTypes.map(dt => (
+                                        <SelectItem key={dt.id} value={dt.id}>
+                                            {dt.name_translations[t as 'es' | 'pt-BR'] || dt.name_translations['pt-BR']}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild><Button type="button" variant="outline" disabled={pending}>{t('common.cancel')}</Button></DialogClose>
+                        <Button type="submit" disabled={pending}>{t('common.create')}</Button>
+                    </DialogFooter>
+                </div>
+            </form>
+        </DialogContent>
+    );
+}
+
+export default function ManageDevicesTab({ condoId }: { condoId: string }) {
     const { t, locale } = useLocale();
     const { toast } = useToast();
-    const [devices, setDevices] = useState(initialDevices);
-    const [protocols, setProtocols] = useState<Protocol[]>([]);
     
-    const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
-    const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-    const [deviceCommData, setDeviceCommData] = useState<DeviceCommunication | null>(null);
-    const [isFormLoading, setIsFormLoading] = useState(false);
+    const [devices, setDevices] = useState<Device[]>([]);
+    const [protocols, setProtocols] = useState<Protocol[]>([]);
+    const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
+    
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, startSubmittingTransition] = useTransition();
 
+    const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+    const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+
+    const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const [devicesData, protocolsData, deviceTypesData] = await Promise.all([
+                getDevicesByCondoId(condoId),
+                getProtocols(),
+                getDeviceTypes()
+            ]);
+            setDevices(devicesData || []);
+            setProtocols(protocolsData || []);
+            setDeviceTypes(deviceTypesData || []);
+        } catch (error) {
+            console.error("Failed to fetch device data:", error);
+            toast({ title: t('toast.errorTitle'), description: "Error al cargar los datos.", variant: 'destructive' });
+        } finally {
+            setIsLoading(false);
+        }
+    }, [condoId, toast, t]);
 
     useEffect(() => {
-        async function fetchProtocols() {
-            const data = await getProtocols();
-            setProtocols(data);
-        }
-        fetchProtocols();
-    }, []);
+        fetchData();
+    }, [fetchData]);
 
-    const handleDeleteDevice = (deviceId: string) => {
-        setDevices(prev => prev.filter(d => d.id !== deviceId));
-        toast({
-            title: t('toast.successTitle'),
-            description: t('condoDashboard.devices.toast.deviceDeleted'),
+    const handleDeleteDevice = (device: Device) => {
+        startSubmittingTransition(async () => {
+            // Here you would call a server action to delete the device.
+            // For now, we'll just show a success toast.
+            console.log("Deleting device:", device.id);
+            toast({
+                title: "Función no implementada",
+                description: `La eliminación del dispositivo ${device.name} se manejará en un próximo paso.`,
+                variant: "destructive"
+            });
+            fetchData(); // Refresh list
         });
     }
     
-    const openManageDialog = async (device: Device) => {
+    const openManageDialog = (device: Device) => {
         setSelectedDevice(device);
-        setIsFormLoading(true);
         setIsManageDialogOpen(true);
-        const commData = await getDeviceCommunication(device.id);
-        setDeviceCommData(commData);
-        setIsFormLoading(false);
     }
     
     const onFormSuccess = () => {
         setIsManageDialogOpen(false);
+        setIsCreateDialogOpen(false);
         setSelectedDevice(null);
-        setDeviceCommData(null);
+        fetchData();
     }
 
     return (
@@ -186,7 +268,7 @@ export default function ManageDevicesTab({
                     <CardTitle>{t('condoDashboard.devices.title')}</CardTitle>
                     <CardDescription>{t('condoDashboard.devices.description')}</CardDescription>
                 </div>
-                 <Button size="sm" className="gap-1">
+                 <Button size="sm" className="gap-1" onClick={() => setIsCreateDialogOpen(true)}>
                     <PlusCircle className="h-4 w-4" />
                     {t('condoDashboard.devices.addDeviceButton')}
                 </Button>
@@ -197,7 +279,7 @@ export default function ManageDevicesTab({
                         <TableRow>
                             <TableHead>{t('condoDashboard.devices.table.name')}</TableHead>
                             <TableHead>{t('condoDashboard.devices.table.type')}</TableHead>
-                            <TableHead>{t('condoDashboard.devices.table.status')}</TableHead>
+                            <TableHead>{t('condoDashboard.devices.table.protocol')}</TableHead>
                             <TableHead><span className="sr-only">{t('condoDashboard.devices.table.actions')}</span></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -210,24 +292,44 @@ export default function ManageDevicesTab({
                             ))
                         ) : devices.length === 0 ? (
                              <TableRow>
-                                <TableCell colSpan={4} className="h-24 text-center">{t('deviceTable.noDevices')}</TableCell>
+                                <TableCell colSpan={4} className="h-24 text-center">{t('condoDashboard.devices.noDevices')}</TableCell>
                             </TableRow>
                         ) : devices.map(device => (
                              <TableRow key={device.id}>
                                 <TableCell className="font-medium">{device.name}</TableCell>
                                 <TableCell>{device.device_type_name_translations[locale as 'es' | 'pt-BR'] || device.device_type_name_translations['pt-BR']}</TableCell>
-                                <TableCell>{t(`deviceStatus.offline`)}</TableCell>
+                                <TableCell>{device.protocol_name || <span className="text-muted-foreground">{t('condoDashboard.devices.table.noProtocol')}</span>}</TableCell>
                                 <TableCell className="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button size="icon" variant="ghost"><MoreVertical className="h-4 w-4"/></Button>
+                                            <Button size="icon" variant="ghost" disabled={isSubmitting}><MoreVertical className="h-4 w-4"/></Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuItem onSelect={() => openManageDialog(device)}>
                                                 <Settings className="h-4 w-4 mr-2"/>{t('adminDashboard.table.manage')}
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem><Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleDeleteDevice(device.id)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2"/>{t('adminDashboard.table.delete')}</DropdownMenuItem>
+                                            <DropdownMenuItem disabled><Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                     <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>
+                                                        <Trash2 className="h-4 w-4 mr-2"/>{t('adminDashboard.table.delete')}
+                                                     </DropdownMenuItem>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            {t('condoDashboard.devices.deleteConfirmation', { name: device.name })}
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDeleteDevice(device)} className={buttonVariants({variant: 'destructive'})}>
+                                                            {t('common.delete')}
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -236,25 +338,24 @@ export default function ManageDevicesTab({
                     </TableBody>
                 </Table>
             </CardContent>
-             {isManageDialogOpen && selectedDevice && (
-                <Dialog open={isManageDialogOpen} onOpenChange={setIsManageDialogOpen}>
-                   {isFormLoading ? (
-                        <DialogContent>
-                             <div className="flex items-center justify-center h-40">
-                                <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
-                            </div>
-                        </DialogContent>
-                   ) : (
-                        <ManageDeviceForm 
-                            device={selectedDevice} 
-                            initialCommData={deviceCommData}
-                            protocols={protocols}
-                            onSuccess={onFormSuccess}
-                            onCancel={() => setIsManageDialogOpen(false)}
-                        />
-                   )}
-                </Dialog>
-            )}
+
+             <Dialog open={isManageDialogOpen} onOpenChange={setIsManageDialogOpen}>
+                {selectedDevice && (
+                    <ManageDeviceForm 
+                        device={selectedDevice} 
+                        protocols={protocols}
+                        onSuccess={onFormSuccess}
+                    />
+                )}
+             </Dialog>
+
+             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                <CreateDeviceForm 
+                    condoId={condoId}
+                    deviceTypes={deviceTypes}
+                    onSuccess={onFormSuccess}
+                />
+             </Dialog>
         </Card>
     );
 }
