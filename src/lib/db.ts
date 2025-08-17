@@ -18,13 +18,26 @@ export async function getDbPool(): Promise<Pool> {
     if (!pool) {
         console.log('[getDbPool] Pool not found. Initializing new pool...');
         pool = await createPool();
+    }
+    try {
+        // Test the connection before returning the pool
+        const client = await pool.connect();
+        await client.query('SELECT NOW()');
+        client.release();
+    } catch (error) {
+        console.error("[getDbPool] Existing pool connection test failed. Re-initializing pool...", error);
+        pool = await createPool();
         try {
-            await pool.query('SELECT NOW()');
-            console.log('[getDbPool] Database pool initialized and connection verified.');
-        } catch (error) {
-            console.error("CRITICAL: Failed to connect with new pool.", error);
-            pool = undefined;
-            throw error;
+            // Test the new pool connection
+            const client = await pool.connect();
+            await client.query('SELECT NOW()');
+            client.release();
+            console.log("[getDbPool] New pool initialized and connection verified.");
+        } catch (newPoolError) {
+             console.error("CRITICAL: Failed to connect with new pool.", newPoolError);
+            // Set pool to undefined so the next call will try to re-initialize
+            pool = undefined; 
+            throw newPoolError;
         }
     }
     return pool;

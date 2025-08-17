@@ -591,15 +591,18 @@ export function CondoManagement() {
 
     const fetchCondos = useCallback(async () => {
         setLoading(true);
-        const result = await getCondominios();
-        if (result?.success && result.data) {
-            setCondominios(result.data);
-        } else if (result) {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
-        } else {
-            toast({ title: t('toast.errorTitle'), description: t('toast.adminLogin.serverError'), variant: 'destructive' });
+        try {
+            const result = await getCondominios();
+            if (result?.success && result.data) {
+                setCondominios(result.data);
+            } else if (result) {
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            }
+        } catch (error: any) {
+             toast({ title: t('toast.errorTitle'), description: error.message || t('toast.adminLogin.serverError'), variant: 'destructive' });
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }, [toast, t]);
   
     useEffect(() => {
