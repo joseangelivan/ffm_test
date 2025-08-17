@@ -23,7 +23,6 @@ const SCHEMA_FILES_ORDER = [
     'device_types/base_schema.sql',
     'protocols/base_schema.sql',
     'devices/base_schema.sql',
-    'devices_communication/base_schema.sql',
     'languages/base_schema.sql',
     'sessions/base_schema.sql',
     'admin_settings/base_schema.sql',
