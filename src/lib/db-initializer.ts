@@ -164,53 +164,61 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
     log.push('PHASE 4: Seeding test data (backup)...');
 
     try {
-        const condoResult = await client.query(
-            "INSERT INTO condominiums (name, address) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING RETURNING id",
-            ['Condominio Paraíso', 'Avenida Siempreviva 742']
+        const testCondoName = 'Condominio Paraíso';
+        let condoId: string;
+
+        // Check if condo exists, otherwise create it
+        const existingCondo = await client.query('SELECT id FROM condominiums WHERE name = $1', [testCondoName]);
+        if (existingCondo.rows.length > 0) {
+            condoId = existingCondo.rows[0].id;
+            log.push(`INFO: Test condominium "${testCondoName}" already exists.`);
+        } else {
+            const newCondoResult = await client.query(
+                "INSERT INTO condominiums (name, address) VALUES ($1, $2) RETURNING id",
+                [testCondoName, 'Avenida Siempreviva 742']
+            );
+            condoId = newCondoResult.rows[0].id;
+            log.push(`SUCCESS: Created test condominium "${testCondoName}".`);
+        }
+        
+        // Seed users for the test condo
+        const residentPassword = await bcryptjs.hash('password123', 10);
+        await client.query(
+            "INSERT INTO residents (condominium_id, name, email, password_hash) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING",
+            [condoId, 'Juan Pérez', 'juan.perez@email.com', residentPassword]
         );
         
-        const condoId = condoResult.rows[0]?.id;
+        const gatekeeperPassword = await bcryptjs.hash('password456', 10);
+        await client.query(
+            "INSERT INTO gatekeepers (condominium_id, name, email, password_hash) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING",
+            [condoId, 'Pedro Arias', 'pedro.arias@email.com', gatekeeperPassword]
+        );
+        log.push('INFO: Test users seeded (or already exist).');
         
-        if (condoId) {
-            const residentPassword = await bcryptjs.hash('password123', 10);
-            await client.query(
-                "INSERT INTO residents (condominium_id, name, email, password_hash) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING",
-                [condoId, 'Juan Pérez', 'juan.perez@email.com', residentPassword]
-            );
-            
-            const gatekeeperPassword = await bcryptjs.hash('password456', 10);
-            await client.query(
-                "INSERT INTO gatekeepers (condominium_id, name, email, password_hash) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING",
-                [condoId, 'Pedro arias', 'pedro.arias@email.com', gatekeeperPassword]
-            );
-            log.push('SUCCESS: Test data (condo, resident, gatekeeper) seeded.');
-            
-            // Seed devices for the new test condo
-            const smartphoneTypeResult = await client.query("SELECT id FROM device_types WHERE name_translations->>'pt-BR' = 'Smartphone'");
-            const smartphoneTypeId = smartphoneTypeResult.rows[0]?.id;
+        // Seed devices for the test condo
+        const smartphoneTypeResult = await client.query("SELECT id FROM device_types WHERE name_translations->>'pt-BR' = 'Smartphone'");
+        const smartphoneTypeId = smartphoneTypeResult.rows[0]?.id;
 
-            if (smartphoneTypeId) {
-                await client.query(
-                    `INSERT INTO devices (condominium_id, device_type_id, name) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING`,
-                    [condoId, smartphoneTypeId, 'iPhone de Juan']
-                );
-                 await client.query(
-                    `INSERT INTO devices (condominium_id, device_type_id, name) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING`,
-                    [condoId, smartphoneTypeId, 'Galaxy de Pedro']
-                );
-                log.push('SUCCESS: Test devices seeded.');
-            } else {
-                log.push('WARNING: Could not find "Smartphone" device type to seed test devices.');
-            }
-
+        if (smartphoneTypeId) {
+            await client.query(
+                `INSERT INTO devices (condominium_id, device_type_id, name) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING`,
+                [condoId, smartphoneTypeId, 'iPhone de Juan']
+            );
+            await client.query(
+                `INSERT INTO devices (condominium_id, device_type_id, name) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING`,
+                [condoId, smartphoneTypeId, 'Galaxy de Pedro']
+            );
+            log.push('INFO: Test devices seeded (or already exist).');
         } else {
-             log.push('INFO: Test condominium already exists, skipping test user and device creation.');
+            log.push('WARNING: Could not find "Smartphone" device type to seed test devices.');
         }
+
     } catch (e: any) {
         log.push(`ERROR: Seeding test data failed: ${e.message}`);
         throw e;
     }
 }
+
 
 async function runMigrations(client: PoolClient, log: string[]) {
     log.push("PHASE 5: Checking for new migrations...");
