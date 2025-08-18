@@ -61,7 +61,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import type { Device } from '@/actions/devices';
 import { getProtocols, getDeviceTypes, type Protocol, type DeviceType } from '@/actions/catalogs';
-import { getDeviceCommunication, createOrUpdateDeviceCommunication } from '@/actions/devices';
+import { getDevicesByCondoId, createDevice, deleteDevice, getDeviceCommunication, createOrUpdateDeviceCommunication } from '@/actions/devices';
 import { Skeleton } from '../ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { cn } from '@/lib/utils';
@@ -145,7 +145,7 @@ function CreateDeviceForm({
     const { toast } = useToast();
     
     // Placeholder for createDevice server action
-    const createDevice = async (prevState: any, formData: FormData) => {
+    const createDeviceAction = async (prevState: any, formData: FormData) => {
         // Here you would call a server action to create the device in the database.
         // For now, we'll just show a success toast.
         console.log("Form data to be submitted:", Object.fromEntries(formData.entries()));
@@ -154,7 +154,7 @@ function CreateDeviceForm({
         return { success: true, message: "Dispositivo creado (simulado)." };
     };
 
-    const [state, formAction] = useActionState(createDevice, null);
+    const [state, formAction] = useActionState(createDeviceAction, null);
     const { pending } = useFormStatus();
 
     return (
