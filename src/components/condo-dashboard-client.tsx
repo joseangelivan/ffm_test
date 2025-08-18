@@ -24,6 +24,7 @@ import ManageUsersTab from './condo/manage-users-tab';
 import ManageDevicesTab from './condo/manage-devices-tab';
 import CondoMapTab from './condo/condo-map-tab';
 import { getDevicesByCondoId, type Device } from '@/actions/devices';
+import { cn } from '@/lib/utils';
 
 type Coords = { lat: number; lng: number };
 
@@ -36,19 +37,24 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
   
   const [loading, setLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState<Coords | null>(null);
+  const [activeTab, setActiveTab] = useState('users');
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    // No need to set loading to true here if we already have a condo
+    // This prevents the whole screen from flashing on refresh.
+    if (!condo) {
+      setLoading(true);
+    }
     try {
         const [condoResult, devicesResult] = await Promise.all([
             getCondominioById(condoId),
             getDevicesByCondoId(condoId)
         ]);
         
-        if (!condoResult) {
-            console.error("Failed to fetch condo data, server response was undefined.");
-            setLoading(false);
-            return;
+        if (condoResult === undefined) {
+          console.error("Failed to fetch condo data, server response was undefined.");
+          setLoading(false);
+          return;
         }
 
         if (condoResult.success && condoResult.data) {
@@ -79,7 +85,7 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
     } finally {
         setLoading(false);
     }
-  }, [condoId, mapCenter]);
+  }, [condoId, mapCenter, condo]);
 
   useEffect(() => {
     fetchData();
@@ -128,53 +134,55 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
                 </div>
             </div>
           </div>
-          <Tabs defaultValue="users">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="users" className="flex items-center gap-2"><Users className="h-4 w-4"/>{t('condoDashboard.tabs.users')}</TabsTrigger>
               <TabsTrigger value="devices" className="flex items-center gap-2"><Smartphone className="h-4 w-4"/>{t('condoDashboard.tabs.devices')}</TabsTrigger>
               <TabsTrigger value="map" className="flex items-center gap-2"><Map className="h-4 w-4"/>{t('condoDashboard.tabs.map')}</TabsTrigger>
             </TabsList>
-            <TabsContent value="users" className="mt-4">
-              <ManageUsersTab condoId={condo.id} />
-            </TabsContent>
-            <TabsContent value="devices" className="mt-4">
-              <ManageDevicesTab condoId={condo.id} devices={devices} onDataNeedsRefresh={fetchData} />
-            </TabsContent>
-             <TabsContent value="map" className="mt-4">
-              {apiKey ? (
-                 <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']}>
-                    {mapCenter ? (
-                        <CondoMapTab condo={condo} center={mapCenter} />
-                    ) : (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                        <Loader className="h-5 w-5 animate-spin" />
-                                        <span>{t('condoDashboard.map.loadingMap')}</span>
+            <div className="mt-4">
+                <div className={cn(activeTab !== 'users' && 'hidden')}>
+                    <ManageUsersTab condoId={condo.id} />
+                </div>
+                <div className={cn(activeTab !== 'devices' && 'hidden')}>
+                    <ManageDevicesTab condoId={condo.id} devices={devices} onDataNeedsRefresh={fetchData} />
+                </div>
+                <div className={cn(activeTab !== 'map' && 'hidden')}>
+                    {apiKey ? (
+                        <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']}>
+                        {mapCenter ? (
+                            <CondoMapTab condo={condo} center={mapCenter} />
+                        ) : (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                            <Loader className="h-5 w-5 animate-spin" />
+                                            <span>{t('condoDashboard.map.loadingMap')}</span>
+                                        </div>
                                     </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        )}
+                        </APIProvider>
+                    ) : (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
+                            <CardDescription>{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyMissing')}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center text-center p-4">
+                                <p className="text-sm text-muted-foreground">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
                     )}
-                 </APIProvider>
-              ) : (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-                        <CardDescription>{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyMissing')}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center text-center p-4">
-                            <p className="text-sm text-muted-foreground">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-              )}
-            </TabsContent>
+                </div>
+            </div>
           </Tabs>
         </div>
       </main>
