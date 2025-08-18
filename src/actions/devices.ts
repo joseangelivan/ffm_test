@@ -64,7 +64,7 @@ export async function getDevicesByCondoId(condoId: string): Promise<Device[]> {
                 p.name as protocol_name,
                 dc.physical_device_id
             FROM devices d
-            JOIN device_types dt ON d.device_type_id = dt.id
+            LEFT JOIN device_types dt ON d.device_type_id = dt.id
             LEFT JOIN devices_communication dc ON d.id = dc.device_id
             LEFT JOIN protocols p ON dc.protocol_id = p.id
             WHERE d.condominium_id = $1

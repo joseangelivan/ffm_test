@@ -198,12 +198,10 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
 
         if (smartphoneTypeId) {
             const device1Name = 'iPhone de Juan';
-            await client.query(
+             await client.query(
                 `INSERT INTO devices (condominium_id, device_type_id, name)
                  SELECT $1, $2, $3
-                 WHERE NOT EXISTS (
-                     SELECT 1 FROM devices WHERE condominium_id = $1 AND name = $3
-                 )`,
+                 WHERE NOT EXISTS (SELECT 1 FROM devices WHERE condominium_id = $1 AND name = $3)`,
                 [condoId, smartphoneTypeId, device1Name]
             );
 
@@ -211,9 +209,7 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
             await client.query(
                 `INSERT INTO devices (condominium_id, device_type_id, name)
                  SELECT $1, $2, $3
-                 WHERE NOT EXISTS (
-                     SELECT 1 FROM devices WHERE condominium_id = $1 AND name = $3
-                 )`,
+                 WHERE NOT EXISTS (SELECT 1 FROM devices WHERE condominium_id = $1 AND name = $3)`,
                 [condoId, smartphoneTypeId, device2Name]
             );
             log.push('INFO: Test devices seeded (or already exist).');
