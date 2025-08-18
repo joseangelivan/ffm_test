@@ -44,8 +44,8 @@ type ActionState = {
 };
 
 
-export async function getDevicesByCondoId(condoId: string): Promise<Device[] | null> {
-    if (!condoId) return null;
+export async function getDevicesByCondoId(condoId: string): Promise<Device[]> {
+    if (!condoId) return [];
 
     let client;
     try {
@@ -74,7 +74,7 @@ export async function getDevicesByCondoId(condoId: string): Promise<Device[] | n
         return result.rows;
     } catch (error) {
         console.error(`Error getting devices for condo ${condoId}:`, error);
-        return null;
+        return [];
     } finally {
         if (client) client.release();
     }
