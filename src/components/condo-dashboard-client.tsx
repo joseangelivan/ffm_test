@@ -43,6 +43,13 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
             getCondominioById(condoId),
             getDevicesByCondoId(condoId)
         ]);
+        
+        if (!condoResult) {
+            console.error("Failed to fetch condo data, server response was undefined.");
+            // Potentially handle this with a toast message or redirect
+            setLoading(false);
+            return;
+        }
 
         if (condoResult.success && condoResult.data) {
             setCondo(condoResult.data);
