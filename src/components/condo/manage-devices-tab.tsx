@@ -200,7 +200,7 @@ function CreateDeviceForm({
 
 export default function ManageDevicesTab({
     condoId,
-    devices,
+    devices: initialDevices,
     onDataNeedsRefresh,
 }: {
     condoId: string;
@@ -209,6 +209,7 @@ export default function ManageDevicesTab({
 }) {
     const { t, locale } = useLocale();
     const { toast } = useToast();
+    const [devices, setDevices] = useState<Device[]>(initialDevices);
     
     const [protocols, setProtocols] = useState<Protocol[]>([]);
     const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
@@ -240,6 +241,10 @@ export default function ManageDevicesTab({
     useEffect(() => {
         fetchCatalogs();
     }, [fetchCatalogs]);
+
+    useEffect(() => {
+        setDevices(initialDevices);
+    }, [initialDevices]);
 
     const handleDeleteDevice = (device: Device) => {
         startSubmittingTransition(async () => {

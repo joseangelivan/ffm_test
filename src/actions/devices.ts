@@ -142,7 +142,8 @@ export async function createDevice(prevState: any, formData: FormData): Promise<
     });
 
     if (!validatedFields.success) {
-        return { success: false, message: 'Datos inválidos.' };
+        const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0]?.[0]
+        return { success: false, message: firstError || 'Datos inválidos.' };
     }
 
     const { condominium_id, name, device_type_id } = validatedFields.data;
