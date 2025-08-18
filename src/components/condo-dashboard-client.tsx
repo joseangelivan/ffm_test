@@ -130,7 +130,7 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
               <ManageUsersTab condoId={condo.id} />
             </TabsContent>
             <TabsContent value="devices" className="mt-4">
-              <ManageDevicesTab condoId={condo.id} initialDevices={devices} onDataNeedsRefresh={fetchData} />
+              <ManageDevicesTab condoId={condo.id} devices={devices} onDataNeedsRefresh={fetchData} />
             </TabsContent>
              <TabsContent value="map" className="mt-4">
               {apiKey ? (

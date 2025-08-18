@@ -199,30 +199,25 @@ function CreateDeviceForm({
 
 export default function ManageDevicesTab({
     condoId,
-    initialDevices,
+    devices,
     onDataNeedsRefresh,
 }: {
     condoId: string;
-    initialDevices: Device[];
+    devices: Device[];
     onDataNeedsRefresh: () => void;
 }) {
     const { t, locale } = useLocale();
     const { toast } = useToast();
     
-    const [devices, setDevices] = useState<Device[]>(initialDevices);
     const [protocols, setProtocols] = useState<Protocol[]>([]);
     const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
     
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, startSubmittingTransition] = useTransition();
 
     const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-
-    useEffect(() => {
-        setDevices(initialDevices);
-    }, [initialDevices]);
 
     const fetchCatalogs = useCallback(async () => {
         setIsLoading(true);
@@ -247,13 +242,14 @@ export default function ManageDevicesTab({
 
     const handleDeleteDevice = (device: Device) => {
         startSubmittingTransition(async () => {
-            const result = await deleteDevice(device.id);
-            if (result.success) {
-                 toast({ title: t('toast.successTitle'), description: result.message });
-                 onDataNeedsRefresh();
-            } else {
-                 toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
-            }
+            // const result = await deleteDevice(device.id);
+            // if (result.success) {
+            //      toast({ title: t('toast.successTitle'), description: result.message });
+            //      onDataNeedsRefresh();
+            // } else {
+            //      toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            // }
+             toast({ title: 'Función no implementada', description: 'La eliminación se manejará en un paso futuro.', variant: 'destructive' });
         });
     }
     
