@@ -104,7 +104,7 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
         const name_translations = { es: 'Teléfono Inteligente', 'pt-BR': 'Smartphone' };
         await client.query(
             `INSERT INTO device_types (name_translations) VALUES ($1) 
-             ON CONFLICT ON CONSTRAINT unique_device_type_name_translations_idx DO NOTHING`,
+             ON CONFLICT ((name_translations->>'es'), (name_translations->>'pt-BR')) DO NOTHING`,
             [name_translations]
         );
         log.push('SUCCESS: Default device type data seeded.');
