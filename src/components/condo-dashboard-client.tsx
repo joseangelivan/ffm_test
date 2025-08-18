@@ -32,13 +32,12 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   
   const [condo, setCondo] = useState<Condominio | null>(null);
-  const [devices, setDevices] = useState<Device[] | null>(null);
+  const [devices, setDevices] = useState<Device[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState<Coords | null>(null);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
     try {
         const [condoResult, devicesResult] = await Promise.all([
             getCondominioById(condoId),
@@ -132,7 +131,7 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
               <ManageUsersTab condoId={condo.id} />
             </TabsContent>
             <TabsContent value="devices" className="mt-4">
-              <ManageDevicesTab condoId={condo.id} devices={devices || []} onDataNeedsRefresh={fetchData} />
+              <ManageDevicesTab condoId={condo.id} devices={devices} onDataNeedsRefresh={fetchData} />
             </TabsContent>
              <TabsContent value="map" className="mt-4">
               {apiKey ? (

@@ -135,7 +135,11 @@ export async function createOrUpdateDeviceCommunication(prevState: any, formData
 }
 
 export async function createDevice(prevState: any, formData: FormData): Promise<ActionState> {
-    const validatedFields = CreateDeviceSchema.safeParse(Object.fromEntries(formData.entries()));
+    const validatedFields = CreateDeviceSchema.safeParse({
+        condominium_id: formData.get('condominium_id'),
+        name: formData.get('name'),
+        device_type_id: formData.get('device_type_id'),
+    });
 
     if (!validatedFields.success) {
         return { success: false, message: 'Datos inválidos.' };
