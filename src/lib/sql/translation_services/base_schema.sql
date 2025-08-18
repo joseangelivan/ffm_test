@@ -15,4 +15,3 @@ CREATE TRIGGER set_updated_at
 BEFORE UPDATE ON translation_services
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
--- only test
