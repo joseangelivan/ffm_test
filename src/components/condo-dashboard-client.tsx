@@ -38,6 +38,7 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
   const [mapCenter, setMapCenter] = useState<Coords | null>(null);
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
         const [condoResult, devicesResult] = await Promise.all([
             getCondominioById(condoId),
@@ -46,7 +47,6 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
         
         if (!condoResult) {
             console.error("Failed to fetch condo data, server response was undefined.");
-            // Potentially handle this with a toast message or redirect
             setLoading(false);
             return;
         }
@@ -55,7 +55,7 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
             setCondo(condoResult.data);
             setDevices(devicesResult || []);
 
-            if (!mapCenter) { // Only geocode if we don't have a center yet
+            if (!mapCenter) {
               const geoResult = await geocodeAddress({
                   street: condoResult.data.street!,
                   city: condoResult.data.city!,
