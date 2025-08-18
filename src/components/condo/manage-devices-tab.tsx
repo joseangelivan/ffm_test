@@ -61,7 +61,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import type { Device } from '@/actions/devices';
 import { getProtocols, getDeviceTypes, type Protocol, type DeviceType } from '@/actions/catalogs';
-import { getDevicesByCondoId, createOrUpdateDeviceCommunication, deleteDevice } from '@/actions/devices';
+import { createOrUpdateDeviceCommunication, deleteDevice, getDevicesByCondoId } from '@/actions/devices';
 import { Skeleton } from '../ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { cn } from '@/lib/utils';
@@ -141,7 +141,7 @@ function CreateDeviceForm({
     deviceTypes: DeviceType[];
     onSuccess: () => void;
 }) {
-    const { t } = useLocale();
+    const { t, locale } = useLocale();
     const { toast } = useToast();
     
     // Placeholder for createDevice server action
@@ -180,7 +180,7 @@ function CreateDeviceForm({
                                 <SelectContent>
                                     {deviceTypes.map(dt => (
                                         <SelectItem key={dt.id} value={dt.id}>
-                                            {dt.name_translations[t as 'es' | 'pt-BR'] || dt.name_translations['pt-BR']}
+                                            {dt.name_translations[locale as 'es' | 'pt-BR'] || dt.name_translations['pt-BR']}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -197,50 +197,60 @@ function CreateDeviceForm({
     );
 }
 
-export default function ManageDevicesTab({ condoId }: { condoId: string }) {
+export default function ManageDevicesTab({
+    condoId,
+    initialDevices,
+    onDataNeedsRefresh,
+}: {
+    condoId: string;
+    initialDevices: Device[];
+    onDataNeedsRefresh: () => void;
+}) {
     const { t, locale } = useLocale();
     const { toast } = useToast();
     
-    const [devices, setDevices] = useState<Device[]>([]);
+    const [devices, setDevices] = useState<Device[]>(initialDevices);
     const [protocols, setProtocols] = useState<Protocol[]>([]);
     const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
     
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, startSubmittingTransition] = useTransition();
 
     const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
 
-    const fetchData = useCallback(async () => {
+    useEffect(() => {
+        setDevices(initialDevices);
+    }, [initialDevices]);
+
+    const fetchCatalogs = useCallback(async () => {
         setIsLoading(true);
         try {
-            const [devicesData, protocolsData, deviceTypesData] = await Promise.all([
-                getDevicesByCondoId(condoId),
+            const [protocolsData, deviceTypesData] = await Promise.all([
                 getProtocols(),
                 getDeviceTypes()
             ]);
-            setDevices(devicesData || []);
             setProtocols(protocolsData || []);
             setDeviceTypes(deviceTypesData || []);
         } catch (error) {
-            console.error("Failed to fetch device data:", error);
-            toast({ title: t('toast.errorTitle'), description: "Error al cargar los datos.", variant: 'destructive' });
+            console.error("Failed to fetch device catalogs:", error);
+            toast({ title: t('toast.errorTitle'), description: "Error al cargar los catálogos.", variant: 'destructive' });
         } finally {
             setIsLoading(false);
         }
-    }, [condoId, toast, t]);
+    }, [toast, t]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        fetchCatalogs();
+    }, [fetchCatalogs]);
 
     const handleDeleteDevice = (device: Device) => {
         startSubmittingTransition(async () => {
             const result = await deleteDevice(device.id);
             if (result.success) {
                  toast({ title: t('toast.successTitle'), description: result.message });
-                 fetchData();
+                 onDataNeedsRefresh();
             } else {
                  toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
             }
@@ -256,7 +266,7 @@ export default function ManageDevicesTab({ condoId }: { condoId: string }) {
         setIsManageDialogOpen(false);
         setIsCreateDialogOpen(false);
         setSelectedDevice(null);
-        fetchData();
+        onDataNeedsRefresh();
     }
 
     return (

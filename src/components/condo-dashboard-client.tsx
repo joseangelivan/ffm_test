@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -23,46 +23,59 @@ import { geocodeAddress } from '@/actions/geocoding';
 import ManageUsersTab from './condo/manage-users-tab';
 import ManageDevicesTab from './condo/manage-devices-tab';
 import CondoMapTab from './condo/condo-map-tab';
+import { getDevicesByCondoId, type Device } from '@/actions/devices';
 
 type Coords = { lat: number; lng: number };
 
 export default function CondoDashboardClient({ condoId }: { condoId: string }) {
   const { t } = useLocale();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  
   const [condo, setCondo] = useState<Condominio | null>(null);
+  const [devices, setDevices] = useState<Device[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState<Coords | null>(null);
 
-  useEffect(() => {
-    async function fetchCondoAndCoords() {
-      const result = await getCondominioById(condoId);
-      
-      if (result.success && result.data) {
-        setCondo(result.data);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+        const [condoResult, devicesResult] = await Promise.all([
+            getCondominioById(condoId),
+            getDevicesByCondoId(condoId)
+        ]);
 
-        // Geocode address
-        const geoResult = await geocodeAddress({
-          street: result.data.street!,
-          city: result.data.city!,
-          state: result.data.state!,
-          country: result.data.country!,
-        });
+        if (condoResult.success && condoResult.data) {
+            setCondo(condoResult.data);
+            setDevices(devicesResult || []);
 
-        if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
-            const { lat, lng } = geoResult.data[0].geometry.location;
-            setMapCenter({ lat, lng });
+            const geoResult = await geocodeAddress({
+                street: condoResult.data.street!,
+                city: condoResult.data.city!,
+                state: condoResult.data.state!,
+                country: condoResult.data.country!,
+            });
+
+            if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
+                const { lat, lng } = geoResult.data[0].geometry.location;
+                setMapCenter({ lat, lng });
+            } else {
+                console.warn("Could not geocode address for map center.");
+                setMapCenter({ lat: -23.5505, lng: -46.6333 }); // Fallback
+            }
         } else {
-            console.warn("Could not geocode address for map center.");
-            setMapCenter({ lat: -23.5505, lng: -46.6333 }); // Fallback
+            console.error(condoResult.message);
         }
-
-      } else {
-        console.error(result.message);
-      }
-      setLoading(false);
+    } catch (error) {
+        console.error("Failed to fetch dashboard data:", error);
+    } finally {
+        setLoading(false);
     }
-    fetchCondoAndCoords();
   }, [condoId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   if (loading) {
       return (
@@ -117,7 +130,7 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
               <ManageUsersTab condoId={condo.id} />
             </TabsContent>
             <TabsContent value="devices" className="mt-4">
-              <ManageDevicesTab condoId={condo.id} />
+              <ManageDevicesTab condoId={condo.id} initialDevices={devices} onDataNeedsRefresh={fetchData} />
             </TabsContent>
              <TabsContent value="map" className="mt-4">
               {apiKey ? (
