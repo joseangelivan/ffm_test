@@ -1,16 +1,14 @@
--- Tabla para los tipos de dispositivos (catálogo)
+
 CREATE TABLE IF NOT EXISTS device_types (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name_translations JSONB NOT NULL,
     features_translations JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(name_translations)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT unique_device_type_name_translations UNIQUE ((name_translations->>'es'), (name_translations->>'pt-BR'))
 );
 
--- Trigger para actualizar el campo updated_at
-DROP TRIGGER IF EXISTS set_updated_at ON public.device_types;
-CREATE TRIGGER set_updated_at
+CREATE OR REPLACE TRIGGER set_device_types_timestamp
 BEFORE UPDATE ON device_types
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+EXECUTE FUNCTION update_timestamp();
