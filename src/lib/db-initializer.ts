@@ -167,7 +167,6 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
         const testCondoName = 'Condominio Paraíso';
         let condoId: string;
 
-        // Check if condo exists, otherwise create it
         const existingCondo = await client.query('SELECT id FROM condominiums WHERE name = $1', [testCondoName]);
         if (existingCondo.rows.length > 0) {
             condoId = existingCondo.rows[0].id;
@@ -181,7 +180,6 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
             log.push(`SUCCESS: Created test condominium "${testCondoName}".`);
         }
         
-        // Seed users for the test condo
         const residentPassword = await bcryptjs.hash('password123', 10);
         await client.query(
             "INSERT INTO residents (condominium_id, name, email, password_hash) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING",
@@ -195,19 +193,29 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
         );
         log.push('INFO: Test users seeded (or already exist).');
         
-        // Seed devices for the test condo
         const smartphoneTypeResult = await client.query("SELECT id FROM device_types WHERE name_translations->>'pt-BR' = 'Smartphone'");
         const smartphoneTypeId = smartphoneTypeResult.rows[0]?.id;
 
         if (smartphoneTypeId) {
-            await client.query(
-                `INSERT INTO devices (condominium_id, device_type_id, name) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING`,
-                [condoId, smartphoneTypeId, 'iPhone de Juan']
-            );
-            await client.query(
-                `INSERT INTO devices (condominium_id, device_type_id, name) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING`,
-                [condoId, smartphoneTypeId, 'Galaxy de Pedro']
-            );
+            // Check and insert first device
+            const device1Name = 'iPhone de Juan';
+            const existingDevice1 = await client.query('SELECT id FROM devices WHERE name = $1 AND condominium_id = $2', [device1Name, condoId]);
+            if (existingDevice1.rows.length === 0) {
+                await client.query(
+                    `INSERT INTO devices (condominium_id, device_type_id, name) VALUES ($1, $2, $3)`,
+                    [condoId, smartphoneTypeId, device1Name]
+                );
+            }
+
+            // Check and insert second device
+            const device2Name = 'Galaxy de Pedro';
+            const existingDevice2 = await client.query('SELECT id FROM devices WHERE name = $1 AND condominium_id = $2', [device2Name, condoId]);
+            if (existingDevice2.rows.length === 0) {
+                await client.query(
+                    `INSERT INTO devices (condominium_id, device_type_id, name) VALUES ($1, $2, $3)`,
+                    [condoId, smartphoneTypeId, device2Name]
+                );
+            }
             log.push('INFO: Test devices seeded (or already exist).');
         } else {
             log.push('WARNING: Could not find "Smartphone" device type to seed test devices.');
