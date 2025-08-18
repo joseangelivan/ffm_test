@@ -61,7 +61,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import type { Device } from '@/actions/devices';
 import { getProtocols, getDeviceTypes, type Protocol, type DeviceType } from '@/actions/catalogs';
-import { createOrUpdateDeviceCommunication, deleteDevice, getDevicesByCondoId } from '@/actions/devices';
+import { createOrUpdateDeviceCommunication, createDevice, deleteDevice } from '@/actions/devices';
 import { Skeleton } from '../ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { cn } from '@/lib/utils';
@@ -144,17 +144,18 @@ function CreateDeviceForm({
     const { t, locale } = useLocale();
     const { toast } = useToast();
     
-    // Placeholder for createDevice server action
-    const createDeviceAction = async (prevState: any, formData: FormData) => {
-        // Here you would call a server action to create the device in the database.
-        // For now, we'll just show a success toast.
-        console.log("Form data to be submitted:", Object.fromEntries(formData.entries()));
-        toast({ title: "Función no implementada", description: "La creación de dispositivos se manejará en un próximo paso.", variant: "destructive" });
-        onSuccess(); // Simulate success to close dialog
-        return { success: true, message: "Dispositivo creado (simulado)." };
+    const handleAction = async (prevState: any, formData: FormData) => {
+        const result = await createDevice(prevState, formData);
+        if (result.success) {
+            toast({ title: t('toast.successTitle'), description: result.message });
+            onSuccess();
+        } else {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+        }
+        return result;
     };
 
-    const [state, formAction] = useActionState(createDeviceAction, null);
+    const [state, formAction] = useActionState(handleAction, null);
     const { pending } = useFormStatus();
 
     return (
@@ -212,7 +213,7 @@ export default function ManageDevicesTab({
     const [protocols, setProtocols] = useState<Protocol[]>([]);
     const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
     
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true);
     const [isSubmitting, startSubmittingTransition] = useTransition();
 
     const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
@@ -220,7 +221,7 @@ export default function ManageDevicesTab({
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
 
     const fetchCatalogs = useCallback(async () => {
-        setIsLoading(true);
+        setIsLoadingCatalogs(true);
         try {
             const [protocolsData, deviceTypesData] = await Promise.all([
                 getProtocols(),
@@ -232,7 +233,7 @@ export default function ManageDevicesTab({
             console.error("Failed to fetch device catalogs:", error);
             toast({ title: t('toast.errorTitle'), description: "Error al cargar los catálogos.", variant: 'destructive' });
         } finally {
-            setIsLoading(false);
+            setIsLoadingCatalogs(false);
         }
     }, [toast, t]);
 
@@ -242,14 +243,13 @@ export default function ManageDevicesTab({
 
     const handleDeleteDevice = (device: Device) => {
         startSubmittingTransition(async () => {
-            // const result = await deleteDevice(device.id);
-            // if (result.success) {
-            //      toast({ title: t('toast.successTitle'), description: result.message });
-            //      onDataNeedsRefresh();
-            // } else {
-            //      toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
-            // }
-             toast({ title: 'Función no implementada', description: 'La eliminación se manejará en un paso futuro.', variant: 'destructive' });
+            const result = await deleteDevice(device.id);
+            if (result.success) {
+                 toast({ title: t('toast.successTitle'), description: result.message });
+                 onDataNeedsRefresh();
+            } else {
+                 toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            }
         });
     }
     
@@ -272,8 +272,8 @@ export default function ManageDevicesTab({
                     <CardTitle>{t('condoDashboard.devices.title')}</CardTitle>
                     <CardDescription>{t('condoDashboard.devices.description')}</CardDescription>
                 </div>
-                 <Button size="sm" className="gap-1" onClick={() => setIsCreateDialogOpen(true)}>
-                    <PlusCircle className="h-4 w-4" />
+                 <Button size="sm" className="gap-1" onClick={() => setIsCreateDialogOpen(true)} disabled={isLoadingCatalogs}>
+                    {isLoadingCatalogs ? <Loader className="h-4 w-4 animate-spin"/> : <PlusCircle className="h-4 w-4" />}
                     {t('condoDashboard.devices.addDeviceButton')}
                 </Button>
             </CardHeader>
@@ -288,7 +288,7 @@ export default function ManageDevicesTab({
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {isLoading ? (
+                        {!devices ? (
                              Array.from({ length: 3 }).map((_, i) => (
                                 <TableRow key={`skel-${i}`}>
                                     <TableCell colSpan={4}><Skeleton className="h-8 w-full"/></TableCell>

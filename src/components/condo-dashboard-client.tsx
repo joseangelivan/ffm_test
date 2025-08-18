@@ -32,7 +32,7 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   
   const [condo, setCondo] = useState<Condominio | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
+  const [devices, setDevices] = useState<Device[] | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState<Coords | null>(null);
@@ -49,19 +49,21 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
             setCondo(condoResult.data);
             setDevices(devicesResult || []);
 
-            const geoResult = await geocodeAddress({
-                street: condoResult.data.street!,
-                city: condoResult.data.city!,
-                state: condoResult.data.state!,
-                country: condoResult.data.country!,
-            });
+            if (!mapCenter) { // Only geocode if we don't have a center yet
+              const geoResult = await geocodeAddress({
+                  street: condoResult.data.street!,
+                  city: condoResult.data.city!,
+                  state: condoResult.data.state!,
+                  country: condoResult.data.country!,
+              });
 
-            if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
-                const { lat, lng } = geoResult.data[0].geometry.location;
-                setMapCenter({ lat, lng });
-            } else {
-                console.warn("Could not geocode address for map center.");
-                setMapCenter({ lat: -23.5505, lng: -46.6333 }); // Fallback
+              if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
+                  const { lat, lng } = geoResult.data[0].geometry.location;
+                  setMapCenter({ lat, lng });
+              } else {
+                  console.warn("Could not geocode address for map center.");
+                  setMapCenter({ lat: -23.5505, lng: -46.6333 }); // Fallback
+              }
             }
         } else {
             console.error(condoResult.message);
@@ -71,13 +73,13 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
     } finally {
         setLoading(false);
     }
-  }, [condoId]);
+  }, [condoId, mapCenter]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  if (loading) {
+  if (loading && !condo) {
       return (
         <div className="flex min-h-screen items-center justify-center bg-muted/40">
             <Loader className="h-12 w-12 animate-spin text-primary" />
@@ -130,7 +132,7 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
               <ManageUsersTab condoId={condo.id} />
             </TabsContent>
             <TabsContent value="devices" className="mt-4">
-              <ManageDevicesTab condoId={condo.id} devices={devices} onDataNeedsRefresh={fetchData} />
+              <ManageDevicesTab condoId={condo.id} devices={devices || []} onDataNeedsRefresh={fetchData} />
             </TabsContent>
              <TabsContent value="map" className="mt-4">
               {apiKey ? (

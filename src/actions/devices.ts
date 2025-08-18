@@ -4,6 +4,7 @@
 import { getDbPool } from '@/lib/db';
 import type { TranslationObject } from '@/actions/catalogs';
 import { z } from 'zod';
+import bcryptjs from 'bcryptjs';
 
 export type Device = {
   id: string;
@@ -29,6 +30,13 @@ const DeviceCommunicationSchema = z.object({
     physical_device_id: z.string().optional().nullable(),
     protocol_id: z.string().uuid(),
 });
+
+const CreateDeviceSchema = z.object({
+  condominium_id: z.string().uuid("ID de condominio inválido."),
+  name: z.string().min(1, "El nombre es obligatorio."),
+  device_type_id: z.string().uuid("El tipo de dispositivo es obligatorio."),
+});
+
 
 type ActionState = {
     success: boolean;
@@ -121,6 +129,61 @@ export async function createOrUpdateDeviceCommunication(prevState: any, formData
     } catch (error) {
         console.error(`Error saving device communication for device ${device_id}:`, error);
         return { success: false, message: 'Error del servidor al guardar la configuración.' };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+export async function createDevice(prevState: any, formData: FormData): Promise<ActionState> {
+    const validatedFields = CreateDeviceSchema.safeParse(Object.fromEntries(formData.entries()));
+
+    if (!validatedFields.success) {
+        return { success: false, message: 'Datos inválidos.' };
+    }
+
+    const { condominium_id, name, device_type_id } = validatedFields.data;
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        
+        await client.query(
+            'INSERT INTO devices (condominium_id, name, device_type_id) VALUES ($1, $2, $3)',
+            [condominium_id, name, device_type_id]
+        );
+
+        return { success: true, message: `Dispositivo "${name}" creado con éxito.` };
+    } catch (error: any) {
+        console.error('Error creating device:', error);
+        if (error.code === '23505') { // unique_violation, assuming name is unique per condo
+            return { success: false, message: 'Ya existe un dispositivo con este nombre en el condominio.' };
+        }
+        return { success: false, message: 'Error del servidor al crear el dispositivo.' };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+export async function deleteDevice(id: string): Promise<ActionState> {
+    if (!id) {
+        return { success: false, message: "ID no proporcionado." };
+    }
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        const result = await client.query('DELETE FROM devices WHERE id = $1', [id]);
+        
+        if (result.rowCount === 0) {
+            return { success: false, message: 'No se encontró el dispositivo para eliminar.' };
+        }
+        
+        return { success: true, message: 'Dispositivo eliminado con éxito.' };
+    } catch (error) {
+        console.error(`Error deleting device ${id}:`, error);
+        return { success: false, message: 'Error del servidor.' };
     } finally {
         if (client) client.release();
     }
