@@ -19,7 +19,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocale } from '@/lib/i18n';
 import { getCondominioById, type Condominio } from '@/actions/condos';
 import { geocodeAddress } from '@/actions/geocoding';
-import { getDevicesByCondoId, type Device } from '@/actions/devices';
 
 import ManageUsersTab from './condo/manage-users-tab';
 import ManageDevicesTab from './condo/manage-devices-tab';
@@ -31,9 +30,7 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
   const { t } = useLocale();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const [condo, setCondo] = useState<Condominio | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingDevices, setLoadingDevices] = useState(true);
   const [mapCenter, setMapCenter] = useState<Coords | null>(null);
 
   useEffect(() => {
@@ -42,15 +39,6 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
       
       if (result.success && result.data) {
         setCondo(result.data);
-
-        // Fetch devices
-        setLoadingDevices(true);
-        const devicesResult = await getDevicesByCondoId(condoId);
-        if (devicesResult) {
-            setDevices(devicesResult);
-        }
-        setLoadingDevices(false);
-
 
         // Geocode address
         const geoResult = await geocodeAddress({
@@ -129,7 +117,7 @@ export default function CondoDashboardClient({ condoId }: { condoId: string }) {
               <ManageUsersTab condoId={condo.id} />
             </TabsContent>
             <TabsContent value="devices" className="mt-4">
-              <ManageDevicesTab initialDevices={devices} isLoading={loadingDevices} condoId={condo.id} />
+              <ManageDevicesTab condoId={condo.id} />
             </TabsContent>
              <TabsContent value="map" className="mt-4">
               {apiKey ? (

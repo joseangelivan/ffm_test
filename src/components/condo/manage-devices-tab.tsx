@@ -61,7 +61,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import type { Device } from '@/actions/devices';
 import { getProtocols, getDeviceTypes, type Protocol, type DeviceType } from '@/actions/catalogs';
-import { getDevicesByCondoId, createDevice, deleteDevice, getDeviceCommunication, createOrUpdateDeviceCommunication } from '@/actions/devices';
+import { getDevicesByCondoId, createOrUpdateDeviceCommunication, deleteDevice } from '@/actions/devices';
 import { Skeleton } from '../ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { cn } from '@/lib/utils';
@@ -237,15 +237,13 @@ export default function ManageDevicesTab({ condoId }: { condoId: string }) {
 
     const handleDeleteDevice = (device: Device) => {
         startSubmittingTransition(async () => {
-            // Here you would call a server action to delete the device.
-            // For now, we'll just show a success toast.
-            console.log("Deleting device:", device.id);
-            toast({
-                title: "Función no implementada",
-                description: `La eliminación del dispositivo ${device.name} se manejará en un próximo paso.`,
-                variant: "destructive"
-            });
-            fetchData(); // Refresh list
+            const result = await deleteDevice(device.id);
+            if (result.success) {
+                 toast({ title: t('toast.successTitle'), description: result.message });
+                 fetchData();
+            } else {
+                 toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            }
         });
     }
     
