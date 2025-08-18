@@ -103,7 +103,7 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
     try {
         const name_translations = { es: 'Teléfono Inteligente', 'pt-BR': 'Smartphone' };
         await client.query(
-            'INSERT INTO device_types (name_translations) VALUES ($1) ON CONFLICT (name_translations) DO NOTHING',
+            'INSERT INTO device_types (name_translations) VALUES ($1) ON CONFLICT ((name_translations->>\'es\'), (name_translations->>\'pt-BR\')) DO NOTHING',
             [name_translations]
         );
         log.push('SUCCESS: Default device type data seeded.');
@@ -173,8 +173,8 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
             log.push(`INFO: Test condominium "${testCondoName}" already exists.`);
         } else {
             const newCondoResult = await client.query(
-                "INSERT INTO condominiums (name, address) VALUES ($1, $2) RETURNING id",
-                [testCondoName, 'Avenida Siempreviva 742']
+                "INSERT INTO condominiums (name, continent, country, state, city, street, number) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+                [testCondoName, 'Americas', 'Brazil', 'São Paulo', 'São Paulo', 'Avenida Paulista', '1000']
             );
             condoId = newCondoResult.rows[0].id;
             log.push(`SUCCESS: Created test condominium "${testCondoName}".`);
@@ -197,25 +197,25 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
         const smartphoneTypeId = smartphoneTypeResult.rows[0]?.id;
 
         if (smartphoneTypeId) {
-            // Check and insert first device
             const device1Name = 'iPhone de Juan';
-            const existingDevice1 = await client.query('SELECT id FROM devices WHERE name = $1 AND condominium_id = $2', [device1Name, condoId]);
-            if (existingDevice1.rows.length === 0) {
-                await client.query(
-                    `INSERT INTO devices (condominium_id, device_type_id, name) VALUES ($1, $2, $3)`,
-                    [condoId, smartphoneTypeId, device1Name]
-                );
-            }
+            await client.query(
+                `INSERT INTO devices (condominium_id, device_type_id, name)
+                 SELECT $1, $2, $3
+                 WHERE NOT EXISTS (
+                     SELECT 1 FROM devices WHERE condominium_id = $1 AND name = $3
+                 )`,
+                [condoId, smartphoneTypeId, device1Name]
+            );
 
-            // Check and insert second device
             const device2Name = 'Galaxy de Pedro';
-            const existingDevice2 = await client.query('SELECT id FROM devices WHERE name = $1 AND condominium_id = $2', [device2Name, condoId]);
-            if (existingDevice2.rows.length === 0) {
-                await client.query(
-                    `INSERT INTO devices (condominium_id, device_type_id, name) VALUES ($1, $2, $3)`,
-                    [condoId, smartphoneTypeId, device2Name]
-                );
-            }
+            await client.query(
+                `INSERT INTO devices (condominium_id, device_type_id, name)
+                 SELECT $1, $2, $3
+                 WHERE NOT EXISTS (
+                     SELECT 1 FROM devices WHERE condominium_id = $1 AND name = $3
+                 )`,
+                [condoId, smartphoneTypeId, device2Name]
+            );
             log.push('INFO: Test devices seeded (or already exist).');
         } else {
             log.push('WARNING: Could not find "Smartphone" device type to seed test devices.');
