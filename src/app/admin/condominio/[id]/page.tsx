@@ -12,14 +12,14 @@ import type { UserSettings } from '@/actions/admin';
 
 export const dynamic = 'force-dynamic';
 
-async function CondoDataLoader({ params }: { params: { id: string } }) {
+export default async function CondominioDashboardPage({ params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
     // This should be handled by middleware, but as a safeguard
     notFound();
   }
 
-  // Fetch all data needed for the dashboard
+  // Fetch all data needed for the dashboard in parallel
   const [condoResult, devices, settings] = await Promise.all([
     getCondominioById(params.id),
     getDevicesByCondoId(params.id),
@@ -33,20 +33,13 @@ async function CondoDataLoader({ params }: { params: { id: string } }) {
   const initialSettings = settings || { theme: 'light', language: 'pt-BR' };
 
   return (
-    <CondoDashboardClient 
-      session={session}
-      initialCondo={condoResult.data}
-      initialDevices={devices}
-      initialSettings={initialSettings}
-    />
-  );
-}
-
-
-export default function CondominioDashboardPage({ params }: { params: { id: string } }) {
-  return (
     <Suspense fallback={<Loading />}>
-      <CondoDataLoader params={params} />
+        <CondoDashboardClient 
+            session={session}
+            initialCondo={condoResult.data}
+            initialDevices={devices}
+            initialSettings={initialSettings}
+        />
     </Suspense>
   );
 }
