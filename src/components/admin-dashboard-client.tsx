@@ -23,11 +23,9 @@ import { CondoManagement } from './admin/condo-management';
 import { type Theme } from '@/actions/themes';
 
 export const AdminDashboardContext = React.createContext<{
-    session: SessionPayload,
     handleSetLocale: (locale: 'es' | 'pt-BR') => void,
     handleSetTheme: (theme: string) => void,
     theme: string,
-    onAccountUpdateSuccess: (data: any) => void;
 } | null>(null);
 
 export function useAdminDashboard() {
@@ -128,11 +126,9 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
   }
 
   const providerValue = {
-    session,
     handleSetLocale,
     handleSetTheme,
     theme,
-    onAccountUpdateSuccess: handleAccountUpdateSuccess,
   };
 
   return (

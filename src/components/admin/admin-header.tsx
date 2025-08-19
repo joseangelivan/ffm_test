@@ -65,19 +65,13 @@ export function LoadingOverlay({ text }: { text: string }) {
     );
 }
 
-function LogoutDialogForm({ onLogout }: { onLogout: () => Promise<void> }) {
+function LogoutDialogForm() {
     const { t } = useLocale();
-    const [isPending, startTransition] = React.useTransition();
-
-    const handleClick = () => {
-        startTransition(async () => {
-            await onLogout();
-        });
-    };
+    const { pending } = useFormStatus();
 
     return (
-        <div className={cn("relative", isPending && "opacity-50 pointer-events-none")}>
-            {isPending && (
+        <form action={handleLogoutAction} className={cn("relative", pending && "opacity-50 pointer-events-none")}>
+            {pending && (
                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
                     <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                         <Loader className="h-12 w-12 animate-spin" />
@@ -92,12 +86,12 @@ function LogoutDialogForm({ onLogout }: { onLogout: () => Promise<void> }) {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="sm:justify-center pt-4">
-                <AlertDialogCancel disabled={isPending}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
-                <Button onClick={handleClick} disabled={isPending} className="w-full sm:w-auto bg-destructive hover:bg-destructive/90">
+                <AlertDialogCancel disabled={pending}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
+                <Button type="submit" disabled={pending} className="w-full sm:w-auto bg-destructive hover:bg-destructive/90">
                     {t('dashboard.logoutConfirmation.confirm')}
                 </Button>
             </AlertDialogFooter>
-        </div>
+        </form>
     );
 }
 
@@ -184,7 +178,7 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogo
                         </DropdownMenuItem>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                        <LogoutDialogForm onLogout={onLogout} />
+                        <LogoutDialogForm />
                     </AlertDialogContent>
                     </AlertDialog>
                 </DropdownMenuContent>
@@ -194,6 +188,7 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogo
                     isOpen={isAccountDialogOpen}
                     onOpenChange={setIsAccountDialogOpen}
                     onSuccess={onAccountUpdateSuccess}
+                    session={session}
                 />
             </div>
         </header>

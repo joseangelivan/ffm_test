@@ -59,19 +59,8 @@ import {
 } from 'lucide-react';
 import type { SessionPayload } from '@/lib/session';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAdminDashboard } from '../admin-dashboard-client';
 import { useCondoDashboard } from '@/contexts/condo-dashboard-context';
-
-function LoadingOverlay({ text }: { text: string }) {
-    return (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
-            <div className="flex items-center gap-4 text-2xl text-muted-foreground">
-                <Loader className="h-12 w-12 animate-spin" />
-                <span>{text}</span>
-            </div>
-        </div>
-    );
-}
+import { LoadingOverlay } from './admin-header';
 
 // --- 2FA Components ---
 
@@ -146,7 +135,7 @@ function TwoFactorAuthSetup({ session, onSetupComplete }: { session: SessionPayl
     );
 }
 
-function TwoFactorAuthManagement({ onDisable }: { onDisable: () => void }) {
+function TwoFactorAuthManagement({ session, onDisable }: { session: SessionPayload, onDisable: () => void }) {
     const { t } = useLocale();
     const { toast } = useToast();
     const [isLoading, startTransition] = useTransition();
@@ -362,7 +351,7 @@ function ManageAccountFields({ session, formState, isFormPending }: { session: S
                             <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
                         </div>
                     ) : is2faEnabled ? (
-                        <TwoFactorAuthManagement onDisable={on2faStatusChanged} />
+                        <TwoFactorAuthManagement session={session} onDisable={on2faStatusChanged} />
                     ) : (
                         <Card>
                             <CardHeader>
@@ -405,17 +394,15 @@ export function ManageAccountDialog({
   isOpen,
   onOpenChange,
   onSuccess,
+  session,
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: (data: any) => void;
+  session: SessionPayload;
 }) {
   const { toast } = useToast();
   const { t } = useLocale();
-
-  const adminContext = useAdminDashboard();
-  const condoContext = useCondoDashboard();
-  const context = adminContext || condoContext;
 
   const [state, formAction, isPending] = useActionState(updateAdminAccount, undefined);
   const [formState, setFormState] = useState(state);
@@ -447,15 +434,15 @@ export function ManageAccountDialog({
     }
   }, [state, toast, t, onSuccess, onOpenChange]);
 
-  if (!context) {
-    return null; // Or a loading/error state if the dialog can be opened before context is ready
+  if (!session) {
+    return null; 
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <form action={formAction}>
-          <ManageAccountFields session={context.session} formState={formState} isFormPending={isPending} />
+          <ManageAccountFields session={session} formState={formState} isFormPending={isPending} />
         </form>
       </DialogContent>
     </Dialog>
