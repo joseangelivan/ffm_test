@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useFormStatus } from 'react-dom';
 import { useLocale } from '@/lib/i18n';
 import {
@@ -16,10 +17,6 @@ import {
   DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import {
-  Dialog,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
     AlertDialog,
     AlertDialogAction,
     AlertDialogCancel,
@@ -28,6 +25,7 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
+    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
   Shield,
@@ -41,7 +39,7 @@ import {
   Book,
   MessageSquareQuote,
   Building,
-  Server
+  Server,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -100,19 +98,21 @@ function LogoutDialogForm() {
 }
 
 
-export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess: (data: any) => void; }) {
+export function AdminHeader() {
     const adminContext = useAdminDashboard();
     const condoContext = useCondoDashboard();
     
-    const context = adminContext || condoContext;
-    
-    if (!context) {
-        return null;
+    // Determine the active context and extract relevant data
+    const activeContext = adminContext || condoContext;
+    if (!activeContext) {
+        // This can happen on pages where no provider is available (e.g., login pages)
+        // We can either return a minimal header or null. For now, returning null
+        // if no session is available from any context.
+        return null; 
     }
     
-    const { session } = context;
+    const { session, handleAccountUpdateSuccess } = activeContext;
     const { t } = useLocale();
-    const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
 
     const isCondoView = !!condoContext;
     const condoName = isCondoView ? condoContext.condo?.name : undefined;
@@ -143,20 +143,9 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                     </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <ManageAccountDialog
-                        isOpen={isAccountDialogOpen}
-                        onOpenChange={setIsAccountDialogOpen}
-                        onSuccess={onAccountUpdateSuccess}
+                     <ManageAccountDialog
+                        onSuccess={handleAccountUpdateSuccess}
                     />
-                    <DropdownMenuItem
-                      onSelect={(event) => {
-                        event.preventDefault();
-                        setIsAccountDialogOpen(true);
-                      }}
-                    >
-                        <User className="mr-2 h-4 w-4" />
-                        <span>{t('adminDashboard.account.myAccount')}</span>
-                    </DropdownMenuItem>
                     <DropdownMenuSub>
                         <DropdownMenuSubTrigger>
                             <Settings className="mr-2 h-4 w-4" />
