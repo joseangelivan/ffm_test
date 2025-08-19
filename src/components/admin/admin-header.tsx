@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useLocale } from '@/lib/i18n';
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuPortal,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import {
     AlertDialog,
@@ -64,7 +64,7 @@ export function LoadingOverlay({ text }: { text: string }) {
     );
 }
 
-function LogoutDialogForm({ onLogout }: { onLogout: () => void }) {
+function LogoutDialogForm({ onLogout }: { onLogout: () => Promise<void> }) {
     const { t } = useLocale();
     const { pending } = useFormStatus();
 
@@ -94,7 +94,7 @@ interface AdminHeaderProps {
     session: SessionPayload;
     condoName?: string;
     onAccountUpdateSuccess: (data: any) => void;
-    onLogout: () => void;
+    onLogout: () => Promise<void>;
 }
 
 export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogout }: AdminHeaderProps) {
