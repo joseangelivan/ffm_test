@@ -76,12 +76,12 @@ export function LoadingOverlay({ text }: { text: string }) {
     );
 }
 
-function LogoutDialogContent() {
+function LogoutDialogForm() {
     const { pending } = useFormStatus();
     const { t } = useLocale();
 
     return (
-         <div className={cn("relative", pending && "opacity-50")}>
+        <div className={cn("relative", pending && "opacity-50")}>
             {pending && (
                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
                     <div className="flex items-center gap-4 text-2xl text-muted-foreground">
@@ -98,15 +98,14 @@ function LogoutDialogContent() {
             </AlertDialogHeader>
             <AlertDialogFooter className="sm:justify-center pt-4">
                 <AlertDialogCancel disabled={pending}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
-                <form action={handleLogoutAction} className="w-full sm:w-auto">
-                    <Button type="submit" disabled={pending} className="w-full bg-destructive hover:bg-destructive/90">
-                        {t('dashboard.logoutConfirmation.confirm')}
-                    </Button>
-                </form>
+                <Button type="submit" disabled={pending} className="w-full sm:w-auto bg-destructive hover:bg-destructive/90">
+                    {t('dashboard.logoutConfirmation.confirm')}
+                </Button>
             </AlertDialogFooter>
         </div>
-    )
+    );
 }
+
 
 export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess: (data: any) => void }) {
     // Safely get contexts
@@ -207,7 +206,9 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                         </DropdownMenuItem>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                       <LogoutDialogContent />
+                       <form action={handleLogoutAction}>
+                          <LogoutDialogForm />
+                        </form>
                     </AlertDialogContent>
                     </AlertDialog>
                 </DropdownMenuContent>
