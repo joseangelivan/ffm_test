@@ -75,12 +75,13 @@ export function LoadingOverlay({ text }: { text: string }) {
     );
 }
 
-function LogoutDialogForm({ onConfirm, onCancel, isLoggingOut }: { onConfirm: () => void, onCancel: () => void, isLoggingOut: boolean }) {
+function LogoutDialogForm() {
     const { t } = useLocale();
+    const { pending } = useFormStatus();
 
     return (
-        <div className={cn("relative", isLoggingOut && "opacity-50")}>
-            {isLoggingOut && (
+        <div className={cn("relative", pending && "opacity-50 pointer-events-none")}>
+            {pending && (
                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
                     <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                         <Loader className="h-12 w-12 animate-spin" />
@@ -95,8 +96,8 @@ function LogoutDialogForm({ onConfirm, onCancel, isLoggingOut }: { onConfirm: ()
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="sm:justify-center pt-4">
-                <AlertDialogCancel onClick={onCancel} disabled={isLoggingOut}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
-                <Button onClick={onConfirm} disabled={isLoggingOut} className="w-full sm:w-auto bg-destructive hover:bg-destructive/90">
+                <AlertDialogCancel disabled={pending}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
+                <Button type="submit" disabled={pending} className="w-full sm:w-auto bg-destructive hover:bg-destructive/90">
                     {t('dashboard.logoutConfirmation.confirm')}
                 </Button>
             </AlertDialogFooter>
@@ -105,7 +106,7 @@ function LogoutDialogForm({ onConfirm, onCancel, isLoggingOut }: { onConfirm: ()
 }
 
 
-export function AdminHeader({ onAccountUpdateSuccess, onLogout }: { onAccountUpdateSuccess: (data: any) => void; onLogout: () => Promise<void> }) {
+export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess: (data: any) => void; }) {
     // Safely get contexts
     const adminDashboardContext = React.useContext(AdminDashboardContext);
     const condoDashboardContext = React.useContext(CondoDashboardContext);
@@ -120,18 +121,9 @@ export function AdminHeader({ onAccountUpdateSuccess, onLogout }: { onAccountUpd
     const { session } = context;
     const { t } = useLocale();
     const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
-    const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
-    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     const isCondoView = !!condoDashboardContext;
     const condoName = condoDashboardContext?.condo?.name;
-
-    const handleConfirmLogout = async () => {
-        setIsLoggingOut(true);
-        await onLogout();
-        setIsLoggingOut(false);
-        setIsLogoutDialogOpen(false);
-    };
 
     return (
         <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-40">
@@ -203,7 +195,7 @@ export function AdminHeader({ onAccountUpdateSuccess, onLogout }: { onAccountUpd
                         </DropdownMenuPortal>
                     </DropdownMenuSub>
                     <DropdownMenuSeparator />
-                    <AlertDialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
+                    <AlertDialog>
                     <AlertDialogTrigger asChild>
                         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                             <LogOut className="mr-2 h-4 w-4" />
@@ -211,11 +203,9 @@ export function AdminHeader({ onAccountUpdateSuccess, onLogout }: { onAccountUpd
                         </DropdownMenuItem>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                       <LogoutDialogForm 
-                         onConfirm={handleConfirmLogout} 
-                         onCancel={() => setIsLogoutDialogOpen(false)} 
-                         isLoggingOut={isLoggingOut} 
-                       />
+                        <form action={handleLogoutAction}>
+                            <LogoutDialogForm />
+                       </form>
                     </AlertDialogContent>
                     </AlertDialog>
                 </DropdownMenuContent>
