@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
-  Building,
   Smartphone,
   Users,
   Map,
@@ -38,7 +37,7 @@ import { cn } from '@/lib/utils';
 import type { SessionPayload } from '@/lib/session';
 import { handleLogoutAction } from '@/lib/session';
 import type { UserSettings } from '@/actions/admin';
-import { getActiveTheme, updateSettings, getSettings, verifySessionIntegrity } from '@/actions/admin';
+import { getActiveTheme, updateSettings, getSettings } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 

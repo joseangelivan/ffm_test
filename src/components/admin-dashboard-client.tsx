@@ -65,23 +65,20 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
     );
 }
 
-export const AdminDashboardContext = React.createContext<{ 
+export const AdminDashboardContext = React.createContext<{
     session: SessionPayload,
     handleSetLocale: (locale: 'es' | 'pt-BR') => void,
     handleSetTheme: (theme: string) => void,
     theme: string,
 } | null>(null);
 
-export const useAdminDashboard = Object.assign(
-  () => {
+export function useAdminDashboard() {
     const context = React.useContext(AdminDashboardContext);
     if (!context) {
         throw new Error("useAdminDashboard must be used within an AdminDashboardProvider");
     }
     return context;
-  },
-  { Context: AdminDashboardContext }
-);
+}
 
 type DashboardState = {
     session: SessionPayload;

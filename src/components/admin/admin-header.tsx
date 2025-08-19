@@ -29,22 +29,16 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
   Shield,
   LogOut,
   Settings,
   User,
-  Languages,
   Loader,
   KeyRound,
   Mailbox,
   Globe,
-  Sun,
-  Moon,
-  Palette,
-  Server,
   Book,
   MessageSquareQuote,
   Building
@@ -52,8 +46,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { AdminDashboardContext, useAdminDashboard } from '../admin-dashboard-client';
-import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
+import { useAdminDashboard } from '../admin-dashboard-client';
+import { useCondoDashboard } from '@/contexts/condo-dashboard-context';
 import { handleLogoutAction } from '@/lib/session';
 import { ManageAdminsDialog } from './manage-admins-dialog';
 import { SmtpConfigDialog } from './smtp-config-dialog';
@@ -107,12 +101,10 @@ function LogoutDialogForm() {
 
 
 export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess: (data: any) => void; }) {
-    // Safely get contexts
-    const adminDashboardContext = React.useContext(AdminDashboardContext);
-    const condoDashboardContext = React.useContext(CondoDashboardContext);
+    const adminContext = useAdminDashboard();
+    const condoContext = useCondoDashboard();
     
-    // Determine the active context
-    const context = condoDashboardContext || adminDashboardContext;
+    const context = adminContext || condoContext;
     
     if (!context) {
         return null;
@@ -122,8 +114,8 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
     const { t } = useLocale();
     const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
 
-    const isCondoView = !!condoDashboardContext;
-    const condoName = condoDashboardContext?.condo?.name;
+    const isCondoView = !!condoContext;
+    const condoName = isCondoView ? condoContext.condo?.name : undefined;
 
     return (
         <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-40">

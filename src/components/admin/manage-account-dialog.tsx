@@ -59,12 +59,17 @@ import {
 } from 'lucide-react';
 import { LoadingOverlay } from './admin-header';
 import { useAdminDashboard } from '../admin-dashboard-client';
+import { useCondoDashboard } from '@/contexts/condo-dashboard-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // --- 2FA Components ---
 
 function TwoFactorAuthSetup({ onSetupComplete }: { onSetupComplete: () => void }) {
-    const { session } = useAdminDashboard();
+    const adminContext = useAdminDashboard();
+    const condoContext = useCondoDashboard();
+    const context = adminContext || condoContext;
+    const session = context!.session;
+
     const { t } = useLocale();
     const { toast } = useToast();
     const [isLoading, startTransition] = useTransition();
@@ -192,7 +197,11 @@ function TwoFactorAuthManagement({ onDisable }: { onDisable: () => void }) {
 function ManageAccountFields({ formState, isFormPending }: { formState: any, isFormPending: boolean }) {
     const { t, locale } = useLocale();
     const { toast } = useToast();
-    const { session } = useAdminDashboard();
+    
+    const adminContext = useAdminDashboard();
+    const condoContext = useCondoDashboard();
+    const context = adminContext || condoContext;
+    const session = context!.session;
 
     const [emailValue, setEmailValue] = useState(session.email);
     const [pinValue, setPinValue] = useState('');
