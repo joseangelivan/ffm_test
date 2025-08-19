@@ -52,7 +52,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { useAdminDashboard } from '../admin-dashboard-client';
+import { AdminDashboardContext, useAdminDashboard } from '../admin-dashboard-client';
+import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 import { handleLogoutAction } from '@/lib/session';
 import { ManageAdminsDialog } from './manage-admins-dialog';
 import { SmtpConfigDialog } from './smtp-config-dialog';
@@ -61,8 +62,6 @@ import { ManageDomainDialog } from './manage-domain-dialog';
 import { ManageInterfaceDialog } from './manage-interface-dialog';
 import { ManageCatalogsDialog } from './manage-catalogs-dialog';
 import { ManageTranslatorDialog } from './manage-translator-dialog';
-import { AdminDashboardContext } from '../admin-dashboard-client';
-import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 
 
 export function LoadingOverlay({ text }: { text: string }) {
@@ -76,13 +75,12 @@ export function LoadingOverlay({ text }: { text: string }) {
     );
 }
 
-function LogoutDialogForm() {
-    const { pending } = useFormStatus();
+function LogoutDialogForm({ onConfirm, onCancel, isLoggingOut }: { onConfirm: () => void, onCancel: () => void, isLoggingOut: boolean }) {
     const { t } = useLocale();
 
     return (
-        <div className={cn("relative", pending && "opacity-50")}>
-            {pending && (
+        <div className={cn("relative", isLoggingOut && "opacity-50")}>
+            {isLoggingOut && (
                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
                     <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                         <Loader className="h-12 w-12 animate-spin" />
@@ -97,8 +95,8 @@ function LogoutDialogForm() {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="sm:justify-center pt-4">
-                <AlertDialogCancel disabled={pending}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
-                <Button type="submit" disabled={pending} className="w-full sm:w-auto bg-destructive hover:bg-destructive/90">
+                <AlertDialogCancel onClick={onCancel} disabled={isLoggingOut}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
+                <Button onClick={onConfirm} disabled={isLoggingOut} className="w-full sm:w-auto bg-destructive hover:bg-destructive/90">
                     {t('dashboard.logoutConfirmation.confirm')}
                 </Button>
             </AlertDialogFooter>
@@ -107,7 +105,7 @@ function LogoutDialogForm() {
 }
 
 
-export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess: (data: any) => void }) {
+export function AdminHeader({ onAccountUpdateSuccess, onLogout }: { onAccountUpdateSuccess: (data: any) => void; onLogout: () => Promise<void> }) {
     // Safely get contexts
     const adminDashboardContext = React.useContext(AdminDashboardContext);
     const condoDashboardContext = React.useContext(CondoDashboardContext);
@@ -116,17 +114,24 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
     const context = condoDashboardContext || adminDashboardContext;
     
     if (!context) {
-        // This can happen if the header is rendered outside of both providers, which would be an error.
-        // Or, more likely, we can just show nothing until context is available.
         return null;
     }
     
     const { session } = context;
     const { t } = useLocale();
     const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
-    
+    const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
     const isCondoView = !!condoDashboardContext;
     const condoName = condoDashboardContext?.condo?.name;
+
+    const handleConfirmLogout = async () => {
+        setIsLoggingOut(true);
+        await onLogout();
+        setIsLoggingOut(false);
+        setIsLogoutDialogOpen(false);
+    };
 
     return (
         <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-40">
@@ -198,7 +203,7 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                         </DropdownMenuPortal>
                     </DropdownMenuSub>
                     <DropdownMenuSeparator />
-                    <AlertDialog>
+                    <AlertDialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
                     <AlertDialogTrigger asChild>
                         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                             <LogOut className="mr-2 h-4 w-4" />
@@ -206,9 +211,11 @@ export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess
                         </DropdownMenuItem>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                       <form action={handleLogoutAction}>
-                          <LogoutDialogForm />
-                        </form>
+                       <LogoutDialogForm 
+                         onConfirm={handleConfirmLogout} 
+                         onCancel={() => setIsLogoutDialogOpen(false)} 
+                         isLoggingOut={isLoggingOut} 
+                       />
                     </AlertDialogContent>
                     </AlertDialog>
                 </DropdownMenuContent>
