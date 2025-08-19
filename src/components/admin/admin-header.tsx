@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -41,7 +40,8 @@ import {
   Globe,
   Book,
   MessageSquareQuote,
-  Building
+  Building,
+  Server
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
