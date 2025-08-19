@@ -47,11 +47,13 @@ import {
   Server,
   Book,
   MessageSquareQuote,
+  Building
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { useAdminDashboard } from '../admin-dashboard-client';
+import { useCondoDashboard } from '../condo-dashboard-client';
 import { handleLogoutAction } from '@/lib/session';
 import { ManageAdminsDialog } from './manage-admins-dialog';
 import { SmtpConfigDialog } from './smtp-config-dialog';
@@ -106,15 +108,31 @@ function LogoutDialogContent() {
 }
 
 export function AdminHeader({ onAccountUpdateSuccess }: { onAccountUpdateSuccess: (data: any) => void }) {
-    const { session } = useAdminDashboard();
+    const adminDashboardContext = useAdminDashboard();
+    const condoDashboardContext = useCondoDashboard();
+    
+    // Determine the context to use. Fallback to adminDashboardContext.
+    const context = adminDashboardContext || condoDashboardContext;
+    
+    // If no context is found, you might want to render nothing or a fallback.
+    if (!context) {
+        return null;
+    }
+    
+    const { session } = context;
     const { t } = useLocale();
     const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
+    
+    const isCondoView = !!condoDashboardContext;
+
 
     return (
         <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-40">
             <div className="flex items-center gap-2">
-                <Shield className="h-6 w-6 text-primary"/>
-                <h1 className="text-lg font-semibold md:text-2xl font-headline">{t('adminDashboard.title')}</h1>
+                 {isCondoView ? <Building className="h-6 w-6 text-primary"/> : <Shield className="h-6 w-6 text-primary"/>}
+                <h1 className="text-lg font-semibold md:text-2xl font-headline">
+                    {isCondoView ? condoDashboardContext.condo?.name : t('adminDashboard.title')}
+                </h1>
             </div>
             <div className="ml-auto flex items-center gap-2">
                 <DropdownMenu>

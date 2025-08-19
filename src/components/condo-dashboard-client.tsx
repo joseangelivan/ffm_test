@@ -16,6 +16,14 @@ import { APIProvider } from '@vis.gl/react-google-maps';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+    AlertDialog,
+    AlertDialogContent,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogDescription,
+} from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
 import { getCondominioById, type Condominio } from '@/actions/condos';
 import { geocodeAddress } from '@/actions/geocoding';
@@ -23,15 +31,48 @@ import { geocodeAddress } from '@/actions/geocoding';
 import ManageUsersTab from './condo/manage-users-tab';
 import ManageDevicesTab from './condo/manage-devices-tab';
 import CondoMapTab from './condo/condo-map-tab';
+import { AdminHeader } from './admin/admin-header';
 import { getDevicesByCondoId, type Device } from '@/actions/devices';
 import { cn } from '@/lib/utils';
 import type { SessionPayload } from '@/lib/session';
+import { handleLogoutAction } from '@/lib/session';
 import type { UserSettings } from '@/actions/admin';
 import { getActiveTheme, updateSettings } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
 
 
 type Coords = { lat: number; lng: number };
+
+function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: () => void }) {
+    const { t } = useLocale();
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const handleConfirm = () => {
+        setIsLoggingOut(true);
+        onConfirm();
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <AlertDialog open={isOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{t('adminDashboard.account.logoutDialog.title')}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {t('adminDashboard.account.logoutDialog.description')}
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <Button onClick={handleConfirm} disabled={isLoggingOut}>
+                        {isLoggingOut && <Loader className="mr-2 h-4 w-4 animate-spin" />}
+                        {t('adminDashboard.account.logoutDialog.confirm')}
+                    </Button>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+}
 
 const CondoDashboardContext = React.createContext<{
   session: SessionPayload;
@@ -69,6 +110,7 @@ export default function CondoDashboardClient({
   const [mapCenter, setMapCenter] = useState<Coords | null>(null);
   const [activeTab, setActiveTab] = useState('users');
   const [theme, setTheme] = useState(initialSettings.theme);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
 
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
@@ -174,7 +216,12 @@ export default function CondoDashboardClient({
     }
     applyInitialSettings();
   }, [initialSettings, setLocale, applyTheme]);
-
+  
+  const handleAccountUpdateSuccess = useCallback((data: any) => {
+    if (data?.needsLogout) {
+      setShowLogoutDialog(true);
+    }
+  }, []);
 
   if (loading && !condo) {
       return (
@@ -205,6 +252,8 @@ export default function CondoDashboardClient({
   return (
     <CondoDashboardContext.Provider value={{ session, condo, handleSetLocale, handleSetTheme, theme }}>
       <div className="flex min-h-screen w-full flex-col bg-muted/40">
+        <AdminHeader onAccountUpdateSuccess={handleAccountUpdateSuccess} />
+
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
           <div className="grid gap-4">
             <div>
@@ -272,6 +321,10 @@ export default function CondoDashboardClient({
             </Tabs>
           </div>
         </main>
+        <ForceLogoutDialog 
+            isOpen={showLogoutDialog}
+            onConfirm={handleLogoutAction}
+        />
       </div>
     </CondoDashboardContext.Provider>
   );
