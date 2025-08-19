@@ -12,17 +12,17 @@ import type { UserSettings } from '@/actions/admin';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CondominioDashboardPage({ params }: { params: { id: string } }) {
+async function CondoDataLoader({ condoId }: { condoId: string }) {
   const session = await getSession();
   if (!session) {
     // This should be handled by middleware, but as a safeguard
     notFound();
   }
-  
-  // Fetch condo-specific data first to satisfy Next.js param usage rules.
+
+  // Fetch all data needed for the dashboard
   const [condoResult, devices, settings] = await Promise.all([
-    getCondominioById(params.id),
-    getDevicesByCondoId(params.id),
+    getCondominioById(condoId),
+    getDevicesByCondoId(condoId),
     getSettings(session),
   ]);
 
@@ -33,13 +33,20 @@ export default async function CondominioDashboardPage({ params }: { params: { id
   const initialSettings = settings || { theme: 'light', language: 'pt-BR' };
 
   return (
+    <CondoDashboardClient 
+      session={session}
+      initialCondo={condoResult.data}
+      initialDevices={devices}
+      initialSettings={initialSettings}
+    />
+  );
+}
+
+
+export default function CondominioDashboardPage({ params }: { params: { id: string } }) {
+  return (
     <Suspense fallback={<Loading />}>
-      <CondoDashboardClient 
-        session={session}
-        initialCondo={condoResult.data}
-        initialDevices={devices}
-        initialSettings={initialSettings}
-      />
+      <CondoDataLoader condoId={params.id} />
     </Suspense>
   );
 }
