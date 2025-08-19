@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, 'use client';
+import React from 'react';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -121,7 +121,7 @@ const deviceIcons: { [key: string]: React.ReactNode } = {
 function AddDeviceDialog({
   onDeviceAdd,
 }: {
-  onDeviceAdd: (device: Omit<Device, 'id' | 'status' | 'lastLocation' | 'battery' | 'condominium_id' | 'device_type_id' | 'token' | 'created_at' | 'updated_at' | 'device_type_name_translations'> & { type: string }) => void;
+  onDeviceAdd: (device: Omit<Device, 'id' | 'status' | 'lastLocation' | 'battery' | 'condominium_id' | 'device_type_id' | 'protocol_id' | 'protocol_name' | 'physical_device_id' | 'created_at' | 'updated_at' | 'device_type_name_translations'> & { type: string }) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -297,7 +297,7 @@ export default function DashboardClient({
     return () => clearInterval(intervalId);
   }, [selectedDevice]);
 
-  const handleAddDevice = (newDevice: Omit<Device, 'id' | 'status' | 'lastLocation' | 'battery' | 'condominium_id' | 'device_type_id' | 'token' | 'created_at' | 'updated_at' | 'device_type_name_translations'> & {type: string}) => {
+  const handleAddDevice = (newDevice: Omit<Device, 'id' | 'status' | 'lastLocation' | 'battery' | 'condominium_id' | 'device_type_id' | 'protocol_id' | 'protocol_name' | 'physical_device_id' | 'created_at' | 'updated_at' | 'device_type_name_translations'> & {type: string}) => {
     // This should call a server action to create a device
     toast({
       title: "Función no implementada",
