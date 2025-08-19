@@ -16,7 +16,7 @@ import {
     AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
-import { UserSettings, getActiveTheme, updateSettings, verifySessionIntegrity } from '@/actions/admin';
+import { UserSettings, getActiveTheme, updateSettings } from '@/actions/admin';
 import { handleLogoutAction, type SessionPayload } from '@/lib/session';
 import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
@@ -65,20 +65,23 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
     );
 }
 
-export const AdminDashboardContext = React.createContext<{ 
+const AdminDashboardContext = React.createContext<{ 
     session: SessionPayload,
     handleSetLocale: (locale: 'es' | 'pt-BR') => void,
     handleSetTheme: (theme: string) => void,
     theme: string,
 } | null>(null);
 
-export const useAdminDashboard = () => {
+export const useAdminDashboard = Object.assign(
+  () => {
     const context = React.useContext(AdminDashboardContext);
     if (!context) {
         throw new Error("useAdminDashboard must be used within an AdminDashboardProvider");
     }
     return context;
-};
+  },
+  { Context: AdminDashboardContext }
+);
 
 type DashboardState = {
     session: SessionPayload;
@@ -89,11 +92,12 @@ type DashboardState = {
 export default function AdminDashboardClient({ session, initialSettings }: DashboardState) {
   const { setLocale, t } = useLocale();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState(initialSettings.theme || 'light');
   const router = useRouter();
   
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
     const root = document.documentElement;
+    root.style.cssText = '';
 
     const defaultThemeVars = [
       'background', 'foreground', 'card', 'card-foreground', 
@@ -103,7 +107,6 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
       'border', 'input', 'ring'
     ];
 
-    // Function to remove custom properties
     const clearCustomTheme = () => {
       defaultThemeVars.forEach(v => root.style.removeProperty(`--${v}`));
     };
@@ -119,13 +122,10 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
                 root.style.setProperty(cssVar, value);
             }
         });
-        // You might want to decide on a base theme (light/dark) for custom themes
-        // For simplicity, we can assume they are based on the dark theme structure
         if (!root.classList.contains('dark')) {
             root.classList.add('dark');
         }
     } else {
-        // Fallback to light if theme not found
         clearCustomTheme();
         root.classList.remove('dark');
     }
@@ -133,43 +133,31 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
 
   const handleSetTheme = useCallback(async (newThemeId: string) => {
     setTheme(newThemeId);
-    const updatedSettings = { ...initialSettings, theme: newThemeId };
-    const themeData = await getActiveTheme(updatedSettings as any);
+    const themeData = await getActiveTheme({ ...initialSettings, theme: newThemeId });
     applyTheme(themeData, newThemeId);
     await updateSettings({ theme: newThemeId }, session);
-  }, [applyTheme, initialSettings, session]);
+    // Force a re-render of the layout to apply new styles
+    router.refresh();
+  }, [applyTheme, initialSettings, session, router]);
+
 
   useEffect(() => {
-    async function applyInitialSettings() {
-        if (initialSettings) {
-            setLocale(initialSettings.language);
-            setTheme(initialSettings.theme);
-            const themeData = await getActiveTheme(initialSettings);
-            applyTheme(themeData, initialSettings.theme);
-        }
-    }
-    applyInitialSettings();
-
-    async function checkSession() {
-        const isSessionValid = await verifySessionIntegrity(session);
-        if (!isSessionValid) {
-            await handleLogoutAction();
-            router.push('/admin/login');
-        }
-    }
-    checkSession();
-  }, [initialSettings, setLocale, applyTheme, router, session]);
+    setLocale(initialSettings.language);
+  }, [initialSettings.language, setLocale]);
 
   const handleSetLocale = async (newLocale: 'es' | 'pt-BR') => {
       setLocale(newLocale);
       await updateSettings({ language: newLocale }, session);
+      router.refresh();
   }
 
   const handleAccountUpdateSuccess = useCallback((data: any) => {
     if (data?.needsLogout) {
       setShowLogoutDialog(true);
+    } else {
+        router.refresh();
     }
-  }, []);
+  }, [router]);
 
   if (!session || !initialSettings) {
       return <LoadingOverlay text={t('dashboard.title')} />;
@@ -186,7 +174,10 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
             
         <ForceLogoutDialog 
             isOpen={showLogoutDialog}
-            onConfirm={handleLogoutAction}
+            onConfirm={async () => {
+                await handleLogoutAction();
+                router.push('/admin/login');
+            }}
         />
         </div>
     </AdminDashboardContext.Provider>

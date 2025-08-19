@@ -25,19 +25,14 @@ function getNestedValue(obj: any, path: string): string | undefined {
   return path.split('.').reduce((acc, part) => acc && acc[part], obj);
 }
 
-export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Always default to 'pt-BR' on initial render for both server and client to avoid hydration mismatch.
-  const [locale, setLocale] = useState<Locale>('pt-BR');
+export const LocaleProvider: React.FC<{ children: React.ReactNode, initialLocale: Locale }> = ({ children, initialLocale }) => {
+  const [locale, setLocale] = useState<Locale>(initialLocale);
 
   useEffect(() => {
-    // This effect runs only on the client, after the initial render.
-    if (typeof window !== 'undefined' && navigator.language) {
-      const userLanguage = navigator.language.toLowerCase();
-      if (userLanguage.startsWith('es')) {
-        setLocale('es');
-      }
-    }
-  }, []);
+    // Set the initial locale from server props. 
+    // No need for browser detection anymore if we get it from the server.
+    setLocale(initialLocale);
+  }, [initialLocale]);
 
   const t = useCallback((key: string, replacements?: Record<string, string>) => {
     const translation = getNestedValue(translations[locale], key) || getNestedValue(translations['pt-BR'], key) || key;

@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react"
@@ -11,35 +12,47 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useLocale } from "@/lib/i18n";
+import { useAdminDashboard } from "./admin-dashboard-client";
+import { useCondoDashboard } from "./condo-dashboard-client";
 
 export function ThemeSwitcher() {
   const { t } = useLocale();
 
-  // We use this state to avoid a flash of unstyled content.
-  const [mounted, setMounted] = React.useState(false);
-  const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
+  // Attempt to get context from either dashboard.
+  const adminContext = React.useContext(useAdminDashboard.Context);
+  const condoContext = React.useContext(useCondoDashboard.Context);
 
-  const handleSetTheme = (newTheme: 'light' | 'dark') => {
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
-  }
+  const context = adminContext || condoContext;
+  const theme = context?.theme;
+  const handleSetTheme = context?.handleSetTheme;
+
+  const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
-    const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-     if (storedTheme) {
-      handleSetTheme(storedTheme);
-    } else {
-        // This part now runs only on the client, after mount.
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        handleSetTheme(systemPrefersDark ? 'dark' : 'light');
+    // Client-side theme handling for non-admin pages
+    if (!context) {
+        const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+        if (storedTheme) {
+            document.documentElement.classList.toggle('dark', storedTheme === 'dark');
+        } else {
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.classList.toggle('dark', systemPrefersDark);
+        }
     }
-  }, []);
-  
+  }, [context]);
+
+  const onThemeChange = (newTheme: string) => {
+    if (handleSetTheme) {
+        handleSetTheme(newTheme);
+    } else {
+        // Fallback for non-admin pages
+        localStorage.setItem('theme', newTheme);
+        document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    }
+  }
+
   if (!mounted) {
-      // Render a placeholder or null on the server and during the initial client render
-      // to prevent hydration mismatch.
       return (
          <Button variant="ghost" size="icon" disabled>
               <Sun className="h-5 w-5" />
@@ -57,10 +70,10 @@ export function ThemeSwitcher() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => handleSetTheme('light')}>
+        <DropdownMenuItem onClick={() => onThemeChange('light')}>
           {t('dashboard.theme.light')}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleSetTheme('dark')}>
+        <DropdownMenuItem onClick={() => onThemeChange('dark')}>
           {t('dashboard.theme.dark')}
         </DropdownMenuItem>
       </DropdownMenuContent>

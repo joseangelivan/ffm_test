@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Building,
@@ -74,7 +75,7 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
     );
 }
 
-export const CondoDashboardContext = React.createContext<{
+const CondoDashboardContext = React.createContext<{
   session: SessionPayload;
   condo: Condominio | null;
   handleSetLocale: (locale: 'es' | 'pt-BR') => void;
@@ -82,13 +83,16 @@ export const CondoDashboardContext = React.createContext<{
   theme: string;
 } | null>(null);
 
-export const useCondoDashboard = () => {
+export const useCondoDashboard = Object.assign(
+  () => {
     const context = React.useContext(CondoDashboardContext);
     if (!context) {
         throw new Error("useCondoDashboard must be used within a CondoDashboardProvider");
     }
     return context;
-};
+  },
+  { Context: CondoDashboardContext }
+);
 
 
 export default function CondoDashboardClient({ 
@@ -111,10 +115,13 @@ export default function CondoDashboardClient({
   const [activeTab, setActiveTab] = useState('users');
   const [theme, setTheme] = useState(initialSettings.theme);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const router = useRouter();
 
 
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
     const root = document.documentElement;
+    root.style.cssText = '';
+
     const defaultThemeVars = [
       'background', 'foreground', 'card', 'card-foreground', 
       'popover', 'popover-foreground', 'primary', 'primary-foreground', 
@@ -147,14 +154,16 @@ export default function CondoDashboardClient({
 
   const handleSetTheme = useCallback(async (newThemeId: string) => {
     setTheme(newThemeId);
-    const themeData = await getActiveTheme({ theme: newThemeId, language: initialSettings.language });
+    const themeData = await getActiveTheme({ ...initialSettings, theme: newThemeId });
     applyTheme(themeData, newThemeId);
     await updateSettings({ theme: newThemeId }, session);
-  }, [applyTheme, initialSettings, session]);
+    router.refresh();
+  }, [applyTheme, initialSettings, session, router]);
 
   const handleSetLocale = async (newLocale: 'es' | 'pt-BR') => {
       setLocale(newLocale);
       await updateSettings({ language: newLocale }, session);
+      router.refresh();
   }
 
   const fetchData = useCallback(async () => {
@@ -205,23 +214,16 @@ export default function CondoDashboardClient({
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
-
-  useEffect(() => {
-    async function applyInitialSettings() {
-        setLocale(initialSettings.language);
-        setTheme(initialSettings.theme);
-        const themeData = await getActiveTheme(initialSettings);
-        applyTheme(themeData, initialSettings.theme);
-    }
-    applyInitialSettings();
-  }, [initialSettings, setLocale, applyTheme]);
+    setLocale(initialSettings.language);
+  }, [fetchData, initialSettings.language, setLocale]);
   
   const handleAccountUpdateSuccess = useCallback((data: any) => {
     if (data?.needsLogout) {
       setShowLogoutDialog(true);
+    } else {
+      router.refresh();
     }
-  }, []);
+  }, [router]);
 
   if (loading && !condo) {
       return (
@@ -261,13 +263,6 @@ export default function CondoDashboardClient({
                 <ArrowLeft className="h-4 w-4" />
                 {t('condoDashboard.backToAdmin')}
               </Link>
-              <div className="flex items-center gap-4 mt-2">
-                  <Building className="h-8 w-8 text-primary"/>
-                  <div>
-                      <h1 className="text-3xl font-bold tracking-tight">{condo.name}</h1>
-                      <p className="text-muted-foreground">{condo.address}</p>
-                  </div>
-              </div>
             </div>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-3">
@@ -323,7 +318,10 @@ export default function CondoDashboardClient({
         </main>
         <ForceLogoutDialog 
             isOpen={showLogoutDialog}
-            onConfirm={handleLogoutAction}
+            onConfirm={async () => {
+                await handleLogoutAction();
+                router.push('/admin/login');
+            }}
         />
       </div>
     </CondoDashboardContext.Provider>

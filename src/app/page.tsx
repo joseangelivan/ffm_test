@@ -8,13 +8,29 @@ import { ThemeSwitcher } from '@/components/theme-switcher';
 import LoginForm from '@/components/login-form';
 import { authenticateUser } from '@/actions/user';
 import Loading from './loading';
+import { getSession } from '@/lib/auth';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [isClient, setIsClient] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
+    // This check runs on the client-side
+    async function checkSession() {
+      const session = await getSession();
+      if (session) {
+        if (session.type === 'admin') {
+          router.replace('/admin/dashboard');
+        } else {
+          router.replace('/dashboard');
+        }
+      } else {
+        setIsClient(true);
+      }
+    }
+    checkSession();
+  }, [router]);
 
   if (!isClient) {
     return <Loading />;
