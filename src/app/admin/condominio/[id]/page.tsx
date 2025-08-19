@@ -5,6 +5,8 @@ import CondoDashboardClient from '@/components/condo-dashboard-client';
 import { handleLogoutAction } from '@/lib/session';
 import { redirect } from 'next/navigation';
 
+export const dynamic = 'force-dynamic';
+
 // This is the Server Component part of the page.
 export default async function CondominioDashboardPage({ params }: { params: { id: string } }) {
   const session = await getSession();
