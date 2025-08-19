@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Map, AdvancedMarker, useMap, APIProvider } from '@vis.gl/react-google-maps';
 
 export interface Marker {
@@ -20,33 +20,28 @@ interface MapProps {
 
 const BoundsUpdater = ({ markers }: { markers?: Marker[] }) => {
     const map = useMap();
-  
+    const isFirstLoad = useRef(true);
+
     useEffect(() => {
-      if (!map || !markers || markers.length === 0) return;
-  
-      if (markers.length === 1) {
-        map.setCenter(markers[0].position);
-        map.setZoom(15); 
-        return;
-      }
+        if (!map || !markers || markers.length === 0 || !isFirstLoad.current) return;
 
-      const bounds = new window.google.maps.LatLngBounds();
-      markers.forEach(marker => {
-        bounds.extend(marker.position);
-      });
-      map.fitBounds(bounds);
+        if (markers.length === 1) {
+            map.setCenter(markers[0].position);
+            map.setZoom(15);
+        } else {
+            const bounds = new window.google.maps.LatLngBounds();
+            markers.forEach(marker => {
+                bounds.extend(marker.position);
+            });
+            map.fitBounds(bounds);
+        }
+        
+        isFirstLoad.current = false; // Mark initial load as complete
 
-      const listener = map.addListener('idle', () => {
-        if (map.getZoom()! > 16) map.setZoom(16);
-      });
-  
-      return () => {
-        window.google.maps.event.removeListener(listener);
-      }
     }, [map, markers]);
-  
+
     return null;
-  };
+};
 
 const MapComponent: React.FC<MapProps> = ({ center, markers, zoom = 12, children }) => {
     return (
