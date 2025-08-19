@@ -21,11 +21,12 @@ export default async function CondominioDashboardPage({ params }: { params: { id
   
   const condoId = params.id;
 
-  const [condoResult, devices, settings] = await Promise.all([
-    getCondominioById(condoId),
-    getDevicesByCondoId(condoId),
-    getSettings(session),
-  ]);
+  // Fetch condo-specific data first to satisfy Next.js param usage rules.
+  const condoResult = await getCondominioById(condoId);
+  const devices = await getDevicesByCondoId(condoId);
+  
+  // Then fetch session-specific data.
+  const settings = await getSettings(session);
 
   if (!condoResult.success || !condoResult.data) {
     notFound();
