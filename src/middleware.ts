@@ -28,12 +28,20 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const publicPages = ['/', '/login', '/admin/login', '/admin/first-login', '/admin/enter-password', '/admin/verify-2fa'];
-  const protectedAdminRoutes = ['/admin/dashboard', '/admin/condominio'];
-  const protectedUserRoutes = ['/dashboard'];
+  
+  // Use regex for dynamic routes
+  const protectedAdminRoutes = [
+    /^\/admin\/dashboard$/,
+    /^\/admin\/condominio(\/.*)?$/,
+  ];
+  const protectedUserRoutes = [
+    /^\/dashboard(\/.*)?$/,
+    /^\/gatekeeper(\/.*)?$/,
+  ];
 
   const isPublicPage = publicPages.some(page => pathname.startsWith(page));
-  const isAdminRoute = protectedAdminRoutes.some(route => pathname.startsWith(route));
-  const isUserRoute = protectedUserRoutes.some(route => pathname.startsWith(route));
+  const isAdminRoute = protectedAdminRoutes.some(route => route.test(pathname));
+  const isUserRoute = protectedUserRoutes.some(route => route.test(pathname));
 
   // 1. If no session token exists
   if (!sessionToken) {
