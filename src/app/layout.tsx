@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { LocaleProvider } from '@/lib/i18n.tsx';
@@ -6,6 +7,12 @@ import { getSession } from '@/lib/auth';
 import { getSettings, getActiveTheme } from '@/actions/admin';
 import { cn } from '@/lib/utils';
 import type { Theme } from '@/actions/themes';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  weight: ['400', '500', '600', '700'],
+});
 
 export const metadata: Metadata = {
   title: 'Follow For Me',
@@ -51,15 +58,7 @@ export default async function RootLayout({
 
   return (
     <html lang={initialLocale.split('-')[0]} className={cn('h-full', bodyClassName)} style={bodyStyle}>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="font-body antialiased h-full">
+      <body className={cn("h-full font-body antialiased", inter.variable)}>
         <LocaleProvider initialLocale={initialLocale}>
           {children}
           <Toaster />
