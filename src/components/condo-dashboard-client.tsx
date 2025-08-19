@@ -30,7 +30,7 @@ import { geocodeAddress } from '@/actions/geocoding';
 
 import ManageUsersTab from './condo/manage-users-tab';
 import ManageDevicesTab from './condo/manage-devices-tab';
-import CondoMapTab from './condo/map/condo-map-tab';
+import CondoMapTab from './condo/condo-map-tab';
 import { AdminHeader } from './admin/admin-header';
 import { getDevicesByCondoId, type Device } from '@/actions/devices';
 import { cn } from '@/lib/utils';
