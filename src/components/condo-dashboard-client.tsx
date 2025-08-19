@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
   Building,
@@ -38,7 +38,7 @@ import { cn } from '@/lib/utils';
 import type { SessionPayload } from '@/lib/session';
 import { handleLogoutAction } from '@/lib/session';
 import type { UserSettings } from '@/actions/admin';
-import { getActiveTheme, updateSettings } from '@/actions/admin';
+import { getActiveTheme, updateSettings, getSettings, verifySessionIntegrity } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 
@@ -76,17 +76,15 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
     );
 }
 
-export default function CondoDashboardClient({ 
-    condoId,
-    session,
-    initialSettings
-}: { 
-    condoId: string,
-    session: SessionPayload,
-    initialSettings: UserSettings 
-}) {
+export default function CondoDashboardClient() { 
   const { t, setLocale } = useLocale();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const router = useRouter();
+  const params = useParams();
+  const condoId = params.id as string;
+
+  const [session, setSession] = useState<SessionPayload | null>(null);
+  const [initialSettings, setInitialSettings] = useState<UserSettings | null>(null);
   
   const [condo, setCondo] = useState<Condominio | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
@@ -94,9 +92,8 @@ export default function CondoDashboardClient({
   const [loading, setLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState<Coords | null>(null);
   const [activeTab, setActiveTab] = useState('users');
-  const [theme, setTheme] = useState(initialSettings.theme);
+  const [theme, setTheme] = useState('light');
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const router = useRouter();
 
 
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
@@ -134,6 +131,7 @@ export default function CondoDashboardClient({
   }, []);
 
   const handleSetTheme = useCallback(async (newThemeId: string) => {
+    if (!session || !initialSettings) return;
     setTheme(newThemeId);
     const themeData = await getActiveTheme({ ...initialSettings, theme: newThemeId });
     applyTheme(themeData, newThemeId);
@@ -142,19 +140,18 @@ export default function CondoDashboardClient({
   }, [applyTheme, initialSettings, session, router]);
 
   const handleSetLocale = async (newLocale: 'es' | 'pt-BR') => {
+      if (!session) return;
       setLocale(newLocale);
       await updateSettings({ language: newLocale }, session);
       router.refresh();
   }
 
-  const fetchData = useCallback(async () => {
-    if (!condo) {
-      setLoading(true);
-    }
+  const fetchData = useCallback(async (currentCondoId: string) => {
+    setLoading(true);
     try {
         const [condoResult, devicesResult] = await Promise.all([
-            getCondominioById(condoId),
-            getDevicesByCondoId(condoId)
+            getCondominioById(currentCondoId),
+            getDevicesByCondoId(currentCondoId)
         ]);
         
         if (condoResult === undefined) {
@@ -191,12 +188,7 @@ export default function CondoDashboardClient({
     } finally {
         setLoading(false);
     }
-  }, [condoId, mapCenter, condo]);
-
-  useEffect(() => {
-    fetchData();
-    setLocale(initialSettings.language);
-  }, [fetchData, initialSettings.language, setLocale]);
+  }, [mapCenter]);
   
   const handleAccountUpdateSuccess = useCallback((data: any) => {
     if (data?.needsLogout) {
@@ -206,30 +198,42 @@ export default function CondoDashboardClient({
     }
   }, [router]);
 
-  if (loading && !condo) {
+  const onDataNeedsRefresh = useCallback(() => {
+    if(condoId) fetchData(condoId);
+  }, [condoId, fetchData]);
+
+  useEffect(() => {
+    async function loadInitialData() {
+        const { getSession } = await import('@/lib/auth');
+        const sessionData = await getSession();
+
+        if (!sessionData) {
+            router.push('/admin/login');
+            return;
+        }
+        setSession(sessionData);
+
+        const settingsData = await getSettings(sessionData);
+        if (settingsData) {
+            setInitialSettings(settingsData);
+            setLocale(settingsData.language);
+            setTheme(settingsData.theme);
+        }
+
+        if (condoId) {
+            await fetchData(condoId);
+        }
+    }
+    loadInitialData();
+  }, [condoId, fetchData, setLocale, router]);
+
+
+  if (loading || !condo || !session || !initialSettings) {
       return (
         <div className="flex min-h-screen items-center justify-center bg-muted/40">
             <Loader className="h-12 w-12 animate-spin text-primary" />
         </div>
       )
-  }
-
-  if (!condo) {
-    return (
-        <div className="flex min-h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
-          <Card>
-            <CardHeader>
-                <CardTitle>Error</CardTitle>
-                <CardDescription>No se pudo cargar la información del condominio.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Link href="/admin/dashboard">
-                    <Button>Volver al Panel</Button>
-                </Link>
-            </CardContent>
-          </Card>
-        </div>
-    );
   }
 
   return (
@@ -256,7 +260,7 @@ export default function CondoDashboardClient({
                       <ManageUsersTab condoId={condo.id} />
                   </div>
                   <div className={cn(activeTab !== 'devices' && 'hidden')}>
-                      <ManageDevicesTab condoId={condo.id} devices={devices} onDataNeedsRefresh={fetchData} />
+                      <ManageDevicesTab condoId={condo.id} devices={devices} onDataNeedsRefresh={onDataNeedsRefresh} />
                   </div>
                   <div className={cn(activeTab !== 'map' && 'hidden')}>
                       {apiKey ? (
