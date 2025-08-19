@@ -57,6 +57,7 @@ import {
     Trash2 
 } from 'lucide-react';
 import { LoadingOverlay } from './admin-header';
+import type { SessionPayload } from '@/lib/session';
 
 
 function AdminFormDialog({
@@ -158,7 +159,7 @@ function AdminFormDialog({
 }
 
 
-export function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string }) {
+export function ManageAdminsDialog({ session }: { session: SessionPayload }) {
     const { t } = useLocale();
     const { toast } = useToast();
     const [isListOpen, setIsListOpen] = useState(false);
@@ -254,7 +255,7 @@ export function ManageAdminsDialog({ currentAdminId }: { currentAdminId: string 
                                     {loadingAdmins ? (
                                         Array.from({length: 2}).map((_, i) => <TableRow key={i}><TableCell colSpan={4}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                                     ) : admins.map(admin => {
-                                        const isSelf = admin.id === currentAdminId;
+                                        const isSelf = admin.id === session.id;
                                         return (
                                         <TableRow key={admin.id} className={cn(isSelf && "bg-muted/50")}>
                                             <TableCell>{admin.name} {isSelf && <span className="text-xs text-muted-foreground ml-1">({t('common.you')})</span>}</TableCell>

@@ -14,6 +14,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuPortal,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
     AlertDialog,
@@ -158,7 +159,7 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogo
                                         </DropdownMenuPortal>
                                     </DropdownMenuSub>
                                     <DropdownMenuSeparator/>
-                                    {session.canCreateAdmins && <ManageAdminsDialog currentAdminId={session.id}/>}
+                                    {session.canCreateAdmins && <ManageAdminsDialog session={session}/>}
                                 </DropdownMenuSubContent>
                             </DropdownMenuPortal>
                         </DropdownMenuSub>
@@ -188,4 +189,3 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogo
         </header>
     );
 }
-
