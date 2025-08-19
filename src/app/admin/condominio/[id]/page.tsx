@@ -19,7 +19,7 @@ export default async function CondominioDashboardPage({ params }: { params: { id
     notFound();
   }
   
-  const { id: condoId } = params;
+  const condoId = params.id;
   const [condoResult, devices, settings] = await Promise.all([
     getCondominioById(condoId),
     getDevicesByCondoId(condoId),
