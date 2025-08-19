@@ -22,54 +22,12 @@ import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
 import { type Theme } from '@/actions/themes';
 
-
-function LoadingOverlay({ text }: { text: string }) {
-    return (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-            <div className="flex items-center gap-4 text-2xl text-muted-foreground">
-                <Loader className="h-12 w-12 animate-spin" />
-                <span>{text}</span>
-            </div>
-        </div>
-    );
-}
-
-function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: () => void }) {
-    const { t } = useLocale();
-    const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-    const handleConfirm = () => {
-        setIsLoggingOut(true);
-        onConfirm();
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <AlertDialog open={isOpen}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>{t('adminDashboard.account.logoutDialog.title')}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        {t('adminDashboard.account.logoutDialog.description')}
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <Button onClick={handleConfirm} disabled={isLoggingOut}>
-                        {isLoggingOut && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-                        {t('adminDashboard.account.logoutDialog.confirm')}
-                    </Button>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-    );
-}
-
 export const AdminDashboardContext = React.createContext<{
     session: SessionPayload,
     handleSetLocale: (locale: 'es' | 'pt-BR') => void,
     handleSetTheme: (theme: string) => void,
     theme: string,
+    onAccountUpdateSuccess: (data: any) => void;
 } | null>(null);
 
 export function useAdminDashboard() {
@@ -155,27 +113,56 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
         router.refresh();
     }
   }, [router]);
+
+  const handleConfirmLogout = async () => {
+    await handleLogoutAction();
+    router.push('/admin/login');
+  };
   
   if (!session || !initialSettings) {
-      return <LoadingOverlay text={t('dashboard.title')} />;
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-muted/40">
+            <Loader className="h-12 w-12 animate-spin text-primary" />
+        </div>
+      )
   }
 
+  const providerValue = {
+    session,
+    handleSetLocale,
+    handleSetTheme,
+    theme,
+    onAccountUpdateSuccess: handleAccountUpdateSuccess,
+  };
+
   return (
-    <AdminDashboardContext.Provider value={{ session, handleSetLocale, handleSetTheme, theme }}>
+    <AdminDashboardContext.Provider value={providerValue}>
         <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
-        <AdminHeader onAccountUpdateSuccess={handleAccountUpdateSuccess} />
+        <AdminHeader 
+            session={session}
+            onAccountUpdateSuccess={handleAccountUpdateSuccess}
+            onLogout={handleConfirmLogout}
+        />
         
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
             <CondoManagement />
         </main>
             
-        <ForceLogoutDialog 
-            isOpen={showLogoutDialog}
-            onConfirm={async () => {
-                await handleLogoutAction();
-                router.push('/admin/login');
-            }}
-        />
+        <AlertDialog open={showLogoutDialog}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{t('adminDashboard.account.logoutDialog.title')}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {t('adminDashboard.account.logoutDialog.description')}
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <Button onClick={handleConfirmLogout}>
+                        {t('adminDashboard.account.logoutDialog.confirm')}
+                    </Button>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
         </div>
     </AdminDashboardContext.Provider>
   );

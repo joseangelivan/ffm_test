@@ -44,37 +44,6 @@ import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 
 type Coords = { lat: number; lng: number };
 
-function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: () => void }) {
-    const { t } = useLocale();
-    const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-    const handleConfirm = () => {
-        setIsLoggingOut(true);
-        onConfirm();
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <AlertDialog open={isOpen}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>{t('adminDashboard.account.logoutDialog.title')}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        {t('adminDashboard.account.logoutDialog.description')}
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <Button onClick={handleConfirm} disabled={isLoggingOut}>
-                        {isLoggingOut && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-                        {t('adminDashboard.account.logoutDialog.confirm')}
-                    </Button>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-    );
-}
-
 export default function CondoDashboardClient() { 
   const { t, setLocale } = useLocale();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -226,6 +195,11 @@ export default function CondoDashboardClient() {
     loadInitialData();
   }, [condoId, fetchData, setLocale, router]);
 
+  const handleConfirmLogout = async () => {
+    await handleLogoutAction();
+    router.push('/admin/login');
+  };
+
 
   if (loading || !condo || !session || !initialSettings) {
       return (
@@ -235,10 +209,24 @@ export default function CondoDashboardClient() {
       )
   }
 
+  const providerValue = { 
+    session, 
+    condo, 
+    handleSetLocale, 
+    handleSetTheme, 
+    theme,
+    onAccountUpdateSuccess: handleAccountUpdateSuccess,
+  };
+
   return (
-    <CondoDashboardContext.Provider value={{ session, condo, handleSetLocale, handleSetTheme, theme }}>
+    <CondoDashboardContext.Provider value={providerValue}>
       <div className="flex min-h-screen w-full flex-col bg-muted/40">
-        <AdminHeader onAccountUpdateSuccess={handleAccountUpdateSuccess} />
+        <AdminHeader 
+            session={session}
+            condoName={condo.name}
+            onAccountUpdateSuccess={handleAccountUpdateSuccess}
+            onLogout={handleConfirmLogout}
+        />
 
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
           <div className="grid gap-4">
@@ -300,13 +288,23 @@ export default function CondoDashboardClient() {
             </Tabs>
           </div>
         </main>
-        <ForceLogoutDialog 
-            isOpen={showLogoutDialog}
-            onConfirm={async () => {
-                await handleLogoutAction();
-                router.push('/admin/login');
-            }}
-        />
+        
+        <AlertDialog open={showLogoutDialog}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{t('adminDashboard.account.logoutDialog.title')}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {t('adminDashboard.account.logoutDialog.description')}
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <Button onClick={handleConfirmLogout}>
+                        {t('adminDashboard.account.logoutDialog.confirm')}
+                    </Button>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
       </div>
     </CondoDashboardContext.Provider>
   );

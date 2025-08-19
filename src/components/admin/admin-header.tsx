@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useLocale } from '@/lib/i18n';
 import {
@@ -31,7 +31,6 @@ import {
   Shield,
   LogOut,
   Settings,
-  User,
   Loader,
   KeyRound,
   Mailbox,
@@ -44,8 +43,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { useAdminDashboard } from '../admin-dashboard-client';
-import { useCondoDashboard } from '@/contexts/condo-dashboard-context';
+import { type SessionPayload } from '@/lib/session';
 import { handleLogoutAction } from '@/lib/session';
 import { ManageAdminsDialog } from './manage-admins-dialog';
 import { SmtpConfigDialog } from './smtp-config-dialog';
@@ -55,25 +53,19 @@ import { ManageInterfaceDialog } from './manage-interface-dialog';
 import { ManageCatalogsDialog } from './manage-catalogs-dialog';
 import { ManageTranslatorDialog } from './manage-translator-dialog';
 
-
-export function LoadingOverlay({ text }: { text: string }) {
-    return (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
-            <div className="flex items-center gap-4 text-2xl text-muted-foreground">
-                <Loader className="h-12 w-12 animate-spin" />
-                <span>{text}</span>
-            </div>
-        </div>
-    );
-}
-
-function LogoutDialogForm() {
+function LogoutDialogForm({ onLogout }: { onLogout: () => Promise<void> }) {
     const { t } = useLocale();
-    const { pending } = useFormStatus();
+    const [isPending, startTransition] = React.useTransition();
+
+    const handleClick = () => {
+        startTransition(async () => {
+            await onLogout();
+        });
+    };
 
     return (
-        <div className={cn("relative", pending && "opacity-50 pointer-events-none")}>
-            {pending && (
+        <div className={cn("relative", isPending && "opacity-50 pointer-events-none")}>
+            {isPending && (
                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
                     <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                         <Loader className="h-12 w-12 animate-spin" />
@@ -88,8 +80,8 @@ function LogoutDialogForm() {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="sm:justify-center pt-4">
-                <AlertDialogCancel disabled={pending}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
-                <Button type="submit" disabled={pending} className="w-full sm:w-auto bg-destructive hover:bg-destructive/90">
+                <AlertDialogCancel disabled={isPending}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
+                <Button onClick={handleClick} disabled={isPending} className="w-full sm:w-auto bg-destructive hover:bg-destructive/90">
                     {t('dashboard.logoutConfirmation.confirm')}
                 </Button>
             </AlertDialogFooter>
@@ -97,25 +89,19 @@ function LogoutDialogForm() {
     );
 }
 
+interface AdminHeaderProps {
+    session: SessionPayload;
+    condoName?: string;
+    onAccountUpdateSuccess: (data: any) => void;
+    onLogout: () => Promise<void>;
+}
 
-export function AdminHeader() {
-    const adminContext = useAdminDashboard();
-    const condoContext = useCondoDashboard();
-    
-    // Determine the active context and extract relevant data
-    const activeContext = adminContext || condoContext;
-    if (!activeContext) {
-        // This can happen on pages where no provider is available (e.g., login pages)
-        // We can either return a minimal header or null. For now, returning null
-        // if no session is available from any context.
-        return null; 
-    }
-    
-    const { session, handleAccountUpdateSuccess } = activeContext;
+export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogout }: AdminHeaderProps) {
+    const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
     const { t } = useLocale();
+    const isCondoView = !!condoName;
 
-    const isCondoView = !!condoContext;
-    const condoName = isCondoView ? condoContext.condo?.name : undefined;
+    if (!session) return null;
 
     return (
         <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-40">
@@ -143,38 +129,40 @@ export function AdminHeader() {
                     </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                     <ManageAccountDialog
-                        onSuccess={handleAccountUpdateSuccess}
-                    />
-                    <DropdownMenuSub>
-                        <DropdownMenuSubTrigger>
-                            <Settings className="mr-2 h-4 w-4" />
-                            <span>{t('dashboard.settings')}</span>
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuPortal>
-                            <DropdownMenuSubContent>
-                                <ManageInterfaceDialog />
-                                <ManageCatalogsDialog />
-                                <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger>
-                                        <Server className="mr-2 h-4 w-4" />
-                                        <span>{t('adminDashboard.settingsGroups.systemConfiguration')}</span>
-                                    </DropdownMenuSubTrigger>
-                                    <DropdownMenuPortal>
-                                        <DropdownMenuSubContent>
-                                            <SmtpConfigDialog />
-                                            <ManageDomainDialog />
-                                            <ManageTranslatorDialog />
-                                        </DropdownMenuSubContent>
-                                    </DropdownMenuPortal>
-                                </DropdownMenuSub>
+                     <DropdownMenuItem onSelect={() => setIsAccountDialogOpen(true)}>
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>{t('adminDashboard.account.myAccount')}</span>
+                    </DropdownMenuItem>
 
-                                <DropdownMenuSeparator/>
-                                {session.canCreateAdmins && <ManageAdminsDialog currentAdminId={session.id}/>}
-
-                            </DropdownMenuSubContent>
-                        </DropdownMenuPortal>
-                    </DropdownMenuSub>
+                    {!isCondoView && (
+                        <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>
+                                <Settings className="mr-2 h-4 w-4" />
+                                <span>{t('dashboard.settings')}</span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuPortal>
+                                <DropdownMenuSubContent>
+                                    <ManageInterfaceDialog />
+                                    <ManageCatalogsDialog />
+                                    <DropdownMenuSub>
+                                        <DropdownMenuSubTrigger>
+                                            <Server className="mr-2 h-4 w-4" />
+                                            <span>{t('adminDashboard.settingsGroups.systemConfiguration')}</span>
+                                        </DropdownMenuSubTrigger>
+                                        <DropdownMenuPortal>
+                                            <DropdownMenuSubContent>
+                                                <SmtpConfigDialog />
+                                                <ManageDomainDialog />
+                                                <ManageTranslatorDialog />
+                                            </DropdownMenuSubContent>
+                                        </DropdownMenuPortal>
+                                    </DropdownMenuSub>
+                                    <DropdownMenuSeparator/>
+                                    {session.canCreateAdmins && <ManageAdminsDialog currentAdminId={session.id}/>}
+                                </DropdownMenuSubContent>
+                            </DropdownMenuPortal>
+                        </DropdownMenuSub>
+                    )}
                     <DropdownMenuSeparator />
                     <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -184,13 +172,17 @@ export function AdminHeader() {
                         </DropdownMenuItem>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                        <form action={handleLogoutAction}>
-                            <LogoutDialogForm />
-                       </form>
+                        <LogoutDialogForm onLogout={onLogout} />
                     </AlertDialogContent>
                     </AlertDialog>
                 </DropdownMenuContent>
                 </DropdownMenu>
+
+                <ManageAccountDialog
+                    isOpen={isAccountDialogOpen}
+                    onOpenChange={setIsAccountDialogOpen}
+                    onSuccess={onAccountUpdateSuccess}
+                />
             </div>
         </header>
     );
