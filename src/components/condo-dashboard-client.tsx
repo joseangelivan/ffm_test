@@ -74,7 +74,7 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
     );
 }
 
-const CondoDashboardContext = React.createContext<{
+export const CondoDashboardContext = React.createContext<{
   session: SessionPayload;
   condo: Condominio | null;
   handleSetLocale: (locale: 'es' | 'pt-BR') => void;
