@@ -26,13 +26,31 @@ function getNestedValue(obj: any, path: string): string | undefined {
 }
 
 export const LocaleProvider: React.FC<{ children: React.ReactNode, initialLocale: Locale }> = ({ children, initialLocale }) => {
-  const [locale, setLocale] = useState<Locale>(initialLocale);
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
 
   useEffect(() => {
-    // Set the initial locale from server props. 
-    // No need for browser detection anymore if we get it from the server.
-    setLocale(initialLocale);
+    // For logged-in users, the server-provided `initialLocale` from DB is correct.
+    // For public pages, we can check localStorage for a user's previous manual selection.
+    if (initialLocale === 'pt-BR') { // A good indicator we are on a public page or user has no setting
+        const storedLocale = localStorage.getItem('locale') as Locale;
+        if (storedLocale && (storedLocale === 'es' || storedLocale === 'pt-BR')) {
+             setLocaleState(storedLocale);
+        }
+    } else {
+        setLocaleState(initialLocale);
+    }
   }, [initialLocale]);
+
+  const setLocale = (newLocale: Locale) => {
+    setLocaleState(newLocale);
+    // If we're on a public page (judging by initialLocale not being set to 'es'),
+    // we save the preference to localStorage.
+    // A more robust check might involve knowing if a session is active, but this is a good client-side heuristic.
+    if (initialLocale === 'pt-BR' && typeof window !== 'undefined') {
+        localStorage.setItem('locale', newLocale);
+    }
+  }
+
 
   const t = useCallback((key: string, replacements?: Record<string, string>) => {
     const translation = getNestedValue(translations[locale], key) || getNestedValue(translations['pt-BR'], key) || key;
