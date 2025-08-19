@@ -8,7 +8,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -43,7 +42,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { type SessionPayload } from '@/lib/session';
+import type { SessionPayload } from '@/lib/session';
 import { ManageAdminsDialog } from './manage-admins-dialog';
 import { SmtpConfigDialog } from './smtp-config-dialog';
 import { ManageAccountDialog } from './manage-account-dialog';
@@ -55,7 +54,7 @@ import { ManageTranslatorDialog } from './manage-translator-dialog';
 
 export function LoadingOverlay({ text }: { text: string }) {
     return (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
             <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                 <Loader className="h-12 w-12 animate-spin" />
                 <span>{text}</span>
@@ -69,23 +68,26 @@ function LogoutDialogForm({ onLogout }: { onLogout: () => void }) {
     const { pending } = useFormStatus();
 
     return (
-        <form action={onLogout} className={cn("relative", pending && "opacity-50 pointer-events-none")}>
+        <>
             {pending && <LoadingOverlay text={t('login.loggingOut')} />}
-            <AlertDialogHeader>
-                <AlertDialogTitle>{t('dashboard.logoutConfirmation.title')}</AlertDialogTitle>
-                <AlertDialogDescription>
-                    {t('dashboard.logoutConfirmation.description')}
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className="sm:justify-center pt-4">
-                <AlertDialogCancel disabled={pending}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
-                <Button type="submit" disabled={pending} className="w-full sm:w-auto bg-destructive hover:bg-destructive/90">
-                    {t('dashboard.logoutConfirmation.confirm')}
-                </Button>
-            </AlertDialogFooter>
-        </form>
+            <form action={onLogout} className={cn("relative")}>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{t('dashboard.logoutConfirmation.title')}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {t('dashboard.logoutConfirmation.description')}
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="sm:justify-center pt-4">
+                    <AlertDialogCancel disabled={pending}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
+                    <Button type="submit" disabled={pending} className="w-full sm:w-auto bg-destructive hover:bg-destructive/90">
+                        {t('dashboard.logoutConfirmation.confirm')}
+                    </Button>
+                </AlertDialogFooter>
+            </form>
+        </>
     );
 }
+
 
 interface AdminHeaderProps {
     session: SessionPayload;
@@ -186,3 +188,4 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogo
         </header>
     );
 }
+
