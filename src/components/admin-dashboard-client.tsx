@@ -65,7 +65,7 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
     );
 }
 
-const AdminDashboardContext = React.createContext<{ 
+export const AdminDashboardContext = React.createContext<{ 
     session: SessionPayload,
     handleSetLocale: (locale: 'es' | 'pt-BR') => void,
     handleSetTheme: (theme: string) => void,
