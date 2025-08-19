@@ -2,6 +2,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { getDbPool } from './db';
 
 const JWT_ALG = 'HS256';
@@ -115,4 +116,7 @@ export async function handleLogoutAction() {
         }
     }
     (await cookies()).delete('session');
+    
+    // Explicitly redirect to the admin login page
+    redirect('/admin/login');
 }
