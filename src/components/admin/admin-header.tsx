@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useLocale } from '@/lib/i18n';
 import {
@@ -66,25 +66,28 @@ export function LoadingOverlay({ text }: { text: string }) {
 
 function LogoutDialogForm({ onLogout }: { onLogout: () => Promise<void> }) {
     const { t } = useLocale();
-    const { pending } = useFormStatus();
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+    
+    const handleConfirmLogout = async () => {
+        setIsLoggingOut(true);
+        await onLogout();
+    };
 
     return (
         <>
-            {pending && <LoadingOverlay text={t('login.loggingOut')} />}
-            <form action={onLogout} className={cn("relative")}>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>{t('dashboard.logoutConfirmation.title')}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        {t('dashboard.logoutConfirmation.description')}
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter className="sm:justify-center pt-4">
-                    <AlertDialogCancel disabled={pending}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
-                    <Button type="submit" disabled={pending} className="w-full sm:w-auto bg-destructive hover:bg-destructive/90">
-                        {t('dashboard.logoutConfirmation.confirm')}
-                    </Button>
-                </AlertDialogFooter>
-            </form>
+            {isLoggingOut && <LoadingOverlay text={t('login.loggingOut')} />}
+            <AlertDialogHeader>
+                <AlertDialogTitle>{t('dashboard.logoutConfirmation.title')}</AlertDialogTitle>
+                <AlertDialogDescription>
+                    {t('dashboard.logoutConfirmation.description')}
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="sm:justify-center pt-4">
+                <AlertDialogCancel disabled={isLoggingOut}>{t('dashboard.logoutConfirmation.cancel')}</AlertDialogCancel>
+                <Button onClick={handleConfirmLogout} disabled={isLoggingOut} className="w-full sm:w-auto bg-destructive hover:bg-destructive/90">
+                    {t('dashboard.logoutConfirmation.confirm')}
+                </Button>
+            </AlertDialogFooter>
         </>
     );
 }
