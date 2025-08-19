@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useTransition } from 'react';
+import React, { useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useLocale } from '@/lib/i18n';
 import {
@@ -44,7 +44,6 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { type SessionPayload } from '@/lib/session';
-import { handleLogoutAction } from '@/lib/session';
 import { ManageAdminsDialog } from './manage-admins-dialog';
 import { SmtpConfigDialog } from './smtp-config-dialog';
 import { ManageAccountDialog } from './manage-account-dialog';
@@ -65,20 +64,13 @@ export function LoadingOverlay({ text }: { text: string }) {
     );
 }
 
-function LogoutDialogForm() {
+function LogoutDialogForm({ onLogout }: { onLogout: () => void }) {
     const { t } = useLocale();
     const { pending } = useFormStatus();
 
     return (
-        <form action={handleLogoutAction} className={cn("relative", pending && "opacity-50 pointer-events-none")}>
-            {pending && (
-                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg">
-                    <div className="flex items-center gap-4 text-2xl text-muted-foreground">
-                        <Loader className="h-12 w-12 animate-spin" />
-                        <span>{t('login.loggingOut')}</span>
-                    </div>
-                </div>
-            )}
+        <form action={onLogout} className={cn("relative", pending && "opacity-50 pointer-events-none")}>
+            {pending && <LoadingOverlay text={t('login.loggingOut')} />}
             <AlertDialogHeader>
                 <AlertDialogTitle>{t('dashboard.logoutConfirmation.title')}</AlertDialogTitle>
                 <AlertDialogDescription>
@@ -99,7 +91,7 @@ interface AdminHeaderProps {
     session: SessionPayload;
     condoName?: string;
     onAccountUpdateSuccess: (data: any) => void;
-    onLogout: () => Promise<void>;
+    onLogout: () => void;
 }
 
 export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogout }: AdminHeaderProps) {
@@ -178,7 +170,7 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogo
                         </DropdownMenuItem>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                        <LogoutDialogForm />
+                        <LogoutDialogForm onLogout={onLogout} />
                     </AlertDialogContent>
                     </AlertDialog>
                 </DropdownMenuContent>
