@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Smartphone,
@@ -41,28 +41,28 @@ import { getActiveTheme, updateSettings, getSettings } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 
-
 type Coords = { lat: number; lng: number };
 
-export default function CondoDashboardClient() { 
+type CondoDashboardClientProps = {
+    session: SessionPayload;
+    initialCondo: Condominio;
+    initialDevices: Device[];
+    initialSettings: UserSettings;
+};
+
+export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings }: CondoDashboardClientProps) { 
   const { t, setLocale } = useLocale();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const router = useRouter();
-  const params = useParams();
-  const condoId = params.id as string;
 
-  const [session, setSession] = useState<SessionPayload | null>(null);
-  const [initialSettings, setInitialSettings] = useState<UserSettings | null>(null);
+  const [condo, setCondo] = useState<Condominio>(initialCondo);
+  const [devices, setDevices] = useState<Device[]>(initialDevices);
   
-  const [condo, setCondo] = useState<Condominio | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
-  
-  const [loading, setLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState<Coords | null>(null);
   const [activeTab, setActiveTab] = useState('users');
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState(initialSettings.theme);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-
+  const [isGeocoding, setIsGeocoding] = useState(true);
 
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
     const root = document.documentElement;
@@ -99,7 +99,6 @@ export default function CondoDashboardClient() {
   }, []);
 
   const handleSetTheme = useCallback(async (newThemeId: string) => {
-    if (!session || !initialSettings) return;
     setTheme(newThemeId);
     const themeData = await getActiveTheme({ ...initialSettings, theme: newThemeId });
     applyTheme(themeData, newThemeId);
@@ -108,56 +107,11 @@ export default function CondoDashboardClient() {
   }, [applyTheme, initialSettings, session, router]);
 
   const handleSetLocale = async (newLocale: 'es' | 'pt-BR') => {
-      if (!session) return;
       setLocale(newLocale);
       await updateSettings({ language: newLocale }, session);
       router.refresh();
   }
 
-  const fetchData = useCallback(async (currentCondoId: string) => {
-    setLoading(true);
-    try {
-        const [condoResult, devicesResult] = await Promise.all([
-            getCondominioById(currentCondoId),
-            getDevicesByCondoId(currentCondoId)
-        ]);
-        
-        if (condoResult === undefined) {
-          console.error("Failed to fetch condo data, server response was undefined.");
-          setLoading(false);
-          return;
-        }
-
-        if (condoResult.success && condoResult.data) {
-            setCondo(condoResult.data);
-            setDevices(devicesResult || []);
-
-            if (!mapCenter) {
-              const geoResult = await geocodeAddress({
-                  street: condoResult.data.street!,
-                  city: condoResult.data.city!,
-                  state: condoResult.data.state!,
-                  country: condoResult.data.country!,
-              });
-
-              if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
-                  const { lat, lng } = geoResult.data[0].geometry.location;
-                  setMapCenter({ lat, lng });
-              } else {
-                  console.warn("Could not geocode address for map center.");
-                  setMapCenter({ lat: -23.5505, lng: -46.6333 }); // Fallback
-              }
-            }
-        } else {
-            console.error(condoResult.message);
-        }
-    } catch (error) {
-        console.error("Failed to fetch dashboard data:", error);
-    } finally {
-        setLoading(false);
-    }
-  }, [mapCenter]);
-  
   const handleAccountUpdateSuccess = useCallback((data: any) => {
     if (data?.needsLogout) {
       setShowLogoutDialog(true);
@@ -166,48 +120,48 @@ export default function CondoDashboardClient() {
     }
   }, [router]);
 
-  const onDataNeedsRefresh = useCallback(() => {
-    if(condoId) fetchData(condoId);
-  }, [condoId, fetchData]);
+  const onDataNeedsRefresh = useCallback(async () => {
+    if (condo?.id) {
+        const devicesResult = await getDevicesByCondoId(condo.id);
+        setDevices(devicesResult);
+    }
+  }, [condo?.id]);
 
   useEffect(() => {
-    async function loadInitialData() {
-        const { getSession } = await import('@/lib/auth');
-        const sessionData = await getSession();
+    setLocale(initialSettings.language);
+    setTheme(initialSettings.theme);
 
-        if (!sessionData) {
-            router.push('/admin/login');
-            return;
-        }
-        setSession(sessionData);
+    const geocodeCondoAddress = async () => {
+        setIsGeocoding(true);
+        if (initialCondo.street && initialCondo.city && initialCondo.state && initialCondo.country) {
+            const geoResult = await geocodeAddress({
+                street: initialCondo.street,
+                city: initialCondo.city,
+                state: initialCondo.state,
+                country: initialCondo.country,
+            });
 
-        const settingsData = await getSettings(sessionData);
-        if (settingsData) {
-            setInitialSettings(settingsData);
-            setLocale(settingsData.language);
-            setTheme(settingsData.theme);
+            if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
+                const { lat, lng } = geoResult.data[0].geometry.location;
+                setMapCenter({ lat, lng });
+            } else {
+                console.warn("Could not geocode address for map center.", geoResult.message);
+                setMapCenter({ lat: -23.5505, lng: -46.6333 }); // Fallback
+            }
+        } else {
+            setMapCenter({ lat: -23.5505, lng: -46.6333 }); // Fallback
         }
+        setIsGeocoding(false);
+    };
 
-        if (condoId) {
-            await fetchData(condoId);
-        }
-    }
-    loadInitialData();
-  }, [condoId, fetchData, setLocale, router]);
+    geocodeCondoAddress();
+  }, [initialCondo, setLocale, initialSettings]);
+
 
   const handleConfirmLogout = async () => {
     await handleLogoutAction();
     router.push('/admin/login');
   };
-
-
-  if (loading || !condo || !session || !initialSettings) {
-      return (
-        <div className="flex min-h-screen items-center justify-center bg-muted/40">
-            <Loader className="h-12 w-12 animate-spin text-primary" />
-        </div>
-      )
-  }
 
   const providerValue = {
     handleSetLocale,
@@ -250,9 +204,7 @@ export default function CondoDashboardClient() {
                   <div className={cn(activeTab !== 'map' && 'hidden')}>
                       {apiKey ? (
                           <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']}>
-                          {mapCenter ? (
-                              <CondoMapTab condo={condo} center={mapCenter} />
-                          ) : (
+                          {isGeocoding || !mapCenter ? (
                               <Card>
                                   <CardHeader>
                                       <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
@@ -266,6 +218,8 @@ export default function CondoDashboardClient() {
                                       </div>
                                   </CardContent>
                               </Card>
+                          ) : (
+                              <CondoMapTab condo={condo} center={mapCenter} />
                           )}
                           </APIProvider>
                       ) : (
