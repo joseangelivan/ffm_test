@@ -40,6 +40,7 @@ import { handleLogoutAction } from '@/lib/session';
 import type { UserSettings } from '@/actions/admin';
 import { getActiveTheme, updateSettings } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
+import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 
 
 type Coords = { lat: number; lng: number };
@@ -74,26 +75,6 @@ function ForceLogoutDialog({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: 
         </AlertDialog>
     );
 }
-
-const CondoDashboardContext = React.createContext<{
-  session: SessionPayload;
-  condo: Condominio | null;
-  handleSetLocale: (locale: 'es' | 'pt-BR') => void;
-  handleSetTheme: (theme: string) => void;
-  theme: string;
-} | null>(null);
-
-export const useCondoDashboard = Object.assign(
-  () => {
-    const context = React.useContext(CondoDashboardContext);
-    if (!context) {
-        throw new Error("useCondoDashboard must be used within a CondoDashboardProvider");
-    }
-    return context;
-  },
-  { Context: CondoDashboardContext }
-);
-
 
 export default function CondoDashboardClient({ 
     condoId,

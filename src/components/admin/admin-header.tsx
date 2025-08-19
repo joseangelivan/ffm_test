@@ -52,8 +52,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { AdminDashboardContext, useAdminDashboard } from '../admin-dashboard-client';
-import { CondoDashboardContext, useCondoDashboard } from '../condo-dashboard-client';
+import { useAdminDashboard } from '../admin-dashboard-client';
 import { handleLogoutAction } from '@/lib/session';
 import { ManageAdminsDialog } from './manage-admins-dialog';
 import { SmtpConfigDialog } from './smtp-config-dialog';
@@ -62,6 +61,8 @@ import { ManageDomainDialog } from './manage-domain-dialog';
 import { ManageInterfaceDialog } from './manage-interface-dialog';
 import { ManageCatalogsDialog } from './manage-catalogs-dialog';
 import { ManageTranslatorDialog } from './manage-translator-dialog';
+import { AdminDashboardContext } from '../admin-dashboard-client';
+import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 
 
 export function LoadingOverlay({ text }: { text: string }) {

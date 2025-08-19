@@ -12,15 +12,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useLocale } from "@/lib/i18n";
-import { useAdminDashboard } from "./admin-dashboard-client";
-import { useCondoDashboard } from "./condo-dashboard-client";
+import { AdminDashboardContext } from "./admin-dashboard-client";
+import { CondoDashboardContext } from "@/contexts/condo-dashboard-context";
 
 export function ThemeSwitcher() {
   const { t } = useLocale();
 
   // Attempt to get context from either dashboard.
-  const adminContext = React.useContext(useAdminDashboard.Context);
-  const condoContext = React.useContext(useCondoDashboard.Context);
+  const adminContext = React.useContext(AdminDashboardContext);
+  const condoContext = React.useContext(CondoDashboardContext);
 
   const context = adminContext || condoContext;
   const theme = context?.theme;
