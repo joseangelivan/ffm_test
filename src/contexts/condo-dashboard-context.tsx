@@ -11,12 +11,3 @@ export const CondoDashboardContext = React.createContext<{
   theme: string;
   condo: Condominio | null;
 } | null>(null);
-
-
-export function useCondoDashboard() {
-  const context = React.useContext(CondoDashboardContext);
-  if (!context) {
-    throw new Error("useCondoDashboard must be used within a CondoDashboardProvider");
-  }
-  return context;
-}
