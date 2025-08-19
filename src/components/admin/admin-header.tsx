@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useLocale } from '@/lib/i18n';
 import {
@@ -52,6 +52,18 @@ import { ManageDomainDialog } from './manage-domain-dialog';
 import { ManageInterfaceDialog } from './manage-interface-dialog';
 import { ManageCatalogsDialog } from './manage-catalogs-dialog';
 import { ManageTranslatorDialog } from './manage-translator-dialog';
+
+
+export function LoadingOverlay({ text }: { text: string }) {
+    return (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+            <div className="flex items-center gap-4 text-2xl text-muted-foreground">
+                <Loader className="h-12 w-12 animate-spin" />
+                <span>{text}</span>
+            </div>
+        </div>
+    );
+}
 
 function LogoutDialogForm({ onLogout }: { onLogout: () => Promise<void> }) {
     const { t } = useLocale();
