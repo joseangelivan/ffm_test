@@ -1,9 +1,11 @@
 
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { getSettings, verifySessionIntegrity } from '@/actions/admin';
 import AdminDashboardClient from '@/components/admin-dashboard-client';
 import { getSession } from '@/lib/auth';
 import { handleLogoutAction } from '@/lib/session';
+import Loading from '@/app/loading';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,5 +28,9 @@ export default async function AdminDashboardPage() {
   // Ensure settings are never null for the client component
   const settings = initialSettings || { theme: 'light', language: 'pt-BR' };
 
-  return <AdminDashboardClient session={session} initialSettings={settings} />;
+  return (
+    <Suspense fallback={<Loading />}>
+      <AdminDashboardClient session={session} initialSettings={settings} />
+    </Suspense>
+  );
 }
