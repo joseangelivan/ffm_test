@@ -314,14 +314,48 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     overlayListeners.current.push(google.maps.event.addListener(shape, 'dragend', updateAndRecordHistory));
   }, [updateHistory, clearListeners]);
 
+  const drawingLibrary = useMapsLibrary('drawing');
+  const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
+
   useEffect(() => {
-    return () => {
-        clearListeners();
-        if (activeOverlay) { // @ts-ignore
-             activeOverlay.setMap(null);
+    if (!mapRef.current || !drawingLibrary) return;
+
+    if (!drawingManagerRef.current) {
+      const newDrawingManager = new drawingLibrary.DrawingManager({
+        drawingControl: false,
+        polygonOptions: { ...SAVED_COLOR, editable: true, draggable: true },
+        rectangleOptions: { ...SAVED_COLOR, editable: true, draggable: true },
+        circleOptions: { ...SAVED_COLOR, editable: true, draggable: true },
+      });
+      
+      google.maps.event.addListener(
+        newDrawingManager,
+        'overlaycomplete',
+        (event: any) => {
+            newDrawingManager.setDrawingMode(null);
+            event.overlay.setMap(null);
+            setActiveOverlay(event.overlay);
+            setIsDrawing(false);
+            setIsCreating(true);
+            updateHistory(getGeometryFromShape(event.overlay));
         }
+      );
+      drawingManagerRef.current = newDrawingManager;
     }
-  }, [clearListeners, activeOverlay]);
+  }, [drawingLibrary, updateHistory]);
+
+  useEffect(() => {
+    if (!drawingManagerRef.current || !mapRef.current) return;
+    
+    if (isDrawing) {
+      drawingManagerRef.current.setMap(mapRef.current);
+      drawingManagerRef.current.setDrawingMode(drawingMode as any);
+    } else {
+      drawingManagerRef.current.setDrawingMode(null);
+      drawingManagerRef.current.setMap(null);
+    }
+  }, [isDrawing, drawingMode]);
+
 
   useEffect(() => {
     geofences.forEach(gf => {
@@ -334,7 +368,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
     clearListeners();
 
-    if (isDrawing || isEditing) {
+    if (isEditingShape || isDrawing) {
         const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
         if (selectedGeofence && selectedGeofence.shape) {
             (selectedGeofence.shape as any).setOptions({ 
@@ -386,41 +420,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
   const handleZoomOut = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! - 1);
 
-  const drawing = useMapsLibrary('drawing');
-  const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
 
   const handleMapLoad = useCallback(async (map: google.maps.Map) => {
     mapRef.current = map;
-    if (!drawing) return;
-
-    if (!drawingManagerRef.current) {
-        const newDrawingManager = new drawing.DrawingManager({
-          drawingControl: false,
-          polygonOptions: { ...SAVED_COLOR, editable: true, draggable: true },
-          rectangleOptions: { ...SAVED_COLOR, editable: true, draggable: true },
-          circleOptions: { ...SAVED_COLOR, editable: true, draggable: true },
-        });
-
-        google.maps.event.addListener(
-            newDrawingManager,
-            'overlaycomplete',
-            (event: any) => {
-                newDrawingManager.setDrawingMode(null);
-                
-                // Immediately make it editable and draggable
-                event.overlay.setEditable(true);
-                event.overlay.setDraggable(true);
-                
-                setActiveOverlay(event.overlay);
-
-                setIsDrawing(false);
-                setIsCreating(true);
-                updateHistory(getGeometryFromShape(event.overlay));
-            }
-        );
-        drawingManagerRef.current = newDrawingManager;
-    }
-
     try {
         const dbGeofences = await getGeofencesByCondoId(condo.id);
         const gfObjects = dbGeofences
@@ -455,19 +457,17 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     } finally {
         setIsLoading(false);
     }
-  }, [condo.id, centerMapOnAddress, recalculateZoomLevels, drawing, updateHistory]);
+  }, [condo.id, centerMapOnAddress, recalculateZoomLevels]);
 
   useEffect(() => {
-    if (!drawingManagerRef.current || !mapRef.current) return;
-    if (isDrawing) {
-      drawingManagerRef.current.setMap(mapRef.current);
-      drawingManagerRef.current.setDrawingMode(
-        drawingMode.toUpperCase() as keyof typeof google.maps.drawing.OverlayType
-      );
-    } else {
-      drawingManagerRef.current.setMap(null);
+    return () => {
+        clearListeners();
+        if (activeOverlay) { // @ts-ignore
+             activeOverlay.setMap(null);
+        }
     }
-  }, [isDrawing, drawingMode]);
+  }, [clearListeners, activeOverlay]);
+
   
   return (
     <>
@@ -476,11 +476,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             <div className="flex justify-between items-start">
                 <div>
                     <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-                    <CardDescription>{t('condoDashboard.map.description')}</CardDescription>
+                    <p className="text-xs text-muted-foreground">{condo.address}</p>
                 </div>
                  <div className="text-right">
-                    <p className="text-sm font-medium">{condo.name}</p>
-                    <p className="text-xs text-muted-foreground">{condo.address}</p>
+                    <Button onClick={centerMapOnAddress} variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary">
+                        {t('condoDashboard.map.recenterOnAddress')}
+                    </Button>
                 </div>
             </div>
         </CardHeader>
