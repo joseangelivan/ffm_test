@@ -33,7 +33,7 @@ export type DrawingMode = 'polygon' | 'rectangle' | 'circle';
 type GeofenceControlsProps = {
     condoId: string;
     geofences: GeofenceObject[];
-    onDataNeedsRefresh: () => void;
+    onDataNeedsRefresh: (newSelectedId?: string) => void;
     selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
     defaultGeofenceId: string | null;
@@ -206,7 +206,8 @@ export function GeofenceControls({
         if (result?.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
             resetActionStates();
-            onDataNeedsRefresh();
+            const newSelectedId = isCreating ? result.data?.id : selectedGeofenceId;
+            onDataNeedsRefresh(newSelectedId);
         } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
         }
