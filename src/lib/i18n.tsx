@@ -43,10 +43,10 @@ export const LocaleProvider: React.FC<{ children: React.ReactNode, initialLocale
 
   const setLocale = (newLocale: Locale) => {
     setLocaleState(newLocale);
-    // If we're on a public page (judging by initialLocale not being set to 'es'),
-    // we save the preference to localStorage.
-    // A more robust check might involve knowing if a session is active, but this is a good client-side heuristic.
-    if (initialLocale === 'pt-BR' && typeof window !== 'undefined') {
+    // If we're on a public page, we save the preference to localStorage.
+    // A more robust check might involve knowing if a session is active.
+    // For simplicity, we can check if the initialLocale from the server was the default.
+    if (typeof window !== 'undefined') {
         localStorage.setItem('locale', newLocale);
     }
   }

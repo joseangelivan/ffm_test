@@ -30,14 +30,11 @@ export function ThemeSwitcher() {
 
   React.useEffect(() => {
     setMounted(true);
-    // Client-side theme handling for non-admin pages
+    // Client-side theme handling for non-context pages (e.g. login)
     if (!context) {
         const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
         if (storedTheme) {
             document.documentElement.classList.toggle('dark', storedTheme === 'dark');
-        } else {
-            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            document.documentElement.classList.toggle('dark', systemPrefersDark);
         }
     }
   }, [context]);
@@ -46,7 +43,7 @@ export function ThemeSwitcher() {
     if (handleSetTheme) {
         handleSetTheme(newTheme);
     } else {
-        // Fallback for non-admin pages
+        // Fallback for non-context pages
         localStorage.setItem('theme', newTheme);
         document.documentElement.classList.toggle('dark', newTheme === 'dark');
     }
