@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -13,6 +12,7 @@ import {
   Frame,
   Settings,
   Building,
+  Loader,
 } from 'lucide-react';
 
 import type { Condominio } from '@/actions/condos';
@@ -84,7 +84,7 @@ const getBoundsOfShape = (shape: google.maps.MVCObject): google.maps.LatLngBound
     return null;
 }
 
-export default function CondoMapTab({ condo, center }: { condo: Condominio; center: { lat: number; lng: number } }) {
+export default function CondoMapTab({ condo, center, isLoading }: { condo: Condominio; center: { lat: number; lng: number }, isLoading: boolean }) {
   const { t } = useLocale();
   const map = useMap();
 
@@ -118,15 +118,16 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   
   const isEditingShape = isEditing || isCreating;
   
-   const centerMapOnGeofence = useCallback((currentMap: google.maps.Map, level: '1' | '2' | '3', defaultGfId?: string | null) => {
+   const centerMapOnGeofence = useCallback((currentMap: google.maps.Map | null, level: '1' | '2' | '3') => {
+        if (!currentMap) return;
+
         // Cleanup any previous listener to prevent multiple firings
         if (idleListener.current) {
             idleListener.current.remove();
             idleListener.current = null;
         }
 
-        const geofenceToCenterId = defaultGfId || defaultGeofenceId;
-        const geofenceToCenter = geofences.find(g => g.id === geofenceToCenterId);
+        const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
         
         if (geofenceToCenter && geofenceToCenter.shape) {
             const bounds = getBoundsOfShape(geofenceToCenter.shape);
@@ -135,10 +136,15 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             currentMap.fitBounds(bounds);
 
             idleListener.current = google.maps.event.addListenerOnce(currentMap, 'idle', () => {
-                const zoomAdjustment = parseInt(level, 10) - 1;
                 const currentZoom = currentMap.getZoom();
                 if (currentZoom) {
-                    currentMap.setZoom(currentZoom - zoomAdjustment);
+                    if (level === '1') {
+                        // "Ajustado", no change needed
+                    } else if (level === '2') {
+                        currentMap.setZoom(currentZoom - 1); // Normal
+                    } else if (level === '3') {
+                         currentMap.setZoom(currentZoom - 2); // Amplio
+                    }
                 }
                 idleListener.current = null;
             });
@@ -179,10 +185,10 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   
   useEffect(() => {
     if (map && geofences.length > 0 && isInitialFit.current) {
-        centerMapOnGeofence(map, '2', defaultGeofenceId);
+        centerMapOnGeofence(map, '2');
         isInitialFit.current = false;
     }
-  }, [map, geofences, defaultGeofenceId, centerMapOnGeofence]);
+  }, [map, geofences, centerMapOnGeofence]);
 
 
   useEffect(() => {
@@ -346,25 +352,34 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             <div className="flex h-[70vh]">
                 <div className="w-2/3 p-1">
                     <div className="h-full w-full bg-muted overflow-hidden relative shadow-inner rounded-md border">
-                    <MapComponent center={center} zoom={15}>
-                        {isDrawing && (
-                            <GeofenceControls.DrawingManager
-                                drawingMode={drawingMode}
-                                onOverlayComplete={(overlay: google.maps.MVCObject) => {
-                                    setIsDrawing(false);
-                                    setIsCreating(true);
-                                    setActiveOverlay(overlay);
-                                    updateHistory(getGeometryFromShape(overlay));
-                                }}
-                            />
-                        )}
-                        <AdvancedMarker position={center} title={condo.name}>
-                            <div className="p-1.5 bg-background rounded-full shadow-lg border-2 border-primary">
-                                <Building className="h-5 w-5 text-primary" />
+                        {isLoading ? (
+                            <div className="flex items-center justify-center h-full">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Loader className="h-5 w-5 animate-spin" />
+                                    <span>{t('condoDashboard.map.loadingMap')}</span>
+                                </div>
                             </div>
-                        </AdvancedMarker>
-                    </MapComponent>
-                    <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
+                        ) : (
+                            <MapComponent center={center} zoom={15}>
+                                {isDrawing && (
+                                    <GeofenceControls.DrawingManager
+                                        drawingMode={drawingMode}
+                                        onOverlayComplete={(overlay: google.maps.MVCObject) => {
+                                            setIsDrawing(false);
+                                            setIsCreating(true);
+                                            setActiveOverlay(overlay);
+                                            updateHistory(getGeometryFromShape(overlay));
+                                        }}
+                                    />
+                                )}
+                                <AdvancedMarker position={center} title={condo.name}>
+                                    <div className="p-1.5 bg-background rounded-full shadow-lg border-2 border-primary">
+                                        <Building className="h-5 w-5 text-primary" />
+                                    </div>
+                                </AdvancedMarker>
+                            </MapComponent>
+                        )}
+                        <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
                             <Button onClick={handleZoomIn} variant="ghost" size="icon" title="Zoom In">
                                 <ZoomIn className="h-5 w-5" />
                             </Button>
@@ -372,7 +387,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                             <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
                                 <ZoomOut className="h-5 w-5" />
                             </Button>
-                            <Button onClick={() => centerMapOnGeofence(map!, fitLevel)} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
+                            <Button onClick={() => centerMapOnGeofence(map, fitLevel)} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
                                 <Frame className="h-5 w-5" />
                             </Button>
                     </div>
@@ -468,10 +483,8 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             onFitLevelChange={setFitLevel}
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
-            onFitBounds={() => centerMapOnGeofence(map!, fitLevel)}
+            onFitBounds={() => centerMapOnGeofence(map, fitLevel)}
         />
     </>
   );
 }
-
-    

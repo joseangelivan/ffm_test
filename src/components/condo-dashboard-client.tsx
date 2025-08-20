@@ -62,7 +62,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   const [activeTab, setActiveTab] = useState('users');
   const [theme, setTheme] = useState(initialSettings.theme);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [isGeocoding, setIsGeocoding] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
     const root = document.documentElement;
@@ -132,7 +132,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     setTheme(initialSettings.theme);
 
     const geocodeCondoAddress = async () => {
-        setIsGeocoding(true);
+        setIsLoading(true);
         if (initialCondo.street && initialCondo.city && initialCondo.state && initialCondo.country) {
             const geoResult = await geocodeAddress({
                 street: initialCondo.street,
@@ -151,7 +151,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
         } else {
             setMapCenter({ lat: -23.5505, lng: -46.6333 }); // Fallback
         }
-        setIsGeocoding(false);
+        setIsLoading(false);
     };
 
     geocodeCondoAddress();
@@ -201,35 +201,25 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                       <ManageDevicesTab condoId={condo.id} devices={devices} onDataNeedsRefresh={onDataNeedsRefresh} />
                   </div>
                   <div className={cn(activeTab !== 'map' && 'hidden')}>
-                      {apiKey ? (
+                      {apiKey && mapCenter ? (
                           <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']}>
-                          {isGeocoding || !mapCenter ? (
-                              <Card>
-                                  <CardHeader>
-                                      <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-                                  </CardHeader>
-                                  <CardContent>
-                                      <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
-                                          <div className="flex items-center gap-2 text-muted-foreground">
-                                              <Loader className="h-5 w-5 animate-spin" />
-                                              <span>{t('condoDashboard.map.loadingMap')}</span>
-                                          </div>
-                                      </div>
-                                  </CardContent>
-                              </Card>
-                          ) : (
-                              <CondoMapTab condo={condo} center={mapCenter} />
-                          )}
+                            <CondoMapTab condo={condo} center={mapCenter} isLoading={isLoading} />
                           </APIProvider>
                       ) : (
                       <Card>
                           <CardHeader>
                               <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-                              <CardDescription>{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyMissing')}</CardDescription>
                           </CardHeader>
                           <CardContent>
-                              <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center text-center p-4">
-                                  <p className="text-sm text-muted-foreground">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
+                               <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
+                                  {!apiKey ? (
+                                     <p className="text-sm text-muted-foreground text-center p-4">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
+                                  ) : (
+                                      <div className="flex items-center gap-2 text-muted-foreground">
+                                          <Loader className="h-5 w-5 animate-spin" />
+                                          <span>{t('condoDashboard.map.loadingMap')}</span>
+                                      </div>
+                                  )}
                               </div>
                           </CardContent>
                       </Card>
