@@ -30,6 +30,7 @@ import type { Geofence } from '@/actions/maps';
 import { Label } from '@/components/ui/label';
 import { MapSettingsDialog } from './map/map-settings-dialog';
 import { Separator } from '../ui/separator';
+import { useToast } from '@/hooks/use-toast';
 
 export type GeofenceObject = {
     id: string;
@@ -91,9 +92,52 @@ const getCenterOfShape = (shape: google.maps.MVCObject): google.maps.LatLng | nu
     return bounds ? bounds.getCenter() : null;
 }
 
+// A new component to manage the DrawingManager lifecycle
+const DrawingManagerComponent = ({
+  onOverlayComplete,
+  drawingManagerRef,
+}: {
+  onOverlayComplete: (event: google.maps.drawing.OverlayCompleteEvent) => void;
+  drawingManagerRef: React.MutableRefObject<google.maps.drawing.DrawingManager | null>;
+}) => {
+  const drawingLibrary = useMapsLibrary('drawing');
+
+  useEffect(() => {
+    if (!drawingLibrary) return;
+
+    const newDrawingManager = new drawingLibrary.DrawingManager({
+      drawingControl: false,
+      polygonOptions: { ...SAVED_COLOR, draggable: true, editable: true },
+      rectangleOptions: { ...SAVED_COLOR, draggable: true, editable: true },
+      circleOptions: { ...SAVED_COLOR, draggable: true, editable: true },
+    });
+
+    drawingManagerRef.current = newDrawingManager;
+    
+    const listener = google.maps.event.addListener(
+      newDrawingManager,
+      'overlaycomplete',
+      onOverlayComplete
+    );
+
+    return () => {
+      listener.remove();
+      if (drawingManagerRef.current) {
+        drawingManagerRef.current.setMap(null);
+        drawingManagerRef.current = null;
+      }
+    };
+  }, [drawingLibrary, onOverlayComplete, drawingManagerRef]);
+
+  return null;
+};
+
+
 export default function CondoMapTab({ condo, initialPosition }: { condo: Condominio, initialPosition: { lat: number; lng: number } }) {
   const { t } = useLocale();
+  const { toast } = useToast();
   const mapRef = useRef<google.maps.Map | null>(null);
+  const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
   
   const [geofences, setGeofences] = useState<GeofenceObject[]>([]);
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
@@ -314,51 +358,33 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     overlayListeners.current.push(google.maps.event.addListener(shape, 'dragend', updateAndRecordHistory));
   }, [updateHistory, clearListeners]);
 
-  const drawingLibrary = useMapsLibrary('drawing');
-  const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
-
-  // Create DrawingManager instance
+  // Activate/Deactivate DrawingManager
   useEffect(() => {
-    if (!mapRef.current || !drawingLibrary || drawingManagerRef.current) return;
-
-    const newDrawingManager = new drawingLibrary.DrawingManager({
-        drawingControl: false,
-        polygonOptions: { ...SAVED_COLOR },
-        rectangleOptions: { ...SAVED_COLOR },
-        circleOptions: { ...SAVED_COLOR },
-    });
-    
-    google.maps.event.addListener(
-        newDrawingManager,
-        'overlaycomplete',
-        (event: any) => {
-            const newOverlay = event.overlay;
-            newOverlay.setOptions({ editable: true, draggable: true });
-            
-            setIsDrawing(false);
-            newDrawingManager.setDrawingMode(null);
-
-            // Hide the drawn shape temporarily to pass it to the state
-            newOverlay.setMap(null);
-            
-            setActiveOverlay(newOverlay);
-            setIsCreating(true);
-            updateHistory(getGeometryFromShape(newOverlay));
+    if (drawingManagerRef.current && mapRef.current) {
+        drawingManagerRef.current.setMap(mapRef.current);
+        if (isDrawing) {
+            drawingManagerRef.current.setDrawingMode(drawingMode as any);
+        } else {
+            drawingManagerRef.current.setDrawingMode(null);
         }
-    );
-    drawingManagerRef.current = newDrawingManager;
-    newDrawingManager.setMap(mapRef.current);
-  }, [drawingLibrary, updateHistory]);
-
-  // Control DrawingManager state
-  useEffect(() => {
-      if (!drawingManagerRef.current) return;
-      if (isDrawing) {
-          drawingManagerRef.current.setDrawingMode(drawingMode as any);
-      } else {
-          drawingManagerRef.current.setDrawingMode(null);
-      }
+    }
   }, [isDrawing, drawingMode]);
+
+  // Handle drawing completion
+  const onOverlayComplete = useCallback((event: google.maps.drawing.OverlayCompleteEvent) => {
+      const newOverlay = event.overlay;
+      if (newOverlay) {
+        newOverlay.setMap(null); // Temporarily hide it
+        setIsDrawing(false);
+        setActiveOverlay(newOverlay);
+        setIsCreating(true);
+        updateHistory(getGeometryFromShape(newOverlay));
+        toast({ title: t('condoDashboard.map.toast.shapeDrawn.title'), description: t('condoDashboard.map.toast.shapeDrawn.description') });
+      }
+      if(drawingManagerRef.current) {
+        drawingManagerRef.current.setDrawingMode(null);
+      }
+  }, [setIsDrawing, setActiveOverlay, setIsCreating, updateHistory, toast, t]);
 
 
   useEffect(() => {
@@ -372,7 +398,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
     clearListeners();
 
-    if (isEditingShape || isDrawing) {
+    if (isDrawing) {
         const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
         if (selectedGeofence && selectedGeofence.shape) {
             (selectedGeofence.shape as any).setOptions({ 
@@ -381,6 +407,18 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 strokeWeight: 1, 
                 zIndex: 1, 
                 strokeDasharray: '5,5',
+                map: mapRef.current,
+                editable: false, draggable: false, clickable: false
+            });
+        }
+    } else if (isEditing) {
+        const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
+        if (selectedGeofence && selectedGeofence.shape) {
+            (selectedGeofence.shape as any).setOptions({ 
+                ...EDIT_COLOR,
+                fillOpacity: 0.1, 
+                strokeWeight: 1, 
+                zIndex: 1, 
                 map: mapRef.current,
                 editable: false, draggable: false, clickable: false
             });
@@ -419,7 +457,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         setupListeners(activeOverlay);
     }
   
-  }, [activeOverlay, isEditingShape, isDrawing, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, geofences, isEditingEnabled, showAllGeofences, isEditing]);
+  }, [activeOverlay, isEditingShape, isDrawing, isEditing, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, geofences, isEditingEnabled, showAllGeofences]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
   const handleZoomOut = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! - 1);
@@ -502,6 +540,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             </div>
                         )}
                         <MapComponent onMapLoad={handleMapLoad}>
+                            <DrawingManagerComponent onOverlayComplete={onOverlayComplete} drawingManagerRef={drawingManagerRef} />
                             {condoAddressPosition && 
                                 <AdvancedMarker position={condoAddressPosition} title={condo.name}>
                                     <div className="p-1.5 bg-background rounded-full shadow-lg border-2 border-primary">
@@ -583,7 +622,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     showAllGeofences={showAllGeofences}
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
-                                    drawingManager={drawingManagerRef.current}
                                 />
                             )}
                             {activeModule === 'elements' && (

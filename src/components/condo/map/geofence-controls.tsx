@@ -59,7 +59,6 @@ type GeofenceControlsProps = {
     showAllGeofences: boolean;
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
-    drawingManager: google.maps.drawing.DrawingManager | null;
 }
 
 export function GeofenceControls({
@@ -91,7 +90,6 @@ export function GeofenceControls({
     showAllGeofences,
     setShowAllGeofences,
     onSettingsClick,
-    drawingManager,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
