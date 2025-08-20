@@ -145,7 +145,6 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     if (!map || !condo.id) return;
 
     const initializeMap = async () => {
-        setIsLoading(true);
         try {
             const dbGeofences = await getGeofencesByCondoId(condo.id);
             const hasGeofences = dbGeofences && dbGeofences.length > 0;
@@ -198,7 +197,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     
     initializeMap();
 
-  }, [map, condo.id, condo.street, condo.city, condo.state, condo.country, centerMapOnAddress, centerMapOnGeofence, fitLevel]);
+  }, [map, condo.id, fitLevel, centerMapOnAddress, centerMapOnGeofence]);
   
   useEffect(() => {
       if (!map) return;
@@ -363,37 +362,36 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
         </CardHeader>
         <CardContent className="p-0">
             <div className="flex h-[70vh]">
-                <div className="w-2/3 p-1 flex-1 flex">
-                    <div className="flex-1 h-full w-full bg-muted overflow-hidden relative shadow-inner rounded-md border">
-                        {isLoading ? (
-                            <div className="flex items-center justify-center h-full">
+                <div className="flex-1 w-2/3 p-1">
+                    <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
+                        {isLoading && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                     <Loader className="h-5 w-5 animate-spin" />
                                     <span>{t('condoDashboard.map.loadingMap')}</span>
                                 </div>
                             </div>
-                        ) : (
-                            <MapComponent center={center || { lat: 0, lng: 0 }} zoom={15}>
-                                {isDrawing && (
-                                    <GeofenceControls.DrawingManager
-                                        drawingMode={drawingMode}
-                                        onOverlayComplete={(overlay: google.maps.MVCObject) => {
-                                            setIsDrawing(false);
-                                            setIsCreating(true);
-                                            setActiveOverlay(overlay);
-                                            updateHistory(getGeometryFromShape(overlay));
-                                        }}
-                                    />
-                                )}
-                                {center && 
-                                    <AdvancedMarker position={center} title={condo.name}>
-                                        <div className="p-1.5 bg-background rounded-full shadow-lg border-2 border-primary">
-                                            <Building className="h-5 w-5 text-primary" />
-                                        </div>
-                                    </AdvancedMarker>
-                                }
-                            </MapComponent>
                         )}
+                        <MapComponent center={center || { lat: 0, lng: 0 }} zoom={15}>
+                            {isDrawing && (
+                                <GeofenceControls.DrawingManager
+                                    drawingMode={drawingMode}
+                                    onOverlayComplete={(overlay: google.maps.MVCObject) => {
+                                        setIsDrawing(false);
+                                        setIsCreating(true);
+                                        setActiveOverlay(overlay);
+                                        updateHistory(getGeometryFromShape(overlay));
+                                    }}
+                                />
+                            )}
+                            {center && 
+                                <AdvancedMarker position={center} title={condo.name}>
+                                    <div className="p-1.5 bg-background rounded-full shadow-lg border-2 border-primary">
+                                        <Building className="h-5 w-5 text-primary" />
+                                    </div>
+                                </AdvancedMarker>
+                            }
+                        </MapComponent>
                         <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
                             <Button onClick={handleZoomIn} variant="ghost" size="icon" title="Zoom In">
                                 <ZoomIn className="h-5 w-5" />
@@ -513,3 +511,5 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     </>
   );
 }
+
+    
