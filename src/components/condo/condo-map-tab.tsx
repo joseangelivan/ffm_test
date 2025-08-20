@@ -302,29 +302,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       setCanUndo(historyIndexRef.current > 0);
       setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
   }, []);
-
-  const setupListeners = useCallback((shape: google.maps.MVCObject, historyUpdateCallback: () => void) => {
-    clearListeners();
-    const listeners: google.maps.MapsEventListener[] = [];
-    
-    if (typeof google === 'undefined' || !google.maps.event) return;
-    const event = google.maps.event;
-
-    listeners.push(event.addListener(shape, 'dragend', historyUpdateCallback));
-    
-    if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygon
-        const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(event.addListener(path, 'set_at', historyUpdateCallback));
-        listeners.push(event.addListener(path, 'insert_at', historyUpdateCallback));
-        listeners.push(event.addListener(path, 'remove_at', historyUpdateCallback));
-    } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') { // Circle
-        listeners.push(event.addListener(shape, 'radius_changed', historyUpdateCallback));
-        listeners.push(event.addListener(shape, 'center_changed', historyUpdateCallback));
-    } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle
-        listeners.push(event.addListener(shape, 'bounds_changed', historyUpdateCallback));
-    }
-    overlayListeners.current = listeners;
-}, [clearListeners]);
   
   useEffect(() => {
         const newShapes = new Map<string, google.maps.MVCObject>();
@@ -354,70 +331,92 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
           ...EDIT_COLOR
       });
   
-      setupListeners(newShape, () => {});
-  
       mapShapes.set(selectedGeofenceId, newShape);
+      setMapShapes(new Map(mapShapes)); // Force re-render
 
-  }, [selectedGeofenceId, mapShapes, setupListeners]);
+  }, [selectedGeofenceId, mapShapes]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || isLoading) return;
+      const map = mapRef.current;
+      if (!map || isLoading) return;
 
-    const updateAndRecordHistory = () => {
-      if (!selectedGeofenceId) return;
-      const shape = mapShapes.get(selectedGeofenceId);
-      if (!shape) return;
+      const setupListeners = (shape: google.maps.MVCObject, historyUpdateCallback: () => void) => {
+          clearListeners();
+          const listeners: google.maps.MapsEventListener[] = [];
+          if (typeof google === 'undefined' || !google.maps.event) return;
+          const event = google.maps.event;
 
-      const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-      newHistory.push(getGeometryFromShape(shape));
-      historyRef.current = newHistory;
-      historyIndexRef.current = newHistory.length - 1;
-      updateHistoryButtons();
-    };
+          // Listen for dragend for any shape
+          listeners.push(event.addListener(shape, 'dragend', historyUpdateCallback));
+          
+          // Add listeners for vertex/property changes
+          if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygon
+              const path = (shape as google.maps.Polygon).getPath();
+              listeners.push(event.addListener(path, 'set_at', historyUpdateCallback));
+              listeners.push(event.addListener(path, 'insert_at', historyUpdateCallback));
+              listeners.push(event.addListener(path, 'remove_at', historyUpdateCallback));
+          } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') { // Circle
+              listeners.push(event.addListener(shape, 'radius_changed', historyUpdateCallback));
+              // dragend covers center_changed during drag
+          } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle
+              listeners.push(event.addListener(shape, 'bounds_changed', historyUpdateCallback));
+          }
+          overlayListeners.current = listeners;
+      };
 
-    mapShapes.forEach((shape) => shape.setMap(null));
-    clearListeners();
+      const updateAndRecordHistory = () => {
+          if (!selectedGeofenceId) return;
+          const shape = mapShapes.get(selectedGeofenceId);
+          if (!shape) return;
 
-    if (mode === 'editing') {
-        const shapeToEdit = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
-        if (shapeToEdit) {
-            (shapeToEdit as any).setOptions(EDIT_COLOR);
-            shapeToEdit.setMap(map);
-            setupListeners(shapeToEdit, updateAndRecordHistory);
-        }
-    } else if (mode === 'drawing') {
-        // Drawing manager handles the new shape visibility
-    } else { // 'view' mode
-        mapShapes.forEach((shape, id) => {
-            let isVisible = false;
-            let colorOptions: any = {};
+          const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+          newHistory.push(getGeometryFromShape(shape));
+          historyRef.current = newHistory;
+          historyIndexRef.current = newHistory.length - 1;
+          updateHistoryButtons();
+      };
+      
+      mapShapes.forEach((shape) => (shape as any).setMap(null));
+      clearListeners();
 
-            if (isEditingEnabled) {
-                if (id === selectedGeofenceId) {
-                    isVisible = true;
-                    colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
-                }
-            } else {
-                 if (showAllGeofences) {
+      if (mode === 'editing') {
+          const shapeToEdit = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
+          if (shapeToEdit) {
+              (shapeToEdit as any).setOptions(EDIT_COLOR);
+              shapeToEdit.setMap(map);
+              setupListeners(shapeToEdit, updateAndRecordHistory);
+          }
+      } else if (mode === 'drawing') {
+          // Drawing manager handles the new shape visibility
+      } else { // 'view' mode
+          mapShapes.forEach((shape, id) => {
+              let isVisible = false;
+              let colorOptions: any = {};
+
+              if (isEditingEnabled) {
+                  if (id === selectedGeofenceId) {
                       isVisible = true;
-                      colorOptions = id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
-                 } else {
-                     if (id === defaultGeofenceId) {
-                         isVisible = true;
-                         colorOptions = DEFAULT_COLOR;
-                     }
-                 }
-            }
-            (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
-            shape.setMap(isVisible ? map : null);
-        });
-    }
-}, [
-    mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-    mapShapes, clearListeners, isEditingEnabled, isLoading, setupListeners, updateHistoryButtons
-]);
-
+                      colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
+                  }
+              } else {
+                  if (showAllGeofences) {
+                        isVisible = true;
+                        colorOptions = id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
+                  } else {
+                      if (id === defaultGeofenceId) {
+                          isVisible = true;
+                          colorOptions = DEFAULT_COLOR;
+                      }
+                  }
+              }
+              (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
+              shape.setMap(isVisible ? map : null);
+          });
+      }
+  }, [
+      mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
+      mapShapes, clearListeners, isEditingEnabled, isLoading, updateHistoryButtons
+  ]);
 
   useEffect(() => {
     updateHistoryButtons();
