@@ -123,6 +123,42 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const isEditingShape = isEditing || isCreating;
 
+  const centerMapOnAddress = useCallback(() => {
+    const map = mapRef.current;
+    if(!map || !condoAddressPosition) return;
+    map.setCenter(condoAddressPosition);
+    map.setZoom(15);
+  }, [condoAddressPosition]);
+
+
+  const recalculateZoomLevels = useCallback(() => {
+    const map = mapRef.current;
+    const geofenceToCalculate = geofences.find(g => g.id === defaultGeofenceId);
+
+    if (!map || !geofenceToCalculate?.shape) {
+      setCalculatedZoomLevels(null);
+      return;
+    }
+    
+    const bounds = getBoundsOfShape(geofenceToCalculate.shape);
+    if (!bounds) {
+        setCalculatedZoomLevels(null);
+        return;
+    };
+    
+    map.fitBounds(bounds, 0); 
+    const maxZoom = map.getZoom();
+
+    if (maxZoom !== undefined) {
+      const zoomLevels = {
+          tight: maxZoom,
+          normal: maxZoom > 1 ? maxZoom - 1 : maxZoom,
+          wide: maxZoom > 2 ? maxZoom - 2 : maxZoom,
+      };
+      setCalculatedZoomLevels(zoomLevels);
+    }
+  }, [geofences, defaultGeofenceId]);
+
   const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
     const map = mapRef.current;
     if (!map || !calculatedZoomLevels) return;
@@ -141,18 +177,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     setFitLevel(level);
   }, [calculatedZoomLevels, geofences, defaultGeofenceId]);
 
-  const centerMapOnAddress = useCallback(() => {
-    const map = mapRef.current;
-    if(!map || !condoAddressPosition) return;
-    map.setCenter(condoAddressPosition);
-    map.setZoom(15);
-  }, [condoAddressPosition]);
-
-
   const handleMapLoad = useCallback(async (map: google.maps.Map) => {
     mapRef.current = map;
-    setIsLoading(true);
-
     try {
         const dbGeofences = await getGeofencesByCondoId(condo.id);
         const gfObjects = dbGeofences.map(dbGf => ({
@@ -172,14 +198,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             
             if (!geofenceToCenter?.shape) {
                 centerMapOnAddress();
-                setIsLoading(false);
                 return;
             }
             
             const bounds = getBoundsOfShape(geofenceToCenter.shape);
             if (!bounds) {
                 centerMapOnAddress();
-                setIsLoading(false);
                 return;
             }
             
@@ -202,16 +226,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 } else {
                      centerMapOnAddress();
                 }
-                setIsLoading(false);
             });
 
         } else {
             centerMapOnAddress();
-            setIsLoading(false);
         }
     } catch (error) {
         console.error("Failed to initialize map:", error);
         centerMapOnAddress();
+    } finally {
         setIsLoading(false);
     }
   }, [condo.id, centerMapOnAddress]);
