@@ -116,45 +116,42 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   const isEditingShape = isEditing || isCreating;
   
-  const centerMapOnGeofence = useCallback(() => {
+  const centerMapOnGeofence = useCallback((paddingPercent?: number) => {
     if (!map) return;
-    const defaultGeofence = geofences.find(g => g.id === defaultGeofenceId);
-    if (defaultGeofence && defaultGeofence.shape) {
-      const bounds = getBoundsOfShape(defaultGeofence.shape);
+    const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
+    if (geofenceToCenter && geofenceToCenter.shape) {
+      const bounds = getBoundsOfShape(geofenceToCenter.shape);
       if (bounds) {
-        
-        // Custom fitBounds logic with percentage padding
-        const mapDiv = map.getDiv();
-        const mapWidth = mapDiv.clientWidth;
-        const mapHeight = mapDiv.clientHeight;
-        const mapAspectRatio = mapHeight / mapWidth;
+        const padding = paddingPercent ?? fitPadding;
 
+        const mapDiv = map.getDiv();
+        if (!mapDiv) return;
+        const { width: mapWidth, height: mapHeight } = mapDiv.getBoundingClientRect();
+        
         const ne = bounds.getNorthEast();
         const sw = bounds.getSouthWest();
-        const geofenceHeight = Math.abs(ne.lat() - sw.lat());
-        const geofenceWidth = Math.abs(ne.lng() - sw.lng());
-        const geofenceAspectRatio = geofenceHeight / geofenceWidth;
         
-        let newBounds;
+        const geofenceSpan = {
+            lat: Math.abs(ne.lat() - sw.lat()),
+            lng: Math.abs(ne.lng() - sw.lng()),
+        };
 
-        // Compare aspect ratios to determine the limiting dimension
+        const mapAspectRatio = mapHeight / mapWidth;
+        // Avoid division by zero
+        const geofenceAspectRatio = geofenceSpan.lng > 0 ? geofenceSpan.lat / geofenceSpan.lng : mapAspectRatio;
+        
+        let pixelPadding = { top: 0, bottom: 0, left: 0, right: 0 };
+        
+        // If geofence is proportionally "taller" than map view, height is the limit
         if (geofenceAspectRatio > mapAspectRatio) {
-            // Geofence is "taller" than map view, height is the limit
-            const paddingValue = geofenceHeight * (fitPadding / 100);
-            newBounds = new google.maps.LatLngBounds(
-                new google.maps.LatLng(sw.lat() - paddingValue, sw.lng()),
-                new google.maps.LatLng(ne.lat() + paddingValue, ne.lng())
-            );
-        } else {
-            // Geofence is "wider" than map view, width is the limit
-            const paddingValue = geofenceWidth * (fitPadding / 100);
-             newBounds = new google.maps.LatLngBounds(
-                new google.maps.LatLng(sw.lat(), sw.lng() - paddingValue),
-                new google.maps.LatLng(ne.lat(), ne.lng() + paddingValue)
-            );
+            const paddingValue = mapHeight * (padding / 100);
+            pixelPadding = { top: paddingValue, bottom: paddingValue, left: 0, right: 0 };
+        } else { // Geofence is "wider"
+            const paddingValue = mapWidth * (padding / 100);
+            pixelPadding = { top: 0, bottom: 0, left: paddingValue, right: paddingValue };
         }
         
-        map.fitBounds(newBounds);
+        map.fitBounds(bounds, pixelPadding);
         return;
       }
     }
@@ -195,7 +192,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   // This effect runs after geofences are loaded to center the map.
     useEffect(() => {
         if (map && geofences.length > 0) {
-            centerMapOnGeofence();
+            centerMapOnGeofence(10);
         } else if (map) {
             centerMapOnAddress();
         }
@@ -388,7 +385,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                             <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
                                 <ZoomOut className="h-5 w-5" />
                             </Button>
-                            <Button onClick={centerMapOnGeofence} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
+                            <Button onClick={() => centerMapOnGeofence()} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
                                 <Frame className="h-5 w-5" />
                             </Button>
                     </div>
