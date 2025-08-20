@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -161,6 +162,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const historyRef = useRef<any[]>([]);
   const historyIndexRef = useRef<number>(-1);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   const [selectedModule, setSelectedModule] = useState('geofence');
   
@@ -290,21 +293,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     overlayListeners.current.forEach(l => l.remove());
     overlayListeners.current = [];
   }, []);
+
+  const updateHistoryButtons = useCallback(() => {
+      setCanUndo(historyIndexRef.current > 0);
+      setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
+  }, [historyIndexRef]);
   
-    const setupListeners = useCallback((shape: google.maps.MVCObject) => {
+    const setupListeners = useCallback((shape: google.maps.MVCObject, onShapeChanged: () => void) => {
         clearListeners();
         const listeners: google.maps.MapsEventListener[] = [];
         
-        const onShapeChanged = () => {
-            const newGeometry = getGeometryFromShape(shape);
-            if (!newGeometry) return;
-    
-            const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-            newHistory.push(newGeometry);
-            historyRef.current = newHistory;
-            historyIndexRef.current = newHistory.length - 1;
-        };
-    
         if (typeof google === 'undefined' || !google.maps.event) return;
         const event = google.maps.event;
     
@@ -322,7 +320,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             listeners.push(event.addListener(shape, 'bounds_changed', onShapeChanged));
         }
         overlayListeners.current = listeners;
-    }, [clearListeners, historyRef, historyIndexRef]);
+    }, [clearListeners]);
   
   useEffect(() => {
         const newShapes = new Map<string, google.maps.MVCObject>();
@@ -348,7 +346,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
           if (shapeToEdit) {
               (shapeToEdit as any).setOptions(EDIT_COLOR);
               shapeToEdit.setMap(map);
-              setupListeners(shapeToEdit);
+              setupListeners(shapeToEdit, () => {
+                  const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+                  newHistory.push(getGeometryFromShape(shapeToEdit));
+                  historyRef.current = newHistory;
+                  historyIndexRef.current = newHistory.length - 1;
+                  updateHistoryButtons();
+              });
           }
       } else if (mode === 'drawing') {
           // Drawing manager handles the new shape visibility
@@ -379,7 +383,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       }
   }, [
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-      mapShapes, clearListeners, isEditingEnabled, isLoading, setupListeners
+      mapShapes, clearListeners, isEditingEnabled, isLoading, setupListeners, historyRef, historyIndexRef, updateHistoryButtons
   ]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
@@ -504,6 +508,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     clearListeners={clearListeners}
                                     historyRef={historyRef}
                                     historyIndexRef={historyIndexRef}
+                                    updateHistoryButtons={updateHistoryButtons}
+                                    canUndo={canUndo}
+                                    canRedo={canRedo}
                                 />
                             )}
                             {selectedModule === 'elements' && (
