@@ -29,6 +29,7 @@ import type { Geofence as DbGeofence } from '@/actions/maps';
 import { MapSettingsDialog } from './map/map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { isEqual } from 'lodash';
 
 export const EDIT_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2, editable: true, draggable: true };
 export const SAVED_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: false, draggable: false, clickable: true };
@@ -303,6 +304,27 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
   }, []);
   
+  const applyHistoryState = useCallback((geometry: any) => {
+    if (!selectedGeofenceId) return;
+
+    const map = mapRef.current;
+    if (!map) return;
+
+    const oldShape = mapShapes.get(selectedGeofenceId);
+    if (oldShape) (oldShape as any).setMap(null);
+
+    const newShape = createShapeFromGeometry(geometry);
+    if (!newShape) return;
+
+    (newShape as any).setOptions({ map, ...EDIT_COLOR });
+    
+    const newMapShapes = new Map(mapShapes);
+    newMapShapes.set(selectedGeofenceId, newShape);
+    setMapShapes(newMapShapes);
+    // No recentering here
+  }, [selectedGeofenceId, mapShapes]);
+
+
   useEffect(() => {
         const newShapes = new Map<string, google.maps.MVCObject>();
         for (const dbGf of dbGeofences) {
@@ -313,54 +335,39 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
         setMapShapes(newShapes);
   }, [dbGeofences]);
-  
-  const applyHistoryState = useCallback((geometry: any) => {
-    if (!selectedGeofenceId) return;
-
-    const map = mapRef.current;
-    if (!map) return;
-
-    const oldShape = mapShapes.get(selectedGeofenceId);
-    if(oldShape) (oldShape as any).setMap(null);
-
-    const newShape = createShapeFromGeometry(geometry);
-    if (!newShape) return;
-
-    (newShape as any).setOptions({ map, ...EDIT_COLOR });
-    
-    setMapShapes(prev => new Map(prev).set(selectedGeofenceId, newShape));
-  }, [selectedGeofenceId, mapShapes]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || isLoading) return;
 
-    const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
-        let timeout: NodeJS.Timeout;
-        return (...args: Parameters<F>): void => {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func(...args), delay);
-        };
-    };
-
-    const updateAndRecordHistory = () => {
-        if (!selectedGeofenceId) return;
-        const shape = mapShapes.get(selectedGeofenceId);
-        if (!shape) return;
-
-        const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-        newHistory.push(getGeometryFromShape(shape));
-        historyRef.current = newHistory;
-        historyIndexRef.current = newHistory.length - 1;
-        updateHistoryButtons();
-    };
-    
-    const debouncedUpdate = debounce(updateAndRecordHistory, 100);
-
     const setupListeners = (shape: google.maps.MVCObject) => {
         clearListeners();
         const listeners: google.maps.MapsEventListener[] = [];
         const event = google.maps.event;
+
+        const updateAndRecordHistory = () => {
+            const newGeometry = getGeometryFromShape(shape);
+            const lastGeometry = historyRef.current[historyIndexRef.current];
+
+            if (isEqual(newGeometry, lastGeometry)) {
+                return;
+            }
+
+            const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+            newHistory.push(newGeometry);
+            historyRef.current = newHistory;
+            historyIndexRef.current = newHistory.length - 1;
+            updateHistoryButtons();
+        };
+
+        const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
+            let timeout: NodeJS.Timeout;
+            return (...args: Parameters<F>): void => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func(...args), delay);
+            };
+        };
+        const debouncedUpdate = debounce(updateAndRecordHistory, 100);
 
         listeners.push(event.addListener(shape, 'dragend', updateAndRecordHistory));
         
@@ -466,7 +473,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const previousGeometry = historyRef.current[historyIndexRef.current];
         applyHistoryState(previousGeometry);
         updateHistoryButtons();
-    }, [canUndo, historyIndexRef, historyRef, applyHistoryState, updateHistoryButtons]);
+    }, [canUndo, applyHistoryState, updateHistoryButtons]);
     
     const handleRedo = useCallback(() => {
         if (!canRedo) return;
@@ -474,7 +481,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const nextGeometry = historyRef.current[historyIndexRef.current];
         applyHistoryState(nextGeometry);
         updateHistoryButtons();
-    }, [canRedo, historyIndexRef, historyRef, applyHistoryState, updateHistoryButtons]);
+    }, [canRedo, applyHistoryState, updateHistoryButtons]);
 
   
   return (
@@ -513,7 +520,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 drawingManagerRef={drawingManagerRef}
                             />
                         </div>
-                         {mode === 'editing' && (
+                         {mode === 'editing' && (canUndo || canRedo) && (
                             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">
                                 <Button onClick={handleUndo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
                                     <Undo className="h-4 w-4"/>
@@ -599,6 +606,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             isGeofenceAvailable={!!calculatedZoomLevels}
             onCenterAddress={centerMapOnAddress}
         />
+        <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"
+            integrity="sha512-WFN04846sdKMIP5LKNphMaWzU7YpMyCU245etK3g/2ARYbPK9Ub18eG+ljU96qKRCWh+quCY7yefSmlkQw1ANQ=="
+            crossOrigin="anonymous"
+            referrerPolicy="no-referrer"
+            async
+        ></script>
     </>
   );
 }
