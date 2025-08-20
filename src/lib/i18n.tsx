@@ -22,30 +22,34 @@ interface LocaleContextType {
 const LocaleContext = createContext<LocaleContextType | undefined>(undefined);
 
 function getNestedValue(obj: any, path: string): string | undefined {
-  return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+  const keys = path.split('.');
+  let current = obj;
+  for (let i = 0; i < keys.length; i++) {
+    if (current === null || current === undefined) {
+      return undefined;
+    }
+    current = current[keys[i]];
+  }
+  return current;
 }
+
 
 export const LocaleProvider: React.FC<{ children: React.ReactNode, initialLocale: Locale }> = ({ children, initialLocale }) => {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
 
   useEffect(() => {
-    // For logged-in users, the server-provided `initialLocale` from DB is correct.
-    // For public pages, we can check localStorage for a user's previous manual selection.
-    if (initialLocale === 'pt-BR') { // A good indicator we are on a public page or user has no setting
+    if (initialLocale) {
+      setLocaleState(initialLocale);
+    } else {
         const storedLocale = localStorage.getItem('locale') as Locale;
         if (storedLocale && (storedLocale === 'es' || storedLocale === 'pt-BR')) {
              setLocaleState(storedLocale);
         }
-    } else {
-        setLocaleState(initialLocale);
     }
   }, [initialLocale]);
 
   const setLocale = (newLocale: Locale) => {
     setLocaleState(newLocale);
-    // If we're on a public page, we save the preference to localStorage.
-    // A more robust check might involve knowing if a session is active.
-    // For simplicity, we can check if the initialLocale from the server was the default.
     if (typeof window !== 'undefined') {
         localStorage.setItem('locale', newLocale);
     }
