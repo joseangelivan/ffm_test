@@ -181,26 +181,39 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     const initializeMap = async () => {
         setIsLoading(true);
         try {
-            const geoResult = await geocodeAddress({
-                street: condo.street, city: condo.city, state: condo.state, country: condo.country
-            });
+            const dbGeofences = await getGeofencesByCondoId(condo.id);
+            const defaultGfDb = dbGeofences.find(g => g.is_default);
+            
+            let initialCenter: { lat: number, lng: number } | null = null;
 
-            let initialCenter: { lat: number; lng: number };
-            if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
-                initialCenter = geoResult.data[0].geometry.location;
-            } else {
-                initialCenter = { lat: -23.5505, lng: -46.6333 }; // Fallback to São Paulo
+            if (defaultGfDb) {
+                const shape = createShapeFromGeometry(defaultGfDb.geometry);
+                if (shape) {
+                    const shapeCenter = getCenterOfShape(shape);
+                    if (shapeCenter) {
+                        initialCenter = shapeCenter.toJSON();
+                    }
+                }
             }
             
+            if (!initialCenter) {
+                const geoResult = await geocodeAddress({
+                    street: condo.street, city: condo.city, state: condo.state, country: condo.country
+                });
+                 if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
+                    initialCenter = geoResult.data[0].geometry.location;
+                } else {
+                    initialCenter = { lat: -23.5505, lng: -46.6333 }; // Fallback
+                }
+            }
+
             setCondoAddressPosition(initialCenter);
             setCenter(initialCenter);
 
-            const dbGeofences = await getGeofencesByCondoId(condo.id);
             if (dbGeofences && dbGeofences.length > 0) {
                 const gfObjects = dbGeofences.map(dbGf => ({
                     id: dbGf.id, name: dbGf.name, shape: createShapeFromGeometry(dbGf.geometry) as google.maps.MVCObject
                 }));
-                const defaultGfDb = dbGeofences.find(g => g.is_default);
                 const initialDefaultId = defaultGfDb ? defaultGfDb.id : (gfObjects[0]?.id || null);
 
                 setGeofences(gfObjects);
@@ -220,6 +233,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
             console.error("Failed to initialize map:", error);
             const fallbackCenter = { lat: -23.5505, lng: -46.6333 };
             setCondoAddressPosition(fallbackCenter);
+            setCenter(fallbackCenter);
             centerMapOnAddress(fallbackCenter);
         } finally {
             setIsLoading(false);
@@ -535,5 +549,3 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     </>
   );
 }
-
-    
