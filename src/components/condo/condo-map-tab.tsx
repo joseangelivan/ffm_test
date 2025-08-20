@@ -412,7 +412,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [setIsDrawing, setGeofenceForEditing, setIsCreating, updateHistory, toast, t]);
 
     useEffect(() => {
-        // This is the master effect for controlling shape visibility on the map.
         clearListeners();
         // 1. Clear all existing shapes from the map to ensure a clean slate.
         geofences.forEach(gf => {
@@ -424,35 +423,20 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
         // 2. Decide what to show based on the current mode.
         if (isEditingEnabled) {
-             // In "Edition Mode"
-            if (isEditingShape) { // isEditing or isCreating
-                // If actively drawing/editing, show the shape being worked on
-                if (geofenceForEditing) {
-                    (geofenceForEditing as any).setOptions({ ...SAVED_COLOR, editable: true, draggable: true, zIndex: 3 });
-                    (geofenceForEditing as any).setMap(mapRef.current);
-                    setupListeners(geofenceForEditing);
-                }
-                 // And also show the reference geofence if one is selected
-                const geofenceToEditAsReference = geofences.find(g => g.id === selectedGeofenceId);
-                if (geofenceToEditAsReference?.shape) {
-                    (geofenceToEditAsReference.shape as any).setMap(mapRef.current);
-                    (geofenceToEditAsReference.shape as any).setOptions({
-                        ...EDIT_COLOR,
-                        editable: false, draggable: false, clickable: false,
-                        zIndex: 1,
-                    });
-                }
-            } else {
-                // If in edition mode but not actively drawing, show only the selected geofence
-                const geofenceToShow = geofences.find(g => g.id === selectedGeofenceId);
-                if (geofenceToShow?.shape) {
-                    (geofenceToShow.shape as any).setMap(mapRef.current);
-                    (geofenceToShow.shape as any).setOptions({
-                        ...EDIT_COLOR,
-                        editable: false, draggable: false, clickable: true,
-                        zIndex: 2,
-                    });
-                }
+            const referenceGeofence = geofences.find(g => g.id === selectedGeofenceId);
+            if (referenceGeofence?.shape) {
+                (referenceGeofence.shape as any).setMap(mapRef.current);
+                (referenceGeofence.shape as any).setOptions({
+                    ...EDIT_COLOR,
+                    editable: false, draggable: false, clickable: !isEditingShape,
+                    zIndex: 1,
+                });
+            }
+
+            if (isEditingShape && geofenceForEditing) {
+                (geofenceForEditing as any).setOptions({ ...SAVED_COLOR, editable: true, draggable: true, zIndex: 3 });
+                (geofenceForEditing as any).setMap(mapRef.current);
+                setupListeners(geofenceForEditing);
             }
         } else {
             // In "View Mode" (not editing)
@@ -659,5 +643,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
-    
