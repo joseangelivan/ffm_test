@@ -46,9 +46,10 @@ type CondoDashboardClientProps = {
     initialCondo: Condominio;
     initialDevices: Device[];
     initialSettings: UserSettings;
+    initialPosition: { lat: number; lng: number };
 };
 
-export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings }: CondoDashboardClientProps) { 
+export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, initialPosition }: CondoDashboardClientProps) { 
   const { t, setLocale } = useLocale();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const router = useRouter();
@@ -56,7 +57,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   const [condo, setCondo] = useState<Condominio>(initialCondo);
   const [devices, setDevices] = useState<Device[]>(initialDevices);
   
-  const [activeTab, setActiveTab] = useState('users');
+  const [activeTab, setActiveTab] = useState('map');
   const [theme, setTheme] = useState(initialSettings.theme);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
@@ -174,7 +175,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                   <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
                       {apiKey ? (
                           <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']}>
-                            <CondoMapTab condo={condo} />
+                            <CondoMapTab condo={condo} initialPosition={initialPosition} />
                           </APIProvider>
                       ) : (
                       <Card>

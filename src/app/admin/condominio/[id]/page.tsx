@@ -8,7 +8,7 @@ import { getCondominioById } from '@/actions/condos';
 import { getDevicesByCondoId } from '@/actions/devices';
 import { getSession } from '@/lib/auth';
 import { getSettings } from '@/actions/admin';
-import type { UserSettings } from '@/actions/admin';
+import { geocodeAddress } from '@/actions/geocoding';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +33,18 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
   if (!condoResult.success || !condoResult.data) {
     notFound();
   }
+  
+  const condo = condoResult.data;
+  
+  // Pre-fetch initial position on the server
+  let initialPosition = { lat: -23.5505, lng: -46.6333 }; // Default fallback
+  const geoResult = await geocodeAddress({
+    street: condo.street, city: condo.city, state: condo.state, country: condo.country
+  });
+
+  if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
+    initialPosition = geoResult.data[0].geometry.location;
+  }
 
   const initialSettings = settings || { theme: 'light', language: 'pt-BR' };
 
@@ -40,9 +52,10 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
     <Suspense fallback={<Loading />}>
         <CondoDashboardClient 
             session={session}
-            initialCondo={condoResult.data}
+            initialCondo={condo}
             initialDevices={devices}
             initialSettings={initialSettings}
+            initialPosition={initialPosition}
         />
     </Suspense>
   );

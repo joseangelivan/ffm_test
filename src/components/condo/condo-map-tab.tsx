@@ -26,7 +26,6 @@ import { GeofenceControls, type DrawingMode } from './map/geofence-controls';
 import { ElementsControls } from './map/elements-controls';
 import { getGeofencesByCondoId, getMapElementTypes } from '@/actions/maps';
 import type { Geofence } from '@/actions/maps';
-import { geocodeAddress } from '@/actions/geocoding';
 import { Label } from '@/components/ui/label';
 import { MapSettingsDialog } from './map/map-settings-dialog';
 
@@ -90,7 +89,7 @@ const getCenterOfShape = (shape: google.maps.MVCObject): google.maps.LatLng | nu
     return bounds ? bounds.getCenter() : null;
 }
 
-export default function CondoMapTab({ condo }: { condo: Condominio }) {
+export default function CondoMapTab({ condo, initialPosition }: { condo: Condominio, initialPosition: { lat: number; lng: number } }) {
   const { t } = useLocale();
   const map = useMap();
 
@@ -120,9 +119,10 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const [calculatedZoomLevels, setCalculatedZoomLevels] = useState<{ tight: number, normal: number, wide: number } | null>(null);
-  const [condoAddressPosition, setCondoAddressPosition] = useState<{ lat: number; lng: number } | null>(null);
-  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
-
+  
+  // Use the server-calculated position as the initial state
+  const [condoAddressPosition] = useState(initialPosition);
+  const [center, setCenter] = useState(initialPosition);
 
   const isEditingShape = isEditing || isCreating;
 
@@ -156,64 +156,47 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
       });
   }, [map, geofences, defaultGeofenceId]);
 
- const centerMapOnAddress = useCallback((coords: {lat: number, lng: number}) => {
-    if(!map) return;
-    map.setCenter(coords);
+ const centerMapOnAddress = useCallback(() => {
+    if(!map || !condoAddressPosition) return;
+    map.setCenter(condoAddressPosition);
     map.setZoom(15);
-  }, [map]);
+  }, [map, condoAddressPosition]);
 
   const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
     if (!map) return;
 
     if (calculatedZoomLevels) {
+      const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
+      if (geofenceToCenter?.shape) {
+        const center = getCenterOfShape(geofenceToCenter.shape);
+        if (center) map.setCenter(center);
+      }
       if (level === '1') map.setZoom(calculatedZoomLevels.tight);
       if (level === '2') map.setZoom(calculatedZoomLevels.normal);
       if (level === '3') map.setZoom(calculatedZoomLevels.wide);
     } else {
       centerMapOnGeofence(level);
     }
-  }, [map, calculatedZoomLevels, centerMapOnGeofence]);
+  }, [map, calculatedZoomLevels, centerMapOnGeofence, geofences, defaultGeofenceId]);
 
 
   useEffect(() => {
     if (!map || !condo.id) return;
-
+    
+    let isMounted = true;
+    
     const initializeMap = async () => {
         setIsLoading(true);
         try {
             const dbGeofences = await getGeofencesByCondoId(condo.id);
-            const defaultGfDb = dbGeofences.find(g => g.is_default);
-            
-            let initialCenter: { lat: number, lng: number } | null = null;
 
-            if (defaultGfDb) {
-                const shape = createShapeFromGeometry(defaultGfDb.geometry);
-                if (shape) {
-                    const shapeCenter = getCenterOfShape(shape);
-                    if (shapeCenter) {
-                        initialCenter = shapeCenter.toJSON();
-                    }
-                }
-            }
-            
-            if (!initialCenter) {
-                const geoResult = await geocodeAddress({
-                    street: condo.street, city: condo.city, state: condo.state, country: condo.country
-                });
-                 if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
-                    initialCenter = geoResult.data[0].geometry.location;
-                } else {
-                    initialCenter = { lat: -23.5505, lng: -46.6333 }; // Fallback
-                }
-            }
-
-            setCondoAddressPosition(initialCenter);
-            setCenter(initialCenter);
+            if (!isMounted) return;
 
             if (dbGeofences && dbGeofences.length > 0) {
                 const gfObjects = dbGeofences.map(dbGf => ({
                     id: dbGf.id, name: dbGf.name, shape: createShapeFromGeometry(dbGf.geometry) as google.maps.MVCObject
                 }));
+                const defaultGfDb = dbGeofences.find(g => g.is_default);
                 const initialDefaultId = defaultGfDb ? defaultGfDb.id : (gfObjects[0]?.id || null);
 
                 setGeofences(gfObjects);
@@ -224,23 +207,24 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                 if(defaultGfObj) {
                   centerMapOnGeofence(fitLevel, defaultGfObj);
                 } else {
-                  centerMapOnAddress(initialCenter);
+                  centerMapOnAddress();
                 }
             } else {
-                centerMapOnAddress(initialCenter);
+                centerMapOnAddress();
             }
         } catch (error) {
             console.error("Failed to initialize map:", error);
-            const fallbackCenter = { lat: -23.5505, lng: -46.6333 };
-            setCondoAddressPosition(fallbackCenter);
-            setCenter(fallbackCenter);
-            centerMapOnAddress(fallbackCenter);
+            centerMapOnAddress();
         } finally {
-            setIsLoading(false);
+            if (isMounted) setIsLoading(false);
         }
     };
     
     initializeMap();
+
+    return () => {
+        isMounted = false;
+    };
 
   }, [map, condo.id]);
   
@@ -417,28 +401,26 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                                 </div>
                             </div>
                         )}
-                        {center && (
-                             <MapComponent center={center} zoom={15}>
-                                {isDrawing && (
-                                    <GeofenceControls.DrawingManager
-                                        drawingMode={drawingMode}
-                                        onOverlayComplete={(overlay: google.maps.MVCObject) => {
-                                            setIsDrawing(false);
-                                            setIsCreating(true);
-                                            setActiveOverlay(overlay);
-                                            updateHistory(getGeometryFromShape(overlay));
-                                        }}
-                                    />
-                                )}
-                                {condoAddressPosition && 
-                                    <AdvancedMarker position={condoAddressPosition} title={condo.name}>
-                                        <div className="p-1.5 bg-background rounded-full shadow-lg border-2 border-primary">
-                                            <Building className="h-5 w-5 text-primary" />
-                                        </div>
-                                    </AdvancedMarker>
-                                }
-                            </MapComponent>
-                        )}
+                        <MapComponent center={center} zoom={15}>
+                            {isDrawing && (
+                                <GeofenceControls.DrawingManager
+                                    drawingMode={drawingMode}
+                                    onOverlayComplete={(overlay: google.maps.MVCObject) => {
+                                        setIsDrawing(false);
+                                        setIsCreating(true);
+                                        setActiveOverlay(overlay);
+                                        updateHistory(getGeometryFromShape(overlay));
+                                    }}
+                                />
+                            )}
+                            {condoAddressPosition && 
+                                <AdvancedMarker position={condoAddressPosition} title={condo.name}>
+                                    <div className="p-1.5 bg-background rounded-full shadow-lg border-2 border-primary">
+                                        <Building className="h-5 w-5 text-primary" />
+                                    </div>
+                                </AdvancedMarker>
+                            }
+                        </MapComponent>
                     </div>
                      <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
                         <Button onClick={handleZoomIn} variant="ghost" size="icon" title="Zoom In">
@@ -474,7 +456,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                                 <Pin className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
                                 <p className="text-sm text-muted-foreground">{condo.address}</p>
                             </div>
-                             <Button onClick={() => condoAddressPosition && centerMapOnAddress(condoAddressPosition)} variant="outline" size="sm" className="mt-2">
+                             <Button onClick={centerMapOnAddress} variant="outline" size="sm" className="mt-2">
                                 <Locate className="mr-2 h-4 w-4"/>
                                 {t('condoDashboard.map.recenterOnAddress')}
                             </Button>
