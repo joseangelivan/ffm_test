@@ -95,7 +95,7 @@ const getCenterOfShape = (shape: google.maps.MVCObject): google.maps.LatLng | nu
 interface MapInnerProps {
   condo: Condominio;
   initialPosition: { lat: number; lng: number };
-  onMapLoad: (map: google.maps.Map) => void;
+  handleMapLoad: (map: google.maps.Map) => void;
   onOverlayComplete: (event: google.maps.drawing.OverlayCompleteEvent) => void;
   drawingManagerRef: React.MutableRefObject<google.maps.drawing.DrawingManager | null>;
   onSettingsClick: () => void;
@@ -142,9 +142,9 @@ const DrawingManagerComponent = ({
   return null;
 };
 
-function MapInner({ condo, initialPosition, onMapLoad, onOverlayComplete, drawingManagerRef, onSettingsClick }: MapInnerProps) {
+function MapInner({ condo, initialPosition, handleMapLoad, onOverlayComplete, drawingManagerRef, onSettingsClick }: MapInnerProps) {
   return (
-    <MapComponent onMapLoad={onMapLoad}>
+    <MapComponent onMapLoad={handleMapLoad}>
         <DrawingManagerComponent onOverlayComplete={onOverlayComplete} drawingManagerRef={drawingManagerRef} />
         {initialPosition && (
             <AdvancedMarker position={initialPosition} title={condo.name}>
@@ -170,7 +170,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [isEditing, setIsEditing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   
-  const [activeOverlay, setActiveOverlay] = useState<google.maps.MVCObject | null>(null);
+  const [geofenceForEditing, setGeofenceForEditing] = useState<google.maps.MVCObject | null>(null);
   const historyRef = useRef<any[]>([]);
   const historyIndexRef = useRef<number>(-1);
   const [canUndo, setCanUndo] = useState(false);
@@ -328,14 +328,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const newShape = createShapeFromGeometry(previousGeometry);
     
     if (newShape) {
-        // @ts-ignore
-        if(activeOverlay) activeOverlay.setMap(null);
-        setActiveOverlay(newShape);
+        if(geofenceForEditing) (geofenceForEditing as any).setMap(null);
+        setGeofenceForEditing(newShape);
     }
     
     setCanUndo(historyIndexRef.current > 0);
     setCanRedo(true);
-  }, [canUndo, activeOverlay]);
+  }, [canUndo, geofenceForEditing]);
 
   const handleRedo = useCallback(() => {
     if (!canRedo) return;
@@ -345,14 +344,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const newShape = createShapeFromGeometry(nextGeometry);
     
     if (newShape) {
-        // @ts-ignore
-        if(activeOverlay) activeOverlay.setMap(null);
-        setActiveOverlay(newShape);
+        if(geofenceForEditing) (geofenceForEditing as any).setMap(null);
+        setGeofenceForEditing(newShape);
     }
 
     setCanUndo(true);
     setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-  }, [canRedo, activeOverlay]);
+  }, [canRedo, geofenceForEditing]);
   
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   const clearListeners = useCallback(() => {
@@ -402,7 +400,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       if (newOverlay) {
         newOverlay.setMap(null); // Temporarily hide it
         setIsDrawing(false);
-        setActiveOverlay(newOverlay);
+        setGeofenceForEditing(newOverlay);
         setIsCreating(true);
         updateHistory(getGeometryFromShape(newOverlay));
         toast({ title: t('condoDashboard.map.toast.shapeDrawn.title'), description: t('condoDashboard.map.toast.shapeDrawn.description') });
@@ -410,7 +408,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       if(drawingManagerRef.current) {
         drawingManagerRef.current.setDrawingMode(null);
       }
-  }, [setIsDrawing, setActiveOverlay, setIsCreating, updateHistory, toast, t]);
+  }, [setIsDrawing, setGeofenceForEditing, setIsCreating, updateHistory, toast, t]);
 
     useEffect(() => {
         // This is the master effect for controlling shape visibility on the map.
@@ -421,39 +419,31 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         });
 
         // 2. Clear any active drawing overlay from the map.
-        if (activeOverlay) {
-            (activeOverlay as any).setMap(null);
+        if (geofenceForEditing) {
+            (geofenceForEditing as any).setMap(null);
         }
         clearListeners();
     
         if (isEditingShape) { // isEditing or isCreating
             // Show the shape being actively edited/created
-            if (activeOverlay) {
-                (activeOverlay as any).setOptions({ ...SAVED_COLOR, editable: true, draggable: true, zIndex: 3 });
-                (activeOverlay as any).setMap(mapRef.current);
-                setupListeners(activeOverlay);
+            if (geofenceForEditing) {
+                (geofenceForEditing as any).setOptions({ ...SAVED_COLOR, editable: true, draggable: true, zIndex: 3 });
+                (geofenceForEditing as any).setMap(mapRef.current);
+                setupListeners(geofenceForEditing);
             }
+        }
 
-            // Show the reference geofence if we are creating a new one or editing an existing one
-            const referenceGeofence = geofences.find(g => g.id === selectedGeofenceId);
-            if (referenceGeofence?.shape) {
-                (referenceGeofence.shape as any).setMap(mapRef.current);
-                (referenceGeofence.shape as any).setOptions({
-                    ...VIEW_ALL_COLOR,
-                    editable: false, draggable: false, clickable: false,
+        if (isEditingEnabled) {
+            // When editing is enabled (either actively editing or just in the mode)
+            // Show the selected geofence as a reference or as the one to be edited
+            const geofenceToShow = geofences.find(g => g.id === selectedGeofenceId);
+            if (geofenceToShow?.shape) {
+                (geofenceToShow.shape as any).setMap(mapRef.current);
+                (geofenceToShow.shape as any).setOptions({
+                    ...EDIT_COLOR,
+                    editable: false, draggable: false, clickable: !isEditingShape,
                     zIndex: 1,
                 });
-            }
-        } else if (isEditingEnabled) {
-            // Edit mode is on, but we are not actively drawing/editing a shape
-            // Only show the selected geofence
-            const geofenceToEdit = geofences.find(g => g.id === selectedGeofenceId);
-             if (geofenceToEdit?.shape) {
-                (geofenceToEdit.shape as any).setOptions({
-                    ...EDIT_COLOR,
-                    editable: false, draggable: false, clickable: true,
-                });
-                (geofenceToEdit.shape as any).setMap(mapRef.current);
             }
         } else {
             // View mode (not editing)
@@ -479,7 +469,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             });
         }
     }, [
-        activeOverlay, geofences, isDrawing, isEditing, isCreating, isEditingShape, 
+        geofenceForEditing, geofences, isDrawing, isEditing, isCreating, isEditingShape, 
         selectedGeofenceId, defaultGeofenceId, showAllGeofences, isEditingEnabled,
         setupListeners, clearListeners
     ]);
@@ -529,11 +519,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   useEffect(() => {
     return () => {
         clearListeners();
-        if (activeOverlay) { // @ts-ignore
-             activeOverlay.setMap(null);
+        if (geofenceForEditing) {
+             (geofenceForEditing as any).setMap(null);
         }
     }
-  }, [clearListeners, activeOverlay]);
+  }, [clearListeners, geofenceForEditing]);
 
   
   return (
@@ -568,7 +558,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             <MapInner 
                                 condo={condo}
                                 initialPosition={initialPosition}
-                                onMapLoad={handleMapLoad}
+                                handleMapLoad={handleMapLoad}
                                 onOverlayComplete={onOverlayComplete}
                                 drawingManagerRef={drawingManagerRef}
                                 onSettingsClick={() => setIsMapSettingsOpen(true)}
@@ -631,8 +621,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                         setIsEditing={setIsEditing}
                                         isCreating={isCreating}
                                         setIsCreating={setIsCreating}
-                                        activeOverlay={activeOverlay}
-                                        setActiveOverlay={setActiveOverlay}
+                                        activeOverlay={geofenceForEditing}
+                                        setActiveOverlay={setGeofenceForEditing}
                                         updateHistory={updateHistory}
                                         historyRef={historyRef}
                                         historyIndexRef={historyIndexRef}
