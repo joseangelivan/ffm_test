@@ -143,9 +143,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                     normal: maxZoom - 1,
                     wide: maxZoom - 2
                 };
-                if (!calculatedZoomLevels) {
-                    setCalculatedZoomLevels(zoomLevels);
-                }
+                setCalculatedZoomLevels(zoomLevels);
                 
                 let zoomToSet = zoomLevels.normal;
                 if (level === '1') zoomToSet = zoomLevels.tight;
@@ -154,7 +152,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                 map.setZoom(zoomToSet);
             }
         });
-    }, [map, geofences, defaultGeofenceId, calculatedZoomLevels]);
+    }, [map, geofences, defaultGeofenceId]);
 
    const centerMapOnAddress = useCallback((coords: {lat: number, lng: number}) => {
     if(!map) return;
@@ -163,15 +161,16 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
   }, [map]);
 
   const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
-      if (!map || !calculatedZoomLevels) {
+      if (!map) return;
+
+      if (calculatedZoomLevels) {
+          if (level === '1') map.setZoom(calculatedZoomLevels.tight);
+          if (level === '2') map.setZoom(calculatedZoomLevels.normal);
+          if (level === '3') map.setZoom(calculatedZoomLevels.wide);
+      } else {
+        // Fallback if levels not calculated yet, though they should be.
         centerMapOnGeofence(level);
-        return;
-      };
-
-      if (level === '1') map.setZoom(calculatedZoomLevels.tight);
-      if (level === '2') map.setZoom(calculatedZoomLevels.normal);
-      if (level === '3') map.setZoom(calculatedZoomLevels.wide);
-
+      }
   }, [map, calculatedZoomLevels, centerMapOnGeofence]);
 
   useEffect(() => {
