@@ -321,7 +321,7 @@
         "noConfigs": "No hay configuraciones SMTP.",
         "addButton": "Agregar Configuración",
         "editTitle": "Editar Configuración SMTP",
-        "newTitle": "Nueva Configuración SMTP",
+        "newTitle": "Nova Configuração SMTP",
         "nameLabel": "Nombre",
         "hostLabel": "Host SMTP",
         "portLabel": "Puerto",
@@ -374,13 +374,21 @@
           "geofence": "Geocerca",
           "elements": "Elementos del mapa"
         },
+        "settings": {
+            "title": "Configuración de Vista del Mapa",
+            "description": "Ajusta cómo se muestra el mapa.",
+            "currentZoom": "Nivel de Zoom Actual",
+            "autoFitPadding": "Márgenes de Autoajuste",
+            "paddingX": "Margen Horizontal (X)",
+            "paddingY": "Margen Vertical (Y)"
+        },
         "geofence": {
-          "defaultLabel": "Geocerca Estándar",
+          "defaultLabel": "Geocerca Predeterminada",
           "viewAll": "Ver todas",
           "none": "Ninguna",
           "editMode": "Edición",
           "selectPlaceholder": "Seleccionar geocerca",
-          "setAsDefault": "Establecer como Estándar",
+          "setAsDefault": "Establecer como Predeterminada",
           "draw": "Dibujar",
           "defaultName": "Geocerca",
           "saveButton": "Guardar Geocerca",
@@ -460,8 +468,8 @@
           "geofenceUpdated": "Geocerca Actualizada",
           "geofenceDeleted": "Geocerca Eliminada",
           "defaultSet": {
-            "title": "Geocerca Estándar",
-            "description": "La geocerca seleccionada ha sido definida como estándar."
+            "title": "Geocerca Predeterminada",
+            "description": "La geocerca seleccionada ha sido definida como predeterminada."
           }
         }
       },

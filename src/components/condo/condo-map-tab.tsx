@@ -13,6 +13,8 @@ import {
   ZoomIn,
   ZoomOut,
   Frame,
+  Settings,
+  Building,
 } from 'lucide-react';
 
 import type { Condominio } from '@/actions/condos';
@@ -20,12 +22,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLocale } from '@/lib/i18n';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import MapComponent from '@/components/map';
+import MapComponent, { AdvancedMarker } from '@/components/map';
 import { GeofenceControls, type DrawingMode } from './map/geofence-controls';
 import { ElementsControls } from './map/elements-controls';
 import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence } from '@/actions/maps';
 import { Label } from '@/components/ui/label';
+import { MapSettingsDialog } from './map/map-settings-dialog';
 
 
 export type GeofenceObject = {
@@ -107,6 +110,10 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   const [isEditingEnabled, setIsEditingEnabled] = useState(false);
   const [viewAll, setViewAll] = useState(false);
 
+  const [zoomLevel, setZoomLevel] = useState(15);
+  const [fitPadding, setFitPadding] = useState({ x: 10, y: 10 });
+  const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
+
 
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   const isEditingShape = isEditing || isCreating;
@@ -117,13 +124,18 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     if (defaultGeofence && defaultGeofence.shape) {
       const bounds = getBoundsOfShape(defaultGeofence.shape);
       if (bounds) {
-        map.fitBounds(bounds, 50); // 50px padding
+        map.fitBounds(bounds, {
+            top: map.getDiv().offsetHeight * (fitPadding.y / 100),
+            bottom: map.getDiv().offsetHeight * (fitPadding.y / 100),
+            left: map.getDiv().offsetWidth * (fitPadding.x / 100),
+            right: map.getDiv().offsetWidth * (fitPadding.x / 100),
+        });
         return;
       }
     }
     map.setCenter(center);
     map.setZoom(15);
-  }, [map, geofences, defaultGeofenceId, center]);
+  }, [map, geofences, defaultGeofenceId, center, fitPadding]);
   
   const centerMapOnAddress = useCallback(() => {
     if (!map) return;
@@ -162,6 +174,15 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             centerMapOnAddress();
         }
     }, [map, geofences, centerMapOnGeofence, centerMapOnAddress]);
+
+    useEffect(() => {
+        if (!map) return;
+        const listener = map.addListener('zoom_changed', () => {
+            setZoomLevel(map.getZoom() || 15);
+        });
+        return () => listener.remove();
+    }, [map]);
+
 
   const updateHistory = useCallback((geometry: any) => {
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -301,125 +322,141 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   const handleZoomOut = () => map && map.setZoom(map.getZoom()! - 1);
   
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-start">
-            <div>
-                 <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-                 <CardDescription>{t('condoDashboard.map.description')}</CardDescription>
-            </div>
-        </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="flex h-[70vh]">
-            <div className="w-2/3 p-1">
-                 <div className="h-full w-full bg-muted overflow-hidden relative shadow-inner rounded-md border">
-                   <MapComponent center={center} zoom={15}>
-                       {isDrawing && (
-                           <GeofenceControls.DrawingManager
-                               drawingMode={drawingMode}
-                               onOverlayComplete={(overlay: google.maps.MVCObject) => {
-                                   setIsDrawing(false);
-                                   setIsCreating(true);
-                                   setActiveOverlay(overlay);
-                                   updateHistory(getGeometryFromShape(overlay));
-                               }}
-                           />
-                       )}
-                   </MapComponent>
-                   <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col gap-1 backdrop-blur-sm">
-                        <Button onClick={() => handleZoomIn()} variant="ghost" size="icon" title="Zoom In">
-                            <ZoomIn className="h-5 w-5" />
-                        </Button>
-                        <Button onClick={() => handleZoomOut()} variant="ghost" size="icon" title="Zoom Out">
-                            <ZoomOut className="h-5 w-5" />
-                        </Button>
-                        <Button onClick={centerMapOnGeofence} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
-                            <Frame className="h-5 w-5" />
-                        </Button>
-                   </div>
-                   {isEditingShape && (canUndo || canRedo) && (
-                     <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex gap-1 backdrop-blur-sm">
-                        <Button onClick={handleUndo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
-                            <Undo className="h-4 w-4"/>
-                            {t('condoDashboard.map.undo')}
-                        </Button>
-                        <Button onClick={handleRedo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canRedo}>
-                            <Redo className="h-4 w-4"/>
-                            {t('condoDashboard.map.redo')}
-                        </Button>
-                     </div>
-                   )}
+    <>
+        <Card>
+        <CardHeader>
+            <div className="flex justify-between items-start">
+                <div>
+                    <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
+                    <CardDescription>{t('condoDashboard.map.description')}</CardDescription>
                 </div>
             </div>
-            <div className="w-1/3 p-1">
-                <div className="relative border h-full p-4 pt-2 bg-card rounded-md flex flex-col">
-                    <h2 className="text-lg font-semibold tracking-tight px-2 absolute -top-3.5 left-4 bg-card">{t('condoDashboard.map.modules.title')}</h2>
-                    <div className="border-b pb-4">
-                        <Label>{t('adminDashboard.newCondoDialog.addressLabel')}</Label>
-                        <div className="flex items-start gap-2 mt-1">
-                            <Pin className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
-                            <p className="text-sm text-muted-foreground">{condo.address}</p>
-                        </div>
-                        <Button onClick={centerMapOnAddress} variant="outline" size="sm" className="mt-2">
-                          <Locate className="mr-2 h-4 w-4"/>
-                          {t('condoDashboard.map.recenterOnAddress')}
-                        </Button>
-                    </div>
-                     <div className="flex-1 flex flex-col space-y-4 pt-4">
-                        <div className="px-1 flex items-center gap-2">
-                            <Select value={activeModule} onValueChange={setActiveModule}>
-                                <SelectTrigger id="module-select" className="text-base font-bold text-primary">
-                                    <SelectValue placeholder={t('condoDashboard.map.modules.selectPlaceholder')} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="geofence">{t('condoDashboard.map.modules.geofence')}</SelectItem>
-                                    <SelectItem value="elements">{t('condoDashboard.map.modules.elements')}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        {activeModule === 'geofence' && (
-                            <GeofenceControls
-                                condoId={condo.id}
-                                geofences={geofences}
-                                setGeofences={setGeofences}
-                                selectedGeofenceId={selectedGeofenceId}
-                                setSelectedGeofenceId={setSelectedGeofenceId}
-                                defaultGeofenceId={defaultGeofenceId}
-                                setDefaultGeofenceId={setDefaultGeofenceId}
-                                isDrawing={isDrawing}
-                                setIsDrawing={setIsDrawing}
-                                isEditing={isEditing}
-                                setIsEditing={setIsEditing}
-                                isCreating={isCreating}
-                                setIsCreating={setIsCreating}
-                                activeOverlay={activeOverlay}
-                                setActiveOverlay={setActiveOverlay}
-                                updateHistory={updateHistory}
-                                historyRef={historyRef}
-                                historyIndexRef={historyIndexRef}
-                                setCanUndo={setCanUndo}
-                                setCanRedo={setCanRedo}
-                                clearListeners={clearListeners}
-                                map={map}
+        </CardHeader>
+        <CardContent className="p-0">
+            <div className="flex h-[70vh]">
+                <div className="w-2/3 p-1">
+                    <div className="h-full w-full bg-muted overflow-hidden relative shadow-inner rounded-md border">
+                    <MapComponent center={center} zoom={15}>
+                        {isDrawing && (
+                            <GeofenceControls.DrawingManager
                                 drawingMode={drawingMode}
-                                setDrawingMode={setDrawingMode}
-                                isEditingEnabled={isEditingEnabled}
-                                setIsEditingEnabled={setIsEditingEnabled}
-                                viewAll={viewAll}
-                                setViewAll={setViewAll}
+                                onOverlayComplete={(overlay: google.maps.MVCObject) => {
+                                    setIsDrawing(false);
+                                    setIsCreating(true);
+                                    setActiveOverlay(overlay);
+                                    updateHistory(getGeometryFromShape(overlay));
+                                }}
                             />
                         )}
-                        {activeModule === 'elements' && (
-                           <ElementsControls />
-                        )}
+                        <AdvancedMarker position={center} title={condo.name}>
+                            <div className="p-1.5 bg-background rounded-full shadow-lg border-2 border-primary">
+                                <Building className="h-5 w-5 text-primary" />
+                            </div>
+                        </AdvancedMarker>
+                    </MapComponent>
+                    <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
+                            <Button onClick={() => handleZoomIn()} variant="ghost" size="icon" title="Zoom In">
+                                <ZoomIn className="h-5 w-5" />
+                            </Button>
+                            <span className="text-xs font-bold w-6 text-center select-none">{zoomLevel}</span>
+                            <Button onClick={() => handleZoomOut()} variant="ghost" size="icon" title="Zoom Out">
+                                <ZoomOut className="h-5 w-5" />
+                            </Button>
+                            <Button onClick={centerMapOnGeofence} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
+                                <Frame className="h-5 w-5" />
+                            </Button>
+                    </div>
+                    {isEditingShape && (canUndo || canRedo) && (
+                        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex gap-1 backdrop-blur-sm">
+                            <Button onClick={handleUndo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
+                                <Undo className="h-4 w-4"/>
+                                {t('condoDashboard.map.undo')}
+                            </Button>
+                            <Button onClick={handleRedo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canRedo}>
+                                <Redo className="h-4 w-4"/>
+                                {t('condoDashboard.map.redo')}
+                            </Button>
+                        </div>
+                    )}
+                    </div>
+                </div>
+                <div className="w-1/3 p-1">
+                    <div className="relative border h-full p-4 pt-2 bg-card rounded-md flex flex-col">
+                        <h2 className="text-lg font-semibold tracking-tight px-2 absolute -top-3.5 left-4 bg-card">{t('condoDashboard.map.modules.title')}</h2>
+                        <div className="border-b pb-4">
+                            <Label>{t('adminDashboard.newCondoDialog.addressLabel')}</Label>
+                            <div className="flex items-start gap-2 mt-1">
+                                <Pin className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
+                                <p className="text-sm text-muted-foreground">{condo.address}</p>
+                            </div>
+                            <Button onClick={centerMapOnAddress} variant="outline" size="sm" className="mt-2">
+                            <Locate className="mr-2 h-4 w-4"/>
+                            {t('condoDashboard.map.recenterOnAddress')}
+                            </Button>
+                        </div>
+                        <div className="flex-1 flex flex-col space-y-4 pt-4">
+                            <div className="px-1 flex items-center gap-2">
+                                <Select value={activeModule} onValueChange={setActiveModule}>
+                                    <SelectTrigger id="module-select" className="text-base font-bold text-primary">
+                                        <SelectValue placeholder={t('condoDashboard.map.modules.selectPlaceholder')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="geofence">{t('condoDashboard.map.modules.geofence')}</SelectItem>
+                                        <SelectItem value="elements">{t('condoDashboard.map.modules.elements')}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                 <Button variant="outline" size="icon" onClick={() => setIsMapSettingsOpen(true)}>
+                                    <Settings className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            {activeModule === 'geofence' && (
+                                <GeofenceControls
+                                    condoId={condo.id}
+                                    geofences={geofences}
+                                    setGeofences={setGeofences}
+                                    selectedGeofenceId={selectedGeofenceId}
+                                    setSelectedGeofenceId={setSelectedGeofenceId}
+                                    defaultGeofenceId={defaultGeofenceId}
+                                    setDefaultGeofenceId={setDefaultGeofenceId}
+                                    isDrawing={isDrawing}
+                                    setIsDrawing={setIsDrawing}
+                                    isEditing={isEditing}
+                                    setIsEditing={setIsEditing}
+                                    isCreating={isCreating}
+                                    setIsCreating={setIsCreating}
+                                    activeOverlay={activeOverlay}
+                                    setActiveOverlay={setActiveOverlay}
+                                    updateHistory={updateHistory}
+                                    historyRef={historyRef}
+                                    historyIndexRef={historyIndexRef}
+                                    setCanUndo={setCanUndo}
+                                    setCanRedo={setCanRedo}
+                                    clearListeners={clearListeners}
+                                    map={map}
+                                    drawingMode={drawingMode}
+                                    setDrawingMode={setDrawingMode}
+                                    isEditingEnabled={isEditingEnabled}
+                                    setIsEditingEnabled={setIsEditingEnabled}
+                                    viewAll={viewAll}
+                                    setViewAll={setViewAll}
+                                />
+                            )}
+                            {activeModule === 'elements' && (
+                            <ElementsControls />
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+        </Card>
+        <MapSettingsDialog
+            isOpen={isMapSettingsOpen}
+            onOpenChange={setIsMapSettingsOpen}
+            zoomLevel={zoomLevel}
+            fitPadding={fitPadding}
+            onFitPaddingChange={setFitPadding}
+        />
+    </>
   );
 }
-
-    

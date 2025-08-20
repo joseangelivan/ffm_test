@@ -373,6 +373,14 @@
             "geofence": "Geocerca",
             "elements": "Elementos do mapa"
         },
+        "settings": {
+            "title": "Configurações de Visualização do Mapa",
+            "description": "Ajuste como o mapa é exibido.",
+            "currentZoom": "Nível de Zoom Atual",
+            "autoFitPadding": "Margens de Autoajuste",
+            "paddingX": "Margem Horizontal (X)",
+            "paddingY": "Margem Vertical (Y)"
+        },
         "geofence": {
             "defaultLabel": "Geocerca Padrão",
             "viewAll": "Ver Todas",
@@ -595,9 +603,8 @@
         "clearButton": "Limpar Tabelas e Dados",
         "goBack": "Voltar para o Login de Administrador",
         "confirmationDescription": "Isso tentará executar novamente todas as migrações do banco de dados. Esta ação geralmente é segura, mas só deve ser feita se houver suspeita de um problema com o esquema do banco de dados. Tem certeza de que deseja continuar?",
-        "clearConfirmationDescription": "Esta ação excluirá permanentemente TODAS as tabelas e dados do banco de dados. Esta ação não pode ser desfeita. Você tem certeza absoluta?",
-        "confirmButton": "Sim, inicializar",
         "clearConfirmButton": "Sim, excluir tudo",
+        "confirmButton": "Sim, inicializar",
         "logTitle": "Registro de Inicialização"
     }
   }

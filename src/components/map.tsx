@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useRef } from 'react';
-import { Map, AdvancedMarker, useMap, APIProvider } from '@vis.gl/react-google-maps';
+import { Map, AdvancedMarker as GoogleAdvancedMarker, useMap, APIProvider } from '@vis.gl/react-google-maps';
 
 export interface Marker {
     id: string;
@@ -54,7 +54,7 @@ const MapComponent: React.FC<MapProps> = ({ center, markers, zoom = 12, children
             style={{ width: '100%', height: '100%' }}
         >
             {markers?.map((marker) => (
-                <AdvancedMarker key={marker.id} position={marker.position} title={marker.label}>
+                <GoogleAdvancedMarker key={marker.id} position={marker.position} title={marker.label}>
                      <div className={`
                         w-6 h-6 rounded-full flex items-center justify-center
                         transition-all duration-300 ease-in-out
@@ -65,7 +65,7 @@ const MapComponent: React.FC<MapProps> = ({ center, markers, zoom = 12, children
                      `}>
                         <div className="w-2 h-2 bg-white rounded-full"></div>
                      </div>
-                </AdvancedMarker>
+                </GoogleAdvancedMarker>
             ))}
             {markers && markers.length > 0 && <BoundsUpdater markers={markers} />}
             {children}
@@ -74,3 +74,4 @@ const MapComponent: React.FC<MapProps> = ({ center, markers, zoom = 12, children
 };
 
 export default MapComponent;
+export const AdvancedMarker = GoogleAdvancedMarker;
