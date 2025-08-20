@@ -49,13 +49,15 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     mapShapes: Map<string, google.maps.MVCObject>;
-    setupListeners: (shape: google.maps.MVCObject, onShapeChanged: () => void) => void;
+    setupListeners: (shape: google.maps.MVCObject) => void;
     clearListeners: () => void;
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
     updateHistoryButtons: () => void;
     canUndo: boolean;
     canRedo: boolean;
+    handleUndo: () => void;
+    handleRedo: () => void;
 }
 
 export function GeofenceControls({
@@ -82,6 +84,8 @@ export function GeofenceControls({
     updateHistoryButtons,
     canUndo,
     canRedo,
+    handleUndo,
+    handleRedo,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -148,13 +152,7 @@ export function GeofenceControls({
         historyIndexRef.current = 0;
         updateHistoryButtons();
         
-        setupListeners(newShape, () => {
-             const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-             newHistory.push(getGeometryFromShape(newShape));
-             historyRef.current = newHistory;
-             historyIndexRef.current = newHistory.length - 1;
-             updateHistoryButtons();
-        });
+        setupListeners(newShape);
 
     }, [drawingManager, setMode, mapShapes, setSelectedGeofenceId, setupListeners, geofences, t, historyRef, historyIndexRef, updateHistoryButtons]);
 
@@ -297,50 +295,10 @@ export function GeofenceControls({
         }
     };
     
-    const applyHistoryState = useCallback((geometry: any) => {
-        if (!selectedGeofenceId) return;
-
-        const shapeToUpdate = mapShapes.get(selectedGeofenceId);
-        if (!shapeToUpdate) return;
-    
-        const map = (shapeToUpdate as any).getMap();
-        (shapeToUpdate as any).setMap(null);
-    
-        const newShape = createShapeFromGeometry(geometry);
-        if (!newShape) return;
-    
-        (newShape as any).setOptions({
-            map: map,
-            ...EDIT_COLOR
-        });
-    
-        setupListeners(newShape, () => {}); // No need to record history on undo/redo
-    
-        mapShapes.set(selectedGeofenceId, newShape);
-
-    }, [selectedGeofenceId, mapShapes, setupListeners]);
-    
-    
-    const handleUndo = useCallback(() => {
-        if (!canUndo) return;
-        historyIndexRef.current--;
-        const previousGeometry = historyRef.current[historyIndexRef.current];
-        applyHistoryState(previousGeometry);
-        updateHistoryButtons();
-    }, [canUndo, historyIndexRef, historyRef, applyHistoryState, updateHistoryButtons]);
-    
-    const handleRedo = useCallback(() => {
-        if (!canRedo) return;
-        historyIndexRef.current++;
-        const nextGeometry = historyRef.current[historyIndexRef.current];
-        applyHistoryState(nextGeometry);
-        updateHistoryButtons();
-    }, [canRedo, historyIndexRef, historyRef, applyHistoryState, updateHistoryButtons]);
-
     return (
         <div className="space-y-4 pt-2 border-t">
-            {mode === 'editing' && (canUndo || canRedo) && (
-                <div className="flex gap-1 justify-center">
+            {mode === 'editing' && (
+                 <div className="flex gap-1 justify-center">
                     <Button onClick={handleUndo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
                         <Undo className="h-4 w-4"/>
                         {t('condoDashboard.map.undo')}
