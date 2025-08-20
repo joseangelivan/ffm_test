@@ -114,30 +114,39 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
 
 
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
+  const idleListener = useRef<google.maps.MapsEventListener | null>(null);
   const isEditingShape = isEditing || isCreating;
   
-   const centerMapOnGeofence = useCallback((currentMap: google.maps.Map | null, currentFitLevel: string) => {
-    if (!currentMap) return;
+   const centerMapOnGeofence = useCallback((currentMap: google.maps.Map | null, level: '1' | '2' | '3') => {
+        if (!currentMap) return;
 
-    const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
-    if (geofenceToCenter && geofenceToCenter.shape) {
-      const bounds = getBoundsOfShape(geofenceToCenter.shape);
-      if (!bounds) return;
-
-      currentMap.fitBounds(bounds);
-      
-      const listener = google.maps.event.addListenerOnce(currentMap, 'idle', () => {
-        const zoomAdjustment = parseInt(currentFitLevel, 10) - 1;
-        const currentZoom = currentMap.getZoom();
-        if (currentZoom) {
-          currentMap.setZoom(currentZoom - zoomAdjustment);
+        // Cleanup any previous listener to prevent multiple firings
+        if (idleListener.current) {
+            idleListener.current.remove();
+            idleListener.current = null;
         }
-      });
-    } else {
-      currentMap.setCenter(center);
-      currentMap.setZoom(15);
-    }
-  }, [geofences, defaultGeofenceId, center]);
+
+        const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
+        if (geofenceToCenter && geofenceToCenter.shape) {
+            const bounds = getBoundsOfShape(geofenceToCenter.shape);
+            if (!bounds) return;
+
+            currentMap.fitBounds(bounds);
+
+            idleListener.current = google.maps.event.addListenerOnce(currentMap, 'idle', () => {
+                const zoomAdjustment = parseInt(level, 10) - 1;
+                const currentZoom = currentMap.getZoom();
+                if (currentZoom) {
+                    currentMap.setZoom(currentZoom - zoomAdjustment);
+                }
+                idleListener.current = null; // Clear ref after firing
+            });
+
+        } else {
+            currentMap.setCenter(center);
+            currentMap.setZoom(15);
+        }
+   }, [geofences, defaultGeofenceId, center]);
   
   const centerMapOnAddress = useCallback(() => {
     if (!map) return;
@@ -461,5 +470,3 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     </>
   );
 }
-
-    
