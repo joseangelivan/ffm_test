@@ -395,11 +395,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             setupListeners(shapeToEdit);
         }
     } else if (mode === 'drawing') {
-        const shapeToKeepVisible = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
-        if (shapeToKeepVisible) {
-            const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
-            (shapeToKeepVisible as any).setOptions({ ...colorOptions, editable: false, draggable: false });
-            shapeToKeepVisible.setMap(map);
+        const refShape = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
+        if (refShape) {
+            const isDefault = refShape && selectedGeofenceId === defaultGeofenceId;
+            const colorOptions = isDefault ? DEFAULT_COLOR : SAVED_COLOR;
+            (refShape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
+            refShape.setMap(map);
         }
     } else { // 'view' mode
         mapShapes.forEach((shape, id) => {
@@ -475,13 +476,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const handleHistoryAction = (action: 'undo' | 'redo') => {
     if ((action === 'undo' && !canUndo) || (action === 'redo' && !canRedo)) return;
 
-    if (action === 'undo') {
-        historyIndexRef.current--;
-    } else {
-        historyIndexRef.current++;
-    }
-    
-    const geometry = historyRef.current[historyIndexRef.current];
+    const newIndex = action === 'undo' ? historyIndexRef.current - 1 : historyIndexRef.current + 1;
+    const geometry = historyRef.current[newIndex];
     if (!geometry || !selectedGeofenceId) return;
     
     const shape = mapShapes.get(selectedGeofenceId);
@@ -496,6 +492,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         (shape as google.maps.Circle).setRadius(geometry.radius);
     }
     
+    historyIndexRef.current = newIndex;
     updateHistoryButtons();
   };
   
