@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -292,40 +291,38 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     overlayListeners.current = [];
   }, []);
   
-  const updateAndRecordHistory = useCallback((shape: google.maps.MVCObject) => {
-    const newGeometry = getGeometryFromShape(shape);
-    if (!newGeometry) return;
-
-    const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-    newHistory.push(newGeometry);
-    historyRef.current = newHistory;
-    historyIndexRef.current = newHistory.length - 1;
-  }, [historyRef, historyIndexRef]);
-  
-  const setupListeners = useCallback((shape: google.maps.MVCObject) => {
-    clearListeners();
-    const listeners: google.maps.MapsEventListener[] = [];
+    const setupListeners = useCallback((shape: google.maps.MVCObject) => {
+        clearListeners();
+        const listeners: google.maps.MapsEventListener[] = [];
+        
+        const onShapeChanged = () => {
+            const newGeometry = getGeometryFromShape(shape);
+            if (!newGeometry) return;
     
-    if (typeof google === 'undefined' || !google.maps.event) return;
-    const event = google.maps.event;
-
-    const onShapeChanged = () => updateAndRecordHistory(shape);
-
-    listeners.push(event.addListener(shape, 'dragend', onShapeChanged));
+            const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+            newHistory.push(newGeometry);
+            historyRef.current = newHistory;
+            historyIndexRef.current = newHistory.length - 1;
+        };
     
-    if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygon
-        const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(event.addListener(path, 'set_at', onShapeChanged));
-        listeners.push(event.addListener(path, 'insert_at', onShapeChanged));
-        listeners.push(event.addListener(path, 'remove_at', onShapeChanged));
-    } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') { // Circle
-        listeners.push(event.addListener(shape, 'radius_changed', onShapeChanged));
-        listeners.push(event.addListener(shape, 'center_changed', onShapeChanged));
-    } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle
-        listeners.push(event.addListener(shape, 'bounds_changed', onShapeChanged));
-    }
-    overlayListeners.current = listeners;
-  }, [clearListeners, updateAndRecordHistory]);
+        if (typeof google === 'undefined' || !google.maps.event) return;
+        const event = google.maps.event;
+    
+        listeners.push(event.addListener(shape, 'dragend', onShapeChanged));
+        
+        if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygon
+            const path = (shape as google.maps.Polygon).getPath();
+            listeners.push(event.addListener(path, 'set_at', onShapeChanged));
+            listeners.push(event.addListener(path, 'insert_at', onShapeChanged));
+            listeners.push(event.addListener(path, 'remove_at', onShapeChanged));
+        } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') { // Circle
+            listeners.push(event.addListener(shape, 'radius_changed', onShapeChanged));
+            listeners.push(event.addListener(shape, 'center_changed', onShapeChanged));
+        } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle
+            listeners.push(event.addListener(shape, 'bounds_changed', onShapeChanged));
+        }
+        overlayListeners.current = listeners;
+    }, [clearListeners, historyRef, historyIndexRef]);
   
   useEffect(() => {
         const newShapes = new Map<string, google.maps.MVCObject>();
@@ -473,7 +470,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             <legend className="text-lg font-semibold tracking-tight px-2 -ml-2">
                                 {t('condoDashboard.map.modules.title')}
                             </legend>
-                            <div className="space-y-2">
+                             <div className="space-y-2">
                                 <Select value={selectedModule} onValueChange={setSelectedModule}>
                                     <SelectTrigger>
                                         <SelectValue placeholder={t('condoDashboard.map.modules.selectPlaceholder')} />
@@ -507,7 +504,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     clearListeners={clearListeners}
                                     historyRef={historyRef}
                                     historyIndexRef={historyIndexRef}
-                                    updateAndRecordHistory={updateAndRecordHistory}
                                 />
                             )}
                             {selectedModule === 'elements' && (
@@ -530,5 +526,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
-    

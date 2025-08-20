@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -49,11 +48,10 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     mapShapes: Map<string, google.maps.MVCObject>;
-    setupListeners: (shape: google.maps.MVCObject, onShapeChanged: () => void) => void;
+    setupListeners: (shape: google.maps.MVCObject) => void;
     clearListeners: () => void;
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
-    updateAndRecordHistory: (shape: google.maps.MVCObject) => void;
 }
 
 export function GeofenceControls({
@@ -77,7 +75,6 @@ export function GeofenceControls({
     clearListeners,
     historyRef,
     historyIndexRef,
-    updateAndRecordHistory,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -93,16 +90,28 @@ export function GeofenceControls({
     
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
     
+    const updateAndRecordHistory = useCallback((shape: google.maps.MVCObject) => {
+        const newGeometry = getGeometryFromShape(shape);
+        if (!newGeometry) return;
+
+        const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+        newHistory.push(newGeometry);
+        historyRef.current = newHistory;
+        historyIndexRef.current = newHistory.length - 1;
+        setCanUndo(historyIndexRef.current > 0);
+        setCanRedo(false); // Any new action clears the redo stack
+    }, [historyRef, historyIndexRef]);
+    
     const resetActionStates = useCallback((revertChanges = true) => {
         if (revertChanges && selectedGeofenceId && historyRef.current.length > 0) {
             const originalGeometry = historyRef.current[0];
             const shapeToRevert = mapShapes.get(selectedGeofenceId);
             if (shapeToRevert) {
                 const newShape = createShapeFromGeometry(originalGeometry);
-                if (newShape) {
-                    // This part is tricky as we should modify the existing shape instead of replacing
-                    // For simplicity in revert, we might need a more complex state management
-                }
+                 if (newShape) {
+                    (shapeToRevert as any).setMap(null); // remove the changed one
+                    mapShapes.set(selectedGeofenceId, newShape); // replace with the original one
+                 }
             }
         }
         
@@ -137,7 +146,6 @@ export function GeofenceControls({
 
         (newShape as any).setOptions(EDIT_COLOR);
         
-        // This is a new unsaved shape. We can handle it by setting a temporary ID
         const tempId = `new-shape-${Date.now()}`;
         mapShapes.set(tempId, newShape);
         setSelectedGeofenceId(tempId);
@@ -145,7 +153,7 @@ export function GeofenceControls({
         setMode('editing');
         setCurrentGeofenceName(getNextGeofenceName());
         updateAndRecordHistory(newShape);
-        setupListeners(newShape, () => updateAndRecordHistory(newShape));
+        setupListeners(newShape);
         setCanUndo(false);
         setCanRedo(false);
 
@@ -295,9 +303,9 @@ export function GeofenceControls({
         if (!shapeToUpdate) return;
     
         const map = (shapeToUpdate as any).getMap();
-        (shapeToUpdate as any).setMap(null); // Remove old shape
+        (shapeToUpdate as any).setMap(null);
     
-        const newShape = createShapeFromGeometry(geometry); // Create new shape from history
+        const newShape = createShapeFromGeometry(geometry);
         if (!newShape) return;
     
         (newShape as any).setOptions({
@@ -305,11 +313,11 @@ export function GeofenceControls({
             ...EDIT_COLOR
         });
     
-        setupListeners(newShape, () => updateAndRecordHistory(newShape));
+        setupListeners(newShape);
     
         mapShapes.set(selectedGeofenceId, newShape);
 
-    }, [selectedGeofenceId, mapShapes, setupListeners, updateAndRecordHistory]);
+    }, [selectedGeofenceId, mapShapes, setupListeners]);
     
     
     const handleUndo = useCallback(() => {
@@ -329,7 +337,7 @@ export function GeofenceControls({
     useEffect(() => {
         setCanUndo(historyIndexRef.current > 0);
         setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-    }, [historyIndexRef, historyRef.current]);
+    }, [historyIndexRef.current, historyRef.current.length]);
 
     return (
         <div className="space-y-4 pt-2 border-t">
@@ -463,5 +471,3 @@ export function GeofenceControls({
         </div>
     );
 }
-
-    
