@@ -52,6 +52,11 @@ type GeofenceControlsProps = {
     mapShapes: Map<string, google.maps.MVCObject>;
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
+    updateHistoryButtons: () => void;
+    canUndo: boolean;
+    canRedo: boolean;
+    handleUndo: () => void;
+    handleRedo: () => void;
 }
 
 export function GeofenceControls({
@@ -73,6 +78,11 @@ export function GeofenceControls({
     mapShapes,
     historyRef,
     historyIndexRef,
+    updateHistoryButtons,
+    canUndo,
+    canRedo,
+    handleUndo,
+    handleRedo
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -106,8 +116,9 @@ export function GeofenceControls({
         setMode('view');
         historyRef.current = [];
         historyIndexRef.current = -1;
+        updateHistoryButtons();
         setCurrentGeofenceName('');
-    }, [drawingManager, setMode, selectedGeofenceId, mapShapes, historyRef, historyIndexRef]);
+    }, [drawingManager, setMode, selectedGeofenceId, mapShapes, historyRef, historyIndexRef, updateHistoryButtons]);
     
 
     const handleStartDraw = () => {
@@ -134,8 +145,9 @@ export function GeofenceControls({
         
         historyRef.current = [getGeometryFromShape(newShape)];
         historyIndexRef.current = 0;
+        updateHistoryButtons();
 
-    }, [drawingManager, setMode, mapShapes, setSelectedGeofenceId, geofences, t, historyRef, historyIndexRef]);
+    }, [drawingManager, setMode, mapShapes, setSelectedGeofenceId, geofences, t, historyRef, historyIndexRef, updateHistoryButtons]);
 
 
     useEffect(() => {
@@ -170,6 +182,7 @@ export function GeofenceControls({
         
         historyRef.current = [getGeometryFromShape(shapeToEdit)];
         historyIndexRef.current = 0;
+        updateHistoryButtons();
         
         setCurrentGeofenceName(geofenceData.name);
     }

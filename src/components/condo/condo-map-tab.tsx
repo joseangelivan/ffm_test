@@ -315,25 +315,24 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [dbGeofences]);
   
   const applyHistoryState = useCallback((geometry: any) => {
-      if (!selectedGeofenceId) return;
+    if (!selectedGeofenceId) return;
 
-      const shapeToUpdate = mapShapes.get(selectedGeofenceId);
-      if (!shapeToUpdate) return;
-  
-      const map = (shapeToUpdate as any).getMap();
-      (shapeToUpdate as any).setMap(null);
-  
-      const newShape = createShapeFromGeometry(geometry);
-      if (!newShape) return;
-  
-      (newShape as any).setOptions({
-          map: map,
-          ...EDIT_COLOR
-      });
-  
-      mapShapes.set(selectedGeofenceId, newShape);
-      setMapShapes(new Map(mapShapes)); // Force re-render
+    const shapeToUpdate = mapShapes.get(selectedGeofenceId);
+    if (!shapeToUpdate) return;
 
+    const map = (shapeToUpdate as any).getMap();
+    (shapeToUpdate as any).setMap(null);
+
+    const newShape = createShapeFromGeometry(geometry);
+    if (!newShape) return;
+
+    (newShape as any).setOptions({
+        map: map,
+        ...EDIT_COLOR
+    });
+
+    mapShapes.set(selectedGeofenceId, newShape);
+    setMapShapes(new Map(mapShapes)); // Force re-render
   }, [selectedGeofenceId, mapShapes]);
 
   useEffect(() => {
@@ -377,7 +376,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') {
             listeners.push(event.addListener(shape, 'radius_changed', debouncedUpdate));
         } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
-             // dragend covers position changes. We only need to listen for resizing.
              listeners.push(event.addListener(shape, 'bounds_changed', debouncedUpdate));
         }
         overlayListeners.current = listeners;
@@ -579,6 +577,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     mapShapes={mapShapes}
                                     historyRef={historyRef}
                                     historyIndexRef={historyIndexRef}
+                                    updateHistoryButtons={updateHistoryButtons}
+                                    canUndo={canUndo}
+                                    canRedo={canRedo}
+                                    handleUndo={handleUndo}
+                                    handleRedo={handleRedo}
                                 />
                             )}
                             {selectedModule === 'elements' && (
