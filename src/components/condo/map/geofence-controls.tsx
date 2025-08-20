@@ -54,8 +54,6 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     mapShapes: Map<string, google.maps.MVCObject>;
-    setupListeners: (shape: google.maps.MVCObject) => void;
-    updateAndRecordHistory: (shape: google.maps.MVCObject) => void;
 }
 
 export function GeofenceControls({
@@ -82,8 +80,6 @@ export function GeofenceControls({
     setShowAllGeofences,
     onSettingsClick,
     mapShapes,
-    setupListeners,
-    updateAndRecordHistory
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -95,6 +91,19 @@ export function GeofenceControls({
     const isActionActive = mode === 'editing' || mode === 'drawing';
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
+    const updateHistoryForShape = useCallback((shape: google.maps.MVCObject) => {
+      const newGeometry = getGeometryFromShape(shape);
+      if (!newGeometry) return;
+      
+      const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+      newHistory.push(newGeometry);
+      historyRef.current = newHistory;
+      historyIndexRef.current = newHistory.length - 1;
+      
+      setCanUndo(historyIndexRef.current > 0);
+      setCanRedo(false);
+    }, [historyRef, historyIndexRef, setCanUndo, setCanRedo]);
+
     const resetActionStates = useCallback((revertChanges = true) => {
         if (revertChanges && mode === 'editing' && selectedGeofenceId) {
             const shapeToRevert = mapShapes?.get(selectedGeofenceId);
@@ -140,17 +149,11 @@ export function GeofenceControls({
         if(!newShape) return;
 
         setTemporaryShape(newShape);
-        const newTempId = `new_${Date.now()}`;
-        
-        mapShapes.set(newTempId, newShape);
-        setSelectedGeofenceId(newTempId); 
-        setCurrentGeofenceName(getNextGeofenceName());
-        
-        updateAndRecordHistory(newShape);
-        setupListeners(newShape);
         setMode('editing');
+        setCurrentGeofenceName(getNextGeofenceName());
+        updateHistoryForShape(newShape);
 
-    }, [drawingManager, setSelectedGeofenceId, setMode, setupListeners, updateAndRecordHistory, mapShapes]);
+    }, [drawingManager, setMode, updateHistoryForShape]);
 
     useEffect(() => {
         if (mode === 'drawing' && drawingManager) {
@@ -165,8 +168,8 @@ export function GeofenceControls({
         }
         return () => {
              if (drawingCompleteListener.current) {
-                drawingCompleteListener.current.remove();
-            }
+                google.maps.event.removeListener(drawingCompleteListener.current);
+             }
         }
     }, [mode, drawingManager, onOverlayComplete]);
 
@@ -180,7 +183,7 @@ export function GeofenceControls({
         
         resetActionStates(false); 
         
-        updateAndRecordHistory(shapeToEdit);
+        updateHistoryForShape(shapeToEdit);
         setMode('editing');
         setCurrentGeofenceName(geofenceData.name);
     }
@@ -223,13 +226,14 @@ export function GeofenceControls({
     }
 
     const handleSaveGeofence = async () => {
-        if (!selectedGeofenceId) return;
-        
-        const isCreatingNew = selectedGeofenceId.startsWith('new_');
         let shapeToSave: google.maps.MVCObject | null = null;
         
-        if (mapShapes) {
-            shapeToSave = mapShapes.get(selectedGeofenceId) || null;
+        if (mode === 'editing') {
+             if (temporaryShape) {
+                shapeToSave = temporaryShape;
+             } else if(selectedGeofenceId) {
+                shapeToSave = mapShapes.get(selectedGeofenceId) || null;
+             }
         }
 
         if (!shapeToSave) {
@@ -244,22 +248,24 @@ export function GeofenceControls({
             return;
         }
         
+        const isCreatingNew = !selectedGeofenceId || selectedGeofenceId.startsWith('new_');
         let result: { success: boolean; message: string; data?: any; } | null = null;
 
-        if (isCreatingNew) {
-            result = await createGeofence({
+        if (temporaryShape) { // Always a new geofence if there's a temporary shape
+             result = await createGeofence({
                 condoId,
                 name: currentGeofenceName,
                 geometry: geometryToSave,
                 isDefault: geofences.length === 0,
             });
-        } else {
-            result = await updateGeofence(selectedGeofenceId, { name: currentGeofenceName, geometry: geometryToSave });
+        } else if (selectedGeofenceId) {
+             result = await updateGeofence(selectedGeofenceId, { name: currentGeofenceName, geometry: geometryToSave });
         }
+
 
         if (result?.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
-            const newSelectedId = isCreatingNew ? result.data?.id : selectedGeofenceId;
+            const newSelectedId = temporaryShape ? result.data?.id : selectedGeofenceId;
             resetActionStates(false); // Do not revert visual changes on success
             onDataNeedsRefresh(newSelectedId);
         } else if (result) {
@@ -397,7 +403,7 @@ export function GeofenceControls({
                                         <X className="mr-2 h-4 w-4" /> {t('common.cancel')}
                                     </Button>
                                     <Button onClick={handleSaveGeofence}>
-                                        <Save className="mr-2 h-4 w-4" /> {selectedGeofenceId?.startsWith('new_') ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
+                                        <Save className="mr-2 h-4 w-4" /> {temporaryShape ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
                                     </Button>
                                 </div>
                             </div>
