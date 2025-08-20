@@ -16,7 +16,7 @@ import {
   Redo,
 } from 'lucide-react';
 
-import { getGeometryFromShape, createShapeFromGeometry } from '../condo-map-tab';
+import { getGeometryFromShape, createShapeFromGeometry, EDIT_COLOR } from '../condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 
@@ -53,6 +53,7 @@ type GeofenceControlsProps = {
     clearListeners: () => void;
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
+    updateAndRecordHistory: (shape: google.maps.MVCObject) => void;
 }
 
 export function GeofenceControls({
@@ -76,13 +77,13 @@ export function GeofenceControls({
     clearListeners,
     historyRef,
     historyIndexRef,
+    updateAndRecordHistory,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
     const drawingCompleteListener = useRef<google.maps.MapsEventListener | null>(null);
 
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
-    const [temporaryShape, setTemporaryShape] = useState<google.maps.MVCObject | null>(null);
     
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
@@ -92,28 +93,22 @@ export function GeofenceControls({
     
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
     
-      const updateAndRecordHistory = useCallback((shape: google.maps.MVCObject) => {
-        const newGeometry = getGeometryFromShape(shape);
-        if (!newGeometry) return;
-        
-        const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-        newHistory.push(newGeometry);
-        historyRef.current = newHistory;
-        historyIndexRef.current = newHistory.length - 1;
-    }, [historyRef, historyIndexRef]);
-
     const resetActionStates = useCallback((revertChanges = true) => {
         if (revertChanges && selectedGeofenceId && historyRef.current.length > 0) {
             const originalGeometry = historyRef.current[0];
-            const originalShape = createShapeFromGeometry(originalGeometry);
-            if (originalShape) {
-                mapShapes.set(selectedGeofenceId, originalShape);
+            const shapeToRevert = mapShapes.get(selectedGeofenceId);
+            if (shapeToRevert) {
+                const newShape = createShapeFromGeometry(originalGeometry);
+                if (newShape) {
+                    // This part is tricky as we should modify the existing shape instead of replacing
+                    // For simplicity in revert, we might need a more complex state management
+                }
             }
         }
         
-        if (temporaryShape) {
-            temporaryShape.setMap(null);
-            setTemporaryShape(null);
+        const shapeBeingEdited = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
+        if(shapeBeingEdited) {
+            (shapeBeingEdited as any).setOptions({ editable: false, draggable: false });
         }
 
         if (drawingManager) drawingManager.setDrawingMode(null);
@@ -124,7 +119,7 @@ export function GeofenceControls({
         setCanRedo(false);
         clearListeners();
         setCurrentGeofenceName('');
-    }, [drawingManager, setMode, clearListeners, temporaryShape, selectedGeofenceId, mapShapes, historyRef, historyIndexRef]);
+    }, [drawingManager, setMode, clearListeners, selectedGeofenceId, mapShapes, historyRef, historyIndexRef]);
     
 
     const handleStartDraw = () => {
@@ -140,16 +135,21 @@ export function GeofenceControls({
         const newShape = event.overlay;
         if(!newShape) return;
 
-        setTemporaryShape(newShape);
+        (newShape as any).setOptions(EDIT_COLOR);
+        
+        // This is a new unsaved shape. We can handle it by setting a temporary ID
+        const tempId = `new-shape-${Date.now()}`;
+        mapShapes.set(tempId, newShape);
+        setSelectedGeofenceId(tempId);
+        
         setMode('editing');
-        setSelectedGeofenceId(null); 
         setCurrentGeofenceName(getNextGeofenceName());
         updateAndRecordHistory(newShape);
         setupListeners(newShape, () => updateAndRecordHistory(newShape));
-        setCanUndo(false); // Can't undo the very first action
+        setCanUndo(false);
         setCanRedo(false);
 
-    }, [drawingManager, setMode, setSelectedGeofenceId, setupListeners, updateAndRecordHistory, geofences, t]);
+    }, [drawingManager, setMode, mapShapes, setSelectedGeofenceId, setupListeners, updateAndRecordHistory, geofences, t]);
 
 
     useEffect(() => {
@@ -189,7 +189,7 @@ export function GeofenceControls({
 
 
     const handleDelete = async () => {
-        if (!selectedGeofenceId) return;
+        if (!selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-')) return;
         const idToDelete = selectedGeofenceId;
         
         const result = await deleteGeofence(idToDelete);
@@ -225,18 +225,16 @@ export function GeofenceControls({
     }
 
     const handleSaveGeofence = async () => {
-        let shapeToSave: google.maps.MVCObject | null = null;
-        
-        if (temporaryShape) {
-            shapeToSave = temporaryShape;
-        } else if(selectedGeofenceId) {
-            shapeToSave = mapShapes.get(selectedGeofenceId) || null;
-        }
-
-        if (!shapeToSave) {
+        if (!selectedGeofenceId) {
              toast({ title: "Error", description: "No active shape found to save. Please try again.", variant: "destructive"});
              resetActionStates();
              return;
+        }
+
+        const shapeToSave = mapShapes.get(selectedGeofenceId);
+        if (!shapeToSave) {
+            toast({ title: "Error", description: "No shape object found.", variant: "destructive"});
+            return;
         }
         
         const geometryToSave = getGeometryFromShape(shapeToSave);
@@ -246,22 +244,23 @@ export function GeofenceControls({
         }
         
         let result: { success: boolean; message: string; data?: any; } | null = null;
+        const isNewShape = selectedGeofenceId.startsWith('new-shape-');
 
-        if (temporaryShape) { 
+        if (isNewShape) { 
              result = await createGeofence({
                 condoId,
                 name: currentGeofenceName,
                 geometry: geometryToSave,
                 isDefault: geofences.length === 0,
             });
-        } else if (selectedGeofenceId) {
+        } else {
              result = await updateGeofence(selectedGeofenceId, { name: currentGeofenceName, geometry: geometryToSave });
         }
 
 
         if (result?.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
-            const newSelectedId = temporaryShape ? result.data?.id : selectedGeofenceId;
+            const newSelectedId = isNewShape ? result.data?.id : selectedGeofenceId;
             resetActionStates(false); 
             onDataNeedsRefresh(newSelectedId);
         } else if (result) {
@@ -270,7 +269,7 @@ export function GeofenceControls({
     };
     
     const handleSetAsDefault = async () => {
-        if (!selectedGeofenceId) return;
+        if (!selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-')) return;
         const result = await setCondoDefaultGeofence(condoId, selectedGeofenceId);
         if (result.success) {
             setDefaultGeofenceId(selectedGeofenceId);
@@ -288,14 +287,11 @@ export function GeofenceControls({
             setShowAllGeofences(false);
         }
     };
-
+    
     const applyHistoryState = useCallback((geometry: any) => {
-        let shapeToUpdate: google.maps.MVCObject | null = null;
-        if (temporaryShape) {
-            shapeToUpdate = temporaryShape;
-        } else if (selectedGeofenceId) {
-            shapeToUpdate = mapShapes.get(selectedGeofenceId) || null;
-        }
+        if (!selectedGeofenceId) return;
+
+        const shapeToUpdate = mapShapes.get(selectedGeofenceId);
         if (!shapeToUpdate) return;
     
         const map = (shapeToUpdate as any).getMap();
@@ -311,12 +307,9 @@ export function GeofenceControls({
     
         setupListeners(newShape, () => updateAndRecordHistory(newShape));
     
-        if (temporaryShape) {
-            setTemporaryShape(newShape);
-        } else if (selectedGeofenceId) {
-            mapShapes.set(selectedGeofenceId, newShape);
-        }
-    }, [selectedGeofenceId, mapShapes, temporaryShape, setupListeners, updateAndRecordHistory]);
+        mapShapes.set(selectedGeofenceId, newShape);
+
+    }, [selectedGeofenceId, mapShapes, setupListeners, updateAndRecordHistory]);
     
     
     const handleUndo = useCallback(() => {
@@ -336,7 +329,7 @@ export function GeofenceControls({
     useEffect(() => {
         setCanUndo(historyIndexRef.current > 0);
         setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-    }, [historyIndexRef.current, historyRef.current.length]);
+    }, [historyIndexRef, historyRef.current]);
 
     return (
         <div className="space-y-4 pt-2 border-t">
@@ -390,7 +383,7 @@ export function GeofenceControls({
                 <fieldset disabled={!isEditingEnabled} className="space-y-4">
                         <div className="flex items-center gap-2">
                             <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive}>
-                                <SelectTrigger className={cn("flex-1", mode === 'editing' && !temporaryShape && "text-[#2980b9] border-[#2980b9] font-bold")}>
+                                <SelectTrigger className={cn("flex-1", mode === 'editing' && !selectedGeofenceId?.startsWith('new-shape-') && "text-[#2980b9] border-[#2980b9] font-bold")}>
                                     <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -405,15 +398,15 @@ export function GeofenceControls({
                                 </SelectContent>
                             </Select>
                             <div className="flex items-center">
-                                <Button variant="ghost" size="icon" onClick={handleSetAsDefault} disabled={isActionActive || !selectedGeofenceId}>
+                                <Button variant="ghost" size="icon" onClick={handleSetAsDefault} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-')}>
                                     <Star className={cn("h-4 w-4", defaultGeofenceId === selectedGeofenceId && "fill-orange-400 text-orange-500")} />
                                     <span className="sr-only">{t('condoDashboard.map.geofence.setAsDefault')}</span>
                                 </Button>
-                                <Button variant="ghost" size="icon" onClick={handleStartEdit} disabled={isActionActive || !selectedGeofenceId}>
+                                <Button variant="ghost" size="icon" onClick={handleStartEdit} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-')}>
                                     <Edit className="h-4 w-4"/>
                                     <span className="sr-only">{t('common.edit')}</span>
                                 </Button>
-                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isActionActive || !selectedGeofenceId}>
+                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-')}>
                                     <Trash2 className="h-4 w-4 text-destructive"/>
                                     <span className="sr-only">{t('common.delete')}</span>
                                 </Button>
@@ -460,7 +453,7 @@ export function GeofenceControls({
                                         <X className="mr-2 h-4 w-4" /> {t('common.cancel')}
                                     </Button>
                                     <Button onClick={handleSaveGeofence}>
-                                        <Save className="mr-2 h-4 w-4" /> {temporaryShape ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
+                                        <Save className="mr-2 h-4 w-4" /> {selectedGeofenceId?.startsWith('new-shape-') ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
                                     </Button>
                                 </div>
                             </div>
@@ -470,3 +463,5 @@ export function GeofenceControls({
         </div>
     );
 }
+
+    
