@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -15,7 +14,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { getGeometryFromShape, createShapeFromGeometry, EDIT_COLOR } from '../condo-map-tab';
+import { getGeometryFromShape, createShapeFromGeometry } from '../condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 
@@ -56,8 +55,6 @@ type GeofenceControlsProps = {
     showAllGeofences: boolean;
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
-    geofenceForEditing: google.maps.MVCObject | null;
-    setGeofenceForEditing: React.Dispatch<React.SetStateAction<google.maps.MVCObject | null>>;
 }
 
 export function GeofenceControls({
@@ -85,24 +82,20 @@ export function GeofenceControls({
     showAllGeofences,
     setShowAllGeofences,
     onSettingsClick,
-    geofenceForEditing,
-    setGeofenceForEditing,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
     const drawingCompleteListener = useRef<google.maps.MapsEventListener | null>(null);
 
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
+    const [temporaryShape, setTemporaryShape] = useState<google.maps.MVCObject | null>(null);
     
     const isActionActive = mode === 'editing' || mode === 'drawing';
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
     const resetActionStates = useCallback((revertChanges = true) => {
-        if (revertChanges && mode === 'editing') {
-            let shapeToRevert = geofenceForEditing;
-            if (!shapeToRevert && selectedGeofenceId) {
-                shapeToRevert = mapShapes?.get(selectedGeofenceId) || null;
-            }
+        if (revertChanges && mode === 'editing' && selectedGeofenceId) {
+            const shapeToRevert = mapShapes?.get(selectedGeofenceId);
             if (shapeToRevert && historyRef.current.length > 0) {
                 const originalGeometry = historyRef.current[0];
                 const revertedShape = createShapeFromGeometry(originalGeometry);
@@ -115,9 +108,9 @@ export function GeofenceControls({
             }
         }
         
-        if (geofenceForEditing) {
-            geofenceForEditing.setMap(null);
-            setGeofenceForEditing(null);
+        if (temporaryShape) {
+            temporaryShape.setMap(null);
+            setTemporaryShape(null);
         }
 
         if (drawingManager) drawingManager.setDrawingMode(null);
@@ -128,7 +121,7 @@ export function GeofenceControls({
         setCanRedo(false);
         clearListeners();
         setCurrentGeofenceName('');
-    }, [mode, selectedGeofenceId, mapShapes, drawingManager, setMode, historyRef, historyIndexRef, setCanUndo, setCanRedo, clearListeners, geofenceForEditing, setGeofenceForEditing]);
+    }, [mode, selectedGeofenceId, mapShapes, drawingManager, setMode, historyRef, historyIndexRef, setCanUndo, setCanRedo, clearListeners, temporaryShape]);
 
 
     const handleStartDraw = () => {
@@ -143,20 +136,15 @@ export function GeofenceControls({
         if(drawingManager) drawingManager.setDrawingMode(null);
         const newShape = event.overlay;
         if(!newShape) return;
-        
-        event.overlay?.setMap(null); // Hide original to avoid clones
-        
-        const cleanShape = createShapeFromGeometry(getGeometryFromShape(newShape));
-        if (!cleanShape) return;
 
-        setGeofenceForEditing(cleanShape);
+        setTemporaryShape(newShape);
         
         setMode('editing');
         setSelectedGeofenceId(`new_${Date.now()}`); // Temporary ID
         setCurrentGeofenceName(getNextGeofenceName());
-        updateHistory(getGeometryFromShape(cleanShape));
+        updateHistory(getGeometryFromShape(newShape));
 
-    }, [drawingManager, setSelectedGeofenceId, setMode, updateHistory, setGeofenceForEditing]);
+    }, [drawingManager, setSelectedGeofenceId, setMode, updateHistory]);
 
     useEffect(() => {
         if (mode === 'drawing' && drawingManager) {
@@ -184,6 +172,9 @@ export function GeofenceControls({
 
         if (!shapeToEdit || !geofenceData) return;
         
+        resetActionStates(false); // Clear any previous state without reverting
+        
+        // Save the initial state for undo
         updateHistory(getGeometryFromShape(shapeToEdit));
 
         setMode('editing');
@@ -229,12 +220,18 @@ export function GeofenceControls({
 
     const handleSaveGeofence = async () => {
         if (!selectedGeofenceId) return;
-
-        // The shape being actively edited is the source of truth.
-        const shapeToSave = geofenceForEditing;
         
+        const isCreatingNew = selectedGeofenceId.startsWith('new_');
+        let shapeToSave: google.maps.MVCObject | null = null;
+        
+        if (isCreatingNew) {
+            shapeToSave = temporaryShape;
+        } else if (mapShapes) {
+            shapeToSave = mapShapes.get(selectedGeofenceId) || null;
+        }
+
         if (!shapeToSave) {
-             toast({ title: "Error", description: "No active shape found to save. Please try editing again.", variant: "destructive"});
+             toast({ title: "Error", description: "No active shape found to save. Please try again.", variant: "destructive"});
              resetActionStates();
              return;
         }
@@ -245,7 +242,6 @@ export function GeofenceControls({
             return;
         }
         
-        const isCreatingNew = selectedGeofenceId.startsWith('new_');
         let result: { success: boolean; message: string; data?: any; } | null = null;
 
         if (isCreatingNew) {

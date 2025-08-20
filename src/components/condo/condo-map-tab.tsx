@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -145,7 +144,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
   const [mapShapes, setMapShapes] = useState<Map<string, google.maps.MVCObject>>(new Map());
-  const [geofenceForEditing, setGeofenceForEditing] = useState<google.maps.MVCObject | null>(null);
 
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
   const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
@@ -294,22 +292,58 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   const updateHistory = useCallback((geometry: any) => {
     if (!geometry) return;
+    // If we undo and then make a new change, we want to discard the "redo" history.
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
     newHistory.push(geometry);
     historyRef.current = newHistory;
-    historyIndexRef.current++;
+    historyIndexRef.current = newHistory.length - 1;
     setCanUndo(historyIndexRef.current > 0);
     setCanRedo(false);
   }, []);
+
+  
+  const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
+  const clearListeners = useCallback(() => {
+    overlayListeners.current.forEach(l => l.remove());
+    overlayListeners.current = [];
+  }, []);
+
+  const setupListeners = useCallback((shape: google.maps.MVCObject) => {
+    clearListeners();
+    const listeners: google.maps.MapsEventListener[] = [];
+    
+    const updateAndRecordHistory = () => {
+        const newGeometry = getGeometryFromShape(shape);
+        updateHistory(newGeometry);
+    };
+
+    if (typeof google === 'undefined' || !google.maps.event) return;
+    const event = google.maps.event;
+
+    listeners.push(event.addListener(shape, 'dragend', updateAndRecordHistory));
+
+    if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygon
+        const path = (shape as google.maps.Polygon).getPath();
+        listeners.push(event.addListener(path, 'set_at', updateAndRecordHistory));
+        listeners.push(event.addListener(path, 'insert_at', updateAndRecordHistory));
+        listeners.push(event.addListener(path, 'remove_at', updateAndRecordHistory));
+    } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') { // Circle
+        listeners.push(event.addListener(shape, 'radius_changed', updateAndRecordHistory));
+        listeners.push(event.addListener(shape, 'center_changed', updateAndRecordHistory));
+    } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle
+        listeners.push(event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
+    }
+    overlayListeners.current = listeners;
+  }, [updateHistory, clearListeners]);
   
   const handleUndo = useCallback(() => {
-    if (!canUndo) return;
+    if (!canUndo || !selectedGeofenceId) return;
 
     historyIndexRef.current--;
     const previousGeometry = historyRef.current[historyIndexRef.current];
     const newShape = createShapeFromGeometry(previousGeometry);
-
-    const shapeToUpdate = geofenceForEditing;
+    
+    const shapeToUpdate = mapShapes.get(selectedGeofenceId);
     
     if (shapeToUpdate && newShape) {
         if ('setPaths' in shapeToUpdate && 'getPaths' in newShape) (shapeToUpdate as any).setPaths((newShape as any).getPaths());
@@ -320,16 +354,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
     setCanUndo(historyIndexRef.current > 0);
     setCanRedo(true);
-  }, [canUndo, geofenceForEditing]);
+  }, [canUndo, selectedGeofenceId, mapShapes]);
 
   const handleRedo = useCallback(() => {
-    if (!canRedo) return;
+    if (!canRedo || !selectedGeofenceId) return;
     
     historyIndexRef.current++;
     const nextGeometry = historyRef.current[historyIndexRef.current];
     const newShape = createShapeFromGeometry(nextGeometry);
     
-    const shapeToUpdate = geofenceForEditing;
+    const shapeToUpdate = mapShapes.get(selectedGeofenceId);
 
     if (shapeToUpdate && newShape) {
         if ('setPaths' in shapeToUpdate && 'getPaths' in newShape) (shapeToUpdate as any).setPaths((newShape as any).getPaths());
@@ -340,41 +374,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
     setCanUndo(true);
     setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-  }, [canRedo, geofenceForEditing]);
+  }, [canRedo, selectedGeofenceId, mapShapes]);
   
-  const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
-  const clearListeners = useCallback(() => {
-    overlayListeners.current.forEach(l => l.remove());
-    overlayListeners.current = [];
-  }, []);
-
-    const setupListeners = useCallback((shape: google.maps.MVCObject) => {
-        clearListeners();
-        
-        const updateAndRecordHistory = () => {
-            const newGeometry = getGeometryFromShape(shape);
-            updateHistory(newGeometry);
-        };
-
-        if (typeof google === 'undefined' || !google.maps.event) return;
-        
-        const event = google.maps.event;
-        
-        event.addListener(shape, 'dragend', updateAndRecordHistory);
-
-        if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygon
-            const path = (shape as google.maps.Polygon).getPath();
-            event.addListener(path, 'set_at', updateAndRecordHistory);
-            event.addListener(path, 'insert_at', updateAndRecordHistory);
-            event.addListener(path, 'remove_at', updateAndRecordHistory);
-        } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') { // Circle
-            event.addListener(shape, 'radius_changed', updateAndRecordHistory);
-            event.addListener(shape, 'center_changed', updateAndRecordHistory);
-        } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle
-            event.addListener(shape, 'bounds_changed', updateAndRecordHistory);
-        }
-    }, [updateHistory, clearListeners]);
-
   useEffect(() => {
         const newShapes = new Map<string, google.maps.MVCObject>();
         for (const dbGf of dbGeofences) {
@@ -390,14 +391,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       const map = mapRef.current;
       if (!map || isLoading) return;
 
+      // Hide all shapes first
       mapShapes.forEach((shape) => shape.setMap(null));
       
       let shapeToEdit: google.maps.MVCObject | null = null;
       if(selectedGeofenceId && mapShapes.has(selectedGeofenceId)) {
         shapeToEdit = mapShapes.get(selectedGeofenceId)!;
-      }
-      if(geofenceForEditing) {
-        shapeToEdit = geofenceForEditing;
       }
 
       clearListeners();
@@ -406,7 +405,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
           (shapeToEdit as any).setOptions(EDIT_COLOR);
            shapeToEdit.setMap(map);
            setupListeners(shapeToEdit);
-           setGeofenceForEditing(shapeToEdit);
       } else if (mode === 'drawing') {
           // Drawing manager handles the new shape visibility
       } else { // 'view' mode
@@ -436,7 +434,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       }
   }, [
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-      mapShapes, setupListeners, clearListeners, isEditingEnabled, isLoading, geofenceForEditing, setGeofenceForEditing
+      mapShapes, setupListeners, clearListeners, isEditingEnabled, isLoading
   ]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
@@ -565,8 +563,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     showAllGeofences={showAllGeofences}
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
-                                    geofenceForEditing={geofenceForEditing}
-                                    setGeofenceForEditing={setGeofenceForEditing}
                                 />
                             </div>
                         </fieldset>
