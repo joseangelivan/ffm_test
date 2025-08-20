@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -20,27 +19,18 @@ import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLocale } from '@/lib/i18n';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MapComponent, { AdvancedMarker } from '@/components/map';
 import { GeofenceControls, type DrawingMode } from './map/geofence-controls';
 import { ElementsControls } from './map/elements-controls';
 import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-import { Label } from '@/components/ui/label';
 import { MapSettingsDialog } from './map/map-settings-dialog';
-import { Separator } from '../ui/separator';
 import { useToast } from '@/hooks/use-toast';
 
-export type GeofenceObject = {
-    id: string;
-    name: string;
-    shape: google.maps.MVCObject;
-};
-
 export const EDIT_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2, editable: true, draggable: true };
-export const SAVED_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: false, draggable: false, clickable: false };
+export const SAVED_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: false, draggable: false, clickable: true };
 export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d', strokeWeight: 1, editable: false, draggable: false, clickable: false };
-export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50% / 0.1)', strokeColor: 'hsl(28 80% 50%)', strokeWeight: 2, editable: false, draggable: false, clickable: false };
+export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50% / 0.3)', strokeColor: 'hsl(28 80% 50%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -95,15 +85,12 @@ interface MapInnerProps {
   condo: Condominio;
   initialPosition: { lat: number; lng: number };
   onMapLoad: (map: google.maps.Map) => void;
-  onOverlayComplete: (event: google.maps.drawing.OverlayCompleteEvent) => void;
   drawingManagerRef: React.MutableRefObject<google.maps.drawing.DrawingManager | null>;
 }
 
 const DrawingManagerComponent = ({
-  onOverlayComplete,
   drawingManagerRef,
 }: {
-  onOverlayComplete: (event: google.maps.drawing.OverlayCompleteEvent) => void;
   drawingManagerRef: React.MutableRefObject<google.maps.drawing.DrawingManager | null>;
 }) => {
   const map = useMap();
@@ -121,29 +108,22 @@ const DrawingManagerComponent = ({
 
     drawingManagerRef.current = newDrawingManager;
     newDrawingManager.setMap(map);
-    
-    const listener = google.maps.event.addListener(
-      newDrawingManager,
-      'overlaycomplete',
-      onOverlayComplete
-    );
 
     return () => {
-      listener.remove();
       if (drawingManagerRef.current) {
         drawingManagerRef.current.setMap(null);
         drawingManagerRef.current = null;
       }
     };
-  }, [drawingLibrary, onOverlayComplete, drawingManagerRef, map]);
+  }, [drawingLibrary, drawingManagerRef, map]);
 
   return null;
 };
 
-function MapInner({ condo, initialPosition, onMapLoad, onOverlayComplete, drawingManagerRef }: MapInnerProps) {
+function MapInner({ condo, initialPosition, onMapLoad, drawingManagerRef }: MapInnerProps) {
   return (
     <MapComponent onMapLoad={onMapLoad}>
-        <DrawingManagerComponent onOverlayComplete={onOverlayComplete} drawingManagerRef={drawingManagerRef} />
+        <DrawingManagerComponent drawingManagerRef={drawingManagerRef} />
         {initialPosition && (
             <AdvancedMarker position={initialPosition} title={condo.name}>
                 <Building className="h-8 w-8 text-slate-700 drop-shadow-lg" />
@@ -161,15 +141,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
   
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
-  const [mapShapes, setMapShapes] = useState<Map<string, google.maps.MVCObject> | null>(null);
+  const [mapShapes, setMapShapes] = useState<Map<string, google.maps.MVCObject>>(new Map());
 
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
   const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
   
   const [mode, setMode] = useState<'view' | 'editing' | 'drawing'>('view');
-  
-  // This state holds the shape currently being drawn or edited. It's a temporary shape.
-  const [geofenceForEditing, setGeofenceForEditing] = useState<google.maps.MVCObject | null>(null);
   
   const historyRef = useRef<any[]>([]);
   const historyIndexRef = useRef<number>(-1);
@@ -181,7 +158,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   const [isEditingEnabled, setIsEditingEnabled] = useState(false);
   const [showAllGeofences, setShowAllGeofences] = useState(false);
-
 
   const [zoomLevel, setZoomLevel] = useState(15);
   const [fitLevel, setFitLevel] = useState<'1' | '2' | '3'>('2');
@@ -310,7 +286,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       if (currentZoom) setZoomLevel(currentZoom);
     });
     return () => { zoomListener.remove(); };
-  }, [mapRef]);
+  }, []);
   
   const updateHistory = useCallback((geometry: any) => {
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -327,32 +303,36 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
     historyIndexRef.current--;
     const previousGeometry = historyRef.current[historyIndexRef.current];
-    const newShape = createShapeFromGeometry(previousGeometry);
-    
-    if (newShape) {
-        if(geofenceForEditing) (geofenceForEditing as any).setMap(null);
-        setGeofenceForEditing(newShape);
+    const shape = mapShapes.get(selectedGeofenceId!)
+    if(shape) {
+        const newShape = createShapeFromGeometry(previousGeometry);
+        if('setPaths' in shape && 'getPaths' in newShape) (shape as any).setPaths((newShape as any).getPaths());
+        if('setBounds' in shape && 'getBounds' in newShape) (shape as any).setBounds((newShape as any).getBounds());
+        if('setRadius' in shape && 'getRadius' in newShape) (shape as any).setRadius((newShape as any).getRadius());
+        if('setCenter' in shape && 'getCenter' in newShape) (shape as any).setCenter((newShape as any).getCenter());
     }
     
     setCanUndo(historyIndexRef.current > 0);
     setCanRedo(true);
-  }, [canUndo, geofenceForEditing]);
+  }, [canUndo, mapShapes, selectedGeofenceId]);
 
   const handleRedo = useCallback(() => {
     if (!canRedo) return;
     
     historyIndexRef.current++;
     const nextGeometry = historyRef.current[historyIndexRef.current];
-    const newShape = createShapeFromGeometry(nextGeometry);
-    
-    if (newShape) {
-        if(geofenceForEditing) (geofenceForEditing as any).setMap(null);
-        setGeofenceForEditing(newShape);
+    const shape = mapShapes.get(selectedGeofenceId!)
+    if(shape) {
+        const newShape = createShapeFromGeometry(nextGeometry);
+        if('setPaths' in shape && 'getPaths' in newShape) (shape as any).setPaths((newShape as any).getPaths());
+        if('setBounds' in shape && 'getBounds' in newShape) (shape as any).setBounds((newShape as any).getBounds());
+        if('setRadius' in shape && 'getRadius' in newShape) (shape as any).setRadius((newShape as any).getRadius());
+        if('setCenter' in shape && 'getCenter' in newShape) (shape as any).setCenter((newShape as any).getCenter());
     }
 
     setCanUndo(true);
     setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-  }, [canRedo, geofenceForEditing]);
+  }, [canRedo, mapShapes, selectedGeofenceId]);
   
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   const clearListeners = useCallback(() => {
@@ -370,12 +350,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     };
     
     let changedEvent = 'bounds_changed';
-    // @ts-ignore
     if ('getRadius' in shape) changedEvent = 'radius_changed';
-    // @ts-ignore
+
     if ('getPaths' in shape) {
-        // @ts-ignore
-        const path = shape.getPath();
+        const path = (shape as google.maps.Polygon).getPath();
         overlayListeners.current.push(google.maps.event.addListener(path, 'set_at', updateAndRecordHistory));
         overlayListeners.current.push(google.maps.event.addListener(path, 'insert_at', updateAndRecordHistory));
         overlayListeners.current.push(google.maps.event.addListener(path, 'remove_at', updateAndRecordHistory));
@@ -385,113 +363,63 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     overlayListeners.current.push(google.maps.event.addListener(shape, 'dragend', updateAndRecordHistory));
   }, [updateHistory, clearListeners]);
 
-  // Activate/Deactivate DrawingManager
+  // Create/update map shape objects when dbGeofences change
   useEffect(() => {
-    if (drawingManagerRef.current && mapRef.current) {
-        if (mode === 'drawing') {
-            drawingManagerRef.current.setDrawingMode(drawingMode as any);
-        } else {
-            drawingManagerRef.current.setDrawingMode(null);
+        const newShapes = new Map<string, google.maps.MVCObject>();
+        for (const dbGf of dbGeofences) {
+            const shape = createShapeFromGeometry(dbGf.geometry);
+            if (shape) {
+                newShapes.set(dbGf.id, shape);
+            }
         }
-    }
-  }, [mode, drawingMode]);
-
-  // Handle drawing completion
-  const onOverlayComplete = useCallback((event: google.maps.drawing.OverlayCompleteEvent) => {
-    const newOverlay = event.overlay;
-    // Hide the freshly drawn shape, as we will manage it via `geofenceForEditing` state
-    if (newOverlay) (newOverlay as any).setMap(null);
-
-    setGeofenceForEditing(newOverlay);
-    setMode('editing');
-    updateHistory(getGeometryFromShape(newOverlay));
-    
-    if (drawingManagerRef.current) {
-        drawingManagerRef.current.setDrawingMode(null);
-    }
-    
-    toast({
-        title: t('condoDashboard.map.toast.shapeDrawn.title'),
-        description: t('condoDashboard.map.toast.shapeDrawn.description'),
-    });
-}, [updateHistory, toast, t]);
-
-    // Create/update map shape objects when dbGeofences change
-    useEffect(() => {
-        setMapShapes(currentMapShapes => {
-            const newMapShapes = new Map(currentMapShapes || []);
-            const currentIds = new Set(newMapShapes.keys());
-            const dbIds = new Set(dbGeofences.map(g => g.id));
-
-            // Add new shapes
-            for (const dbGf of dbGeofences) {
-                if (!currentIds.has(dbGf.id)) {
-                    const shape = createShapeFromGeometry(dbGf.geometry);
-                    if (shape) {
-                        newMapShapes.set(dbGf.id, shape);
-                    }
-                }
-            }
-
-            // Remove old shapes
-            for (const id of currentIds) {
-                if (!dbIds.has(id)) {
-                    const shape = newMapShapes.get(id);
-                    if (shape) (shape as any).setMap(null);
-                    newMapShapes.delete(id);
-                }
-            }
-            return newMapShapes;
-        });
-    }, [dbGeofences]);
+        setMapShapes(newShapes);
+        setIsLoading(false);
+  }, [dbGeofences]);
 
     // Main render/visibility logic
-    useEffect(() => {
-        const map = mapRef.current;
-        if (!map || !mapShapes) return;
+  useEffect(() => {
+      const map = mapRef.current;
+      if (!map || isLoading) return;
 
-        // Hide all persistent shapes first
-        mapShapes.forEach(shape => (shape as any).setMap(null));
-        // Clean up previous editing shape if it exists
-        if(geofenceForEditing) (geofenceForEditing as any).setMap(null);
-        clearListeners();
-        
-        if (mode === 'editing') {
-            if (geofenceForEditing) {
-                (geofenceForEditing as any).setMap(map);
-                (geofenceForEditing as any).setOptions(EDIT_COLOR);
-                setupListeners(geofenceForEditing);
-            }
-        } else if (mode === 'drawing') {
-            // Nothing to show while drawing, the DrawingManager handles the preview
-        } else { // 'view' mode
-             mapShapes.forEach((shape, id) => {
-                let isVisible = isEditingEnabled 
-                    ? id === selectedGeofenceId
-                    : (showAllGeofences || id === defaultGeofenceId);
-                
-                let colorOptions = SAVED_COLOR;
+      mapShapes.forEach((shape, id) => {
+          let isVisible = false;
+          let colorOptions = {};
 
-                if (isEditingEnabled) {
-                    if(id === selectedGeofenceId) {
-                        colorOptions = SAVED_COLOR;
-                    }
-                } else if (showAllGeofences) {
-                    colorOptions = id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
-                } else {
-                    colorOptions = DEFAULT_COLOR;
-                }
-                
-                (shape as any).setOptions(colorOptions);
-                if (isVisible) {
-                    (shape as any).setMap(map);
-                }
-            });
-        }
-    }, [
-        mode, geofenceForEditing, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-        mapShapes, setupListeners, clearListeners, isEditingEnabled
-    ]);
+          if (mode === 'editing') {
+              if (id === selectedGeofenceId) {
+                  isVisible = true;
+                  colorOptions = EDIT_COLOR;
+                  setupListeners(shape);
+              }
+          } else if (mode === 'drawing') {
+              // Hide all persistent shapes while drawing
+          } else { // 'view' mode
+              clearListeners();
+              (shape as any).setOptions({ editable: false, draggable: false });
+              if (isEditingEnabled) {
+                  if (id === selectedGeofenceId) {
+                      isVisible = true;
+                      colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
+                  }
+              } else {
+                   if (showAllGeofences) {
+                        isVisible = true;
+                        colorOptions = id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
+                   } else {
+                       if (id === defaultGeofenceId) {
+                           isVisible = true;
+                           colorOptions = DEFAULT_COLOR;
+                       }
+                   }
+              }
+          }
+          (shape as any).setOptions(colorOptions);
+          (shape as any).setMap(isVisible ? map : null);
+      });
+  }, [
+      mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
+      mapShapes, setupListeners, clearListeners, isEditingEnabled, isLoading
+  ]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
   const handleZoomOut = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! - 1);
@@ -499,44 +427,30 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const handleMapLoad = useCallback(async (map: google.maps.Map) => {
     mapRef.current = map;
-    setIsLoading(true);
-    try {
-        const initialDbGeofences = await getGeofencesByCondoId(condo.id);
-        setDbGeofences(initialDbGeofences);
-        
-        const defaultGfDb = initialDbGeofences.find(g => g.is_default);
-        const initialDefaultId = defaultGfDb ? defaultGfDb.id : (initialDbGeofences.length > 0 ? initialDbGeofences[0].id : null);
-        
-        setDefaultGeofenceId(initialDefaultId);
-        setSelectedGeofenceId(initialDefaultId);
-        
-        const geofenceToCenter = initialDbGeofences.find(g => g.id === initialDefaultId);
-        
-        if (geofenceToCenter) {
-             const shape = createShapeFromGeometry(geofenceToCenter.geometry);
-             if(shape) {
-                const bounds = getBoundsOfShape(shape);
-                if (bounds) {
-                    google.maps.event.addListenerOnce(map, 'idle', () => {
-                        recalculateZoomLevels();
-                    });
-                    map.fitBounds(bounds, 0);
-                } else {
-                    centerMapOnAddress();
-                }
-             } else {
-                 centerMapOnAddress();
-             }
-        } else {
-            centerMapOnAddress();
-        }
-    } catch (error) {
-        console.error("Failed to initialize map:", error);
+    await onDataNeedsRefresh();
+    
+    // This needs to run after onDataNeedsRefresh has populated dbGeofences and set the default
+    const geofenceToCenter = dbGeofences.find(g => g.is_default);
+    
+    if (geofenceToCenter) {
+         const shape = createShapeFromGeometry(geofenceToCenter.geometry);
+         if(shape) {
+            const bounds = getBoundsOfShape(shape);
+            if (bounds) {
+                google.maps.event.addListenerOnce(map, 'idle', () => {
+                    recalculateZoomLevels();
+                });
+                map.fitBounds(bounds, 0);
+            } else {
+                centerMapOnAddress();
+            }
+         } else {
+             centerMapOnAddress();
+         }
+    } else {
         centerMapOnAddress();
-    } finally {
-        setIsLoading(false);
     }
-  }, [condo.id, centerMapOnAddress, recalculateZoomLevels]);
+  }, [condo.id, centerMapOnAddress, recalculateZoomLevels, onDataNeedsRefresh, dbGeofences]);
 
   
   return (
@@ -572,7 +486,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 condo={condo}
                                 initialPosition={initialPosition}
                                 onMapLoad={handleMapLoad}
-                                onOverlayComplete={onOverlayComplete}
                                 drawingManagerRef={drawingManagerRef}
                             />
                         </div>
@@ -607,49 +520,32 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 {t('condoDashboard.map.modules.title')}
                             </legend>
                             <div className="flex-1 flex flex-col space-y-4 pt-2">
-                                <div className="px-1 flex items-center gap-2">
-                                    <Select value={activeModule} onValueChange={setActiveModule}>
-                                        <SelectTrigger id="module-select" className="text-base font-bold text-primary">
-                                            <SelectValue placeholder={t('condoDashboard.map.modules.selectPlaceholder')} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="geofence">{t('condoDashboard.map.modules.geofence')}</SelectItem>
-                                            <SelectItem value="elements">{t('condoDashboard.map.modules.elements')}</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                {activeModule === 'geofence' && (
-                                    <GeofenceControls
-                                        condoId={condo.id}
-                                        geofences={dbGeofences}
-                                        mapShapes={mapShapes}
-                                        onDataNeedsRefresh={onDataNeedsRefresh}
-                                        selectedGeofenceId={selectedGeofenceId}
-                                        setSelectedGeofenceId={setSelectedGeofenceId}
-                                        defaultGeofenceId={defaultGeofenceId}
-                                        setDefaultGeofenceId={setDefaultGeofenceId}
-                                        mode={mode}
-                                        setMode={setMode}
-                                        activeOverlay={geofenceForEditing}
-                                        setActiveOverlay={setGeofenceForEditing}
-                                        updateHistory={updateHistory}
-                                        historyRef={historyRef}
-                                        historyIndexRef={historyIndexRef}
-                                        setCanUndo={setCanUndo}
-                                        setCanRedo={setCanRedo}
-                                        clearListeners={clearListeners}
-                                        drawingMode={drawingMode}
-                                        setDrawingMode={setDrawingMode}
-                                        isEditingEnabled={isEditingEnabled}
-                                        setIsEditingEnabled={setIsEditingEnabled}
-                                        showAllGeofences={showAllGeofences}
-                                        setShowAllGeofences={setShowAllGeofences}
-                                        onSettingsClick={() => setIsMapSettingsOpen(true)}
-                                    />
-                                )}
-                                {activeModule === 'elements' && (
-                                <ElementsControls condoId={condo.id} />
-                                )}
+                                <GeofenceControls
+                                    condoId={condo.id}
+                                    geofences={dbGeofences}
+                                    mapShapes={mapShapes}
+                                    onDataNeedsRefresh={onDataNeedsRefresh}
+                                    selectedGeofenceId={selectedGeofenceId}
+                                    setSelectedGeofenceId={setSelectedGeofenceId}
+                                    defaultGeofenceId={defaultGeofenceId}
+                                    setDefaultGeofenceId={setDefaultGeofenceId}
+                                    mode={mode}
+                                    setMode={setMode}
+                                    drawingManager={drawingManagerRef.current}
+                                    updateHistory={updateHistory}
+                                    historyRef={historyRef}
+                                    historyIndexRef={historyIndexRef}
+                                    setCanUndo={setCanUndo}
+                                    setCanRedo={setCanRedo}
+                                    clearListeners={clearListeners}
+                                    drawingMode={drawingMode}
+                                    setDrawingMode={setDrawingMode}
+                                    isEditingEnabled={isEditingEnabled}
+                                    setIsEditingEnabled={setIsEditingEnabled}
+                                    showAllGeofences={showAllGeofences}
+                                    setShowAllGeofences={setShowAllGeofences}
+                                    onSettingsClick={() => setIsMapSettingsOpen(true)}
+                                />
                             </div>
                         </fieldset>
                     </div>
