@@ -24,10 +24,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import MapComponent, { AdvancedMarker } from '@/components/map';
 import { GeofenceControls, type DrawingMode } from './map/geofence-controls';
 import { ElementsControls } from './map/elements-controls';
-import { getGeofencesByCondoId, getMapElementTypes } from '@/actions/maps';
+import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence } from '@/actions/maps';
 import { Label } from '@/components/ui/label';
 import { MapSettingsDialog } from './map/map-settings-dialog';
+import { geocodeAddress } from '@/actions/geocoding';
 
 export type GeofenceObject = {
     id: string;
@@ -115,7 +116,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const [zoomLevel, setZoomLevel] = useState(15);
   const [fitLevel, setFitLevel] = useState<'1' | '2' | '3'>('2');
-  const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const [calculatedZoomLevels, setCalculatedZoomLevels] = useState<{ tight: number, normal: number, wide: number } | null>(null);
@@ -141,8 +141,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
           if (maxZoom !== undefined) {
                const zoomLevels = {
                   tight: maxZoom,
-                  normal: maxZoom - 1,
-                  wide: maxZoom - 2
+                  normal: maxZoom > 1 ? maxZoom - 1 : maxZoom,
+                  wide: maxZoom > 2 ? maxZoom - 2 : maxZoom
               };
               setCalculatedZoomLevels(zoomLevels);
               
@@ -162,21 +162,18 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [map, condoAddressPosition]);
 
   const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
-    if (!map) return;
+    if (!map || !calculatedZoomLevels) return;
 
-    if (calculatedZoomLevels) {
-      const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
-      if (geofenceToCenter?.shape) {
-        const center = getCenterOfShape(geofenceToCenter.shape);
-        if (center) map.setCenter(center);
-      }
+    const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
+    if (geofenceToCenter?.shape) {
+      const center = getCenterOfShape(geofenceToCenter.shape);
+      if (center) map.setCenter(center);
+
       if (level === '1') map.setZoom(calculatedZoomLevels.tight);
       if (level === '2') map.setZoom(calculatedZoomLevels.normal);
       if (level === '3') map.setZoom(calculatedZoomLevels.wide);
-    } else {
-      centerMapOnGeofence(level);
     }
-  }, [map, calculatedZoomLevels, centerMapOnGeofence, geofences, defaultGeofenceId]);
+  }, [map, calculatedZoomLevels, geofences, defaultGeofenceId]);
 
 
   useEffect(() => {
