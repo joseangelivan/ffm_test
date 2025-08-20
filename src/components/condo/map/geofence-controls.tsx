@@ -14,7 +14,7 @@ import {
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 
 import type { GeofenceObject } from '../condo-map-tab';
-import { getGeometryFromShape, createShapeFromGeometry, SAVED_COLOR, DEFAULT_COLOR, VIEW_ALL_COLOR } from '../condo-map-tab';
+import { getGeometryFromShape, createShapeFromGeometry, SAVED_COLOR, DEFAULT_COLOR } from '../condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 
 import { Button } from '@/components/ui/button';
@@ -96,8 +96,6 @@ type GeofenceControlsProps = {
     setDrawingMode: React.Dispatch<React.SetStateAction<DrawingMode>>;
     isEditingEnabled: boolean;
     setIsEditingEnabled: React.Dispatch<React.SetStateAction<boolean>>;
-    viewAll: boolean;
-    setViewAll: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export function GeofenceControls({
@@ -127,8 +125,6 @@ export function GeofenceControls({
     setDrawingMode,
     isEditingEnabled,
     setIsEditingEnabled,
-    viewAll,
-    setViewAll,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -282,7 +278,6 @@ export function GeofenceControls({
     const handleEditingEnabledChange = (checked: boolean) => {
         setIsEditingEnabled(checked);
         if (!checked) {
-            setViewAll(false);
             resetActionStates();
             setSelectedGeofenceId(defaultGeofenceId);
         }
@@ -293,12 +288,6 @@ export function GeofenceControls({
             <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                     <Label htmlFor="default-geofence">{t('condoDashboard.map.geofence.defaultLabel')}</Label>
-                    <div className="flex items-center space-x-2">
-                        <Checkbox id="view-all" checked={viewAll} onCheckedChange={(checked) => setViewAll(!!checked)} disabled={isEditingEnabled}/>
-                        <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                            {t('condoDashboard.map.geofence.viewAll')}
-                        </label>
-                    </div>
                 </div>
                 <div className="relative flex items-center">
                     {defaultGeofenceId && (
