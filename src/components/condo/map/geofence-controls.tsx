@@ -90,7 +90,12 @@ export function GeofenceControls({
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
     
     const resetActionStates = useCallback((revertChanges = true) => {
-        if (revertChanges && selectedGeofenceId && historyRef.current.length > 0) {
+        if (selectedGeofenceId?.startsWith('new-shape-')) {
+            const shapeToRemove = mapShapes.get(selectedGeofenceId);
+            if(shapeToRemove) (shapeToRemove as any).setMap(null);
+            mapShapes.delete(selectedGeofenceId);
+            setSelectedGeofenceId(defaultGeofenceId);
+        } else if (revertChanges && selectedGeofenceId && historyRef.current.length > 0) {
             const originalGeometry = historyRef.current[0];
             const shapeToRevert = mapShapes.get(selectedGeofenceId);
             if (shapeToRevert) {
@@ -113,7 +118,7 @@ export function GeofenceControls({
         historyIndexRef.current = -1;
         updateHistoryButtons();
         setCurrentGeofenceName('');
-    }, [drawingManager, setMode, selectedGeofenceId, mapShapes, historyRef, historyIndexRef, updateHistoryButtons]);
+    }, [drawingManager, setMode, selectedGeofenceId, defaultGeofenceId, mapShapes, historyRef, historyIndexRef, updateHistoryButtons, setSelectedGeofenceId]);
     
     const getNextGeofenceName = useCallback(() => {
         const baseName = t('condoDashboard.map.geofence.defaultName');
@@ -326,7 +331,7 @@ export function GeofenceControls({
                 <fieldset disabled={!isEditingEnabled || isSaving} className="space-y-4">
                         <div className="flex items-center gap-2">
                             <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive}>
-                                <SelectTrigger className={cn("flex-1", mode === 'editing' && !selectedGeofenceId?.startsWith('new-shape-') && "text-[#27AE60] border-[#27AE60] font-bold")}>
+                                <SelectTrigger className={cn("flex-1", selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-') && "text-blue-600 border-blue-400 font-bold")}>
                                     <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
                                 </SelectTrigger>
                                 <SelectContent>

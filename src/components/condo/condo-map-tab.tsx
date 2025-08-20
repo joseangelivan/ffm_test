@@ -395,9 +395,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             setupListeners(shapeToEdit);
         }
     } else if (mode === 'drawing') {
-        // Keep the selected geofence visible as a reference
         const shapeToKeepVisible = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
-        if(shapeToKeepVisible) {
+        if (shapeToKeepVisible) {
             const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
             (shapeToKeepVisible as any).setOptions({ ...colorOptions, editable: false, draggable: false });
             shapeToKeepVisible.setMap(map);
@@ -621,4 +620,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
