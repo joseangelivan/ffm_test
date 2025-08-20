@@ -173,9 +173,9 @@ export function GeofenceControls({
         if (!shapeToEdit || !geofenceData) return;
 
         resetActionStates();
+        updateHistory(getGeometryFromShape(shapeToEdit));
         setMode('editing');
         setCurrentGeofenceName(geofenceData.name);
-        updateHistory(getGeometryFromShape(shapeToEdit));
     }
 
     const handleDelete = async () => {
