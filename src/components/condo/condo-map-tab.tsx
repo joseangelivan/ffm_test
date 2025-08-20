@@ -431,15 +431,22 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         setupListeners(activeOverlay);
 
         // If creating, also show the reference geofence
-        if (isCreating) {
-            const referenceGeofence = geofences.find(g => g.id === selectedGeofenceId);
-            if (referenceGeofence?.shape) {
-                (referenceGeofence.shape as any).setOptions({
-                    ...VIEW_ALL_COLOR,
-                    map: mapRef.current,
-                    editable: false, draggable: false, clickable: false
-                });
-            }
+        const referenceGeofence = geofences.find(g => g.id === selectedGeofenceId);
+        if (referenceGeofence?.shape) {
+            (referenceGeofence.shape as any).setOptions({
+                ...VIEW_ALL_COLOR,
+                map: mapRef.current,
+                editable: false, draggable: false, clickable: false
+            });
+        }
+    } else if (isEditingEnabled) {
+        const geofenceToShow = geofences.find(g => g.id === selectedGeofenceId);
+        if (geofenceToShow?.shape) {
+            (geofenceToShow.shape as any).setOptions({
+                ...EDIT_COLOR,
+                map: mapRef.current,
+                editable: false, draggable: false, clickable: false
+            });
         }
     } else {
         // Not editing/creating, show saved geofences based on view settings
@@ -447,16 +454,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             let isVisible = false;
             let colorOptions = SAVED_COLOR;
 
-            if (isEditingEnabled) {
-                isVisible = gf.id === selectedGeofenceId;
-                colorOptions = EDIT_COLOR;
+            isVisible = showAllGeofences || gf.id === defaultGeofenceId;
+            if (showAllGeofences) {
+                colorOptions = gf.id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
             } else {
-                isVisible = showAllGeofences || gf.id === defaultGeofenceId;
-                if (showAllGeofences) {
-                    colorOptions = gf.id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
-                } else {
-                    colorOptions = DEFAULT_COLOR;
-                }
+                colorOptions = DEFAULT_COLOR;
             }
 
             if (isVisible && gf.shape) {
