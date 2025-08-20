@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useLocale } from '@/lib/i18n';
-import { Frame, ZoomIn, ZoomOut } from 'lucide-react';
+import { Frame, Locate, ZoomIn, ZoomOut } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 interface MapSettingsDialogProps {
@@ -23,10 +23,9 @@ interface MapSettingsDialogProps {
     onOpenChange: (open: boolean) => void;
     zoomLevel: number;
     initialFitLevel: '1' | '2' | '3';
-    onZoomIn: () => void;
-    onZoomOut: () => void;
     onApplyFit: (level: '1' | '2' | '3') => void;
     isGeofenceAvailable: boolean;
+    onCenterAddress: () => void;
 }
 
 export function MapSettingsDialog({
@@ -34,10 +33,9 @@ export function MapSettingsDialog({
     onOpenChange,
     zoomLevel,
     initialFitLevel,
-    onZoomIn,
-    onZoomOut,
     onApplyFit,
-    isGeofenceAvailable
+    isGeofenceAvailable,
+    onCenterAddress,
 }: MapSettingsDialogProps) {
     const { t } = useLocale();
     const [selectedFitLevel, setSelectedFitLevel] = useState(initialFitLevel);
@@ -61,19 +59,14 @@ export function MapSettingsDialog({
                     <DialogDescription>{t('condoDashboard.map.settings.description')}</DialogDescription>
                 </DialogHeader>
                 <div className="py-4 space-y-6">
-                     <div className="space-y-3">
-                        <Label>{t('condoDashboard.map.settings.manualZoom')}</Label>
-                        <div className="flex items-center justify-between rounded-lg border p-3">
-                            <Button onClick={onZoomOut} variant="outline" size="icon">
-                                <ZoomOut className="h-5 w-5" />
-                            </Button>
-                            <span className="text-lg font-bold text-primary w-12 text-center select-none">{zoomLevel}</span>
-                             <Button onClick={onZoomIn} variant="outline" size="icon">
-                                <ZoomIn className="h-5 w-5" />
-                            </Button>
-                        </div>
+                    <div className="space-y-3">
+                         <Label>{t('condoDashboard.map.recenterOnAddress')}</Label>
+                        <Button onClick={onCenterAddress} className="w-full" variant="outline">
+                            <Locate className="h-4 w-4 mr-2" />
+                            {t('condoDashboard.map.recenterOnAddress')}
+                        </Button>
                     </div>
-                    
+
                     <Separator />
 
                     <fieldset className="space-y-3" disabled={!isGeofenceAvailable}>

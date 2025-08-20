@@ -120,7 +120,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [calculatedZoomLevels, setCalculatedZoomLevels] = useState<{ tight: number, normal: number, wide: number } | null>(null);
   
   const [condoAddressPosition] = useState(initialPosition);
-  const [center, setCenter] = useState<google.maps.LatLngLiteral | null>(initialPosition);
+  const [center, setCenter] = useState<google.maps.LatLngLiteral>(initialPosition);
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
 
   const isEditingShape = isEditing || isCreating;
@@ -229,9 +229,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     let resizeObserver: ResizeObserver | null = null;
     if (mapContainerRef.current) {
         resizeObserver = new ResizeObserver(() => {
-            if (calculatedZoomLevels) { // Recalculate only if we have a geofence to fit
-                 centerMapOnGeofence(fitLevel);
-            }
+             centerMapOnGeofence(fitLevel);
         });
         resizeObserver.observe(mapContainerRef.current);
     }
@@ -244,7 +242,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             resizeObserver.unobserve(mapContainerRef.current);
         }
     };
-  }, [condo.id, centerMapOnGeofence, centerMapOnAddress, fitLevel, calculatedZoomLevels]);
+  }, [condo.id, initialPosition]);
   
 
   const updateHistory = useCallback((geometry: any) => {
@@ -531,9 +529,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             initialFitLevel={fitLevel}
             onApplyFit={applyZoomLevel}
             isGeofenceAvailable={!!calculatedZoomLevels}
+            onCenterAddress={centerMapOnAddress}
         />
     </>
   );
 }
-
-    
