@@ -371,11 +371,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
     clearListeners();
 
+    // Show reference shape (blue) if creating or editing
     if (isEditingShape) {
-        // Draw the original selected geofence as a blue, non-interactive reference
         const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
         if (selectedGeofence && selectedGeofence.shape) {
-             (selectedGeofence.shape as any).setOptions({ 
+            (selectedGeofence.shape as any).setOptions({ 
                 ...EDIT_COLOR,
                 fillOpacity: 0.1, 
                 strokeWeight: 1, 
@@ -392,20 +392,19 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             let isVisible = false;
 
             if (isEditingEnabled) {
-                // In editing mode (but not actively editing a shape), show the selected one
                 isVisible = gf.id === selectedGeofenceId;
             } else {
-                // In normal view mode, show default or all
                 isVisible = showAllGeofences || isDefault;
             }
 
             if (isVisible && gf.shape) {
+                let colorOptions = isDefault ? DEFAULT_COLOR : VIEW_ALL_COLOR;
+                 if (isEditingEnabled && !isDefault) {
+                    colorOptions = { ...EDIT_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' };
+                 }
+
                 (gf.shape as any).setOptions({
-                    ...(isDefault ? DEFAULT_COLOR : VIEW_ALL_COLOR),
-                    fillOpacity: isDefault ? 0.0 : 0.05,
-                    strokeWeight: isDefault ? 2 : 1,
-                    strokeDasharray: isDefault ? '1,0' : '5,5',
-                    zIndex: isDefault ? 2 : 1,
+                    ...colorOptions,
                     map: mapRef.current,
                     editable: false, draggable: false, clickable: false
                 });
@@ -413,7 +412,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         });
     }
   
-    // Always draw the active overlay (the one being edited/created) on top with its own style
+    // Show active editing shape (green) on top
     if (isEditingShape && activeOverlay) {
         (activeOverlay as any).setOptions({ ...SAVED_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 3, suppressUndo: true });
         (activeOverlay as any).setMap(mapRef.current);
@@ -437,10 +436,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                  <div className="text-right">
                     <p className="text-sm font-medium">{condo.name}</p>
                     <p className="text-xs text-muted-foreground">{condo.address}</p>
-                    <Button onClick={centerMapOnAddress} variant="link" size="sm" className="h-auto p-0 mt-1">
-                        <Locate className="mr-1 h-3 w-3"/>
-                        {t('condoDashboard.map.recenterOnAddress')}
-                    </Button>
                 </div>
             </div>
         </CardHeader>
@@ -508,6 +503,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             {t('condoDashboard.map.modules.title')}
                         </legend>
                         <div className="flex-1 flex flex-col space-y-4 pt-2">
+                            <div className="px-1 flex items-center gap-2">
+                                <Button onClick={centerMapOnAddress} variant="link" size="sm" className="h-auto p-0 text-xs">
+                                    <Locate className="mr-1 h-3 w-3"/>
+                                    {t('condoDashboard.map.recenterOnAddress')}
+                                </Button>
+                            </div>
+                            
+                            <Separator />
+                            
                             <div className="px-1 flex items-center gap-2">
                                 <Select value={activeModule} onValueChange={setActiveModule}>
                                     <SelectTrigger id="module-select" className="text-base font-bold text-primary">
