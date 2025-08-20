@@ -92,8 +92,6 @@ const getCenterOfShape = (shape: google.maps.MVCObject): google.maps.LatLng | nu
 export default function CondoMapTab({ condo, initialPosition }: { condo: Condominio, initialPosition: { lat: number; lng: number } }) {
   const { t } = useLocale();
   const mapRef = useRef<google.maps.Map | null>(null);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const resizeObserverRef = useRef<ResizeObserver | null>(null);
   
   const [geofences, setGeofences] = useState<GeofenceObject[]>([]);
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
@@ -128,7 +126,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const isEditingShape = isEditing || isCreating;
   
    const onDataNeedsRefresh = useCallback(async () => {
-    // Clear existing shapes from the map before fetching new data
     geofences.forEach(gf => {
         if (gf.shape) {
             (gf.shape as any).setMap(null);
@@ -183,9 +180,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
               if (fitLevel === '1') zoomToSet = newLevels.tight;
               if (fitLevel === '3') zoomToSet = newLevels.wide;
               
-              if (map.getZoom() !== zoomToSet) {
-                map.setZoom(zoomToSet);
-              }
+              map.setZoom(zoomToSet);
           }
       }
   }, [geofences, defaultGeofenceId, fitLevel]);
@@ -228,10 +223,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         setSelectedGeofenceId(initialDefaultId);
         
         const geofenceToCenter = gfObjects.find(g => g.id === initialDefaultId);
+        
         if (geofenceToCenter?.shape) {
             const bounds = getBoundsOfShape(geofenceToCenter.shape);
             if (bounds) {
-                map.fitBounds(bounds, 0);
                  const idleListener = google.maps.event.addListenerOnce(map, 'idle', () => {
                     recalculateZoomLevels();
                 });
@@ -249,28 +244,23 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
   }, [condo.id, centerMapOnAddress, recalculateZoomLevels]);
 
+  const mapContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const mapContainer = mapContainerRef.current;
-    if (!mapContainer || resizeObserverRef.current) return;
-    
-    const debouncedRecalculate = () => {
-      setTimeout(() => {
-        if (!mapRef.current) return;
-        recalculateZoomLevels();
-      }, 0);
-    }
+    if (!mapContainer) return;
 
-    const observer = new ResizeObserver(debouncedRecalculate);
+    const observer = new ResizeObserver(() => {
+        setTimeout(() => {
+            if (!mapRef.current) return;
+            recalculateZoomLevels();
+        }, 0);
+    });
     
     observer.observe(mapContainer);
-    resizeObserverRef.current = observer;
 
     return () => {
-        if (resizeObserverRef.current) {
-            resizeObserverRef.current.disconnect();
-            resizeObserverRef.current = null;
-        }
+        observer.disconnect();
     };
   }, [recalculateZoomLevels]);
 
@@ -371,7 +361,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   useEffect(() => {
     geofences.forEach(gf => {
-      if (gf.shape) (gf.shape as any).setMap(null);
+      if (gf.shape) gf.shape.setMap(null);
     });
   
     if (activeOverlay && !isEditingShape) {
@@ -399,18 +389,18 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
       });
     } else {
-      // In edit mode
       const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
       if (selectedGeofence && selectedGeofence.shape) {
         const isDefault = selectedGeofence.id === defaultGeofenceId;
-        let options: any = { editable: false, draggable: false, clickable: false };
-  
-        if (isEditingShape) {
-          options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), fillOpacity: 0.1, strokeWeight: 1, zIndex: 1, strokeDasharray: '5,5' };
-        } else {
-          options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), fillOpacity: isDefault ? 0 : 0.3, strokeWeight: 2, zIndex: 1 };
-        }
-        (selectedGeofence.shape as any).setOptions({ ...options, map: mapRef.current });
+        (selectedGeofence.shape as any).setOptions({ 
+          ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), 
+          fillOpacity: 0.1, 
+          strokeWeight: 1, 
+          zIndex: 1, 
+          strokeDasharray: '5,5',
+          map: mapRef.current,
+          editable: false, draggable: false, clickable: false
+        });
       }
     }
   
@@ -421,7 +411,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
   
   }, [activeOverlay, isEditingShape, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, geofences, isEditingEnabled, showAllGeofences]);
-  
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
   const handleZoomOut = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! - 1);
@@ -520,9 +509,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                         <SelectItem value="elements">{t('condoDashboard.map.modules.elements')}</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                 <Button variant="outline" size="icon" onClick={() => setIsMapSettingsOpen(true)}>
-                                    <Settings className="h-4 w-4" />
-                                </Button>
                             </div>
                             {activeModule === 'geofence' && (
                                 <GeofenceControls
@@ -554,6 +540,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     setIsEditingEnabled={setIsEditingEnabled}
                                     showAllGeofences={showAllGeofences}
                                     setShowAllGeofences={setShowAllGeofences}
+                                    onSettingsClick={() => setIsMapSettingsOpen(true)}
                                 />
                             )}
                             {activeModule === 'elements' && (

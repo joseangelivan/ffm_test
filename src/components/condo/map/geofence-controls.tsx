@@ -11,6 +11,7 @@ import {
   Layers,
   Edit,
   Trash2,
+  Settings,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 
@@ -99,6 +100,7 @@ type GeofenceControlsProps = {
     setIsEditingEnabled: React.Dispatch<React.SetStateAction<boolean>>;
     showAllGeofences: boolean;
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
+    onSettingsClick: () => void;
 }
 
 export function GeofenceControls({
@@ -130,6 +132,7 @@ export function GeofenceControls({
     setIsEditingEnabled,
     showAllGeofences,
     setShowAllGeofences,
+    onSettingsClick
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -275,20 +278,30 @@ export function GeofenceControls({
         if (!checked) {
             resetActionStates();
             setSelectedGeofenceId(defaultGeofenceId);
+            setShowAllGeofences(false);
         }
     };
 
     return (
         <div className="space-y-4 pt-2 border-t">
             <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                    <Label htmlFor="default-geofence">{t('condoDashboard.map.geofence.defaultLabel')}</Label>
-                </div>
-                <div className="relative flex items-center">
-                    {defaultGeofenceId && (
-                        <Star className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-500 fill-orange-400" />
-                    )}
-                    <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled className="pl-8"/>
+                 <div className="flex items-center gap-2">
+                    <Label htmlFor="default-geofence" className="whitespace-nowrap">{t('condoDashboard.map.geofence.defaultLabel')}:</Label>
+                    <div className="relative flex-grow">
+                        {defaultGeofenceId && (
+                            <Star className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-500 fill-orange-400" />
+                        )}
+                        <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled className="pl-8 text-xs h-8"/>
+                    </div>
+                     <div className="flex items-center space-x-2">
+                        <Checkbox id="view-all" disabled={isEditingEnabled} checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)}/>
+                        <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            {t('condoDashboard.map.geofence.viewAll')}
+                        </label>
+                    </div>
+                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={onSettingsClick}>
+                        <Settings className="h-4 w-4" />
+                    </Button>
                 </div>
             </div>
 
@@ -298,12 +311,6 @@ export function GeofenceControls({
                         <Checkbox id="enable-editing" checked={isEditingEnabled} onCheckedChange={(checked) => handleEditingEnabledChange(!!checked)}/>
                         <label htmlFor="enable-editing" className="text-base font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                             {t('condoDashboard.map.geofence.editMode')}
-                        </label>
-                    </div>
-                     <div className="flex items-center space-x-2">
-                        <Checkbox id="view-all" disabled={isEditingEnabled} checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)}/>
-                        <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                            {t('condoDashboard.map.geofence.viewAll')}
                         </label>
                     </div>
                 </div>
