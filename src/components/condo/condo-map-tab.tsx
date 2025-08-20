@@ -95,7 +95,7 @@ const getCenterOfShape = (shape: google.maps.MVCObject): google.maps.LatLng | nu
 interface MapInnerProps {
   condo: Condominio;
   initialPosition: { lat: number; lng: number };
-  handleMapLoad: (map: google.maps.Map) => void;
+  onMapLoad: (map: google.maps.Map) => void;
   onOverlayComplete: (event: google.maps.drawing.OverlayCompleteEvent) => void;
   drawingManagerRef: React.MutableRefObject<google.maps.drawing.DrawingManager | null>;
   onSettingsClick: () => void;
@@ -142,9 +142,9 @@ const DrawingManagerComponent = ({
   return null;
 };
 
-function MapInner({ condo, initialPosition, handleMapLoad, onOverlayComplete, drawingManagerRef, onSettingsClick }: MapInnerProps) {
+function MapInner({ condo, initialPosition, onMapLoad, onOverlayComplete, drawingManagerRef, onSettingsClick }: MapInnerProps) {
   return (
-    <MapComponent onMapLoad={handleMapLoad}>
+    <MapComponent onMapLoad={onMapLoad}>
         <DrawingManagerComponent onOverlayComplete={onOverlayComplete} drawingManagerRef={drawingManagerRef} />
         {initialPosition && (
             <AdvancedMarker position={initialPosition} title={condo.name}>
@@ -166,11 +166,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
   const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
   
+  const [geofenceForEditing, setGeofenceForEditing] = useState<google.maps.MVCObject | null>(null);
+
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   
-  const [geofenceForEditing, setGeofenceForEditing] = useState<google.maps.MVCObject | null>(null);
   const historyRef = useRef<any[]>([]);
   const historyIndexRef = useRef<number>(-1);
   const [canUndo, setCanUndo] = useState(false);
@@ -412,41 +413,49 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
     useEffect(() => {
         // This is the master effect for controlling shape visibility on the map.
-        
-        // 1. Clear all existing geofences from the map to ensure a clean slate.
+        clearListeners();
+        // 1. Clear all existing shapes from the map to ensure a clean slate.
         geofences.forEach(gf => {
             if (gf.shape) (gf.shape as any).setMap(null);
         });
-
-        // 2. Clear any active drawing overlay from the map.
         if (geofenceForEditing) {
             (geofenceForEditing as any).setMap(null);
         }
-        clearListeners();
     
-        if (isEditingShape) { // isEditing or isCreating
-            // Show the shape being actively edited/created
-            if (geofenceForEditing) {
-                (geofenceForEditing as any).setOptions({ ...SAVED_COLOR, editable: true, draggable: true, zIndex: 3 });
-                (geofenceForEditing as any).setMap(mapRef.current);
-                setupListeners(geofenceForEditing);
-            }
-        }
-
+        // 2. Decide what to show based on the current mode.
         if (isEditingEnabled) {
-            // When editing is enabled (either actively editing or just in the mode)
-            // Show the selected geofence as a reference or as the one to be edited
-            const geofenceToShow = geofences.find(g => g.id === selectedGeofenceId);
-            if (geofenceToShow?.shape) {
-                (geofenceToShow.shape as any).setMap(mapRef.current);
-                (geofenceToShow.shape as any).setOptions({
-                    ...EDIT_COLOR,
-                    editable: false, draggable: false, clickable: !isEditingShape,
-                    zIndex: 1,
-                });
+             // In "Edition Mode"
+            if (isEditingShape) { // isEditing or isCreating
+                // If actively drawing/editing, show the shape being worked on
+                if (geofenceForEditing) {
+                    (geofenceForEditing as any).setOptions({ ...SAVED_COLOR, editable: true, draggable: true, zIndex: 3 });
+                    (geofenceForEditing as any).setMap(mapRef.current);
+                    setupListeners(geofenceForEditing);
+                }
+                 // And also show the reference geofence if one is selected
+                const geofenceToEditAsReference = geofences.find(g => g.id === selectedGeofenceId);
+                if (geofenceToEditAsReference?.shape) {
+                    (geofenceToEditAsReference.shape as any).setMap(mapRef.current);
+                    (geofenceToEditAsReference.shape as any).setOptions({
+                        ...EDIT_COLOR,
+                        editable: false, draggable: false, clickable: false,
+                        zIndex: 1,
+                    });
+                }
+            } else {
+                // If in edition mode but not actively drawing, show only the selected geofence
+                const geofenceToShow = geofences.find(g => g.id === selectedGeofenceId);
+                if (geofenceToShow?.shape) {
+                    (geofenceToShow.shape as any).setMap(mapRef.current);
+                    (geofenceToShow.shape as any).setOptions({
+                        ...EDIT_COLOR,
+                        editable: false, draggable: false, clickable: true,
+                        zIndex: 2,
+                    });
+                }
             }
         } else {
-            // View mode (not editing)
+            // In "View Mode" (not editing)
             geofences.forEach(gf => {
                 let isVisible = showAllGeofences || gf.id === defaultGeofenceId;
                 let colorOptions = SAVED_COLOR;
@@ -469,8 +478,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             });
         }
     }, [
-        geofenceForEditing, geofences, isDrawing, isEditing, isCreating, isEditingShape, 
-        selectedGeofenceId, defaultGeofenceId, showAllGeofences, isEditingEnabled,
+        geofences, isEditingEnabled, showAllGeofences, defaultGeofenceId,
+        selectedGeofenceId, geofenceForEditing, isEditingShape,
         setupListeners, clearListeners
     ]);
   
@@ -516,15 +525,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
   }, [condo.id, centerMapOnAddress, recalculateZoomLevels]);
 
-  useEffect(() => {
-    return () => {
-        clearListeners();
-        if (geofenceForEditing) {
-             (geofenceForEditing as any).setMap(null);
-        }
-    }
-  }, [clearListeners, geofenceForEditing]);
-
   
   return (
     <>
@@ -558,7 +558,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             <MapInner 
                                 condo={condo}
                                 initialPosition={initialPosition}
-                                handleMapLoad={handleMapLoad}
+                                onMapLoad={handleMapLoad}
                                 onOverlayComplete={onOverlayComplete}
                                 drawingManagerRef={drawingManagerRef}
                                 onSettingsClick={() => setIsMapSettingsOpen(true)}
@@ -659,3 +659,5 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
+    
