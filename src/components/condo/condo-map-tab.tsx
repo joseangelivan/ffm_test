@@ -116,30 +116,32 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   const isEditingShape = isEditing || isCreating;
   
-  const centerMapOnGeofence = useCallback(() => {
-    if (!map) return;
-    const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
-
-    if (geofenceToCenter && geofenceToCenter.shape) {
-        const bounds = getBoundsOfShape(geofenceToCenter.shape);
-        if (!bounds) return;
-
-        map.fitBounds(bounds);
-        
-        const zoomAdjustment = parseInt(fitLevel, 10) - 1; // 0, 1, or 2
-        const listener = google.maps.event.addListenerOnce(map, 'idle', () => {
-            const currentZoom = map.getZoom();
-            if(currentZoom) {
-                map.setZoom(currentZoom - zoomAdjustment);
-            }
-        });
-
-        return;
+   const centerMapOnGeofence = useCallback(() => {
+    if (!map) {
+      console.log("Map not available yet for centering.");
+      return;
     }
-    // If no default geofence, just zoom to a default level on the condo address
-    map.setCenter(center);
-    map.setZoom(15);
-}, [map, geofences, defaultGeofenceId, fitLevel, center]);
+
+    const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
+    if (geofenceToCenter && geofenceToCenter.shape) {
+      const bounds = getBoundsOfShape(geofenceToCenter.shape);
+      if (!bounds) return;
+
+      map.fitBounds(bounds);
+      
+      const listener = google.maps.event.addListenerOnce(map, 'idle', () => {
+        const zoomAdjustment = parseInt(fitLevel, 10) - 1; // 0, 1, or 2
+        const currentZoom = map.getZoom();
+        if (currentZoom) {
+          map.setZoom(currentZoom - zoomAdjustment);
+        }
+      });
+    } else {
+      // Fallback behavior if no geofence is available
+      map.setCenter(center);
+      map.setZoom(15);
+    }
+  }, [map, geofences, defaultGeofenceId, fitLevel, center]);
   
   const centerMapOnAddress = useCallback(() => {
     if (!map) return;
@@ -174,7 +176,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     if (map && geofences.length > 0) {
       centerMapOnGeofence();
     }
-  }, [map, centerMapOnGeofence]); // Dependency on the memoized function is correct.
+  }, [map, centerMapOnGeofence, geofences.length]); // Re-run if map becomes available or geofence count changes from 0.
 
   // Zoom level listener
   useEffect(() => {
