@@ -120,8 +120,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const [calculatedZoomLevels, setCalculatedZoomLevels] = useState<{ tight: number, normal: number, wide: number } | null>(null);
   
-  // Use the server-calculated position as the initial state
-  const [condoAddressPosition] = useState(initialPosition);
+  const [condoAddressPosition, setCondoAddressPosition] = useState(initialPosition);
   const [center, setCenter] = useState(initialPosition);
 
   const isEditingShape = isEditing || isCreating;
