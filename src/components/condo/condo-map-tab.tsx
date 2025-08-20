@@ -374,7 +374,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     if (isEditingShape) {
         const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
         if (selectedGeofence && selectedGeofence.shape) {
-            (selectedGeofence.shape as any).setOptions({ 
+             (selectedGeofence.shape as any).setOptions({ 
                 ...(selectedGeofence.id === defaultGeofenceId ? DEFAULT_COLOR : SAVED_COLOR),
                 fillOpacity: 0.1, 
                 strokeWeight: 1, 
@@ -498,8 +498,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                     )}
                 </div>
                 <div className="w-1/3 p-1">
-                    <fieldset className="border h-full rounded-md p-4 pt-0">
-                        <legend className="text-lg font-semibold tracking-tight px-2 ml-2 -mt-3 bg-card">
+                    <fieldset className="border h-full rounded-md px-4 pb-4">
+                        <legend className="text-lg font-semibold tracking-tight px-2 ml-2 -mt-0.5 bg-card">
                             {t('condoDashboard.map.modules.title')}
                         </legend>
                         <div className="flex-1 flex flex-col space-y-4 pt-2">
