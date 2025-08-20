@@ -40,7 +40,7 @@ export type GeofenceObject = {
 export const EDIT_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2 };
 export const SAVED_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2 };
 export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d', strokeWeight: 1 };
-export const DEFAULT_COLOR = { fillColor: '#e67e22', strokeColor: '#e67e22', fillOpacity: 0.1, strokeWeight: 2 };
+export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50% / 0.1)', strokeColor: 'hsl(28 80% 50%)', strokeWeight: 2 };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -517,17 +517,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     <>
         <Card>
         <CardHeader>
-            <div className="flex justify-between items-start w-full">
-                <div className="text-right">
-                    <CardTitle>{t('condoDashboard.map.title')}: {condo.name}</CardTitle>
-                    <CardDescription>
-                        {condo.address}
-                        <Button onClick={centerMapOnAddress} variant="link" className="p-0 h-auto ml-2 text-xs text-muted-foreground hover:text-primary">
-                            ({t('condoDashboard.map.recenterOnAddress')})
-                        </Button>
-                    </CardDescription>
-                </div>
-            </div>
+            <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
+            <CardDescription>{t('condoDashboard.map.description')}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
             <div className="flex h-[70vh]">
@@ -545,7 +536,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             <DrawingManagerComponent onOverlayComplete={onOverlayComplete} drawingManagerRef={drawingManagerRef} />
                             {condoAddressPosition && 
                                 <AdvancedMarker position={condoAddressPosition} title={condo.name}>
-                                    <Building className="h-8 w-8 text-slate-700 drop-shadow-lg" />
+                                    <svg
+                                        className="h-10 w-10 text-slate-700 drop-shadow-lg"
+                                        viewBox="0 0 24 24"
+                                        fill="currentColor"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                    >
+                                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z" fillOpacity="0.4"/>
+                                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm-4 7H7v3H5v-3H4v-2h1V8h2v1h1v2zm6 2h-2v-2h2v2zm4-1h-2v-1h2v-1h-2v-1h-2V8h4v3z"/>
+                                    </svg>
                                 </AdvancedMarker>
                             }
                         </MapComponent>
@@ -576,7 +575,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                     )}
                 </div>
                 <div className="w-1/3 p-1">
-                    <fieldset className="border h-full rounded-md p-4 pt-2">
+                    <fieldset className="border h-full rounded-md p-4 pt-2 flex flex-col">
+                        <div className="text-right mb-4">
+                            <h3 className="font-semibold">{condo.name}</h3>
+                            <p className="text-xs text-muted-foreground">{condo.address}</p>
+                             <Button onClick={centerMapOnAddress} variant="link" className="p-0 h-auto text-xs text-muted-foreground hover:text-primary">
+                                {t('condoDashboard.map.recenterOnAddress')}
+                            </Button>
+                        </div>
                         <legend className="text-lg font-semibold tracking-tight px-2 -ml-2">
                             {t('condoDashboard.map.modules.title')}
                         </legend>
@@ -646,4 +652,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   );
 }
 
-    
