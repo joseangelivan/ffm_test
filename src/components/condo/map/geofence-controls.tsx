@@ -55,7 +55,7 @@ type GeofenceControlsProps = {
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
     updateHistoryButtons: () => void;
-    recordHistory: () => void;
+    recordHistory: (shape: google.maps.MVCObject | null) => void;
 }
 
 export function GeofenceControls({
@@ -117,15 +117,6 @@ export function GeofenceControls({
         setCurrentGeofenceName('');
     }, [drawingManager, setMode, selectedGeofenceId, mapShapes, historyRef, historyIndexRef, updateHistoryButtons]);
     
-
-    const handleStartDraw = () => {
-        resetActionStates();
-        setMode('drawing');
-        if (drawingManager) {
-            drawingManager.setDrawingMode(drawingMode as any);
-        }
-    }
-    
     const getNextGeofenceName = useCallback(() => {
         const baseName = t('condoDashboard.map.geofence.defaultName');
         const existingNumbers = geofences.map(g => {
@@ -144,6 +135,15 @@ export function GeofenceControls({
         return `${baseName}_${String(nextNumber).padStart(2, '0')}`;
     }, [geofences, t]);
 
+    const handleStartDraw = () => {
+        resetActionStates();
+        setMode('drawing');
+        setCurrentGeofenceName(getNextGeofenceName());
+        if (drawingManager) {
+            drawingManager.setDrawingMode(drawingMode as any);
+        }
+    }
+
     const onOverlayComplete = useCallback((event: google.maps.drawing.OverlayCompleteEvent) => {
         if(drawingManager) drawingManager.setDrawingMode(null);
         const newShape = event.overlay;
@@ -156,7 +156,6 @@ export function GeofenceControls({
         setSelectedGeofenceId(tempId);
         
         setMode('editing');
-        setCurrentGeofenceName(getNextGeofenceName());
         
         historyRef.current = [getGeometryFromShape(newShape)];
         historyIndexRef.current = 0;
@@ -327,7 +326,7 @@ export function GeofenceControls({
                 <fieldset disabled={!isEditingEnabled || isSaving} className="space-y-4">
                         <div className="flex items-center gap-2">
                             <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive}>
-                                <SelectTrigger className={cn("flex-1", mode === 'editing' && !selectedGeofenceId?.startsWith('new-shape-') && "text-[#2980b9] border-[#2980b9] font-bold")}>
+                                <SelectTrigger className={cn("flex-1", mode === 'editing' && !selectedGeofenceId?.startsWith('new-shape-') && "text-[#27AE60] border-[#27AE60] font-bold")}>
                                     <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -381,10 +380,9 @@ export function GeofenceControls({
                         </DropdownMenu>
                     </div>
                     
-                        {mode === 'editing' && (
-                            <div className='space-y-4 p-4 border border-blue-300 rounded-md bg-blue-50/30'>
+                        {(mode === 'editing' || mode === 'drawing') && (
+                            <div className='space-y-4 p-4 border border-green-300 rounded-md bg-green-50/30'>
                                 <div className="space-y-2">
-                                    <Label htmlFor="geofence-name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
                                     <Input 
                                         id="geofence-name" 
                                         value={currentGeofenceName}
