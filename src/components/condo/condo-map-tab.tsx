@@ -6,10 +6,8 @@ import { useMap } from '@vis.gl/react-google-maps';
 import {
   Undo,
   Redo,
-  Layers,
-  LocateFixed,
-  Pin,
   Locate,
+  Pin,
   ZoomIn,
   ZoomOut,
   Frame,
@@ -111,7 +109,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   const [viewAll, setViewAll] = useState(false);
 
   const [zoomLevel, setZoomLevel] = useState(15);
-  const [fitPadding, setFitPadding] = useState({ x: 10, y: 10 });
+  const [fitPadding, setFitPadding] = useState(10);
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
 
 
@@ -124,12 +122,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     if (defaultGeofence && defaultGeofence.shape) {
       const bounds = getBoundsOfShape(defaultGeofence.shape);
       if (bounds) {
-        map.fitBounds(bounds, {
-            top: map.getDiv().offsetHeight * (fitPadding.y / 100),
-            bottom: map.getDiv().offsetHeight * (fitPadding.y / 100),
-            left: map.getDiv().offsetWidth * (fitPadding.x / 100),
-            right: map.getDiv().offsetWidth * (fitPadding.x / 100),
-        });
+        map.fitBounds(bounds, fitPadding);
         return;
       }
     }

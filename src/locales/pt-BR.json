@@ -377,9 +377,8 @@
             "title": "Configurações de Visualização do Mapa",
             "description": "Ajuste como o mapa é exibido.",
             "currentZoom": "Nível de Zoom Atual",
-            "autoFitPadding": "Margens de Autoajuste",
-            "paddingX": "Margem Horizontal (X)",
-            "paddingY": "Margem Vertical (Y)"
+            "autoFitPadding": "Margem de Autoajuste",
+            "paddingDescription": "A margem é aplicada de forma inteligente ao eixo mais restritivo (largura ou altura)."
         },
         "geofence": {
             "defaultLabel": "Geocerca Padrão",

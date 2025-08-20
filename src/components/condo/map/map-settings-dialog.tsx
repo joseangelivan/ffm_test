@@ -20,8 +20,8 @@ interface MapSettingsDialogProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     zoomLevel: number;
-    fitPadding: { x: number; y: number };
-    onFitPaddingChange: (padding: { x: number; y: number }) => void;
+    fitPadding: number;
+    onFitPaddingChange: (padding: number) => void;
 }
 
 export function MapSettingsDialog({
@@ -46,37 +46,21 @@ export function MapSettingsDialog({
                         <span className="text-lg font-bold text-primary">{zoomLevel}</span>
                     </div>
                     <div className="space-y-2">
-                        <h4 className="font-medium text-sm">{t('condoDashboard.map.settings.autoFitPadding')}</h4>
-                         <div className="space-y-4 pt-2">
-                            <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <Label htmlFor="padding-x">{t('condoDashboard.map.settings.paddingX')}</Label>
-                                    <span className="text-sm text-muted-foreground">{fitPadding.x}%</span>
-                                </div>
-                                <Slider
-                                    id="padding-x"
-                                    min={0}
-                                    max={50}
-                                    step={1}
-                                    value={[fitPadding.x]}
-                                    onValueChange={(value) => onFitPaddingChange({ ...fitPadding, x: value[0] })}
-                                />
-                            </div>
-                             <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <Label htmlFor="padding-y">{t('condoDashboard.map.settings.paddingY')}</Label>
-                                    <span className="text-sm text-muted-foreground">{fitPadding.y}%</span>
-                                </div>
-                                <Slider
-                                    id="padding-y"
-                                    min={0}
-                                    max={50}
-                                    step={1}
-                                    value={[fitPadding.y]}
-                                    onValueChange={(value) => onFitPaddingChange({ ...fitPadding, y: value[0] })}
-                                />
-                            </div>
+                         <div className="flex justify-between items-center mb-1">
+                            <Label htmlFor="padding-slider">{t('condoDashboard.map.settings.autoFitPadding')}</Label>
+                            <span className="text-sm text-muted-foreground">{fitPadding}%</span>
                         </div>
+                        <Slider
+                            id="padding-slider"
+                            min={0}
+                            max={50}
+                            step={1}
+                            value={[fitPadding]}
+                            onValueChange={(value) => onFitPaddingChange(value[0])}
+                        />
+                         <p className="text-xs text-muted-foreground pt-1">
+                            {t('condoDashboard.map.settings.paddingDescription')}
+                        </p>
                     </div>
                 </div>
                 <DialogFooter>
