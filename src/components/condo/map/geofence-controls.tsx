@@ -92,7 +92,6 @@ export function GeofenceControls({
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
     
     const resetActionStates = useCallback((revertChanges = true) => {
-        // Clean up the active shape being drawn/edited
         if (activeShapeRef.current) {
             (activeShapeRef.current.shape as any).setMap(null);
             activeShapeRef.current = null;
@@ -218,7 +217,7 @@ export function GeofenceControls({
         }
     }
 
-    const handleSaveGeofence = async () => {
+    const handleSaveGeofence = () => {
         startSavingTransition(async () => {
             if (!activeShapeRef.current) {
                 toast({ title: "Error", description: "No active shape found to save. Please try again.", variant: "destructive"});
