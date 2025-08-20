@@ -205,9 +205,9 @@ export function GeofenceControls({
 
         if (result?.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
-            resetActionStates();
             const newSelectedId = isCreating ? result.data?.id : selectedGeofenceId;
             onDataNeedsRefresh(newSelectedId);
+            resetActionStates();
         } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
         }
