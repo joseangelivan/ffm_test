@@ -382,6 +382,7 @@
             "manualZoom": "Control de Zoom Manual",
             "autoFitTitle": "Autoajuste a Geocerca",
             "applyAutoFit": "Autoajustar a Geocerca",
+            "noGeofence": "Función deshabilitada. No hay geocercas disponibles.",
             "zoomLevelDescription": "Seleccione el nivel de zoom deseado para el autoajuste.",
             "fitLevels": {
               "tight": "Ajustado",

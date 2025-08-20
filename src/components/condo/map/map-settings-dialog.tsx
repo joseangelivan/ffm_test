@@ -22,11 +22,12 @@ interface MapSettingsDialogProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     zoomLevel: number;
-    initialFitLevel: string;
+    initialFitLevel: '1' | '2' | '3';
     onFitLevelChange: (level: '1' | '2' | '3') => void;
     onZoomIn: () => void;
     onZoomOut: () => void;
-    onFitBounds: (level: '1' | '2' | '3') => void;
+    onApplyFit: (level: '1' | '2' | '3') => void;
+    isGeofenceAvailable: boolean;
 }
 
 export function MapSettingsDialog({
@@ -37,20 +38,22 @@ export function MapSettingsDialog({
     onFitLevelChange,
     onZoomIn,
     onZoomOut,
-    onFitBounds,
+    onApplyFit,
+    isGeofenceAvailable
 }: MapSettingsDialogProps) {
     const { t } = useLocale();
-    const [selectedFitLevel, setSelectedFitLevel] = useState(initialFitLevel as '1' | '2' | '3');
+    const [selectedFitLevel, setSelectedFitLevel] = useState(initialFitLevel);
 
     useEffect(() => {
         if (isOpen) {
-            setSelectedFitLevel(initialFitLevel as '1' | '2' | '3');
+            setSelectedFitLevel(initialFitLevel);
         }
     }, [isOpen, initialFitLevel]);
 
-    const handleApplyFit = () => {
+    const handleApplyAndClose = () => {
         onFitLevelChange(selectedFitLevel);
-        onFitBounds(selectedFitLevel);
+        onApplyFit(selectedFitLevel);
+        onOpenChange(false);
     };
 
     return (
@@ -76,11 +79,14 @@ export function MapSettingsDialog({
                     
                     <Separator />
 
-                    <div className="space-y-3">
+                    <fieldset className="space-y-3" disabled={!isGeofenceAvailable}>
                         <div className="space-y-1">
                             <Label>{t('condoDashboard.map.settings.autoFitTitle')}</Label>
                             <p className="text-xs text-muted-foreground">
-                               {t('condoDashboard.map.settings.zoomLevelDescription')}
+                               {!isGeofenceAvailable 
+                                    ? t('condoDashboard.map.settings.noGeofence')
+                                    : t('condoDashboard.map.settings.zoomLevelDescription')
+                               }
                             </p>
                         </div>
                         
@@ -99,11 +105,11 @@ export function MapSettingsDialog({
                             </div>
                         </RadioGroup>
 
-                         <Button onClick={handleApplyFit} className="w-full">
+                         <Button onClick={handleApplyAndClose} className="w-full">
                             <Frame className="h-4 w-4 mr-2" />
                             {t('condoDashboard.map.settings.applyAutoFit')}
                         </Button>
-                    </div>
+                    </fieldset>
                 </div>
                 <DialogFooter>
                      <DialogClose asChild>
@@ -116,4 +122,3 @@ export function MapSettingsDialog({
         </Dialog>
     );
 }
-
