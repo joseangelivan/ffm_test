@@ -15,7 +15,7 @@ import {
   Redo,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-import { isEqual } from 'lodash';
+import { isEqual, debounce } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
@@ -299,6 +299,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
   
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
+  const isShapeBeingDragged = useRef(false);
 
   const clearListeners = useCallback(() => {
     overlayListeners.current.forEach(l => l.remove());
@@ -365,29 +366,42 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const listeners: google.maps.MapsEventListener[] = [];
         const event = google.maps.event;
 
-        let isDraggingVertex = false;
+        let vertexChanged = false;
 
-        listeners.push(event.addListener(shape, 'dragend', () => recordHistory()));
-        
+        const recordChange = () => {
+            const newGeometry = getGeometryFromShape(shape);
+            const lastGeometry = historyRef.current[historyIndexRef.current];
+            if (!isEqual(newGeometry, lastGeometry)) {
+                recordHistory();
+            }
+        };
+
+        // For dragging the whole shape
+        listeners.push(event.addListener(shape, 'dragend', recordChange));
+
+        // For editing vertices/radius/bounds
+        const handleVertexChange = () => {
+            vertexChanged = true;
+        };
+
         if ('getPath' in shape) {
             const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(event.addListener(path, 'insert_at', () => recordHistory()));
-            listeners.push(event.addListener(path, 'remove_at', () => recordHistory()));
-            
-            listeners.push(event.addListener(path, 'set_at', () => { isDraggingVertex = true; }));
-        }
-
-        if ('getBounds' in shape) {
-            listeners.push(event.addListener(shape, 'bounds_changed', () => { isDraggingVertex = true; }));
+            listeners.push(event.addListener(path, 'set_at', handleVertexChange));
+            listeners.push(event.addListener(path, 'insert_at', handleVertexChange));
+            listeners.push(event.addListener(path, 'remove_at', handleVertexChange));
         }
         if ('getRadius' in shape) {
-            listeners.push(event.addListener(shape, 'radius_changed', () => { isDraggingVertex = true; }));
+            listeners.push(event.addListener(shape, 'radius_changed', handleVertexChange));
         }
-        
+        if ('getBounds' in shape) {
+            listeners.push(event.addListener(shape, 'bounds_changed', handleVertexChange));
+        }
+
+        // Only record the change on mouse up after a vertex has been modified
         listeners.push(event.addListener(map, 'mouseup', () => {
-            if (isDraggingVertex) {
-                recordHistory();
-                isDraggingVertex = false;
+            if (vertexChanged) {
+                recordChange();
+                vertexChanged = false;
             }
         }));
         
