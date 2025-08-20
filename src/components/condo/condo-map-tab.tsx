@@ -161,7 +161,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
   
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
-  const [mapShapes, setMapShapes] = useState<Map<string, google.maps.MVCObject>>(new Map());
+  const [mapShapes, setMapShapes] = useState<Map<string, google.maps.MVCObject> | null>(null);
 
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
   const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
@@ -230,7 +230,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const recalculateZoomLevels = useCallback(() => {
       const map = mapRef.current;
       const geofenceToCenter = dbGeofences.find(g => g.id === defaultGeofenceId);
-      if (!map || !geofenceToCenter) return;
+      if (!map || !geofenceToCenter || !mapShapes) return;
 
       const shape = mapShapes.get(geofenceToCenter.id);
       if (!shape) return;
@@ -260,7 +260,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
     const map = mapRef.current;
-    if (!map || !calculatedZoomLevels) return;
+    if (!map || !calculatedZoomLevels || !mapShapes) return;
     
     const geofenceToCenter = dbGeofences.find(g => g.id === defaultGeofenceId);
     if(geofenceToCenter) {
@@ -419,8 +419,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     // Create/update map shape objects when dbGeofences change
     useEffect(() => {
         setMapShapes(currentMapShapes => {
-            const newMapShapes = new Map(currentMapShapes);
-            const currentIds = new Set(currentMapShapes.keys());
+            const newMapShapes = new Map(currentMapShapes || []);
+            const currentIds = new Set(newMapShapes.keys());
             const dbIds = new Set(dbGeofences.map(g => g.id));
 
             // Add new shapes
@@ -448,7 +448,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     // Main render/visibility logic
     useEffect(() => {
         const map = mapRef.current;
-        if (!map) return;
+        if (!map || !mapShapes) return;
 
         // Hide all persistent shapes first
         mapShapes.forEach(shape => (shape as any).setMap(null));
@@ -473,7 +473,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 let colorOptions = SAVED_COLOR;
 
                 if (isEditingEnabled) {
-                    colorOptions = id === selectedGeofenceId ? SAVED_COLOR : VIEW_ALL_COLOR; // Should be hidden anyway
+                    if(id === selectedGeofenceId) {
+                        colorOptions = SAVED_COLOR;
+                    }
                 } else if (showAllGeofences) {
                     colorOptions = id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
                 } else {
@@ -620,6 +622,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     <GeofenceControls
                                         condoId={condo.id}
                                         geofences={dbGeofences}
+                                        mapShapes={mapShapes}
                                         onDataNeedsRefresh={onDataNeedsRefresh}
                                         selectedGeofenceId={selectedGeofenceId}
                                         setSelectedGeofenceId={setSelectedGeofenceId}

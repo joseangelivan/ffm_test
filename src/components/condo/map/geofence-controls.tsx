@@ -32,7 +32,7 @@ export type DrawingMode = 'polygon' | 'rectangle' | 'circle';
 type GeofenceControlsProps = {
     condoId: string;
     geofences: DbGeofence[];
-    mapShapes: Map<string, google.maps.MVCObject>;
+    mapShapes: Map<string, google.maps.MVCObject> | null;
     onDataNeedsRefresh: (newSelectedId?: string) => void;
     selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -115,7 +115,7 @@ export function GeofenceControls({
     }
 
      const handleStartEdit = () => {
-        if (!selectedGeofenceId) return;
+        if (!selectedGeofenceId || !mapShapes) return;
         const geofenceToEdit = mapShapes.get(selectedGeofenceId);
         const geofenceData = geofences.find(g => g.id === selectedGeofenceId);
         if (!geofenceToEdit || !geofenceData) return;
