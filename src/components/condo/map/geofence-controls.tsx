@@ -97,12 +97,13 @@ export function GeofenceControls({
         if (mode === 'editing' && selectedGeofenceId && historyRef.current.length > 0) {
             const originalGeometry = historyRef.current[0];
             const shape = mapShapes?.get(selectedGeofenceId);
-            if(shape) {
+            if(shape && originalGeometry) {
                 const revertedShape = createShapeFromGeometry(originalGeometry);
                 if(revertedShape) {
                     if('setPaths' in shape && 'getPaths' in revertedShape) (shape as any).setPaths((revertedShape as any).getPaths());
                     if('setBounds' in shape && 'getBounds' in revertedShape) (shape as any).setBounds((revertedShape as any).getBounds());
                     if('setRadius' in shape && 'getRadius' in revertedShape) (shape as any).setRadius((revertedShape as any).getRadius());
+                     if ('setCenter' in shape && 'getCenter' in revertedShape) (shape as any).setCenter((revertedShape as any).getCenter());
                 }
             }
         }
@@ -169,6 +170,7 @@ export function GeofenceControls({
         resetActionStates();
         setMode('editing');
         setCurrentGeofenceName(geofenceData.name);
+        // Save the initial state for undo
         updateHistory(getGeometryFromShape(shapeToEdit));
     }
 
