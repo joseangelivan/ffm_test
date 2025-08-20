@@ -354,16 +354,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
         const registerVertexChange = () => { vertexChanged.current = true; };
         
-        if ('getPath' in shape) { // Polygon
+        if ('getPath' in shape) {
             const path = (shape as google.maps.Polygon).getPath();
             listeners.push(event.addListener(path, 'set_at', registerVertexChange));
             listeners.push(event.addListener(path, 'insert_at', registerVertexChange));
             listeners.push(event.addListener(path, 'remove_at', registerVertexChange));
         }
-        if ('getRadius' in shape) { // Circle
+        if ('getRadius' in shape) {
             listeners.push(event.addListener(shape, 'radius_changed', registerVertexChange));
         }
-        if ('getBounds' in shape) { // Rectangle
+        if ('getBounds' in shape) {
             listeners.push(event.addListener(shape, 'bounds_changed', registerVertexChange));
         }
         
@@ -375,7 +375,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
         });
         
-        // Custom cleanup for the DOM event listener
         const cleanup = () => {
              mapDiv.removeEventListener('mouseup', mapMouseUpListener as any);
         }
@@ -386,22 +385,29 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
     mapShapes.forEach((shape) => (shape as any).setMap(null));
     clearListeners();
+    
+    if (mode === 'editing' || mode === 'drawing') {
+        // Show the reference shape if drawing
+        if (mode === 'drawing' && selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-')) {
+            const refShape = mapShapes.get(selectedGeofenceId);
+            if (refShape) {
+                const isDefault = selectedGeofenceId === defaultGeofenceId;
+                const color = isDefault ? DEFAULT_COLOR : SAVED_COLOR;
+                (refShape as any).setOptions({ ...color, editable: false, draggable: false });
+                refShape.setMap(map);
+            }
+        }
 
-    if (mode === 'editing') {
-        const shapeToEdit = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
+        // Show the active (being edited/drawn) shape
+        const activeShapeId = mode === 'editing' ? selectedGeofenceId : Array.from(mapShapes.keys()).find(k => k.startsWith('new-shape-'));
+        const shapeToEdit = activeShapeId ? mapShapes.get(activeShapeId) : null;
+        
         if (shapeToEdit) {
             (shapeToEdit as any).setOptions(EDIT_COLOR);
             shapeToEdit.setMap(map);
             setupListeners(shapeToEdit);
         }
-    } else if (mode === 'drawing') {
-        const refShape = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
-        if (refShape) {
-            const isDefault = refShape && selectedGeofenceId === defaultGeofenceId;
-            const colorOptions = isDefault ? DEFAULT_COLOR : SAVED_COLOR;
-            (refShape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
-            refShape.setMap(map);
-        }
+
     } else { // 'view' mode
         mapShapes.forEach((shape, id) => {
             let isVisible = false;
