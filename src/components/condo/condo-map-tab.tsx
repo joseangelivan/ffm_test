@@ -270,7 +270,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
     
     let zoomToSet = calculatedZoomLevels.normal;
-    if (level === '1') zoomToSet = calculatedZoomLevels.tight;
+    if (level === '1') zoomToSet = newLevels.tight;
     if (level === '3') zoomToSet = calculatedZoomLevels.wide;
     
     if (map.getZoom() !== zoomToSet) {
@@ -413,6 +413,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [setIsDrawing, setActiveOverlay, setIsCreating, updateHistory, toast, t]);
 
     useEffect(() => {
+        // This is the master effect for controlling shape visibility on the map.
+        // It starts by clearing everything to ensure a clean slate.
         geofences.forEach(gf => {
             if (gf.shape) (gf.shape as any).setMap(null);
         });
@@ -421,29 +423,32 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
         clearListeners();
     
-        if (isEditingShape) {
+        if (isEditingShape) { // isEditing or isCreating
+            // Show the shape being actively edited/created
             if (activeOverlay) {
                 (activeOverlay as any).setOptions({ ...SAVED_COLOR, editable: true, draggable: true, zIndex: 3 });
                 (activeOverlay as any).setMap(mapRef.current);
                 setupListeners(activeOverlay);
             }
 
+            // Show the reference geofence if we are creating a new one or editing an existing one
             const referenceGeofence = geofences.find(g => g.id === selectedGeofenceId);
             if (referenceGeofence?.shape) {
+                (referenceGeofence.shape as any).setMap(mapRef.current);
                 (referenceGeofence.shape as any).setOptions({
                     ...VIEW_ALL_COLOR,
-                    map: mapRef.current,
                     editable: false, draggable: false, clickable: false,
                     zIndex: 1,
                 });
             }
         } else if (isEditingEnabled) {
+            // Edit mode is on, but we are not actively drawing/editing a shape
             geofences.forEach(gf => {
                 const isSelected = gf.id === selectedGeofenceId;
-                if (gf.shape) {
+                if(gf.shape) {
                     (gf.shape as any).setMap(isSelected ? mapRef.current : null);
-                    if (isSelected) {
-                         (gf.shape as any).setOptions({
+                    if(isSelected) {
+                        (gf.shape as any).setOptions({
                             ...EDIT_COLOR,
                             editable: false, draggable: false, clickable: true,
                         });
@@ -451,6 +456,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 }
             });
         } else {
+            // View mode (not editing)
             geofences.forEach(gf => {
                 let isVisible = showAllGeofences || gf.id === defaultGeofenceId;
                 let colorOptions = SAVED_COLOR;
