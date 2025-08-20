@@ -16,7 +16,7 @@ import {
   Redo,
 } from 'lucide-react';
 
-import { getGeometryFromShape, createShapeFromGeometry, EDIT_COLOR } from '../condo-map-tab';
+import { getGeometryFromShape, createShapeFromGeometry } from '../condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 
@@ -51,7 +51,6 @@ type GeofenceControlsProps = {
     mapShapes: Map<string, google.maps.MVCObject>;
     setupListeners: (shape: google.maps.MVCObject, onShapeChanged: () => void) => void;
     clearListeners: () => void;
-    updateAndRecordHistory: (shape: google.maps.MVCObject) => void;
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
 }
@@ -75,7 +74,6 @@ export function GeofenceControls({
     mapShapes,
     setupListeners,
     clearListeners,
-    updateAndRecordHistory,
     historyRef,
     historyIndexRef,
 }: GeofenceControlsProps) {
@@ -94,6 +92,16 @@ export function GeofenceControls({
     
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
     
+      const updateAndRecordHistory = useCallback((shape: google.maps.MVCObject) => {
+        const newGeometry = getGeometryFromShape(shape);
+        if (!newGeometry) return;
+        
+        const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+        newHistory.push(newGeometry);
+        historyRef.current = newHistory;
+        historyIndexRef.current = newHistory.length - 1;
+    }, [historyRef, historyIndexRef]);
+
     const resetActionStates = useCallback((revertChanges = true) => {
         if (revertChanges && selectedGeofenceId && historyRef.current.length > 0) {
             const originalGeometry = historyRef.current[0];
@@ -282,43 +290,40 @@ export function GeofenceControls({
     };
 
     const applyHistoryState = useCallback((geometry: any) => {
-        const shapeId = selectedGeofenceId;
         let shapeToUpdate: google.maps.MVCObject | null = null;
-    
         if (temporaryShape) {
             shapeToUpdate = temporaryShape;
-        } else if(shapeId) {
-            shapeToUpdate = mapShapes.get(shapeId) || null;
+        } else if (selectedGeofenceId) {
+            shapeToUpdate = mapShapes.get(selectedGeofenceId) || null;
         }
-    
         if (!shapeToUpdate) return;
-        
-        const newShape = createShapeFromGeometry(geometry);
-        if (!newShape) return;
     
         const map = (shapeToUpdate as any).getMap();
-        shapeToUpdate.setMap(null); 
+        (shapeToUpdate as any).setMap(null); // Remove old shape
     
-        (newShape as any).setOptions(EDIT_COLOR);
-        newShape.setMap(map);
-        
+        const newShape = createShapeFromGeometry(geometry); // Create new shape from history
+        if (!newShape) return;
+    
+        (newShape as any).setOptions({
+            map: map,
+            ...EDIT_COLOR
+        });
+    
         setupListeners(newShape, () => updateAndRecordHistory(newShape));
     
         if (temporaryShape) {
-             setTemporaryShape(newShape);
-        } else if (shapeId) {
-             mapShapes.set(shapeId, newShape);
+            setTemporaryShape(newShape);
+        } else if (selectedGeofenceId) {
+            mapShapes.set(selectedGeofenceId, newShape);
         }
-    
     }, [selectedGeofenceId, mapShapes, temporaryShape, setupListeners, updateAndRecordHistory]);
+    
     
     const handleUndo = useCallback(() => {
         if (!canUndo) return;
         historyIndexRef.current--;
         const previousGeometry = historyRef.current[historyIndexRef.current];
         applyHistoryState(previousGeometry);
-        setCanUndo(historyIndexRef.current > 0);
-        setCanRedo(true);
     }, [canUndo, historyIndexRef, historyRef, applyHistoryState]);
     
     const handleRedo = useCallback(() => {
@@ -326,8 +331,6 @@ export function GeofenceControls({
         historyIndexRef.current++;
         const nextGeometry = historyRef.current[historyIndexRef.current];
         applyHistoryState(nextGeometry);
-        setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-        setCanUndo(true);
     }, [canRedo, historyIndexRef, historyRef, applyHistoryState]);
 
     useEffect(() => {

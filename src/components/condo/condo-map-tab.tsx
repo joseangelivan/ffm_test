@@ -16,7 +16,7 @@ import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLocale } from '@/lib/i18n';
 import MapComponent, { AdvancedMarker } from '@/components/map';
 import { GeofenceControls } from './map/geofence-controls';
@@ -162,6 +162,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const historyRef = useRef<any[]>([]);
   const historyIndexRef = useRef<number>(-1);
+
+  const [selectedModule, setSelectedModule] = useState('geofence');
   
    const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -289,16 +291,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     overlayListeners.current.forEach(l => l.remove());
     overlayListeners.current = [];
   }, []);
-
-  const updateAndRecordHistory = useCallback((shape: google.maps.MVCObject) => {
-    const newGeometry = getGeometryFromShape(shape);
-    if (!newGeometry) return;
-    
-    const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-    newHistory.push(newGeometry);
-    historyRef.current = newHistory;
-    historyIndexRef.current = newHistory.length - 1;
-  }, [historyRef, historyIndexRef]);
   
   const setupListeners = useCallback((shape: google.maps.MVCObject, onShapeChanged: () => void) => {
         clearListeners();
@@ -343,6 +335,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       
       clearListeners();
 
+       const updateAndRecordHistory = (shape: google.maps.MVCObject) => {
+        const newGeometry = getGeometryFromShape(shape);
+        if (!newGeometry) return;
+        
+        const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+        newHistory.push(newGeometry);
+        historyRef.current = newHistory;
+        historyIndexRef.current = newHistory.length - 1;
+      };
+
       if (mode === 'editing') {
           const shapeToEdit = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
           if (shapeToEdit) {
@@ -379,7 +381,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       }
   }, [
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-      mapShapes, clearListeners, isEditingEnabled, isLoading, setupListeners, updateAndRecordHistory
+      mapShapes, clearListeners, isEditingEnabled, isLoading, setupListeners, historyRef, historyIndexRef
   ]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
@@ -470,40 +472,45 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             <legend className="text-lg font-semibold tracking-tight px-2 -ml-2">
                                 {t('condoDashboard.map.modules.title')}
                             </legend>
-                            <Tabs defaultValue="geofence" className="flex-1 flex flex-col">
-                                <TabsList>
-                                    <TabsTrigger value="geofence">{t('condoDashboard.map.modules.geofence')}</TabsTrigger>
-                                    <TabsTrigger value="elements">{t('condoDashboard.map.modules.elements')}</TabsTrigger>
-                                </TabsList>
-                                <TabsContent value="geofence" className="flex-1 flex flex-col space-y-4 pt-2">
-                                     <GeofenceControls
-                                        condoId={condo.id}
-                                        geofences={dbGeofences}
-                                        onDataNeedsRefresh={onDataNeedsRefresh}
-                                        selectedGeofenceId={selectedGeofenceId}
-                                        setSelectedGeofenceId={setSelectedGeofenceId}
-                                        defaultGeofenceId={defaultGeofenceId}
-                                        setDefaultGeofenceId={setDefaultGeofenceId}
-                                        mode={mode}
-                                        setMode={setMode}
-                                        drawingManager={drawingManagerRef.current}
-                                        isEditingEnabled={isEditingEnabled}
-                                        setIsEditingEnabled={setIsEditingEnabled}
-                                        showAllGeofences={showAllGeofences}
-                                        setShowAllGeofences={setShowAllGeofences}
-                                        onSettingsClick={() => setIsMapSettingsOpen(true)}
-                                        mapShapes={mapShapes}
-                                        setupListeners={setupListeners}
-                                        clearListeners={clearListeners}
-                                        updateAndRecordHistory={updateAndRecordHistory}
-                                        historyRef={historyRef}
-                                        historyIndexRef={historyIndexRef}
-                                    />
-                                </TabsContent>
-                                <TabsContent value="elements" className="flex-1">
-                                    <ElementsControls condoId={condo.id}/>
-                                </TabsContent>
-                            </Tabs>
+                            <div className="space-y-2">
+                                <Select value={selectedModule} onValueChange={setSelectedModule}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={t('condoDashboard.map.modules.selectPlaceholder')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="geofence">{t('condoDashboard.map.modules.geofence')}</SelectItem>
+                                        <SelectItem value="elements">{t('condoDashboard.map.modules.elements')}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            
+                            {selectedModule === 'geofence' && (
+                                <GeofenceControls
+                                    condoId={condo.id}
+                                    geofences={dbGeofences}
+                                    onDataNeedsRefresh={onDataNeedsRefresh}
+                                    selectedGeofenceId={selectedGeofenceId}
+                                    setSelectedGeofenceId={setSelectedGeofenceId}
+                                    defaultGeofenceId={defaultGeofenceId}
+                                    setDefaultGeofenceId={setDefaultGeofenceId}
+                                    mode={mode}
+                                    setMode={setMode}
+                                    drawingManager={drawingManagerRef.current}
+                                    isEditingEnabled={isEditingEnabled}
+                                    setIsEditingEnabled={setIsEditingEnabled}
+                                    showAllGeofences={showAllGeofences}
+                                    setShowAllGeofences={setShowAllGeofences}
+                                    onSettingsClick={() => setIsMapSettingsOpen(true)}
+                                    mapShapes={mapShapes}
+                                    setupListeners={setupListeners}
+                                    clearListeners={clearListeners}
+                                    historyRef={historyRef}
+                                    historyIndexRef={historyIndexRef}
+                                />
+                            )}
+                            {selectedModule === 'elements' && (
+                                <ElementsControls condoId={condo.id}/>
+                            )}
                         </fieldset>
                     </div>
                 </div>
