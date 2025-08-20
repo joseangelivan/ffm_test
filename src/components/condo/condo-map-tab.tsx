@@ -8,6 +8,7 @@ import {
   Redo,
   Layers,
   LocateFixed,
+  Pin,
 } from 'lucide-react';
 
 import type { Condominio } from '@/actions/condos';
@@ -107,7 +108,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   const isEditingShape = isEditing || isCreating;
   
-  const centerMap = useCallback(() => {
+  const centerMapOnGeofence = useCallback(() => {
     if (!map) return;
     const defaultGeofence = geofences.find(g => g.id === defaultGeofenceId);
     if (defaultGeofence && defaultGeofence.shape) {
@@ -120,6 +121,12 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     map.setCenter(center);
     map.setZoom(15);
   }, [map, geofences, defaultGeofenceId, center]);
+  
+  const centerMapOnAddress = useCallback(() => {
+    if (!map) return;
+    map.setCenter(center);
+    map.setZoom(15);
+  }, [map, center]);
 
 
   useEffect(() => {
@@ -147,9 +154,11 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   // This effect runs after geofences are loaded to center the map.
     useEffect(() => {
         if (map && geofences.length > 0) {
-            centerMap();
+            centerMapOnGeofence();
+        } else if (map) {
+            centerMapOnAddress();
         }
-    }, [map, geofences, centerMap]);
+    }, [map, geofences, centerMapOnGeofence, centerMapOnAddress]);
 
   const updateHistory = useCallback((geometry: any) => {
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -317,7 +326,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                        )}
                    </MapComponent>
                    <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex gap-1 backdrop-blur-sm">
-                        <Button onClick={centerMap} variant="ghost" size="icon" title={t('condoDashboard.map.recenter')}>
+                        <Button onClick={centerMapOnGeofence} variant="ghost" size="icon" title={t('condoDashboard.map.recenterOnGeofence')}>
                             <LocateFixed className="h-5 w-5" />
                         </Button>
                    </div>
@@ -336,8 +345,16 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                 </div>
             </div>
             <div className="w-1/3 p-1">
-                <div className="relative border h-full p-4 pt-2 bg-card rounded-md">
+                <div className="relative border h-full p-4 pt-2 bg-card rounded-md flex flex-col">
                     <h2 className="text-lg font-semibold tracking-tight px-2 absolute -top-3.5 left-4 bg-card">{t('condoDashboard.map.modules.title')}</h2>
+                    <div className="border-b pb-4">
+                        <Label>{t('adminDashboard.newCondoDialog.addressLabel')}</Label>
+                        <div className="flex items-start gap-2 mt-1">
+                            <Pin className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
+                            <p className="text-sm text-muted-foreground">{condo.address}</p>
+                        </div>
+                        <Button onClick={centerMapOnAddress} variant="link" className="p-0 h-auto mt-1 text-sm">{t('condoDashboard.map.recenterOnAddress')}</Button>
+                    </div>
                      <div className="flex-1 flex flex-col space-y-4 pt-4">
                         <div className="px-1 flex items-center gap-2">
                             <Select value={activeModule} onValueChange={setActiveModule}>

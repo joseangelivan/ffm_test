@@ -160,7 +160,6 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
 
   const handleConfirmLogout = async () => {
     await handleLogoutAction();
-    router.push('/admin/login');
   };
 
   const providerValue = {
