@@ -15,7 +15,7 @@ import {
   Redo,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-import { isEqual } from 'lodash';
+import { isEqual, debounce } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
@@ -339,10 +339,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   useEffect(() => {
     const map = mapRef.current;
     if (!map || isLoading) return;
-    
-    let isVertexDrag = false;
 
-    const updateAndRecordHistory = () => {
+    const updateAndRecordHistory = debounce(() => {
         const shapeToUpdate = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
         if (!shapeToUpdate) return;
 
@@ -358,7 +356,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         historyRef.current = newHistory;
         historyIndexRef.current = newHistory.length - 1;
         updateHistoryButtons();
-    };
+    }, 200);
 
     const setupListeners = (shape: google.maps.MVCObject) => {
         clearListeners();
@@ -367,29 +365,19 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         
         listeners.push(event.addListener(shape, 'dragend', updateAndRecordHistory));
 
-        const handleVertexChange = () => {
-            if (!isVertexDrag) {
-                isVertexDrag = true;
-                event.addListenerOnce(map, 'mouseup', () => {
-                    updateAndRecordHistory();
-                    isVertexDrag = false;
-                });
-            }
-        };
-
         if ('getPath' in shape && typeof (shape as any).getPath === 'function') {
             const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(event.addListener(path, 'set_at', handleVertexChange));
+            listeners.push(event.addListener(path, 'set_at', updateAndRecordHistory));
             listeners.push(event.addListener(path, 'insert_at', updateAndRecordHistory));
             listeners.push(event.addListener(path, 'remove_at', updateAndRecordHistory));
         }
 
-        if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') {
-             listeners.push(event.addListener(shape, 'radius_changed', handleVertexChange));
-        }
-        
         if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
-             listeners.push(event.addListener(shape, 'bounds_changed', handleVertexChange));
+             listeners.push(event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
+        }
+
+        if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') {
+             listeners.push(event.addListener(shape, 'radius_changed', updateAndRecordHistory));
         }
         
         overlayListeners.current = listeners;
