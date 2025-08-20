@@ -15,6 +15,7 @@ import {
   Redo,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
+import { isEqual } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,7 @@ import type { Geofence as DbGeofence } from '@/actions/maps';
 import { MapSettingsDialog } from './map/map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { isEqual } from 'lodash';
+
 
 export const EDIT_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2, editable: true, draggable: true };
 export const SAVED_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: false, draggable: false, clickable: true };
@@ -339,6 +340,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const map = mapRef.current;
     if (!map || isLoading) return;
 
+    const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
+        let timeout: NodeJS.Timeout;
+        return (...args: Parameters<F>): void => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func(...args), delay);
+        };
+    };
+
     const setupListeners = (shape: google.maps.MVCObject) => {
         clearListeners();
         const listeners: google.maps.MapsEventListener[] = [];
@@ -347,34 +356,27 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const updateAndRecordHistory = () => {
             const newGeometry = getGeometryFromShape(shape);
             const lastGeometry = historyRef.current[historyIndexRef.current];
-
+            
             if (isEqual(newGeometry, lastGeometry)) {
                 return;
             }
-
+            
             const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
             newHistory.push(newGeometry);
             historyRef.current = newHistory;
             historyIndexRef.current = newHistory.length - 1;
             updateHistoryButtons();
         };
-        
-        const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
-            let timeout: NodeJS.Timeout;
-            return (...args: Parameters<F>): void => {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func(...args), delay);
-            };
-        };
-        const debouncedUpdate = debounce(updateAndRecordHistory, 100);
+
+        const debouncedUpdate = debounce(updateAndRecordHistory, 200);
 
         listeners.push(event.addListener(shape, 'dragend', updateAndRecordHistory));
+        listeners.push(event.addListener(shape, 'insert_at', updateAndRecordHistory));
+        listeners.push(event.addListener(shape, 'remove_at', updateAndRecordHistory));
         
         if ('getPath' in shape && typeof (shape as any).getPath === 'function') {
             const path = (shape as google.maps.Polygon).getPath();
             listeners.push(event.addListener(path, 'set_at', debouncedUpdate));
-            listeners.push(event.addListener(path, 'insert_at', updateAndRecordHistory));
-            listeners.push(event.addListener(path, 'remove_at', updateAndRecordHistory));
         } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') {
              listeners.push(event.addListener(shape, 'radius_changed', debouncedUpdate));
         } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
