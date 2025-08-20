@@ -299,6 +299,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
   
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
+  const vertexChanged = useRef(false);
 
   const clearListeners = useCallback(() => {
     overlayListeners.current.forEach(l => l.remove());
@@ -310,7 +311,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
   }, []);
   
-  const applyHistoryState = useCallback((geometry: any) => {
+   const applyHistoryState = useCallback((geometry: any) => {
         if (!selectedGeofenceId) return;
 
         const shape = mapShapes.get(selectedGeofenceId);
@@ -360,29 +361,46 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const map = mapRef.current;
     if (!map || isLoading) return;
 
-    const debouncedRecordHistory = debounce(recordHistory, 200);
-
     const setupListeners = (shape: google.maps.MVCObject) => {
         clearListeners();
         const listeners: google.maps.MapsEventListener[] = [];
         const event = google.maps.event;
 
+        // Listener for dragging the whole shape
         listeners.push(event.addListener(shape, 'dragend', recordHistory));
 
+        const setupVertexListener = () => {
+            vertexChanged.current = true;
+        }
+        
+        // Listeners for vertex/bounds/radius changes
         if ('getPath' in shape) {
             const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(event.addListener(path, 'set_at', debouncedRecordHistory));
-            listeners.push(event.addListener(path, 'insert_at', debouncedRecordHistory));
-            listeners.push(event.addListener(path, 'remove_at', debouncedRecordHistory));
+            listeners.push(event.addListener(path, 'set_at', setupVertexListener));
+            listeners.push(event.addListener(path, 'insert_at', setupVertexListener));
+            listeners.push(event.addListener(path, 'remove_at', setupVertexListener));
         }
         if ('getRadius' in shape) {
-            listeners.push(event.addListener(shape, 'radius_changed', debouncedRecordHistory));
+            listeners.push(event.addListener(shape, 'radius_changed', setupVertexListener));
         }
         if ('getBounds' in shape) {
-            listeners.push(event.addListener(shape, 'bounds_changed', debouncedRecordHistory));
+            listeners.push(event.addListener(shape, 'bounds_changed', setupVertexListener));
         }
+        
+        // Final listener on map mouseup to record vertex changes
+        const mapDiv = map.getDiv();
+        const mouseUpListener = (e: MouseEvent) => {
+             if (vertexChanged.current) {
+                recordHistory();
+                vertexChanged.current = false;
+            }
+        };
+        mapDiv.addEventListener('mouseup', mouseUpListener);
+        
+        // Store the listener so we can remove it later
+        overlayListeners.current.push({ remove: () => mapDiv.removeEventListener('mouseup', mouseUpListener) });
 
-        overlayListeners.current = listeners;
+        overlayListeners.current.push(...listeners);
     };
     
     mapShapes.forEach((shape) => (shape as any).setMap(null));
@@ -421,10 +439,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
             shape.setMap(isVisible ? map : null);
         });
-    }
-    
-    return () => {
-        debouncedRecordHistory.cancel();
     }
   }, [
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
@@ -611,5 +625,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
-    
