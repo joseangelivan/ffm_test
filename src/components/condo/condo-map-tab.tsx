@@ -311,7 +311,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
   }, []);
   
-  const handleHistoryUpdate = (shape: google.maps.MVCObject | null) => {
+  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
     if (!shape) return;
 
     const newGeometry = getGeometryFromShape(shape);
@@ -326,9 +326,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     historyRef.current = newHistory;
     historyIndexRef.current = newHistory.length - 1;
     updateHistoryButtons();
-  };
+  }, [updateHistoryButtons]);
 
-  const recordHistory = useCallback(debounce(handleHistoryUpdate, 200), [updateHistoryButtons]);
+  const recordHistory = useCallback(debounce(handleHistoryUpdate, 200), [handleHistoryUpdate]);
 
   useEffect(() => {
         const newShapes = new Map<string, google.maps.MVCObject>();
@@ -350,30 +350,38 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const listeners: google.maps.MapsEventListener[] = [];
         const event = google.maps.event;
         
-        listeners.push(event.addListener(shape, 'dragend', () => recordHistory(shape)));
+        listeners.push(event.addListener(shape, 'dragend', () => handleHistoryUpdate(shape)));
 
+        const registerVertexChange = () => { vertexChanged.current = true; };
+        
         if ('getPath' in shape) { // Polygon
             const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(event.addListener(path, 'set_at', () => { vertexChanged.current = true; }));
-            listeners.push(event.addListener(path, 'insert_at', () => { vertexChanged.current = true; }));
-            listeners.push(event.addListener(path, 'remove_at', () => { vertexChanged.current = true; }));
+            listeners.push(event.addListener(path, 'set_at', registerVertexChange));
+            listeners.push(event.addListener(path, 'insert_at', registerVertexChange));
+            listeners.push(event.addListener(path, 'remove_at', registerVertexChange));
         }
         if ('getRadius' in shape) { // Circle
-            listeners.push(event.addListener(shape, 'radius_changed', () => { vertexChanged.current = true; }));
+            listeners.push(event.addListener(shape, 'radius_changed', registerVertexChange));
         }
         if ('getBounds' in shape) { // Rectangle
-            listeners.push(event.addListener(shape, 'bounds_changed', () => { vertexChanged.current = true; }));
+            listeners.push(event.addListener(shape, 'bounds_changed', registerVertexChange));
         }
         
-        overlayListeners.current.push(...listeners);
-
-        const mapMouseUpListener = event.addListener(map, 'mouseup', () => {
-            if (vertexChanged.current) {
-                recordHistory(shape);
+        const mapDiv = map.getDiv();
+        const mapMouseUpListener = mapDiv.addEventListener('mouseup', () => {
+             if (vertexChanged.current) {
+                handleHistoryUpdate(shape);
                 vertexChanged.current = false;
             }
         });
-        overlayListeners.current.push(mapMouseUpListener);
+        
+        // Custom cleanup for the DOM event listener
+        const cleanup = () => {
+             mapDiv.removeEventListener('mouseup', mapMouseUpListener as any);
+        }
+        overlayListeners.current.push({ remove: cleanup } as any);
+
+        overlayListeners.current.push(...listeners);
     };
     
     mapShapes.forEach((shape) => (shape as any).setMap(null));
@@ -387,7 +395,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             setupListeners(shapeToEdit);
         }
     } else if (mode === 'drawing') {
-        // Drawing manager handles the new shape visibility
+        // Keep the selected geofence visible as a reference
+        const shapeToKeepVisible = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
+        if(shapeToKeepVisible) {
+            const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
+            (shapeToKeepVisible as any).setOptions({ ...colorOptions, editable: false, draggable: false });
+            shapeToKeepVisible.setMap(map);
+        }
     } else { // 'view' mode
         mapShapes.forEach((shape, id) => {
             let isVisible = false;
@@ -415,7 +429,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
   }, [
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-      mapShapes, clearListeners, isEditingEnabled, isLoading, recordHistory
+      mapShapes, clearListeners, isEditingEnabled, isLoading, handleHistoryUpdate
   ]);
 
   useEffect(() => {
@@ -474,18 +488,17 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const shape = mapShapes.get(selectedGeofenceId);
     if (!shape) return;
 
-    // To prevent re-centering, we modify the existing shape instead of creating a new one
-    if (geometry.type === 'polygon' && 'setPath' in shape) {
+    if ('setPath' in shape && geometry.type === 'polygon') {
         (shape as google.maps.Polygon).setPath(geometry.paths);
-    } else if (geometry.type === 'rectangle' && 'setBounds' in shape) {
+    } else if ('setBounds' in shape && geometry.type === 'rectangle') {
         (shape as google.maps.Rectangle).setBounds(geometry.bounds);
-    } else if (geometry.type === 'circle' && 'setCenter' in shape && 'setRadius' in shape) {
+    } else if ('setCenter' in shape && 'setRadius' in shape && geometry.type === 'circle') {
         (shape as google.maps.Circle).setCenter(geometry.center);
         (shape as google.maps.Circle).setRadius(geometry.radius);
     }
     
     updateHistoryButtons();
-};
+  };
   
   return (
     <>
@@ -586,7 +599,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     historyRef={historyRef}
                                     historyIndexRef={historyIndexRef}
                                     updateHistoryButtons={updateHistoryButtons}
-                                    recordHistory={recordHistory}
                                 />
                             )}
                             {selectedModule === 'elements' && (
@@ -609,3 +621,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+

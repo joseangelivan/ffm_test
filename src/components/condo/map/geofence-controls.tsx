@@ -55,7 +55,6 @@ type GeofenceControlsProps = {
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
     updateHistoryButtons: () => void;
-    recordHistory: (shape: google.maps.MVCObject | null) => void;
 }
 
 export function GeofenceControls({
@@ -78,7 +77,6 @@ export function GeofenceControls({
     historyRef,
     historyIndexRef,
     updateHistoryButtons,
-    recordHistory,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -136,7 +134,6 @@ export function GeofenceControls({
     }, [geofences, t]);
 
     const handleStartDraw = () => {
-        resetActionStates();
         setMode('drawing');
         setCurrentGeofenceName(getNextGeofenceName());
         if (drawingManager) {
@@ -161,7 +158,7 @@ export function GeofenceControls({
         historyIndexRef.current = 0;
         updateHistoryButtons();
 
-    }, [drawingManager, setMode, mapShapes, setSelectedGeofenceId, getNextGeofenceName, historyRef, historyIndexRef, updateHistoryButtons]);
+    }, [drawingManager, setMode, mapShapes, setSelectedGeofenceId, historyRef, historyIndexRef, updateHistoryButtons]);
 
 
     useEffect(() => {
@@ -189,8 +186,6 @@ export function GeofenceControls({
         const geofenceData = geofences.find(g => g.id === selectedGeofenceId);
 
         if (!shapeToEdit || !geofenceData) return;
-        
-        resetActionStates(false); 
         
         setMode('editing');
         
@@ -260,6 +255,7 @@ export function GeofenceControls({
                 const newSelectedId = isNewShape ? result.data?.id : selectedGeofenceId;
                 resetActionStates(false); 
                 onDataNeedsRefresh(newSelectedId);
+                setShowAllGeofences(false);
             } else if (result) {
                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
             }
@@ -283,6 +279,10 @@ export function GeofenceControls({
             resetActionStates();
             setSelectedGeofenceId(defaultGeofenceId);
             setShowAllGeofences(false);
+        } else {
+            if (geofences.length > 0) {
+                 setSelectedGeofenceId(defaultGeofenceId);
+            }
         }
     };
     
