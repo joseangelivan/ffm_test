@@ -23,7 +23,6 @@ interface MapSettingsDialogProps {
     onOpenChange: (open: boolean) => void;
     zoomLevel: number;
     initialFitLevel: '1' | '2' | '3';
-    onFitLevelChange: (level: '1' | '2' | '3') => void;
     onZoomIn: () => void;
     onZoomOut: () => void;
     onApplyFit: (level: '1' | '2' | '3') => void;
@@ -35,7 +34,6 @@ export function MapSettingsDialog({
     onOpenChange,
     zoomLevel,
     initialFitLevel,
-    onFitLevelChange,
     onZoomIn,
     onZoomOut,
     onApplyFit,
@@ -51,7 +49,6 @@ export function MapSettingsDialog({
     }, [isOpen, initialFitLevel]);
 
     const handleApplyAndClose = () => {
-        onFitLevelChange(selectedFitLevel);
         onApplyFit(selectedFitLevel);
         onOpenChange(false);
     };

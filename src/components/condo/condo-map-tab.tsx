@@ -125,7 +125,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
 
   const isEditingShape = isEditing || isCreating;
-
+  
   const centerMapOnGeofence = useCallback((level: '1' | '2' | '3', geofence?: GeofenceObject) => {
       if (!map) return;
       
@@ -156,6 +156,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       });
   }, [map, geofences, defaultGeofenceId]);
 
+
  const centerMapOnAddress = useCallback(() => {
     if(!map || !condoAddressPosition) return;
     map.setCenter(condoAddressPosition);
@@ -173,6 +174,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       if (level === '1') map.setZoom(calculatedZoomLevels.tight);
       if (level === '2') map.setZoom(calculatedZoomLevels.normal);
       if (level === '3') map.setZoom(calculatedZoomLevels.wide);
+      
+      setFitLevel(level);
     }
   }, [map, calculatedZoomLevels, geofences, defaultGeofenceId]);
 
@@ -185,6 +188,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const initializeMap = async () => {
         setIsLoading(true);
         try {
+            setCondoAddressPosition(initialPosition);
             setCenter(initialPosition);
             
             const dbGeofences = await getGeofencesByCondoId(condo.id);
@@ -519,9 +523,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             onOpenChange={setIsMapSettingsOpen}
             zoomLevel={zoomLevel}
             initialFitLevel={fitLevel}
-            onFitLevelChange={setFitLevel}
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
             onApplyFit={applyZoomLevel}
             isGeofenceAvailable={!!calculatedZoomLevels}
         />
