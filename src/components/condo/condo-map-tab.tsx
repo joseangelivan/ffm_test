@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -97,6 +98,7 @@ interface MapInnerProps {
   onMapLoad: (map: google.maps.Map) => void;
   onOverlayComplete: (event: google.maps.drawing.OverlayCompleteEvent) => void;
   drawingManagerRef: React.MutableRefObject<google.maps.drawing.DrawingManager | null>;
+  onSettingsClick: () => void;
 }
 
 const DrawingManagerComponent = ({
@@ -418,51 +420,36 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
     clearListeners();
 
-    if (isDrawing) {
-        const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
-        if (selectedGeofence && selectedGeofence.shape) {
-            (selectedGeofence.shape as any).setOptions({ 
-                ...EDIT_COLOR,
-                fillOpacity: 0.1, 
-                strokeWeight: 1, 
-                zIndex: 1, 
-                map: mapRef.current,
-                editable: false, draggable: false, clickable: false
-            });
-        }
-    } else if (isEditing) {
-        const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
-        if (selectedGeofence && selectedGeofence.shape) {
-            (selectedGeofence.shape as any).setOptions({ 
-                ...EDIT_COLOR,
-                fillOpacity: 0.1, 
-                strokeWeight: 1, 
-                zIndex: 1, 
-                map: mapRef.current,
-                editable: false, draggable: false, clickable: false
-            });
-        }
+    if (isDrawing || isEditing) {
+        // When drawing or editing, only the active overlay (if any) should be shown,
+        // and no other geofences.
     } else {
         geofences.forEach(gf => {
             const isDefault = gf.id === defaultGeofenceId;
             let isVisible = false;
 
             if (isEditingEnabled) {
+                // If editing is enabled, only show the selected geofence
                 isVisible = gf.id === selectedGeofenceId;
             } else {
+                // If not editing, show all or just the default
                 isVisible = showAllGeofences || isDefault;
             }
 
             if (isVisible && gf.shape) {
                 let colorOptions;
-                if (isDefault) {
+                if (isDefault && gf.id === selectedGeofenceId && !isEditingEnabled) {
                     colorOptions = DEFAULT_COLOR;
                 } else if (showAllGeofences) {
-                    colorOptions = VIEW_ALL_COLOR;
-                } else if(isEditingEnabled && gf.id === selectedGeofenceId) {
+                     colorOptions = gf.id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
+                } else if (isEditingEnabled && gf.id === selectedGeofenceId) {
                     colorOptions = EDIT_COLOR;
                 } else {
                     colorOptions = SAVED_COLOR;
+                }
+                
+                if (gf.id === defaultGeofenceId) {
+                  colorOptions = DEFAULT_COLOR;
                 }
 
                 (gf.shape as any).setOptions({
@@ -569,6 +556,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 onMapLoad={handleMapLoad}
                                 onOverlayComplete={onOverlayComplete}
                                 drawingManagerRef={drawingManagerRef}
+                                onSettingsClick={() => setIsMapSettingsOpen(true)}
                             />
                         </div>
                         <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
