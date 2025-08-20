@@ -435,10 +435,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
 
             if (isVisible && gf.shape) {
-                let colorOptions = SAVED_COLOR;
-                if(isDefault) colorOptions = DEFAULT_COLOR;
-                if(showAllGeofences) colorOptions = VIEW_ALL_COLOR;
-                if(isEditingEnabled && gf.id === selectedGeofenceId) colorOptions = EDIT_COLOR;
+                let colorOptions;
+                if (isDefault) {
+                    colorOptions = DEFAULT_COLOR;
+                } else if (showAllGeofences) {
+                    colorOptions = VIEW_ALL_COLOR;
+                } else if(isEditingEnabled && gf.id === selectedGeofenceId) {
+                    colorOptions = EDIT_COLOR;
+                } else {
+                    colorOptions = SAVED_COLOR;
+                }
 
                 (gf.shape as any).setOptions({
                     ...colorOptions,
@@ -518,7 +524,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             <div className="flex justify-between items-start">
                 <div>
                     <CardTitle>{t('condoDashboard.map.title')}: {condo.name}</CardTitle>
-                    <p className="text-xs text-muted-foreground">{condo.address}</p>
+                    <CardDescription>{condo.address}</CardDescription>
                 </div>
                  <div className="text-right">
                     <Button onClick={centerMapOnAddress} variant="link" className="p-0 h-auto text-muted-foreground hover:text-primary">
