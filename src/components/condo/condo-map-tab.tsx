@@ -537,9 +537,19 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   return (
     <>
         <Card>
-            <CardHeader>
-                <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-                <CardDescription>{t('condoDashboard.map.description')}</CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between">
+                <div>
+                    <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
+                    <CardDescription>{t('condoDashboard.map.description')}</CardDescription>
+                </div>
+                 <div className="text-right">
+                    <h3 className="font-semibold">{condo.name}</h3>
+                    <p className="text-xs text-muted-foreground">{condo.address}</p>
+                    <Button onClick={centerMapOnAddress} variant="link" size="sm" className="p-0 h-auto">
+                        <Locate className="h-3 w-3 mr-1" />
+                        {t('condoDashboard.map.recenterOnAddress')}
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent className="p-0">
                 <div className="flex h-[70vh]">
@@ -592,15 +602,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 {t('condoDashboard.map.modules.title')}
                             </legend>
                             <div className="flex-1 flex flex-col space-y-4 pt-2">
-                                <div className="text-right space-y-1">
-                                    <h3 className="font-semibold">{condo.name}</h3>
-                                    <p className="text-xs text-muted-foreground">{condo.address}</p>
-                                     <Button onClick={centerMapOnAddress} variant="link" size="sm" className="p-0 h-auto">
-                                        <Locate className="h-3 w-3 mr-1" />
-                                        {t('condoDashboard.map.recenterOnAddress')}
-                                    </Button>
-                                </div>
-                                <Separator />
                                 <div className="px-1 flex items-center gap-2">
                                     <Select value={activeModule} onValueChange={setActiveModule}>
                                         <SelectTrigger id="module-select" className="text-base font-bold text-primary">
