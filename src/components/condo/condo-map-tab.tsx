@@ -360,36 +360,27 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const map = mapRef.current;
     if (!map || isLoading) return;
 
+    const debouncedRecordHistory = debounce(recordHistory, 200);
+
     const setupListeners = (shape: google.maps.MVCObject) => {
         clearListeners();
         const listeners: google.maps.MapsEventListener[] = [];
         const event = google.maps.event;
 
-        let vertexChanged = false;
-
         listeners.push(event.addListener(shape, 'dragend', recordHistory));
-
-        const handleVertexChange = () => { vertexChanged = true; };
 
         if ('getPath' in shape) {
             const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(event.addListener(path, 'set_at', handleVertexChange));
-            listeners.push(event.addListener(path, 'insert_at', handleVertexChange));
-            listeners.push(event.addListener(path, 'remove_at', handleVertexChange));
+            listeners.push(event.addListener(path, 'set_at', debouncedRecordHistory));
+            listeners.push(event.addListener(path, 'insert_at', debouncedRecordHistory));
+            listeners.push(event.addListener(path, 'remove_at', debouncedRecordHistory));
         }
         if ('getRadius' in shape) {
-            listeners.push(event.addListener(shape, 'radius_changed', handleVertexChange));
+            listeners.push(event.addListener(shape, 'radius_changed', debouncedRecordHistory));
         }
         if ('getBounds' in shape) {
-            listeners.push(event.addListener(shape, 'bounds_changed', handleVertexChange));
+            listeners.push(event.addListener(shape, 'bounds_changed', debouncedRecordHistory));
         }
-        
-        listeners.push(event.addListener(map, 'mouseup', () => {
-            if (vertexChanged) {
-                recordHistory();
-                vertexChanged = false;
-            }
-        }));
 
         overlayListeners.current = listeners;
     };
@@ -430,6 +421,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
             shape.setMap(isVisible ? map : null);
         });
+    }
+    
+    return () => {
+        debouncedRecordHistory.cancel();
     }
   }, [
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
@@ -616,3 +611,5 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
+    
