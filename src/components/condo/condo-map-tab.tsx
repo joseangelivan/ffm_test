@@ -290,51 +290,50 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => { zoomListener.remove(); };
   }, []);
   
-  const updateHistory = useCallback((geometry: any) => {
-    if (!geometry) return;
-    // If we undo and then make a new change, we want to discard the "redo" history.
+  const updateAndRecordHistory = useCallback((shape: google.maps.MVCObject) => {
+    const newGeometry = getGeometryFromShape(shape);
+    if (!newGeometry) return;
+    
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-    newHistory.push(geometry);
+    newHistory.push(newGeometry);
     historyRef.current = newHistory;
     historyIndexRef.current = newHistory.length - 1;
+    
     setCanUndo(historyIndexRef.current > 0);
     setCanRedo(false);
   }, []);
-
   
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
+
   const clearListeners = useCallback(() => {
     overlayListeners.current.forEach(l => l.remove());
     overlayListeners.current = [];
   }, []);
-
+  
   const setupListeners = useCallback((shape: google.maps.MVCObject) => {
     clearListeners();
     const listeners: google.maps.MapsEventListener[] = [];
     
-    const updateAndRecordHistory = () => {
-        const newGeometry = getGeometryFromShape(shape);
-        updateHistory(newGeometry);
-    };
+    const onShapeChanged = () => updateAndRecordHistory(shape);
 
     if (typeof google === 'undefined' || !google.maps.event) return;
     const event = google.maps.event;
 
-    listeners.push(event.addListener(shape, 'dragend', updateAndRecordHistory));
-
+    listeners.push(event.addListener(shape, 'dragend', onShapeChanged));
+    
     if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygon
         const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(event.addListener(path, 'set_at', updateAndRecordHistory));
-        listeners.push(event.addListener(path, 'insert_at', updateAndRecordHistory));
-        listeners.push(event.addListener(path, 'remove_at', updateAndRecordHistory));
+        listeners.push(event.addListener(path, 'set_at', onShapeChanged));
+        listeners.push(event.addListener(path, 'insert_at', onShapeChanged));
+        listeners.push(event.addListener(path, 'remove_at', onShapeChanged));
     } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') { // Circle
-        listeners.push(event.addListener(shape, 'radius_changed', updateAndRecordHistory));
-        listeners.push(event.addListener(shape, 'center_changed', updateAndRecordHistory));
+        listeners.push(event.addListener(shape, 'radius_changed', onShapeChanged));
+        listeners.push(event.addListener(shape, 'center_changed', onShapeChanged));
     } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle
-        listeners.push(event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
+        listeners.push(event.addListener(shape, 'bounds_changed', onShapeChanged));
     }
     overlayListeners.current = listeners;
-  }, [updateHistory, clearListeners]);
+  }, [updateAndRecordHistory, clearListeners]);
   
   const handleUndo = useCallback(() => {
     if (!canUndo || !selectedGeofenceId) return;
@@ -394,17 +393,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       // Hide all shapes first
       mapShapes.forEach((shape) => shape.setMap(null));
       
-      let shapeToEdit: google.maps.MVCObject | null = null;
-      if(selectedGeofenceId && mapShapes.has(selectedGeofenceId)) {
-        shapeToEdit = mapShapes.get(selectedGeofenceId)!;
-      }
-
       clearListeners();
 
-      if (mode === 'editing' && shapeToEdit) {
-          (shapeToEdit as any).setOptions(EDIT_COLOR);
-           shapeToEdit.setMap(map);
-           setupListeners(shapeToEdit);
+      if (mode === 'editing') {
+          const shapeToEdit = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
+          if (shapeToEdit) {
+              (shapeToEdit as any).setOptions(EDIT_COLOR);
+              shapeToEdit.setMap(map);
+              setupListeners(shapeToEdit);
+          }
       } else if (mode === 'drawing') {
           // Drawing manager handles the new shape visibility
       } else { // 'view' mode
@@ -541,7 +538,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 <GeofenceControls
                                     condoId={condo.id}
                                     geofences={dbGeofences}
-                                    mapShapes={mapShapes}
                                     onDataNeedsRefresh={onDataNeedsRefresh}
                                     selectedGeofenceId={selectedGeofenceId}
                                     setSelectedGeofenceId={setSelectedGeofenceId}
@@ -550,7 +546,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     mode={mode}
                                     setMode={setMode}
                                     drawingManager={drawingManagerRef.current}
-                                    updateHistory={updateHistory}
                                     historyRef={historyRef}
                                     historyIndexRef={historyIndexRef}
                                     setCanUndo={setCanUndo}
@@ -563,6 +558,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     showAllGeofences={showAllGeofences}
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
+                                    mapShapes={mapShapes}
+                                    setupListeners={setupListeners}
+                                    updateAndRecordHistory={updateAndRecordHistory}
                                 />
                             </div>
                         </fieldset>

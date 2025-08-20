@@ -33,7 +33,6 @@ export type DrawingMode = 'polygon' | 'rectangle' | 'circle';
 type GeofenceControlsProps = {
     condoId: string;
     geofences: DbGeofence[];
-    mapShapes: Map<string, google.maps.MVCObject> | null;
     onDataNeedsRefresh: (newSelectedId?: string) => void;
     selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -42,7 +41,6 @@ type GeofenceControlsProps = {
     mode: 'view' | 'editing' | 'drawing';
     setMode: React.Dispatch<React.SetStateAction<'view' | 'editing' | 'drawing'>>;
     drawingManager: google.maps.drawing.DrawingManager | null;
-    updateHistory: (geometry: any) => void;
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
     setCanUndo: React.Dispatch<React.SetStateAction<boolean>>;
@@ -55,12 +53,14 @@ type GeofenceControlsProps = {
     showAllGeofences: boolean;
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
+    mapShapes: Map<string, google.maps.MVCObject>;
+    setupListeners: (shape: google.maps.MVCObject) => void;
+    updateAndRecordHistory: (shape: google.maps.MVCObject) => void;
 }
 
 export function GeofenceControls({
     condoId,
     geofences,
-    mapShapes,
     onDataNeedsRefresh,
     selectedGeofenceId,
     setSelectedGeofenceId,
@@ -69,7 +69,6 @@ export function GeofenceControls({
     mode,
     setMode,
     drawingManager,
-    updateHistory,
     historyRef,
     historyIndexRef,
     setCanUndo,
@@ -82,6 +81,9 @@ export function GeofenceControls({
     showAllGeofences,
     setShowAllGeofences,
     onSettingsClick,
+    mapShapes,
+    setupListeners,
+    updateAndRecordHistory
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -138,13 +140,17 @@ export function GeofenceControls({
         if(!newShape) return;
 
         setTemporaryShape(newShape);
+        const newTempId = `new_${Date.now()}`;
         
-        setMode('editing');
-        setSelectedGeofenceId(`new_${Date.now()}`); // Temporary ID
+        mapShapes.set(newTempId, newShape);
+        setSelectedGeofenceId(newTempId); 
         setCurrentGeofenceName(getNextGeofenceName());
-        updateHistory(getGeometryFromShape(newShape));
+        
+        updateAndRecordHistory(newShape);
+        setupListeners(newShape);
+        setMode('editing');
 
-    }, [drawingManager, setSelectedGeofenceId, setMode, updateHistory]);
+    }, [drawingManager, setSelectedGeofenceId, setMode, setupListeners, updateAndRecordHistory, mapShapes]);
 
     useEffect(() => {
         if (mode === 'drawing' && drawingManager) {
@@ -172,11 +178,9 @@ export function GeofenceControls({
 
         if (!shapeToEdit || !geofenceData) return;
         
-        resetActionStates(false); // Clear any previous state without reverting
+        resetActionStates(false); 
         
-        // Save the initial state for undo
-        updateHistory(getGeometryFromShape(shapeToEdit));
-
+        updateAndRecordHistory(shapeToEdit);
         setMode('editing');
         setCurrentGeofenceName(geofenceData.name);
     }
@@ -224,9 +228,7 @@ export function GeofenceControls({
         const isCreatingNew = selectedGeofenceId.startsWith('new_');
         let shapeToSave: google.maps.MVCObject | null = null;
         
-        if (isCreatingNew) {
-            shapeToSave = temporaryShape;
-        } else if (mapShapes) {
+        if (mapShapes) {
             shapeToSave = mapShapes.get(selectedGeofenceId) || null;
         }
 
