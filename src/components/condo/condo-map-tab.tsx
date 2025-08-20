@@ -305,24 +305,34 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
   }, []);
   
-  const applyHistoryState = useCallback((geometry: any) => {
-    if (!selectedGeofenceId) return;
+    const applyHistoryState = useCallback((geometry: any) => {
+        if (!selectedGeofenceId) return;
 
-    const map = mapRef.current;
-    if (!map) return;
+        const map = mapRef.current;
+        if (!map) return;
 
-    const oldShape = mapShapes.get(selectedGeofenceId);
-    if (oldShape) (oldShape as any).setMap(null);
-
-    const newShape = createShapeFromGeometry(geometry);
-    if (!newShape) return;
-
-    (newShape as any).setOptions({ map, ...EDIT_COLOR });
-    
-    const newMapShapes = new Map(mapShapes);
-    newMapShapes.set(selectedGeofenceId, newShape);
-    setMapShapes(newMapShapes);
-  }, [selectedGeofenceId, mapShapes]);
+        const currentShape = mapShapes.get(selectedGeofenceId);
+        if (!currentShape) return;
+        
+        if ('setPath' in currentShape && geometry.type === 'polygon') {
+            (currentShape as google.maps.Polygon).setPath(geometry.paths);
+        } else if ('setBounds' in currentShape && geometry.type === 'rectangle') {
+            (currentShape as google.maps.Rectangle).setBounds(geometry.bounds);
+        } else if ('setCenter' in currentShape && geometry.type === 'circle') {
+            (currentShape as google.maps.Circle).setCenter(geometry.center);
+            (currentShape as google.maps.Circle).setRadius(geometry.radius);
+        } else {
+            // Fallback for type mismatch or other issues
+            const newShape = createShapeFromGeometry(geometry);
+            if(newShape) {
+                (currentShape as any).setMap(null);
+                (newShape as any).setOptions({ map, ...EDIT_COLOR });
+                const newMapShapes = new Map(mapShapes);
+                newMapShapes.set(selectedGeofenceId, newShape);
+                setMapShapes(newMapShapes);
+            }
+        }
+    }, [selectedGeofenceId, mapShapes]);
 
 
   useEffect(() => {
@@ -611,3 +621,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
