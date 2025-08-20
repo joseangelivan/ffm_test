@@ -92,6 +92,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const { t } = useLocale();
   const mapRef = useRef<google.maps.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
   
   const [geofences, setGeofences] = useState<GeofenceObject[]>([]);
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
@@ -141,7 +142,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 wide: maxZoom > 2 ? maxZoom - 2 : maxZoom,
             };
             setCalculatedZoomLevels(newLevels);
-            
+
             // Re-apply current fit level
             let zoomToSet = newLevels.normal;
             if (fitLevel === '1') zoomToSet = newLevels.tight;
@@ -153,6 +154,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
     }
   }, [geofences, defaultGeofenceId, fitLevel]);
+  
   
   const centerMapOnGeofence = useCallback(() => {
       const map = mapRef.current;
@@ -211,22 +213,21 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             const bounds = geofenceToCenter?.shape ? getBoundsOfShape(geofenceToCenter.shape) : null;
 
             if (bounds) {
-                google.maps.event.addListenerOnce(map, 'idle', () => {
-                    const maxZoom = map.getZoom();
+                map.fitBounds(bounds, 0);
+
+                const idleListener = google.maps.event.addListenerOnce(map, 'idle', () => {
+                     const maxZoom = map.getZoom();
                     if (maxZoom !== undefined) {
                         setCalculatedZoomLevels({
                             tight: maxZoom,
                             normal: maxZoom > 1 ? maxZoom - 1 : maxZoom,
                             wide: maxZoom > 2 ? maxZoom - 2 : maxZoom,
                         });
-                        // Set initial view to "Normal"
                         map.setZoom(maxZoom > 1 ? maxZoom - 1 : maxZoom);
                         setFitLevel('2');
                     }
                     setIsLoading(false);
                 });
-                map.fitBounds(bounds, 0);
-
             } else {
                 centerMapOnAddress();
                 setIsLoading(false);
@@ -242,26 +243,24 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
  }, [condo.id, centerMapOnAddress]);
 
-
   useEffect(() => {
     const mapContainer = mapContainerRef.current;
-    if (!mapContainer || !defaultGeofenceId) return;
+    if (!mapContainer || resizeObserverRef.current) return;
 
-    let timeoutId: NodeJS.Timeout;
-    const observer = new ResizeObserver(() => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-            recalculateZoomLevels();
-        }, 300);
+    resizeObserverRef.current = new ResizeObserver(() => {
+        setTimeout(recalculateZoomLevels, 0);
     });
-
-    observer.observe(mapContainer);
+    
+    resizeObserverRef.current.observe(mapContainer);
 
     return () => {
-        clearTimeout(timeoutId);
-        observer.disconnect();
+        if (resizeObserverRef.current) {
+            resizeObserverRef.current.disconnect();
+            resizeObserverRef.current = null;
+        }
     };
-}, [recalculateZoomLevels, defaultGeofenceId]);
+}, [recalculateZoomLevels]);
+
 
   useEffect(() => {
     const map = mapRef.current;
@@ -359,10 +358,37 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   useEffect(() => {
     geofences.forEach(gf => { if (gf.shape) { (gf.shape as any).setMap(null); } });
-    if (activeOverlay) { (activeOverlay as any).setMap(null); }
+    if (activeOverlay && !isEditingShape) { (activeOverlay as any).setMap(null); }
     clearListeners();
     
+    const drawBackgroundGeofences = () => {
+        geofences.forEach(gf => {
+            if (!gf.shape) return;
+            const isDefault = gf.id === defaultGeofenceId;
+            const isSelected = gf.id === selectedGeofenceId;
+            let visible = false;
+            let options: any = { editable: false, draggable: false };
+
+            if (viewAll) {
+                visible = true;
+                options = {
+                    fillColor: isDefault ? DEFAULT_COLOR.fillColor : VIEW_ALL_COLOR.fillColor,
+                    strokeColor: isDefault ? DEFAULT_COLOR.strokeColor : VIEW_ALL_COLOR.strokeColor,
+                    fillOpacity: isDefault ? 0 : 0.2, 
+                    strokeWeight: isDefault ? 3 : 1,
+                    zIndex: isDefault ? 2 : 1
+                };
+            } else if (isSelected) {
+                visible = true;
+                options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), fillOpacity: isDefault ? 0: 0.3, strokeWeight: 2, zIndex: 1 };
+            }
+            // @ts-ignore
+            gf.shape.setOptions({ ...options, map: visible ? mapRef.current : null });
+        });
+    };
+    
     if (isEditingShape && activeOverlay) {
+        drawBackgroundGeofences();
         (activeOverlay as any).setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2, suppressUndo: true });
         (activeOverlay as any).setMap(mapRef.current);
         setupListeners(activeOverlay);
@@ -382,31 +408,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             (refGeofence.shape as any).setMap(mapRef.current);
         }
     } else {
-        geofences.forEach(gf => {
-            if (!gf.shape) return;
-            const isDefault = gf.id === defaultGeofenceId;
-            const isSelected = gf.id === selectedGeofenceId;
-            let visible = false;
-            let options: any = { editable: false, draggable: false };
-            
-            if (viewAll) {
-                visible = true;
-                options = {
-                    fillColor: isDefault ? DEFAULT_COLOR.fillColor : VIEW_ALL_COLOR.fillColor,
-                    strokeColor: isDefault ? DEFAULT_COLOR.strokeColor : VIEW_ALL_COLOR.strokeColor,
-                    fillOpacity: isDefault ? 0 : 0.2, 
-                    strokeWeight: isDefault ? 3 : 1,
-                    zIndex: isDefault ? 2 : 1
-                };
-            } else if (isSelected) {
-                visible = true;
-                options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), fillOpacity: isDefault ? 0: 0.3, strokeWeight: 2, zIndex: 1 };
-            }
-            // @ts-ignore
-            gf.shape.setOptions({ ...options, map: visible ? mapRef.current : null });
-        });
+        drawBackgroundGeofences();
     }
-  }, [activeOverlay, isEditing, isEditingShape, geofences, isEditingEnabled, viewAll, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners]);
+  }, [activeOverlay, isEditing, isCreating, isEditingShape, geofences, isEditingEnabled, viewAll, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners]);
+  
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
   const handleZoomOut = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! - 1);
