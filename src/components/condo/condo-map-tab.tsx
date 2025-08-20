@@ -268,10 +268,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const zoomListener = map.addListener('zoom_changed', () => {
-      const currentZoom = map.getZoom();
+    if (!mapRef.current) return;
+    const zoomListener = mapRef.current.addListener('zoom_changed', () => {
+      const currentZoom = mapRef.current?.getZoom();
       if (currentZoom) setZoomLevel(currentZoom);
     });
     return () => { zoomListener.remove(); };
@@ -399,7 +398,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             if (isVisible && gf.shape) {
                 (gf.shape as any).setOptions({
                     ...(isDefault ? DEFAULT_COLOR : VIEW_ALL_COLOR),
-                    fillOpacity: 0.05,
+                    fillOpacity: isDefault ? 0.0 : 0.05,
                     strokeWeight: isDefault ? 2 : 1,
                     strokeDasharray: isDefault ? '1,0' : '5,5',
                     zIndex: isDefault ? 2 : 1,
@@ -499,11 +498,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                     )}
                 </div>
                 <div className="w-1/3 p-1">
-                    <div className="relative border h-full rounded-md flex flex-col">
-                        <div className="pt-4 px-4">
-                            <h2 className="text-lg font-semibold tracking-tight -mb-2 px-2 bg-card relative z-10 w-fit">{t('condoDashboard.map.modules.title')}</h2>
-                        </div>
-                        <div className="flex-1 flex flex-col space-y-4 pt-4 p-4">
+                    <div className="relative border h-full rounded-md pt-6">
+                        <h2 className="absolute -top-3 left-4 text-lg font-semibold tracking-tight px-2 bg-card">
+                            {t('condoDashboard.map.modules.title')}
+                        </h2>
+                        <div className="flex-1 flex flex-col space-y-4 p-4">
                             <div className="px-1 flex items-center gap-2">
                                 <Select value={activeModule} onValueChange={setActiveModule}>
                                     <SelectTrigger id="module-select" className="text-base font-bold text-primary">
@@ -569,4 +568,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
