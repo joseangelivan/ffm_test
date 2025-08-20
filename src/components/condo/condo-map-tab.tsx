@@ -121,7 +121,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [calculatedZoomLevels, setCalculatedZoomLevels] = useState<{ tight: number, normal: number, wide: number } | null>(null);
   
   const [condoAddressPosition, setCondoAddressPosition] = useState(initialPosition);
-  const [center, setCenter] = useState(initialPosition);
+  const [center, setCenter] = useState<google.maps.LatLngLiteral | null>(initialPosition);
+  const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
 
   const isEditingShape = isEditing || isCreating;
 
@@ -184,8 +185,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const initializeMap = async () => {
         setIsLoading(true);
         try {
+            setCenter(initialPosition);
+            
             const dbGeofences = await getGeofencesByCondoId(condo.id);
-
             if (!isMounted) return;
 
             if (dbGeofences && dbGeofences.length > 0) {
@@ -221,7 +223,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => {
         isMounted = false;
     };
-
   }, [map, condo.id]);
   
   useEffect(() => {
