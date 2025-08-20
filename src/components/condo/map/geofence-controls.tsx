@@ -53,10 +53,6 @@ type GeofenceControlsProps = {
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
     updateHistoryButtons: () => void;
-    canUndo: boolean;
-    canRedo: boolean;
-    handleUndo: () => void;
-    handleRedo: () => void;
 }
 
 export function GeofenceControls({
@@ -79,10 +75,6 @@ export function GeofenceControls({
     historyRef,
     historyIndexRef,
     updateHistoryButtons,
-    canUndo,
-    canRedo,
-    handleUndo,
-    handleRedo
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();

@@ -378,7 +378,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') {
              listeners.push(event.addListener(shape, 'radius_changed', debouncedUpdate));
         } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
-             listeners.push(event.addListener(shape, 'bounds_changed', debouncedUpdate));
+             listeners.push(event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
         }
         overlayListeners.current = listeners;
     };
@@ -582,10 +582,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     historyRef={historyRef}
                                     historyIndexRef={historyIndexRef}
                                     updateHistoryButtons={updateHistoryButtons}
-                                    canUndo={canUndo}
-                                    canRedo={canRedo}
-                                    handleUndo={handleUndo}
-                                    handleRedo={handleRedo}
                                 />
                             )}
                             {selectedModule === 'elements' && (
