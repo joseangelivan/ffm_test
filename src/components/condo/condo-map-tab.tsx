@@ -521,7 +521,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             <div className="flex justify-between items-start">
                 <div>
                     <CardTitle>{t('condoDashboard.map.title')}: {condo.name}</CardTitle>
-                    <CardDescription>{condo.address}</CardDescription>
+                    <CardDescription>
+                        {condo.address}
+                        <Button onClick={centerMapOnAddress} variant="link" className="p-0 h-auto ml-2 text-xs text-muted-foreground hover:text-primary">
+                            ({t('condoDashboard.map.recenterOnAddress')})
+                        </Button>
+                    </CardDescription>
                 </div>
             </div>
         </CardHeader>
@@ -541,9 +546,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             <DrawingManagerComponent onOverlayComplete={onOverlayComplete} drawingManagerRef={drawingManagerRef} />
                             {condoAddressPosition && 
                                 <AdvancedMarker position={condoAddressPosition} title={condo.name}>
-                                    <div className="p-1.5 bg-background rounded-full shadow-lg border-2 border-primary">
-                                        <Building className="h-5 w-5 text-primary" />
-                                    </div>
+                                    <Building className="h-8 w-8 text-primary drop-shadow-lg" />
                                 </AdvancedMarker>
                             }
                         </MapComponent>
@@ -579,11 +582,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             {t('condoDashboard.map.modules.title')}
                         </legend>
                         <div className="flex-1 flex flex-col space-y-4 pt-2">
-                            <div className="text-right">
-                                <Button onClick={centerMapOnAddress} variant="link" className="p-0 h-auto text-xs text-muted-foreground hover:text-primary">
-                                    {t('condoDashboard.map.recenterOnAddress')}
-                                </Button>
-                            </div>
                              <div className="px-1 flex items-center gap-2">
                                 <Select value={activeModule} onValueChange={setActiveModule}>
                                     <SelectTrigger id="module-select" className="text-base font-bold text-primary">
