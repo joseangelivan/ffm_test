@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -90,7 +89,7 @@ const getCenterOfShape = (shape: google.maps.MVCObject): google.maps.LatLng | nu
 
 export default function CondoMapTab({ condo, initialPosition }: { condo: Condominio, initialPosition: { lat: number; lng: number } }) {
   const { t } = useLocale();
-  const map = useRef<google.maps.Map | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
 
   const [geofences, setGeofences] = useState<GeofenceObject[]>([]);
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
@@ -125,24 +124,25 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const isEditingShape = isEditing || isCreating;
   
    const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
-    if (!map.current || !calculatedZoomLevels) return;
+    if (!mapRef.current || !calculatedZoomLevels) return;
 
     const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
     if (geofenceToCenter?.shape) {
         const center = getCenterOfShape(geofenceToCenter.shape);
-        if (center) map.current.setCenter(center);
+        if (center) mapRef.current.setCenter(center);
         
         let zoomToSet = calculatedZoomLevels.normal;
         if (level === '1') zoomToSet = calculatedZoomLevels.tight;
         if (level === '3') zoomToSet = calculatedZoomLevels.wide;
         
-        map.current.setZoom(zoomToSet);
+        mapRef.current.setZoom(zoomToSet);
     }
       setFitLevel(level);
   }, [calculatedZoomLevels, geofences, defaultGeofenceId]);
 
   const centerMapOnGeofence = useCallback((level: '1' | '2' | '3', geofence?: GeofenceObject) => {
-      if (!map.current) return;
+      const map = mapRef.current;
+      if (!map) return;
       
       const geofenceToCenter = geofence || geofences.find(g => g.id === defaultGeofenceId);
       if (!geofenceToCenter?.shape) return;
@@ -150,10 +150,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       const bounds = getBoundsOfShape(geofenceToCenter.shape);
       if (!bounds) return;
 
-      map.current.fitBounds(bounds, 0);
+      map.fitBounds(bounds, 0);
 
-      const listener = google.maps.event.addListenerOnce(map.current, 'idle', () => {
-          const maxZoom = map.current!.getZoom();
+      const listener = google.maps.event.addListenerOnce(map, 'idle', () => {
+          const maxZoom = map.getZoom();
           if (maxZoom !== undefined) {
                const zoomLevels = {
                   tight: maxZoom,
@@ -166,7 +166,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
               if (level === '1') zoomToSet = zoomLevels.tight;
               if (level === '3') zoomToSet = zoomLevels.wide;
               
-              map.current!.setZoom(zoomToSet);
+              map.setZoom(zoomToSet);
               setFitLevel(level);
           }
       });
@@ -174,76 +174,68 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
 
  const centerMapOnAddress = useCallback(() => {
-    if(!map.current || !condoAddressPosition) return;
-    map.current.setCenter(condoAddressPosition);
-    map.current.setZoom(15);
+    const map = mapRef.current;
+    if(!map || !condoAddressPosition) return;
+    map.setCenter(condoAddressPosition);
+    map.setZoom(15);
   }, [condoAddressPosition]);
 
 
-  useEffect(() => {
-    if (!map.current || !condo.id) return;
-    
+  const handleMapLoad = useCallback(async (map: google.maps.Map) => {
+    mapRef.current = map;
+
     let isMounted = true;
-    
-    const initializeMap = async () => {
-        setIsLoading(true);
-        try {
-            setCenter(initialPosition);
+    setIsLoading(true);
+
+    try {
+        const dbGeofences = await getGeofencesByCondoId(condo.id);
+        if (!isMounted) return;
+
+        if (dbGeofences && dbGeofences.length > 0) {
+            const gfObjects = dbGeofences.map(dbGf => ({
+                id: dbGf.id, name: dbGf.name, shape: createShapeFromGeometry(dbGf.geometry) as google.maps.MVCObject
+            }));
+            const defaultGfDb = dbGeofences.find(g => g.is_default);
+            const initialDefaultId = defaultGfDb ? defaultGfDb.id : (gfObjects[0]?.id || null);
+
+            setGeofences(gfObjects);
+            setDefaultGeofenceId(initialDefaultId);
+            setSelectedGeofenceId(initialDefaultId);
             
-            const dbGeofences = await getGeofencesByCondoId(condo.id);
-            if (!isMounted) return;
-
-            if (dbGeofences && dbGeofences.length > 0) {
-                const gfObjects = dbGeofences.map(dbGf => ({
-                    id: dbGf.id, name: dbGf.name, shape: createShapeFromGeometry(dbGf.geometry) as google.maps.MVCObject
-                }));
-                const defaultGfDb = dbGeofences.find(g => g.is_default);
-                const initialDefaultId = defaultGfDb ? defaultGfDb.id : (gfObjects[0]?.id || null);
-
-                setGeofences(gfObjects);
-                setDefaultGeofenceId(initialDefaultId);
-                setSelectedGeofenceId(initialDefaultId);
-                
-                const defaultGfObj = gfObjects.find(g => g.id === initialDefaultId);
-                const defaultCenter = defaultGfObj ? getCenterOfShape(defaultGfObj.shape) : null;
-                if(defaultCenter) {
-                    setCenter(defaultCenter.toJSON());
-                }
-
-                if(defaultGfObj) {
-                  centerMapOnGeofence('2', defaultGfObj);
-                } else {
-                  centerMapOnAddress();
-                }
-            } else {
-                centerMapOnAddress();
+            const defaultGfObj = gfObjects.find(g => g.id === initialDefaultId);
+            const defaultCenter = defaultGfObj ? getCenterOfShape(defaultGfObj.shape) : null;
+            if(defaultCenter) {
+                setCenter(defaultCenter.toJSON());
             }
-        } catch (error) {
-            console.error("Failed to initialize map:", error);
+
+            if(defaultGfObj) {
+              centerMapOnGeofence('2', defaultGfObj);
+            } else {
+              centerMapOnAddress();
+            }
+        } else {
             centerMapOnAddress();
-        } finally {
-            if (isMounted) setIsLoading(false);
         }
-    };
-    
-    initializeMap();
+    } catch (error) {
+        console.error("Failed to initialize map:", error);
+        centerMapOnAddress();
+    } finally {
+        if (isMounted) setIsLoading(false);
+    }
+
+    const zoomListener = map.addListener('zoom_changed', () => {
+      const currentZoom = map.getZoom();
+      if (currentZoom) {
+        setZoomLevel(currentZoom);
+      }
+    });
 
     return () => {
         isMounted = false;
+        if(zoomListener) zoomListener.remove();
     };
-  }, [condo.id, initialPosition]);
+  }, [condo.id, centerMapOnGeofence, centerMapOnAddress]);
   
-  useEffect(() => {
-      if (!map.current) return;
-      const listener = map.current.addListener('zoom_changed', () => {
-          const currentZoom = map.current!.getZoom();
-          if (currentZoom) {
-            setZoomLevel(currentZoom);
-          }
-      });
-      return () => listener.remove();
-  }, []);
-
 
   const updateHistory = useCallback((geometry: any) => {
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -336,7 +328,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
     if (isEditingShape && activeOverlay) {
         (activeOverlay as any).setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2, suppressUndo: true });
-        (activeOverlay as any).setMap(map.current);
+        (activeOverlay as any).setMap(mapRef.current);
         setupListeners(activeOverlay);
     } else if (isEditingEnabled) {
         const refGeofence = geofences.find(g => g.id === selectedGeofenceId);
@@ -351,7 +343,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 editable: false,
                 draggable: false,
             });
-            (refGeofence.shape as any).setMap(map.current);
+            (refGeofence.shape as any).setMap(mapRef.current);
         }
     } else {
         geofences.forEach(gf => {
@@ -375,13 +367,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), fillOpacity: isDefault ? 0: 0.3, strokeWeight: 2, zIndex: 1 };
             }
             // @ts-ignore
-            gf.shape.setOptions({ ...options, map: visible ? map.current : null });
+            gf.shape.setOptions({ ...options, map: visible ? mapRef.current : null });
         });
     }
   }, [activeOverlay, isEditing, isEditingShape, geofences, isEditingEnabled, viewAll, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners]);
   
-  const handleZoomIn = () => map.current && map.current.setZoom(map.current.getZoom()! + 1);
-  const handleZoomOut = () => map.current && map.current.setZoom(map.current.getZoom()! - 1);
+  const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
+  const handleZoomOut = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! - 1);
   
   return (
     <>
@@ -406,7 +398,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 </div>
                             </div>
                         )}
-                        <MapComponent center={center} zoom={15} onMapLoad={m => map.current = m}>
+                        <MapComponent center={center} zoom={15} onMapLoad={handleMapLoad}>
                             {isDrawing && (
                                 <GeofenceControls.DrawingManager
                                     drawingMode={drawingMode}
@@ -504,7 +496,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     setCanUndo={setCanUndo}
                                     setCanRedo={setCanRedo}
                                     clearListeners={clearListeners}
-                                    map={map.current}
+                                    map={mapRef.current}
                                     drawingMode={drawingMode}
                                     setDrawingMode={setDrawingMode}
                                     isEditingEnabled={isEditingEnabled}

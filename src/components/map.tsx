@@ -47,10 +47,10 @@ const BoundsUpdater = ({ markers }: { markers?: Marker[] }) => {
 const MapComponent: React.FC<MapProps> = ({ center, markers, zoom = 12, children, onMapLoad }) => {
     const mapRef = useRef<google.maps.Map | null>(null);
 
-    const handleMapLoad = (map: google.maps.Map) => {
-        mapRef.current = map;
-        if (onMapLoad) {
-            onMapLoad(map);
+    const handleCameraChanged = (ev: { map: google.maps.Map; }) => {
+        if (onMapLoad && mapRef.current === null) {
+            mapRef.current = ev.map;
+            onMapLoad(ev.map);
         }
     };
     
@@ -66,7 +66,7 @@ const MapComponent: React.FC<MapProps> = ({ center, markers, zoom = 12, children
             disableDefaultUI={true}
             mapId="follow-for-me-map"
             style={{ width: '100%', height: '100%' }}
-            onCameraChanged={(ev) => handleMapLoad(ev.map)}
+            onCameraChanged={handleCameraChanged}
         >
             {markers?.map((marker) => (
                 <GoogleAdvancedMarker key={marker.id} position={marker.position} title={marker.label}>
