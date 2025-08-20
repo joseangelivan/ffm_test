@@ -37,7 +37,7 @@ export type GeofenceObject = {
 };
 
 export const EDIT_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9' };
-export const SAVED_COLOR = { fillColor: '#1ABC9C', strokeColor: '#16A085' };
+export const SAVED_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60' };
 export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d' };
 export const DEFAULT_COLOR = { fillColor: 'transparent', strokeColor: '#e67e22', fillOpacity: 0.0 };
 
@@ -400,7 +400,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             if (isVisible && gf.shape) {
                 let colorOptions = isDefault ? DEFAULT_COLOR : VIEW_ALL_COLOR;
                  if (isEditingEnabled && !isDefault) {
-                    colorOptions = { ...EDIT_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' };
+                    if (gf.id === selectedGeofenceId) {
+                        colorOptions = { ...EDIT_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' };
+                    } else {
+                         colorOptions = { ...VIEW_ALL_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' };
+                    }
                  }
 
                 (gf.shape as any).setOptions({
@@ -435,7 +439,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 </div>
                  <div className="text-right">
                     <p className="text-sm font-medium">{condo.name}</p>
-                    <p className="text-xs text-muted-foreground">{condo.address}</p>
                 </div>
             </div>
         </CardHeader>
@@ -498,12 +501,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                     )}
                 </div>
                 <div className="w-1/3 p-1">
-                     <fieldset className="border h-full rounded-md px-4 pb-4">
-                        <legend className="text-lg font-semibold tracking-tight px-2 ml-2 -mt-0.5 bg-card">
+                     <fieldset className="border h-full rounded-md p-4 pt-2">
+                        <legend className="text-lg font-semibold tracking-tight px-2 -ml-2 bg-card">
                             {t('condoDashboard.map.modules.title')}
                         </legend>
                         <div className="flex-1 flex flex-col space-y-4 pt-2">
-                            <div className="px-1 flex items-center gap-2">
+                             <div className="text-right space-y-1">
+                                <p className="text-xs text-muted-foreground">{condo.address}</p>
                                 <Button onClick={centerMapOnAddress} variant="link" size="sm" className="h-auto p-0 text-xs">
                                     <Locate className="mr-1 h-3 w-3"/>
                                     {t('condoDashboard.map.recenterOnAddress')}

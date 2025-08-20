@@ -39,7 +39,7 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
   // Pre-fetch initial position on the server
   let initialPosition = { lat: -23.5505, lng: -46.6333 }; // Default fallback
   const geoResult = await geocodeAddress({
-    street: condo.street, city: condo.city, state: condo.state, country: condo.country
+    street: `${condo.street}, ${condo.number}`, city: condo.city, state: condo.state, country: condo.country
   });
 
   if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
