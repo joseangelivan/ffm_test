@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils';
 export const EDIT_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2, editable: true, draggable: true };
 export const SAVED_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: false, draggable: false, clickable: true };
 export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d', strokeWeight: 1, editable: false, draggable: false, clickable: false };
-export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50% / 0.3)', strokeColor: 'hsl(28 80% 50%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
+export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50%)', fillOpacity: 0, strokeColor: 'hsl(28 80% 50%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -369,37 +369,22 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         // Listener for dragging the whole shape
         listeners.push(event.addListener(shape, 'dragend', recordHistory));
 
-        const setupVertexListener = () => {
-            vertexChanged.current = true;
-        }
-        
+        const debouncedRecordHistory = debounce(recordHistory, 200);
+
         // Listeners for vertex/bounds/radius changes
         if ('getPath' in shape) {
             const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(event.addListener(path, 'set_at', setupVertexListener));
-            listeners.push(event.addListener(path, 'insert_at', setupVertexListener));
-            listeners.push(event.addListener(path, 'remove_at', setupVertexListener));
+            listeners.push(event.addListener(path, 'set_at', debouncedRecordHistory));
+            listeners.push(event.addListener(path, 'insert_at', debouncedRecordHistory));
+            listeners.push(event.addListener(path, 'remove_at', debouncedRecordHistory));
         }
         if ('getRadius' in shape) {
-            listeners.push(event.addListener(shape, 'radius_changed', setupVertexListener));
+            listeners.push(event.addListener(shape, 'radius_changed', debouncedRecordHistory));
         }
         if ('getBounds' in shape) {
-            listeners.push(event.addListener(shape, 'bounds_changed', setupVertexListener));
+            listeners.push(event.addListener(shape, 'bounds_changed', debouncedRecordHistory));
         }
         
-        // Final listener on map mouseup to record vertex changes
-        const mapDiv = map.getDiv();
-        const mouseUpListener = (e: MouseEvent) => {
-             if (vertexChanged.current) {
-                recordHistory();
-                vertexChanged.current = false;
-            }
-        };
-        mapDiv.addEventListener('mouseup', mouseUpListener);
-        
-        // Store the listener so we can remove it later
-        overlayListeners.current.push({ remove: () => mapDiv.removeEventListener('mouseup', mouseUpListener) });
-
         overlayListeners.current.push(...listeners);
     };
     
