@@ -355,32 +355,32 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     overlayListeners.current = [];
   }, []);
 
-  const setupListeners = useCallback((shape: google.maps.MVCObject) => {
-    clearListeners();
-    
-    const updateAndRecordHistory = () => {
-        const newGeometry = getGeometryFromShape(shape);
-        updateHistory(newGeometry);
-    };
+    const setupListeners = useCallback((shape: google.maps.MVCObject) => {
+        clearListeners();
+        
+        const updateAndRecordHistory = () => {
+            const newGeometry = getGeometryFromShape(shape);
+            updateHistory(newGeometry);
+        };
 
-    // Use google.maps.event.addListener for robust event handling
-    if (typeof google !== 'undefined') {
-        // This is the key event for tracking movements
-        overlayListeners.current.push(google.maps.event.addListener(shape, 'dragend', updateAndRecordHistory));
+        if (typeof google === 'undefined' || !google.maps.event) return;
+        
+        const event = google.maps.event;
+        
+        overlayListeners.current.push(event.addListener(shape, 'dragend', updateAndRecordHistory));
 
-        if ('getPaths' in shape && typeof (shape as any).getPaths === 'function') { // Polygon
+        if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygon
             const path = (shape as google.maps.Polygon).getPath();
-            overlayListeners.current.push(google.maps.event.addListener(path, 'set_at', updateAndRecordHistory));
-            overlayListeners.current.push(google.maps.event.addListener(path, 'insert_at', updateAndRecordHistory));
-            overlayListeners.current.push(google.maps.event.addListener(path, 'remove_at', updateAndRecordHistory));
+            overlayListeners.current.push(event.addListener(path, 'set_at', updateAndRecordHistory));
+            overlayListeners.current.push(event.addListener(path, 'insert_at', updateAndRecordHistory));
+            overlayListeners.current.push(event.addListener(path, 'remove_at', updateAndRecordHistory));
         } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') { // Circle
-            overlayListeners.current.push(google.maps.event.addListener(shape, 'radius_changed', updateAndRecordHistory));
-            overlayListeners.current.push(google.maps.event.addListener(shape, 'center_changed', updateAndRecordHistory));
+            overlayListeners.current.push(event.addListener(shape, 'radius_changed', updateAndRecordHistory));
+            overlayListeners.current.push(event.addListener(shape, 'center_changed', updateAndRecordHistory));
         } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle
-            overlayListeners.current.push(google.maps.event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
+            overlayListeners.current.push(event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
         }
-    }
-  }, [updateHistory, clearListeners]);
+    }, [updateHistory, clearListeners]);
 
   useEffect(() => {
         const newShapes = new Map<string, google.maps.MVCObject>();
