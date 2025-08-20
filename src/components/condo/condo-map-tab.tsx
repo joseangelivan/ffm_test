@@ -14,7 +14,7 @@ import {
   Building,
   Loader,
 } from 'lucide-react';
-import { useMapsLibrary } from '@vis.gl/react-google-maps';
+import { useMapsLibrary, useMap } from '@vis.gl/react-google-maps';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
