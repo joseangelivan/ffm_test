@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -518,8 +517,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     <>
         <Card>
         <CardHeader>
-            <div className="flex justify-between items-start">
-                <div>
+            <div className="flex justify-between items-start w-full">
+                <div className="text-right">
                     <CardTitle>{t('condoDashboard.map.title')}: {condo.name}</CardTitle>
                     <CardDescription>
                         {condo.address}
@@ -546,7 +545,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             <DrawingManagerComponent onOverlayComplete={onOverlayComplete} drawingManagerRef={drawingManagerRef} />
                             {condoAddressPosition && 
                                 <AdvancedMarker position={condoAddressPosition} title={condo.name}>
-                                    <Building className="h-8 w-8 text-primary drop-shadow-lg" />
+                                    <Building className="h-8 w-8 text-slate-700 drop-shadow-lg" />
                                 </AdvancedMarker>
                             }
                         </MapComponent>
@@ -646,3 +645,5 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
+    
