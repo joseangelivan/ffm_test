@@ -15,7 +15,7 @@ import {
   Redo,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-import { isEqual } from 'lodash';
+import { isEqual, debounce } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
@@ -306,21 +306,23 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
   
     const applyHistoryState = useCallback((geometry: any) => {
-        if (!selectedGeofenceId) return;
+        if (!selectedGeofenceId || !mapRef.current) return;
 
         const currentShape = mapShapes.get(selectedGeofenceId);
-        if (!currentShape) return;
         
         const newShape = createShapeFromGeometry(geometry);
-        if(newShape) {
+        if (!newShape) return;
+        
+        if (currentShape) {
             (currentShape as any).setMap(null);
-            (newShape as any).setOptions({ map: mapRef.current, ...EDIT_COLOR });
-            mapShapes.set(selectedGeofenceId, newShape);
-            setMapShapes(new Map(mapShapes));
         }
 
+        (newShape as any).setMap(mapRef.current);
+        (newShape as any).setOptions(EDIT_COLOR);
+        
+        mapShapes.set(selectedGeofenceId, newShape);
+        setMapShapes(new Map(mapShapes));
     }, [selectedGeofenceId, mapShapes]);
-
 
   useEffect(() => {
         const newShapes = new Map<string, google.maps.MVCObject>();
@@ -360,38 +362,25 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const listeners: google.maps.MapsEventListener[] = [];
         const event = google.maps.event;
         
+        // This is for dragging the whole shape
         listeners.push(event.addListener(shape, 'dragend', recordHistory));
         
+        // This is for editing the shape's geometry (vertices, radius, etc)
+        const debouncedRecordHistory = debounce(recordHistory, 200, { leading: false, trailing: true });
+
         if ('getPath' in shape && typeof (shape as any).getPath === 'function') {
             const path = (shape as google.maps.Polygon).getPath();
-            const debouncedRecordHistory = () => {
-                const mouseUpListener = event.addListenerOnce(map, 'mouseup', () => {
-                    recordHistory();
-                });
-                overlayListeners.current.push(mouseUpListener);
-            };
-
             listeners.push(event.addListener(path, 'set_at', debouncedRecordHistory));
             listeners.push(event.addListener(path, 'insert_at', debouncedRecordHistory));
             listeners.push(event.addListener(path, 'remove_at', debouncedRecordHistory));
         }
 
         if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
-             listeners.push(event.addListener(shape, 'bounds_changed', () => {
-                 const mouseUpListener = event.addListenerOnce(map, 'mouseup', () => {
-                    recordHistory();
-                });
-                overlayListeners.current.push(mouseUpListener);
-             }));
+             listeners.push(event.addListener(shape, 'bounds_changed', debouncedRecordHistory));
         }
 
         if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') {
-             listeners.push(event.addListener(shape, 'radius_changed', () => {
-                 const mouseUpListener = event.addListenerOnce(map, 'mouseup', () => {
-                    recordHistory();
-                });
-                overlayListeners.current.push(mouseUpListener);
-             }));
+             listeners.push(event.addListener(shape, 'radius_changed', debouncedRecordHistory));
         }
         
         overlayListeners.current = listeners;
