@@ -13,7 +13,7 @@ import {
   Trash2,
   Settings,
 } from 'lucide-react';
-import { useMap } from '@vis.gl/react-google-maps';
+import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 import type { GeofenceObject } from '../condo-map-tab';
 import { getGeometryFromShape, createShapeFromGeometry, SAVED_COLOR, DEFAULT_COLOR, EDIT_COLOR } from '../condo-map-tab';
@@ -53,7 +53,6 @@ type GeofenceControlsProps = {
     setCanUndo: React.Dispatch<React.SetStateAction<boolean>>;
     setCanRedo: React.Dispatch<React.SetStateAction<boolean>>;
     clearListeners: () => void;
-    map: google.maps.Map | null;
     drawingMode: DrawingMode;
     setDrawingMode: React.Dispatch<React.SetStateAction<DrawingMode>>;
     isEditingEnabled: boolean;
@@ -85,7 +84,6 @@ export function GeofenceControls({
     setCanUndo,
     setCanRedo,
     clearListeners,
-    map,
     drawingMode,
     setDrawingMode,
     isEditingEnabled,

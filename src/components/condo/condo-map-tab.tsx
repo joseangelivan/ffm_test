@@ -15,6 +15,7 @@ import {
   Building,
   Loader,
 } from 'lucide-react';
+import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,6 @@ import type { Geofence } from '@/actions/maps';
 import { Label } from '@/components/ui/label';
 import { MapSettingsDialog } from './map/map-settings-dialog';
 import { Separator } from '../ui/separator';
-import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 export type GeofenceObject = {
     id: string;
@@ -402,9 +402,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 let colorOptions = isDefault ? DEFAULT_COLOR : VIEW_ALL_COLOR;
                  if (isEditingEnabled) {
                     if (gf.id === selectedGeofenceId) {
-                         colorOptions = isDefault 
+                         colorOptions = gf.id === defaultGeofenceId 
                             ? { ...DEFAULT_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' }
-                            : { ...EDIT_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' };
+                            : { ...SAVED_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' };
                     } else {
                          colorOptions = { ...VIEW_ALL_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' };
                     }
@@ -421,7 +421,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
     // Active editing shape (green) on top
     if (isEditingShape && activeOverlay) {
-        (activeOverlay as any).setOptions({ ...SAVED_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 3, suppressUndo: true });
+        (activeOverlay as any).setOptions({ ...EDIT_COLOR, editable: true, draggable: true, zIndex: 3, suppressUndo: true });
         (activeOverlay as any).setMap(mapRef.current);
         setupListeners(activeOverlay);
     }
@@ -437,34 +437,35 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   useEffect(() => {
     if (!mapRef.current || !drawing) return;
 
-    const newDrawingManager = new drawing.DrawingManager({
-      drawingControl: false,
-      polygonOptions: { ...SAVED_COLOR, editable: true, draggable: true },
-      rectangleOptions: { ...SAVED_COLOR, editable: true, draggable: true },
-      circleOptions: { ...SAVED_COLOR, editable: true, draggable: true },
-    });
-    setDrawingManager(newDrawingManager);
+    if (!drawingManager) {
+        const newDrawingManager = new drawing.DrawingManager({
+          drawingControl: false,
+          polygonOptions: { ...SAVED_COLOR, editable: true, draggable: true },
+          rectangleOptions: { ...SAVED_COLOR, editable: true, draggable: true },
+          circleOptions: { ...SAVED_COLOR, editable: true, draggable: true },
+        });
+        setDrawingManager(newDrawingManager);
 
-    const overlayCompleteListener = google.maps.event.addListener(
-      newDrawingManager,
-      'overlaycomplete',
-      (event: any) => {
-        newDrawingManager.setDrawingMode(null);
-        event.overlay.setMap(null); 
-        
-        setIsDrawing(false);
-        setIsCreating(true);
-        setActiveOverlay(event.overlay);
-        updateHistory(getGeometryFromShape(event.overlay));
-      }
-    );
+        const overlayCompleteListener = google.maps.event.addListener(
+          newDrawingManager,
+          'overlaycomplete',
+          (event: any) => {
+            newDrawingManager.setDrawingMode(null);
+            
+            event.overlay.setMap(null); // Hide it momentarily
+            
+            setIsDrawing(false);
+            setIsCreating(true);
+            setActiveOverlay(event.overlay);
+            updateHistory(getGeometryFromShape(event.overlay));
+          }
+        );
+        return () => {
+            google.maps.event.removeListener(overlayCompleteListener);
+        }
+    }
+  }, [drawing, drawingManager, setActiveOverlay, setIsCreating, setIsDrawing, updateHistory]);
 
-    return () => {
-      google.maps.event.removeListener(overlayCompleteListener);
-      newDrawingManager.setMap(null);
-    };
-  }, [mapRef, drawing, setIsDrawing, setIsCreating, setActiveOverlay, updateHistory]);
-  
   useEffect(() => {
     if (!drawingManager || !mapRef.current) return;
     if (isDrawing) {
@@ -545,11 +546,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             {t('condoDashboard.map.modules.title')}
                         </legend>
                         <div className="flex-1 flex flex-col space-y-4 pt-2">
-                            <Button onClick={centerMapOnAddress} variant="link" size="sm" className="h-auto p-0 text-xs justify-start -mt-1 text-muted-foreground">
-                                <Locate className="mr-1 h-3 w-3"/>
-                                {t('condoDashboard.map.recenterOnAddress')}
-                            </Button>
-                            <div className="px-1 flex items-center gap-2">
+                             <div className="px-1 flex items-center gap-2">
                                 <Select value={activeModule} onValueChange={setActiveModule}>
                                     <SelectTrigger id="module-select" className="text-base font-bold text-primary">
                                         <SelectValue placeholder={t('condoDashboard.map.modules.selectPlaceholder')} />
@@ -583,7 +580,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     setCanUndo={setCanUndo}
                                     setCanRedo={setCanRedo}
                                     clearListeners={clearListeners}
-                                    map={mapRef.current}
                                     drawingMode={drawingMode}
                                     setDrawingMode={setDrawingMode}
                                     isEditingEnabled={isEditingEnabled}
@@ -614,4 +610,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
