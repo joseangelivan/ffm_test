@@ -129,15 +129,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
     const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
     if (geofenceToCenter?.shape) {
-      const center = getCenterOfShape(geofenceToCenter.shape);
-      if (center) map.current.setCenter(center);
-
-      if (level === '1') map.current.setZoom(calculatedZoomLevels.tight);
-      if (level === '2') map.current.setZoom(calculatedZoomLevels.normal);
-      if (level === '3') map.current.setZoom(calculatedZoomLevels.wide);
-      
-      setFitLevel(level);
+        const center = getCenterOfShape(geofenceToCenter.shape);
+        if (center) map.current.setCenter(center);
+        
+        let zoomToSet = calculatedZoomLevels.normal;
+        if (level === '1') zoomToSet = calculatedZoomLevels.tight;
+        if (level === '3') zoomToSet = calculatedZoomLevels.wide;
+        
+        map.current.setZoom(zoomToSet);
     }
+      setFitLevel(level);
   }, [calculatedZoomLevels, geofences, defaultGeofenceId]);
 
   const centerMapOnGeofence = useCallback((level: '1' | '2' | '3', geofence?: GeofenceObject) => {
@@ -166,6 +167,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
               if (level === '3') zoomToSet = zoomLevels.wide;
               
               map.current!.setZoom(zoomToSet);
+              setFitLevel(level);
           }
       });
   }, [geofences, defaultGeofenceId]);
@@ -209,7 +211,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 }
 
                 if(defaultGfObj) {
-                  centerMapOnGeofence(fitLevel, defaultGfObj);
+                  centerMapOnGeofence('2', defaultGfObj);
                 } else {
                   centerMapOnAddress();
                 }
@@ -229,7 +231,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => {
         isMounted = false;
     };
-  }, [condo.id, initialPosition, centerMapOnAddress, centerMapOnGeofence, fitLevel]);
+  }, [condo.id, initialPosition]);
   
   useEffect(() => {
       if (!map.current) return;
