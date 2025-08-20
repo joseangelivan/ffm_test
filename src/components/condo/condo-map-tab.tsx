@@ -310,8 +310,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
   }, []);
   
-    const applyHistoryState = useCallback((geometry: any) => {
-        if (!selectedGeofenceId || !mapRef.current) return;
+  const applyHistoryState = useCallback((geometry: any) => {
+        if (!selectedGeofenceId) return;
 
         const shape = mapShapes.get(selectedGeofenceId);
         if (!shape) return;
@@ -337,13 +337,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         setMapShapes(newShapes);
   }, [dbGeofences]);
     
-    const recordHistory = useCallback(() => {
+  const recordHistory = useCallback(() => {
         const shape = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
         if (!shape) return;
 
         const newGeometry = getGeometryFromShape(shape);
         const lastGeometry = historyRef.current[historyIndexRef.current];
-
+        
         if (isEqual(newGeometry, lastGeometry)) {
             return;
         }
@@ -367,35 +367,30 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
         let vertexChanged = false;
 
-        // For dragging the whole shape
         listeners.push(event.addListener(shape, 'dragend', recordHistory));
 
-        // For editing vertices/radius/bounds
-        const handleVertexChange = () => {
-            vertexChanged = true;
-        };
+        const handleVertexChange = () => { vertexChanged = true; };
 
-        if ('getPath' in shape) { // Polygon
+        if ('getPath' in shape) {
             const path = (shape as google.maps.Polygon).getPath();
             listeners.push(event.addListener(path, 'set_at', handleVertexChange));
             listeners.push(event.addListener(path, 'insert_at', handleVertexChange));
             listeners.push(event.addListener(path, 'remove_at', handleVertexChange));
         }
-        if ('getRadius' in shape) { // Circle
+        if ('getRadius' in shape) {
             listeners.push(event.addListener(shape, 'radius_changed', handleVertexChange));
         }
-        if ('getBounds' in shape) { // Rectangle
+        if ('getBounds' in shape) {
             listeners.push(event.addListener(shape, 'bounds_changed', handleVertexChange));
         }
-
-        // Only record the change on mouse up after a vertex has been modified
+        
         listeners.push(event.addListener(map, 'mouseup', () => {
             if (vertexChanged) {
                 recordHistory();
                 vertexChanged = false;
             }
         }));
-        
+
         overlayListeners.current = listeners;
     };
     
