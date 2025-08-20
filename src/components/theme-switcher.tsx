@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useLocale } from "@/lib/i18n";
-import { AdminDashboardContext } from "./admin-dashboard-client";
+import { AdminDashboardContext } from "@/contexts/admin-dashboard-context";
 import { CondoDashboardContext } from "@/contexts/condo-dashboard-context";
 
 export function ThemeSwitcher() {
