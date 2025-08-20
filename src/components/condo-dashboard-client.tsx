@@ -132,7 +132,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     setTheme(initialSettings.theme);
 
     const geocodeCondoAddress = async () => {
-        setIsLoading(true);
+        let center: Coords;
         if (initialCondo.street && initialCondo.city && initialCondo.state && initialCondo.country) {
             const geoResult = await geocodeAddress({
                 street: initialCondo.street,
@@ -142,15 +142,15 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
             });
 
             if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
-                const { lat, lng } = geoResult.data[0].geometry.location;
-                setMapCenter({ lat, lng });
+                center = geoResult.data[0].geometry.location;
             } else {
                 console.warn("Could not geocode address for map center.", geoResult.message);
-                setMapCenter({ lat: -23.5505, lng: -46.6333 }); // Fallback
+                center = { lat: -23.5505, lng: -46.6333 }; // Fallback
             }
         } else {
-            setMapCenter({ lat: -23.5505, lng: -46.6333 }); // Fallback
+            center = { lat: -23.5505, lng: -46.6333 }; // Fallback
         }
+        setMapCenter(center);
         setIsLoading(false);
     };
 
