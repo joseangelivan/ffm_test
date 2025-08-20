@@ -15,7 +15,7 @@ import {
   Building,
   Loader,
 } from 'lucide-react';
-import { useMap } from '@vis.gl/react-google-maps';
+import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
@@ -424,15 +424,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
     clearListeners();
 
-    if (isDrawing) {
-        // When drawing, no geofences are shown.
-    } else if (isEditing) {
-        // When editing an existing geofence, only show the active overlay.
-    } else if (isCreating && activeOverlay) {
-        // When creating a new geofence, show only the newly drawn shape.
+    if (isEditingShape && activeOverlay) {
         (activeOverlay as any).setOptions({ ...SAVED_COLOR, editable: true, draggable: true, zIndex: 3 });
         (activeOverlay as any).setMap(mapRef.current);
         setupListeners(activeOverlay);
+    } else if (isDrawing) {
+        // When drawing, no geofences are shown.
     } else {
         geofences.forEach(gf => {
             let isVisible = false;
@@ -464,12 +461,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 });
             }
         });
-    }
-  
-    if (isEditing && activeOverlay) {
-        (activeOverlay as any).setOptions({ ...SAVED_COLOR, editable: true, draggable: true, zIndex: 3 });
-        (activeOverlay as any).setMap(mapRef.current);
-        setupListeners(activeOverlay);
     }
   
   }, [activeOverlay, isEditingShape, isDrawing, isEditing, isCreating, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, geofences, isEditingEnabled, showAllGeofences]);
