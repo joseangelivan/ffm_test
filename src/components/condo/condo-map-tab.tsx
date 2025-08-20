@@ -121,25 +121,25 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
 
     if (geofenceToCenter && geofenceToCenter.shape) {
-      const bounds = getBoundsOfShape(geofenceToCenter.shape);
-      if (!bounds) return;
+        const bounds = getBoundsOfShape(geofenceToCenter.shape);
+        if (!bounds) return;
 
-      map.fitBounds(bounds);
-      
-      const zoomAdjustment = parseInt(fitLevel, 10) - 1; // 0, 1, or 2
-      const listener = google.maps.event.addListenerOnce(map, 'idle', () => {
-          const currentZoom = map.getZoom();
-          if(currentZoom) {
-              map.setZoom(currentZoom - zoomAdjustment);
-          }
-      });
+        map.fitBounds(bounds);
+        
+        const zoomAdjustment = parseInt(fitLevel, 10) - 1; // 0, 1, or 2
+        const listener = google.maps.event.addListenerOnce(map, 'idle', () => {
+            const currentZoom = map.getZoom();
+            if(currentZoom) {
+                map.setZoom(currentZoom - zoomAdjustment);
+            }
+        });
 
-      return;
+        return;
     }
     // If no default geofence, just zoom to a default level on the condo address
     map.setCenter(center);
     map.setZoom(15);
-  }, [map, geofences, defaultGeofenceId, center, fitLevel]);
+}, [map, geofences, defaultGeofenceId, fitLevel, center]);
   
   const centerMapOnAddress = useCallback(() => {
     if (!map) return;
@@ -170,16 +170,11 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     fetchGeofences();
   }, [condo.id]);
 
-  // This effect runs once after geofences are loaded to center the map.
   useEffect(() => {
-      if (map && geofences.length > 0) {
-          centerMapOnGeofence();
-      } else if (map) {
-          centerMapOnAddress();
-      }
-      // This should only run once on mount.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map]); // Do not add other dependencies.
+    if (map && geofences.length > 0) {
+      centerMapOnGeofence();
+    }
+  }, [map, centerMapOnGeofence]); // Dependency on the memoized function is correct.
 
   // Zoom level listener
   useEffect(() => {
