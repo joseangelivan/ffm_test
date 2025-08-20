@@ -91,7 +91,14 @@ const getCenterOfShape = (shape: google.maps.MVCObject): google.maps.LatLng | nu
     return bounds ? bounds.getCenter() : null;
 }
 
-// A new component to manage the DrawingManager lifecycle
+interface MapInnerProps {
+  condo: Condominio;
+  initialPosition: { lat: number; lng: number };
+  onMapLoad: (map: google.maps.Map) => void;
+  onOverlayComplete: (event: google.maps.drawing.OverlayCompleteEvent) => void;
+  drawingManagerRef: React.MutableRefObject<google.maps.drawing.DrawingManager | null>;
+}
+
 const DrawingManagerComponent = ({
   onOverlayComplete,
   drawingManagerRef,
@@ -100,9 +107,10 @@ const DrawingManagerComponent = ({
   drawingManagerRef: React.MutableRefObject<google.maps.drawing.DrawingManager | null>;
 }) => {
   const drawingLibrary = useMapsLibrary('drawing');
+  const map = useMap();
 
   useEffect(() => {
-    if (!drawingLibrary) return;
+    if (!drawingLibrary || !map) return;
 
     const newDrawingManager = new drawingLibrary.DrawingManager({
       drawingControl: false,
@@ -112,6 +120,7 @@ const DrawingManagerComponent = ({
     });
 
     drawingManagerRef.current = newDrawingManager;
+    newDrawingManager.setMap(map);
     
     const listener = google.maps.event.addListener(
       newDrawingManager,
@@ -126,10 +135,23 @@ const DrawingManagerComponent = ({
         drawingManagerRef.current = null;
       }
     };
-  }, [drawingLibrary, onOverlayComplete, drawingManagerRef]);
+  }, [drawingLibrary, onOverlayComplete, drawingManagerRef, map]);
 
   return null;
 };
+
+function MapInner({ condo, initialPosition, onMapLoad, onOverlayComplete, drawingManagerRef }: MapInnerProps) {
+  return (
+    <MapComponent onMapLoad={onMapLoad}>
+        <DrawingManagerComponent onOverlayComplete={onOverlayComplete} drawingManagerRef={drawingManagerRef} />
+        {initialPosition && (
+            <AdvancedMarker position={initialPosition} title={condo.name}>
+                <Building className="h-8 w-8 text-slate-700 drop-shadow-lg" />
+            </AdvancedMarker>
+        )}
+    </MapComponent>
+  );
+}
 
 
 export default function CondoMapTab({ condo, initialPosition }: { condo: Condominio, initialPosition: { lat: number; lng: number } }) {
@@ -360,7 +382,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   // Activate/Deactivate DrawingManager
   useEffect(() => {
     if (drawingManagerRef.current && mapRef.current) {
-        drawingManagerRef.current.setMap(mapRef.current);
         if (isDrawing) {
             drawingManagerRef.current.setDrawingMode(drawingMode as any);
         } else {
@@ -516,113 +537,121 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   return (
     <>
         <Card>
-        <CardHeader>
-            <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-            <CardDescription>{t('condoDashboard.map.description')}</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-            <div className="flex h-[70vh]">
-                <div ref={mapContainerRef} className="flex-1 relative w-2/3 p-1">
-                     <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
-                        {isLoading && (
-                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                    <Loader className="h-5 w-5 animate-spin" />
-                                    <span>{t('condoDashboard.map.loadingMap')}</span>
+            <CardHeader>
+                <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
+                <CardDescription>{t('condoDashboard.map.description')}</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+                <div className="flex h-[70vh]">
+                    <div ref={mapContainerRef} className="flex-1 relative w-2/3 p-1">
+                        <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
+                            {isLoading && (
+                                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Loader className="h-5 w-5 animate-spin" />
+                                        <span>{t('condoDashboard.map.loadingMap')}</span>
+                                    </div>
                                 </div>
+                            )}
+                            <MapInner 
+                                condo={condo}
+                                initialPosition={initialPosition}
+                                onMapLoad={handleMapLoad}
+                                onOverlayComplete={onOverlayComplete}
+                                drawingManagerRef={drawingManagerRef}
+                            />
+                        </div>
+                        <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
+                            <Button onClick={handleZoomIn} variant="ghost" size="icon" title="Zoom In">
+                                <ZoomIn className="h-5 w-5" />
+                            </Button>
+                            <span className="text-xs font-bold w-6 text-center select-none">{zoomLevel}</span>
+                            <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
+                                <ZoomOut className="h-5 w-5" />
+                            </Button>
+                            <Button onClick={() => applyZoomLevel(fitLevel)} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')} disabled={!defaultGeofenceId}>
+                                <Frame className="h-5 w-5" />
+                            </Button>
+                        </div>
+                        {isEditingShape && (canUndo || canRedo) && (
+                            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex gap-1 backdrop-blur-sm">
+                                <Button onClick={handleUndo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
+                                    <Undo className="h-4 w-4"/>
+                                    {t('condoDashboard.map.undo')}
+                                </Button>
+                                <Button onClick={handleRedo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canRedo}>
+                                    <Redo className="h-4 w-4"/>
+                                    {t('condoDashboard.map.redo')}
+                                </Button>
                             </div>
                         )}
-                        <MapComponent onMapLoad={handleMapLoad}>
-                            <DrawingManagerComponent onOverlayComplete={onOverlayComplete} drawingManagerRef={drawingManagerRef} />
-                            {condoAddressPosition && 
-                                <AdvancedMarker position={condoAddressPosition} title={condo.name}>
-                                    <Building className="h-8 w-8 text-slate-700 drop-shadow-lg" />
-                                </AdvancedMarker>
-                            }
-                        </MapComponent>
                     </div>
-                     <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
-                        <Button onClick={handleZoomIn} variant="ghost" size="icon" title="Zoom In">
-                            <ZoomIn className="h-5 w-5" />
-                        </Button>
-                        <span className="text-xs font-bold w-6 text-center select-none">{zoomLevel}</span>
-                        <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
-                            <ZoomOut className="h-5 w-5" />
-                        </Button>
-                        <Button onClick={() => applyZoomLevel(fitLevel)} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')} disabled={!defaultGeofenceId}>
-                            <Frame className="h-5 w-5" />
-                        </Button>
-                    </div>
-                    {isEditingShape && (canUndo || canRedo) && (
-                        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex gap-1 backdrop-blur-sm">
-                            <Button onClick={handleUndo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
-                                <Undo className="h-4 w-4"/>
-                                {t('condoDashboard.map.undo')}
-                            </Button>
-                            <Button onClick={handleRedo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canRedo}>
-                                <Redo className="h-4 w-4"/>
-                                {t('condoDashboard.map.redo')}
-                            </Button>
-                        </div>
-                    )}
-                </div>
-                <div className="w-1/3 p-1 flex flex-col">
-                    <fieldset className="border rounded-md p-4 pt-2 flex-grow flex flex-col">
-                        <legend className="text-lg font-semibold tracking-tight px-2 -ml-2">
-                            {t('condoDashboard.map.modules.title')}
-                        </legend>
-                        <div className="flex-1 flex flex-col space-y-4 pt-2">
-                             <div className="px-1 flex items-center gap-2">
-                                <Select value={activeModule} onValueChange={setActiveModule}>
-                                    <SelectTrigger id="module-select" className="text-base font-bold text-primary">
-                                        <SelectValue placeholder={t('condoDashboard.map.modules.selectPlaceholder')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="geofence">{t('condoDashboard.map.modules.geofence')}</SelectItem>
-                                        <SelectItem value="elements">{t('condoDashboard.map.modules.elements')}</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                    <div className="w-1/3 p-1 flex flex-col">
+                         <fieldset className="border rounded-md p-4 pt-2 flex-grow flex flex-col">
+                            <legend className="text-lg font-semibold tracking-tight px-2 -ml-2">
+                                {t('condoDashboard.map.modules.title')}
+                            </legend>
+                            <div className="flex-1 flex flex-col space-y-4 pt-2">
+                                <div className="text-right space-y-1">
+                                    <h3 className="font-semibold">{condo.name}</h3>
+                                    <p className="text-xs text-muted-foreground">{condo.address}</p>
+                                     <Button onClick={centerMapOnAddress} variant="link" size="sm" className="p-0 h-auto">
+                                        <Locate className="h-3 w-3 mr-1" />
+                                        {t('condoDashboard.map.recenterOnAddress')}
+                                    </Button>
+                                </div>
+                                <Separator />
+                                <div className="px-1 flex items-center gap-2">
+                                    <Select value={activeModule} onValueChange={setActiveModule}>
+                                        <SelectTrigger id="module-select" className="text-base font-bold text-primary">
+                                            <SelectValue placeholder={t('condoDashboard.map.modules.selectPlaceholder')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="geofence">{t('condoDashboard.map.modules.geofence')}</SelectItem>
+                                            <SelectItem value="elements">{t('condoDashboard.map.modules.elements')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                {activeModule === 'geofence' && (
+                                    <GeofenceControls
+                                        condoId={condo.id}
+                                        geofences={geofences}
+                                        onDataNeedsRefresh={onDataNeedsRefresh}
+                                        selectedGeofenceId={selectedGeofenceId}
+                                        setSelectedGeofenceId={setSelectedGeofenceId}
+                                        defaultGeofenceId={defaultGeofenceId}
+                                        setDefaultGeofenceId={setDefaultGeofenceId}
+                                        isDrawing={isDrawing}
+                                        setIsDrawing={setIsDrawing}
+                                        isEditing={isEditing}
+                                        setIsEditing={setIsEditing}
+                                        isCreating={isCreating}
+                                        setIsCreating={setIsCreating}
+                                        activeOverlay={activeOverlay}
+                                        setActiveOverlay={setActiveOverlay}
+                                        updateHistory={updateHistory}
+                                        historyRef={historyRef}
+                                        historyIndexRef={historyIndexRef}
+                                        setCanUndo={setCanUndo}
+                                        setCanRedo={setCanRedo}
+                                        clearListeners={clearListeners}
+                                        drawingMode={drawingMode}
+                                        setDrawingMode={setDrawingMode}
+                                        isEditingEnabled={isEditingEnabled}
+                                        setIsEditingEnabled={setIsEditingEnabled}
+                                        showAllGeofences={showAllGeofences}
+                                        setShowAllGeofences={setShowAllGeofences}
+                                        onSettingsClick={() => setIsMapSettingsOpen(true)}
+                                    />
+                                )}
+                                {activeModule === 'elements' && (
+                                <ElementsControls condoId={condo.id} />
+                                )}
                             </div>
-                            {activeModule === 'geofence' && (
-                                <GeofenceControls
-                                    condoId={condo.id}
-                                    geofences={geofences}
-                                    onDataNeedsRefresh={onDataNeedsRefresh}
-                                    selectedGeofenceId={selectedGeofenceId}
-                                    setSelectedGeofenceId={setSelectedGeofenceId}
-                                    defaultGeofenceId={defaultGeofenceId}
-                                    setDefaultGeofenceId={setDefaultGeofenceId}
-                                    isDrawing={isDrawing}
-                                    setIsDrawing={setIsDrawing}
-                                    isEditing={isEditing}
-                                    setIsEditing={setIsEditing}
-                                    isCreating={isCreating}
-                                    setIsCreating={setIsCreating}
-                                    activeOverlay={activeOverlay}
-                                    setActiveOverlay={setActiveOverlay}
-                                    updateHistory={updateHistory}
-                                    historyRef={historyRef}
-                                    historyIndexRef={historyIndexRef}
-                                    setCanUndo={setCanUndo}
-                                    setCanRedo={setCanRedo}
-                                    clearListeners={clearListeners}
-                                    drawingMode={drawingMode}
-                                    setDrawingMode={setDrawingMode}
-                                    isEditingEnabled={isEditingEnabled}
-                                    setIsEditingEnabled={setIsEditingEnabled}
-                                    showAllGeofences={showAllGeofences}
-                                    setShowAllGeofences={setShowAllGeofences}
-                                    onSettingsClick={() => setIsMapSettingsOpen(true)}
-                                />
-                            )}
-                            {activeModule === 'elements' && (
-                            <ElementsControls condoId={condo.id} />
-                            )}
-                        </div>
-                    </fieldset>
+                        </fieldset>
+                    </div>
                 </div>
-            </div>
-        </CardContent>
+            </CardContent>
         </Card>
         <MapSettingsDialog
             isOpen={isMapSettingsOpen}
