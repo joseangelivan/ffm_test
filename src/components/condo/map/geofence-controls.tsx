@@ -55,6 +55,9 @@ const GeofenceDrawingManager = ({
         newDrawingManager.setMap(map);
 
         const listener = (event: any) => {
+            // Force draggable and editable to true, as it might be reset by the library
+            event.overlay.setDraggable(true);
+            event.overlay.setEditable(true);
             onOverlayComplete(event.overlay);
             newDrawingManager.setDrawingMode(null);
         };
@@ -397,6 +400,7 @@ export function GeofenceControls({
 }
 
 GeofenceControls.DrawingManager = GeofenceDrawingManager;
+
 
 
 
