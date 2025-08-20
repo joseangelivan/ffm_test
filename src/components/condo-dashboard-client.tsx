@@ -25,18 +25,18 @@ import {
     AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
-import { getCondominioById, type Condominio } from '@/actions/condos';
+import { type Condominio } from '@/actions/condos';
 
 import ManageUsersTab from './condo/manage-users-tab';
 import ManageDevicesTab from './condo/manage-devices-tab';
 import CondoMapTab from './condo/condo-map-tab';
 import { AdminHeader } from './admin/admin-header';
-import { getDevicesByCondoId, type Device } from '@/actions/devices';
+import { type Device } from '@/actions/devices';
 import { cn } from '@/lib/utils';
 import type { SessionPayload } from '@/lib/session';
 import { handleLogoutAction } from '@/lib/session';
 import type { UserSettings } from '@/actions/admin';
-import { getActiveTheme, updateSettings, getSettings } from '@/actions/admin';
+import { getActiveTheme, updateSettings } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 
@@ -54,9 +54,6 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const router = useRouter();
 
-  const [condo, setCondo] = useState<Condominio>(initialCondo);
-  const [devices, setDevices] = useState<Device[]>(initialDevices);
-  
   const [activeTab, setActiveTab] = useState('map');
   const [theme, setTheme] = useState(initialSettings.theme);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
@@ -116,13 +113,10 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
       router.refresh();
     }
   }, [router]);
-
-  const onDataNeedsRefresh = useCallback(async () => {
-    if (condo?.id) {
-        const devicesResult = await getDevicesByCondoId(condo.id);
-        setDevices(devicesResult);
-    }
-  }, [condo?.id]);
+  
+  const onDataNeedsRefresh = useCallback(() => {
+    router.refresh();
+  }, [router]);
 
   useEffect(() => {
     setLocale(initialSettings.language);
@@ -138,7 +132,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     handleSetLocale,
     handleSetTheme,
     theme,
-    condo,
+    condo: initialCondo,
   };
 
   return (
@@ -146,7 +140,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
       <div className="flex min-h-screen w-full flex-col bg-muted/40">
         <AdminHeader 
             session={session}
-            condoName={condo.name}
+            condoName={initialCondo.name}
             onAccountUpdateSuccess={handleAccountUpdateSuccess}
             onLogout={handleLogoutAction}
         />
@@ -167,15 +161,15 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
               </TabsList>
               <div className="mt-4">
                   <TabsContent value="users" forceMount className={cn(activeTab !== 'users' && 'hidden')}>
-                      <ManageUsersTab condoId={condo.id} />
+                      <ManageUsersTab condoId={initialCondo.id} />
                   </TabsContent>
                   <TabsContent value="devices" forceMount className={cn(activeTab !== 'devices' && 'hidden')}>
-                      <ManageDevicesTab condoId={condo.id} devices={devices} onDataNeedsRefresh={onDataNeedsRefresh} />
+                      <ManageDevicesTab condoId={initialCondo.id} devices={initialDevices} onDataNeedsRefresh={onDataNeedsRefresh} />
                   </TabsContent>
                   <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
                       {apiKey ? (
                           <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']}>
-                            <CondoMapTab condo={condo} initialPosition={initialPosition} />
+                            <CondoMapTab condo={initialCondo} initialPosition={initialPosition} />
                           </APIProvider>
                       ) : (
                       <Card>
