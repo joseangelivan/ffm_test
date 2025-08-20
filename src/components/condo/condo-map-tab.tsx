@@ -299,7 +299,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
   
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
-  const isShapeBeingDragged = useRef(false);
 
   const clearListeners = useCallback(() => {
     overlayListeners.current.forEach(l => l.remove());
@@ -368,39 +367,31 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
         let vertexChanged = false;
 
-        const recordChange = () => {
-            const newGeometry = getGeometryFromShape(shape);
-            const lastGeometry = historyRef.current[historyIndexRef.current];
-            if (!isEqual(newGeometry, lastGeometry)) {
-                recordHistory();
-            }
-        };
-
         // For dragging the whole shape
-        listeners.push(event.addListener(shape, 'dragend', recordChange));
+        listeners.push(event.addListener(shape, 'dragend', recordHistory));
 
         // For editing vertices/radius/bounds
         const handleVertexChange = () => {
             vertexChanged = true;
         };
 
-        if ('getPath' in shape) {
+        if ('getPath' in shape) { // Polygon
             const path = (shape as google.maps.Polygon).getPath();
             listeners.push(event.addListener(path, 'set_at', handleVertexChange));
             listeners.push(event.addListener(path, 'insert_at', handleVertexChange));
             listeners.push(event.addListener(path, 'remove_at', handleVertexChange));
         }
-        if ('getRadius' in shape) {
+        if ('getRadius' in shape) { // Circle
             listeners.push(event.addListener(shape, 'radius_changed', handleVertexChange));
         }
-        if ('getBounds' in shape) {
+        if ('getBounds' in shape) { // Rectangle
             listeners.push(event.addListener(shape, 'bounds_changed', handleVertexChange));
         }
 
         // Only record the change on mouse up after a vertex has been modified
         listeners.push(event.addListener(map, 'mouseup', () => {
             if (vertexChanged) {
-                recordChange();
+                recordHistory();
                 vertexChanged = false;
             }
         }));
