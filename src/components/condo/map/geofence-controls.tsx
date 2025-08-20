@@ -16,7 +16,7 @@ import {
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 
 import type { GeofenceObject } from '../condo-map-tab';
-import { getGeometryFromShape, createShapeFromGeometry, SAVED_COLOR, DEFAULT_COLOR } from '../condo-map-tab';
+import { getGeometryFromShape, createShapeFromGeometry, SAVED_COLOR, DEFAULT_COLOR, EDIT_COLOR } from '../condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 
 import { Button } from '@/components/ui/button';
@@ -47,9 +47,9 @@ const GeofenceDrawingManager = ({
         const newDrawingManager = new drawing.DrawingManager({
             drawingMode: drawing.OverlayType[drawingMode.toUpperCase() as keyof typeof google.maps.drawing.OverlayType],
             drawingControl: false,
-            polygonOptions: { ...SAVED_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, draggable: true, zIndex: 1, suppressUndo: true },
-            rectangleOptions: { ...SAVED_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, draggable: true, zIndex: 1, suppressUndo: true },
-            circleOptions: { ...SAVED_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, draggable: true, zIndex: 1, suppressUndo: true },
+            polygonOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, draggable: true, zIndex: 1, suppressUndo: true },
+            rectangleOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, draggable: true, zIndex: 1, suppressUndo: true },
+            circleOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, draggable: true, zIndex: 1, suppressUndo: true },
         });
         
         newDrawingManager.setMap(map);
@@ -397,6 +397,7 @@ export function GeofenceControls({
 }
 
 GeofenceControls.DrawingManager = GeofenceDrawingManager;
+
 
 
 
