@@ -38,12 +38,8 @@ type GeofenceControlsProps = {
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
     defaultGeofenceId: string | null;
     setDefaultGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
-    isDrawing: boolean;
-    setIsDrawing: React.Dispatch<React.SetStateAction<boolean>>;
-    isEditing: boolean;
-    setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
-    isCreating: boolean;
-    setIsCreating: React.Dispatch<React.SetStateAction<boolean>>;
+    mode: 'view' | 'editing' | 'drawing';
+    setMode: React.Dispatch<React.SetStateAction<'view' | 'editing' | 'drawing'>>;
     activeOverlay: google.maps.MVCObject | null;
     setActiveOverlay: React.Dispatch<React.SetStateAction<google.maps.MVCObject | null>>;
     updateHistory: (geometry: any) => void;
@@ -69,12 +65,8 @@ export function GeofenceControls({
     setSelectedGeofenceId,
     defaultGeofenceId,
     setDefaultGeofenceId,
-    isDrawing,
-    setIsDrawing,
-    isEditing,
-    setIsEditing,
-    isCreating,
-    setIsCreating,
+    mode,
+    setMode,
     activeOverlay,
     setActiveOverlay,
     updateHistory,
@@ -95,33 +87,29 @@ export function GeofenceControls({
     const { toast } = useToast();
 
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
+    const [isCreatingNew, setIsCreatingNew] = useState(false);
 
-    const isActionActive = isDrawing || isEditing || isCreating;
-    const isEditingShape = isEditing || isCreating;
+    const isActionActive = mode === 'editing' || mode === 'drawing';
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
     const resetActionStates = useCallback(() => {
-        if (activeOverlay) {
-            // @ts-ignore
-            activeOverlay.setMap(null);
-        }
-        setIsDrawing(false);
-        setIsEditing(false);
-        setIsCreating(false);
+        setMode('view');
         setActiveOverlay(null);
         historyRef.current = [];
         historyIndexRef.current = -1;
         setCanUndo(false);
         setCanRedo(false);
         clearListeners();
-    }, [activeOverlay, clearListeners, historyIndexRef, historyRef, setActiveOverlay, setCanRedo, setCanUndo, setIsCreating, setIsDrawing, setIsEditing]);
+        setIsCreatingNew(false);
+    }, [setActiveOverlay, setMode, historyRef, historyIndexRef, setCanUndo, setCanRedo, clearListeners]);
 
     const handleToggleDrawing = () => {
         if(isActionActive) {
             resetActionStates();
         } else {
             resetActionStates();
-            setIsDrawing(true);
+            setIsCreatingNew(true);
+            setMode('drawing');
         }
     }
 
@@ -140,7 +128,7 @@ export function GeofenceControls({
         }
         
         resetActionStates();
-        setIsEditing(true);
+        setMode('editing');
         setActiveOverlay(shape);
         setCurrentGeofenceName(geofenceToEdit.name);
         updateHistory(geometry);
@@ -153,7 +141,7 @@ export function GeofenceControls({
         const result = await deleteGeofence(idToDelete);
         
         if (result && result.success) {
-            if (isEditing || isCreating) resetActionStates();
+            resetActionStates();
             toast({ title: t('toast.successTitle'), description: t('condoDashboard.map.toast.geofenceDeleted')});
             onDataNeedsRefresh();
 
@@ -192,20 +180,20 @@ export function GeofenceControls({
         }
         
         let result: { success: boolean; message: string; data?: any; } | null = null;
-        if (isCreating) {
+        if (isCreatingNew) {
             result = await createGeofence({
                 condoId,
                 name: currentGeofenceName,
                 geometry: geometryToSave,
                 isDefault: geofences.length === 0,
             });
-        } else if (isEditing && selectedGeofenceId) {
+        } else if (selectedGeofenceId) {
             result = await updateGeofence(selectedGeofenceId, { name: currentGeofenceName, geometry: geometryToSave });
         }
 
         if (result?.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
-            const newSelectedId = isCreating ? result.data?.id : selectedGeofenceId;
+            const newSelectedId = isCreatingNew ? result.data?.id : selectedGeofenceId;
             onDataNeedsRefresh(newSelectedId);
             resetActionStates();
         } else if (result) {
@@ -214,10 +202,10 @@ export function GeofenceControls({
     };
     
     useEffect(() => {
-        if(isCreating) {
+        if(isCreatingNew && mode === 'editing') {
             setCurrentGeofenceName(getNextGeofenceName());
         }
-    }, [isCreating, getNextGeofenceName, t, geofences]);
+    }, [isCreatingNew, mode, getNextGeofenceName, t, geofences]);
 
 
     const handleSetAsDefault = async () => {
@@ -280,7 +268,7 @@ export function GeofenceControls({
                 <fieldset disabled={!isEditingEnabled} className="space-y-4">
                         <div className="flex items-center gap-2">
                             <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive}>
-                                <SelectTrigger className={cn("flex-1", isEditingShape && "text-[#2980b9] border-[#2980b9] font-bold")}>
+                                <SelectTrigger className={cn("flex-1", mode === 'editing' && "text-[#2980b9] border-[#2980b9] font-bold")}>
                                     <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -334,7 +322,7 @@ export function GeofenceControls({
                         </DropdownMenu>
                     </div>
                     
-                        {isEditingShape && (
+                        {mode === 'editing' && (
                             <div className='space-y-4'>
                                 <div className="space-y-2">
                                     <Label htmlFor="geofence-name">{t('adminDashboard.newCondoDialog.nameLabel')}</Label>
@@ -346,7 +334,7 @@ export function GeofenceControls({
                                     />
                                 </div>
                                 <Button onClick={handleSaveGeofence} className="w-full">
-                                    <Save className="mr-2 h-4 w-4" /> {isCreating ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
+                                    <Save className="mr-2 h-4 w-4" /> {isCreatingNew ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
                                 </Button>
                             </div>
                     )}
