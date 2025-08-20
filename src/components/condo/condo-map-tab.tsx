@@ -91,6 +91,7 @@ const getCenterOfShape = (shape: google.maps.MVCObject): google.maps.LatLng | nu
 export default function CondoMapTab({ condo, initialPosition }: { condo: Condominio, initialPosition: { lat: number; lng: number } }) {
   const { t } = useLocale();
   const mapRef = useRef<google.maps.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
   
   const [geofences, setGeofences] = useState<GeofenceObject[]>([]);
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
@@ -122,6 +123,58 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
 
   const isEditingShape = isEditing || isCreating;
+  
+   const recalculateZoomLevels = useCallback(() => {
+    if (typeof window === 'undefined' || !mapContainerRef.current) return;
+    
+    const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
+    if (!geofenceToCenter?.shape) return;
+
+    const bounds = getBoundsOfShape(geofenceToCenter.shape);
+    if (!bounds) return;
+
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.visibility = 'hidden';
+    tempDiv.style.width = `${mapContainerRef.current.clientWidth}px`;
+    tempDiv.style.height = `${mapContainerRef.current.clientHeight}px`;
+    document.body.appendChild(tempDiv);
+    
+    const tempMap = new google.maps.Map(tempDiv, {
+        center: bounds.getCenter(),
+        zoom: 1,
+        disableDefaultUI: true,
+    });
+    
+    tempMap.fitBounds(bounds, 0);
+
+    const maxZoom = tempMap.getZoom();
+    
+    if (maxZoom !== undefined) {
+        setCalculatedZoomLevels({
+            tight: maxZoom,
+            normal: maxZoom > 1 ? maxZoom - 1 : maxZoom,
+            wide: maxZoom > 2 ? maxZoom - 2 : maxZoom,
+        });
+    }
+
+    // Clean up temporary map
+    tempDiv.remove();
+  }, [geofences, defaultGeofenceId]);
+  
+  const centerMapOnGeofence = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    
+    const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
+    if (!geofenceToCenter?.shape) return;
+
+    const bounds = getBoundsOfShape(geofenceToCenter.shape);
+    if (!bounds) return;
+    
+    map.fitBounds(bounds);
+    
+  }, [geofences, defaultGeofenceId]);
   
   const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
     const map = mapRef.current;
@@ -180,7 +233,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 return;
             }
 
-            map.fitBounds(bounds, 0); // This is key: Fit to bounds to get the max zoom
+            map.fitBounds(bounds, 0);
             const maxZoom = map.getZoom();
 
             if (maxZoom !== undefined) {
@@ -191,7 +244,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 };
                 setCalculatedZoomLevels(zoomLevels);
                 
-                // Now apply the "normal" zoom level for the initial view
                 const center = getCenterOfShape(geofenceToCenter.shape);
                 if (center) map.setCenter(center);
                 map.setZoom(zoomLevels.normal);
@@ -226,6 +278,20 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         zoomListener.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      recalculateZoomLevels();
+    });
+
+    resizeObserver.observe(mapContainerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [recalculateZoomLevels]);
   
 
   const updateHistory = useCallback((geometry: any) => {
@@ -379,7 +445,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         </CardHeader>
         <CardContent className="p-0">
             <div className="flex h-[70vh]">
-                <div className="flex-1 relative w-2/3 p-1">
+                <div ref={mapContainerRef} className="flex-1 relative w-2/3 p-1">
                      <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
                         {isLoading && (
                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
@@ -517,3 +583,5 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
+    
