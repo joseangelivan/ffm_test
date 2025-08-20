@@ -184,12 +184,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const handleMapLoad = useCallback(async (map: google.maps.Map) => {
     mapRef.current = map;
-    let isMounted = true;
     setIsLoading(true);
 
     try {
         const dbGeofences = await getGeofencesByCondoId(condo.id);
-        if (!isMounted) return;
 
         if (dbGeofences && dbGeofences.length > 0) {
             const gfObjects = dbGeofences.map(dbGf => ({
@@ -215,8 +213,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         console.error("Failed to initialize map:", error);
         centerMapOnAddress();
     } finally {
-        if (isMounted) setIsLoading(false);
+        setIsLoading(false);
     }
+  }, [condo.id, initialPosition, centerMapOnAddress, centerMapOnGeofence]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const container = mapContainerRef.current;
+    if (!map || !container) return;
 
     const zoomListener = map.addListener('zoom_changed', () => {
       const currentZoom = map.getZoom();
@@ -225,24 +229,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       }
     });
 
-    // Resize observer
-    let resizeObserver: ResizeObserver | null = null;
-    if (mapContainerRef.current) {
-        resizeObserver = new ResizeObserver(() => {
-             centerMapOnGeofence(fitLevel);
-        });
-        resizeObserver.observe(mapContainerRef.current);
-    }
-
+    const resizeObserver = new ResizeObserver(() => {
+        centerMapOnGeofence(fitLevel);
+    });
+    resizeObserver.observe(container);
 
     return () => {
-        isMounted = false;
-        if(zoomListener) zoomListener.remove();
-        if (resizeObserver && mapContainerRef.current) {
-            resizeObserver.unobserve(mapContainerRef.current);
-        }
+        zoomListener.remove();
+        resizeObserver.disconnect();
     };
-  }, [condo.id, initialPosition]);
+  }, [fitLevel, centerMapOnGeofence]);
   
 
   const updateHistory = useCallback((geometry: any) => {
