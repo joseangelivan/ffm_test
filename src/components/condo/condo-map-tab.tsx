@@ -15,7 +15,7 @@ import {
   Redo,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-import { isEqual, debounce } from 'lodash';
+import { isEqual } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
@@ -42,14 +42,16 @@ export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any |
     if (!shape) return null;
     
     if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') {
-        return { type: 'circle', center: (shape as google.maps.Circle).getCenter()?.toJSON(), radius: (shape as google.maps.Circle).getRadius() };
+        const circle = shape as google.maps.Circle;
+        return { type: 'circle', center: circle.getCenter()?.toJSON(), radius: circle.getRadius() };
     }
     if ('getPath' in shape && typeof (shape as any).getPath === 'function') {
         const path = (shape as google.maps.Polygon).getPath();
-        return { type: 'polygon', paths: path.getArray().map((latLng: google.maps.LatLng) => ({ lat: latLng.lat(), lng: latLng.lng() })) };
+        return { type: 'polygon', paths: path.getArray().map((latLng: google.maps.LatLng) => latLng.toJSON()) };
     }
     if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
-        return { type: 'rectangle', bounds: (shape as google.maps.Rectangle).getBounds()?.toJSON() };
+        const rectangle = shape as google.maps.Rectangle;
+        return { type: 'rectangle', bounds: rectangle.getBounds()?.toJSON() };
     }
     
     return null;
@@ -72,7 +74,10 @@ export const createShapeFromGeometry = (geometry: any): google.maps.MVCObject | 
 
 const getBoundsOfShape = (shape: google.maps.MVCObject | null): google.maps.LatLngBounds | null => {
     if (!shape) return null;
-    if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') return (shape as google.maps.Rectangle | google.maps.Circle).getBounds();
+    if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
+        const bounds = (shape as any).getBounds();
+        return bounds ? new google.maps.LatLngBounds(bounds) : null;
+    }
     if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygons have getPath()
         const bounds = new google.maps.LatLngBounds();
         (shape as google.maps.Polygon).getPath().forEach((latlng: google.maps.LatLng) => bounds.extend(latlng));
@@ -308,20 +313,17 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const applyHistoryState = useCallback((geometry: any) => {
         if (!selectedGeofenceId || !mapRef.current) return;
 
-        const currentShape = mapShapes.get(selectedGeofenceId);
+        const shape = mapShapes.get(selectedGeofenceId);
+        if (!shape) return;
         
-        const newShape = createShapeFromGeometry(geometry);
-        if (!newShape) return;
-        
-        if (currentShape) {
-            (currentShape as any).setMap(null);
+        if (geometry.type === 'polygon' && 'setPath' in shape) {
+            (shape as google.maps.Polygon).setPath(geometry.paths);
+        } else if (geometry.type === 'rectangle' && 'setBounds' in shape) {
+            (shape as google.maps.Rectangle).setBounds(geometry.bounds);
+        } else if (geometry.type === 'circle' && 'setCenter' in shape && 'setRadius' in shape) {
+            (shape as google.maps.Circle).setCenter(geometry.center);
+            (shape as google.maps.Circle).setRadius(geometry.radius);
         }
-
-        (newShape as any).setMap(mapRef.current);
-        (newShape as any).setOptions(EDIT_COLOR);
-        
-        mapShapes.set(selectedGeofenceId, newShape);
-        setMapShapes(new Map(mapShapes));
     }, [selectedGeofenceId, mapShapes]);
 
   useEffect(() => {
@@ -334,54 +336,60 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
         setMapShapes(newShapes);
   }, [dbGeofences]);
+    
+    const recordHistory = useCallback(() => {
+        const shape = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
+        if (!shape) return;
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || isLoading) return;
-
-    const recordHistory = () => {
-        const shapeToUpdate = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
-        if (!shapeToUpdate) return;
-
-        const newGeometry = getGeometryFromShape(shapeToUpdate);
+        const newGeometry = getGeometryFromShape(shape);
         const lastGeometry = historyRef.current[historyIndexRef.current];
-        
+
         if (isEqual(newGeometry, lastGeometry)) {
             return;
         }
-        
+
         const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
         newHistory.push(newGeometry);
         historyRef.current = newHistory;
         historyIndexRef.current = newHistory.length - 1;
         updateHistoryButtons();
-    };
+    }, [selectedGeofenceId, mapShapes, updateHistoryButtons]);
+
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || isLoading) return;
 
     const setupListeners = (shape: google.maps.MVCObject) => {
         clearListeners();
         const listeners: google.maps.MapsEventListener[] = [];
         const event = google.maps.event;
-        
-        // This is for dragging the whole shape
-        listeners.push(event.addListener(shape, 'dragend', recordHistory));
-        
-        // This is for editing the shape's geometry (vertices, radius, etc)
-        const debouncedRecordHistory = debounce(recordHistory, 200, { leading: false, trailing: true });
 
-        if ('getPath' in shape && typeof (shape as any).getPath === 'function') {
+        let isDraggingVertex = false;
+
+        listeners.push(event.addListener(shape, 'dragend', () => recordHistory()));
+        
+        if ('getPath' in shape) {
             const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(event.addListener(path, 'set_at', debouncedRecordHistory));
-            listeners.push(event.addListener(path, 'insert_at', debouncedRecordHistory));
-            listeners.push(event.addListener(path, 'remove_at', debouncedRecordHistory));
+            listeners.push(event.addListener(path, 'insert_at', () => recordHistory()));
+            listeners.push(event.addListener(path, 'remove_at', () => recordHistory()));
+            
+            listeners.push(event.addListener(path, 'set_at', () => { isDraggingVertex = true; }));
         }
 
-        if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
-             listeners.push(event.addListener(shape, 'bounds_changed', debouncedRecordHistory));
+        if ('getBounds' in shape) {
+            listeners.push(event.addListener(shape, 'bounds_changed', () => { isDraggingVertex = true; }));
         }
-
-        if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') {
-             listeners.push(event.addListener(shape, 'radius_changed', debouncedRecordHistory));
+        if ('getRadius' in shape) {
+            listeners.push(event.addListener(shape, 'radius_changed', () => { isDraggingVertex = true; }));
         }
+        
+        listeners.push(event.addListener(map, 'mouseup', () => {
+            if (isDraggingVertex) {
+                recordHistory();
+                isDraggingVertex = false;
+            }
+        }));
         
         overlayListeners.current = listeners;
     };
@@ -425,7 +433,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
   }, [
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-      mapShapes, clearListeners, isEditingEnabled, isLoading, updateHistoryButtons
+      mapShapes, clearListeners, isEditingEnabled, isLoading, recordHistory
   ]);
 
   useEffect(() => {
@@ -585,6 +593,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     historyRef={historyRef}
                                     historyIndexRef={historyIndexRef}
                                     updateHistoryButtons={updateHistoryButtons}
+                                    recordHistory={recordHistory}
                                 />
                             )}
                             {selectedModule === 'elements' && (
