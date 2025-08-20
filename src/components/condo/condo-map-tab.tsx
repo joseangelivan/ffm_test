@@ -375,7 +375,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
         if (selectedGeofence && selectedGeofence.shape) {
              (selectedGeofence.shape as any).setOptions({ 
-                ...(selectedGeofence.id === defaultGeofenceId ? DEFAULT_COLOR : SAVED_COLOR),
+                ...(selectedGeofence.id === defaultGeofenceId ? DEFAULT_COLOR : EDIT_COLOR),
                 fillOpacity: 0.1, 
                 strokeWeight: 1, 
                 zIndex: 1, 
@@ -428,14 +428,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 <div>
                     <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
                     <CardDescription>{t('condoDashboard.map.description')}</CardDescription>
-                </div>
-                 <div className="text-right">
-                    <p className="text-sm font-medium">{condo.name}</p>
-                    <p className="text-xs text-muted-foreground">{condo.address}</p>
-                     <Button onClick={centerMapOnAddress} variant="link" size="sm" className="h-auto p-0 mt-1">
-                        <Locate className="mr-1 h-3 w-3"/>
-                        {t('condoDashboard.map.recenterOnAddress')}
-                    </Button>
                 </div>
             </div>
         </CardHeader>
@@ -498,11 +490,19 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                     )}
                 </div>
                 <div className="w-1/3 p-1">
-                    <fieldset className="border h-full rounded-md px-4 pb-4">
+                     <fieldset className="border h-full rounded-md px-4 pb-4">
                         <legend className="text-lg font-semibold tracking-tight px-2 ml-2 -mt-0.5 bg-card">
                             {t('condoDashboard.map.modules.title')}
                         </legend>
                         <div className="flex-1 flex flex-col space-y-4 pt-2">
+                            <div className="text-right">
+                                <p className="text-sm font-medium">{condo.name}</p>
+                                <p className="text-xs text-muted-foreground">{condo.address}</p>
+                                <Button onClick={centerMapOnAddress} variant="link" size="sm" className="h-auto p-0 mt-1">
+                                    <Locate className="mr-1 h-3 w-3"/>
+                                    {t('condoDashboard.map.recenterOnAddress')}
+                                </Button>
+                            </div>
                             <div className="px-1 flex items-center gap-2">
                                 <Select value={activeModule} onValueChange={setActiveModule}>
                                     <SelectTrigger id="module-select" className="text-base font-bold text-primary">
