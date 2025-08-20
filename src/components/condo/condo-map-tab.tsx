@@ -116,18 +116,19 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   const isEditingShape = isEditing || isCreating;
   
-  const centerMapOnGeofence = useCallback((paddingPercent?: number) => {
+  const centerMapOnGeofence = useCallback(() => {
     if (!map) return;
     const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
+
     if (geofenceToCenter && geofenceToCenter.shape) {
-      const bounds = getBoundsOfShape(geofenceToCenter.shape);
-      if (bounds) {
-        const padding = paddingPercent ?? fitPadding;
+        const bounds = getBoundsOfShape(geofenceToCenter.shape);
+        if (!bounds) return;
 
         const mapDiv = map.getDiv();
         if (!mapDiv) return;
+
         const { width: mapWidth, height: mapHeight } = mapDiv.getBoundingClientRect();
-        
+
         const ne = bounds.getNorthEast();
         const sw = bounds.getSouthWest();
         
@@ -136,26 +137,26 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             lng: Math.abs(ne.lng() - sw.lng()),
         };
 
-        const mapAspectRatio = mapHeight / mapWidth;
-        // Avoid division by zero
-        const geofenceAspectRatio = geofenceSpan.lng > 0 ? geofenceSpan.lat / geofenceSpan.lng : mapAspectRatio;
+        const mapAspectRatio = mapHeight > 0 ? mapWidth / mapHeight : 1;
+        const geofenceAspectRatio = geofenceSpan.lat > 0 ? geofenceSpan.lng / geofenceSpan.lat : 1;
+
+        let padding = { top: 0, bottom: 0, left: 0, right: 0 };
         
-        let pixelPadding = { top: 0, bottom: 0, left: 0, right: 0 };
-        
-        // If geofence is proportionally "taller" than map view, height is the limit
+        // Compare aspect ratios to determine the dominant dimension
         if (geofenceAspectRatio > mapAspectRatio) {
-            const paddingValue = mapHeight * (padding / 100);
-            pixelPadding = { top: paddingValue, bottom: paddingValue, left: 0, right: 0 };
-        } else { // Geofence is "wider"
-            const paddingValue = mapWidth * (padding / 100);
-            pixelPadding = { top: 0, bottom: 0, left: paddingValue, right: paddingValue };
+            // Width is the dominant dimension
+            const paddingValue = mapWidth * (fitPadding / 100);
+            padding = { top: 0, bottom: 0, left: paddingValue, right: paddingValue };
+        } else {
+            // Height is the dominant dimension
+            const paddingValue = mapHeight * (fitPadding / 100);
+            padding = { top: paddingValue, bottom: paddingValue, left: 0, right: 0 };
         }
         
-        map.fitBounds(bounds, pixelPadding);
+        map.fitBounds(bounds, padding);
         return;
-      }
     }
-    // If no default geofence, just zoom to a default level
+    // If no default geofence, just zoom to a default level on the condo address
     map.setCenter(center);
     map.setZoom(15);
   }, [map, geofences, defaultGeofenceId, center, fitPadding]);
@@ -191,12 +192,12 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
 
   // This effect runs after geofences are loaded to center the map.
     useEffect(() => {
-        if (map && geofences.length > 0) {
-            centerMapOnGeofence(10);
+        if (map && geofences.length > 0 && defaultGeofenceId) {
+            centerMapOnGeofence();
         } else if (map) {
             centerMapOnAddress();
         }
-    }, [map, geofences, centerMapOnGeofence, centerMapOnAddress]);
+    }, [map, geofences, defaultGeofenceId, centerMapOnGeofence, centerMapOnAddress]);
 
     useEffect(() => {
         if (!map) return;
