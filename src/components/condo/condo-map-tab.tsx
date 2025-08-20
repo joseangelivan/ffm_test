@@ -29,6 +29,7 @@ import type { Geofence } from '@/actions/maps';
 import { Label } from '@/components/ui/label';
 import { MapSettingsDialog } from './map/map-settings-dialog';
 import { Separator } from '../ui/separator';
+import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 export type GeofenceObject = {
     id: string;
@@ -274,7 +275,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       if (currentZoom) setZoomLevel(currentZoom);
     });
     return () => { zoomListener.remove(); };
-  }, [mapRef.current]);
+  }, [mapRef]);
   
   const updateHistory = useCallback((geometry: any) => {
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -429,6 +430,57 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
   const handleZoomOut = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! - 1);
+
+  const drawing = useMapsLibrary('drawing');
+  const [drawingManager, setDrawingManager] = useState<google.maps.drawing.DrawingManager | null>(null);
+
+  useEffect(() => {
+    if (!mapRef.current || !drawing) return;
+
+    const newDrawingManager = new drawing.DrawingManager({
+      drawingControl: false,
+      polygonOptions: { ...SAVED_COLOR, editable: true, draggable: true },
+      rectangleOptions: { ...SAVED_COLOR, editable: true, draggable: true },
+      circleOptions: { ...SAVED_COLOR, editable: true, draggable: true },
+    });
+    setDrawingManager(newDrawingManager);
+
+    const overlayCompleteListener = google.maps.event.addListener(
+      newDrawingManager,
+      'overlaycomplete',
+      (event: any) => {
+        // Immediately make the new shape editable and draggable
+        event.overlay.setEditable(true);
+        event.overlay.setDraggable(true);
+        
+        // Hide the drawn overlay and let our state handle it
+        newDrawingManager.setDrawingMode(null);
+        event.overlay.setMap(null); 
+        
+        setIsDrawing(false);
+        setIsCreating(true);
+        setActiveOverlay(event.overlay);
+        updateHistory(getGeometryFromShape(event.overlay));
+      }
+    );
+
+    return () => {
+      google.maps.event.removeListener(overlayCompleteListener);
+      newDrawingManager.setMap(null);
+    };
+  }, [mapRef, drawing, setIsDrawing, setIsCreating, setActiveOverlay, updateHistory]);
+  
+  useEffect(() => {
+    if (!drawingManager || !mapRef.current) return;
+    if (isDrawing) {
+      drawingManager.setMap(mapRef.current);
+      drawingManager.setDrawingMode(
+        drawingMode.toUpperCase() as keyof typeof google.maps.drawing.OverlayType
+      );
+    } else {
+      drawingManager.setMap(null);
+    }
+  }, [isDrawing, drawingMode, drawingManager, mapRef]);
   
   return (
     <>
@@ -458,17 +510,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             </div>
                         )}
                         <MapComponent onMapLoad={handleMapLoad}>
-                            {isDrawing && (
-                                <GeofenceControls.DrawingManager
-                                    drawingMode={drawingMode}
-                                    onOverlayComplete={(overlay: google.maps.MVCObject) => {
-                                        setIsDrawing(false);
-                                        setIsCreating(true);
-                                        setActiveOverlay(overlay);
-                                        updateHistory(getGeometryFromShape(overlay));
-                                    }}
-                                />
-                            )}
                             {condoAddressPosition && 
                                 <AdvancedMarker position={condoAddressPosition} title={condo.name}>
                                     <div className="p-1.5 bg-background rounded-full shadow-lg border-2 border-primary">

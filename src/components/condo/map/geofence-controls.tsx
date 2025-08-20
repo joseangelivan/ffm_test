@@ -13,7 +13,7 @@ import {
   Trash2,
   Settings,
 } from 'lucide-react';
-import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
+import { useMap } from '@vis.gl/react-google-maps';
 
 import type { GeofenceObject } from '../condo-map-tab';
 import { getGeometryFromShape, createShapeFromGeometry, SAVED_COLOR, DEFAULT_COLOR, EDIT_COLOR } from '../condo-map-tab';
@@ -30,49 +30,6 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 export type DrawingMode = 'polygon' | 'rectangle' | 'circle';
-
-const GeofenceDrawingManager = ({
-    drawingMode,
-    onOverlayComplete,
-}: {
-    drawingMode: DrawingMode;
-    onOverlayComplete: (overlay: google.maps.MVCObject) => void;
-}) => {
-    const map = useMap();
-    const drawing = useMapsLibrary('drawing');
-    
-    useEffect(() => {
-        if (!map || !drawing) return;
-
-        const newDrawingManager = new drawing.DrawingManager({
-            drawingMode: drawing.OverlayType[drawingMode.toUpperCase() as keyof typeof google.maps.drawing.OverlayType],
-            drawingControl: false,
-            polygonOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, draggable: true, zIndex: 1, suppressUndo: true },
-            rectangleOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, draggable: true, zIndex: 1, suppressUndo: true },
-            circleOptions: { ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, clickable: false, editable: true, draggable: true, zIndex: 1, suppressUndo: true },
-        });
-        
-        newDrawingManager.setMap(map);
-
-        const listener = (event: any) => {
-            // Force draggable and editable to true, as it might be reset by the library
-            event.overlay.setDraggable(true);
-            event.overlay.setEditable(true);
-            onOverlayComplete(event.overlay);
-            newDrawingManager.setDrawingMode(null);
-        };
-        
-        const overlayCompleteListener = google.maps.event.addListener(newDrawingManager, 'overlaycomplete', listener);
-
-        return () => {
-            google.maps.event.removeListener(overlayCompleteListener);
-            newDrawingManager.setMap(null);
-        };
-    }, [map, drawing, onOverlayComplete, drawingMode]);
-
-    return null;
-};
-
 
 type GeofenceControlsProps = {
     condoId: string;
@@ -400,11 +357,4 @@ export function GeofenceControls({
         </div>
     );
 }
-
-GeofenceControls.DrawingManager = GeofenceDrawingManager;
-
-
-
-
-
 
