@@ -28,6 +28,7 @@ import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence } from '@/actions/maps';
 import { Label } from '@/components/ui/label';
 import { MapSettingsDialog } from './map/map-settings-dialog';
+import { Separator } from '../ui/separator';
 
 export type GeofenceObject = {
     id: string;
@@ -38,7 +39,7 @@ export type GeofenceObject = {
 export const EDIT_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9' };
 export const SAVED_COLOR = { fillColor: '#1ABC9C', strokeColor: '#16A085' };
 export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d' };
-export const DEFAULT_COLOR = { fillColor: '#f39c12', strokeColor: '#e67e22', fillOpacity: 0.1 };
+export const DEFAULT_COLOR = { fillColor: '#f39c12', strokeColor: '#e67e22', fillOpacity: 0.0 };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -387,12 +388,19 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     } else {
         geofences.forEach(gf => {
             const isDefault = gf.id === defaultGeofenceId;
-            const isVisible = showAllGeofences || isDefault;
-    
+            const isSelected = gf.id === selectedGeofenceId;
+            let isVisible = false;
+
+            if (isEditingEnabled) {
+                isVisible = isSelected;
+            } else {
+                isVisible = showAllGeofences || isDefault;
+            }
+
             if (isVisible && gf.shape) {
                 (gf.shape as any).setOptions({
                     ...(isDefault ? DEFAULT_COLOR : VIEW_ALL_COLOR),
-                    fillOpacity: isDefault ? 0.1 : 0.05,
+                    fillOpacity: isDefault ? 0.0 : 0.05,
                     strokeWeight: isDefault ? 2 : 1,
                     strokeDasharray: isDefault ? '1,0' : '5,5',
                     zIndex: isDefault ? 2 : 1,
@@ -485,7 +493,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 </div>
                 <div className="w-1/3 p-1">
                     <div className="relative border h-full p-4 pt-2 bg-card rounded-md flex flex-col">
-                        <h2 className="text-lg font-semibold tracking-tight px-2 absolute -top-3.5 left-4 bg-card">{t('condoDashboard.map.modules.title')}</h2>
                         <div className="border-b pb-4">
                             <Label>{t('adminDashboard.newCondoDialog.addressLabel')}</Label>
                             <div className="flex items-start gap-2 mt-1">
@@ -497,6 +504,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 {t('condoDashboard.map.recenterOnAddress')}
                             </Button>
                         </div>
+                        <h2 className="text-lg font-semibold tracking-tight px-2 absolute top-[102px] left-4 bg-card">{t('condoDashboard.map.modules.title')}</h2>
                         <div className="flex-1 flex flex-col space-y-4 pt-4">
                             <div className="px-1 flex items-center gap-2">
                                 <Select value={activeModule} onValueChange={setActiveModule}>
