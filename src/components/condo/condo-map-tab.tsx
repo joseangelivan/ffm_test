@@ -209,44 +209,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     setFitLevel(level);
   }, [calculatedZoomLevels, geofences, defaultGeofenceId]);
 
-  const handleMapLoad = useCallback(async (map: google.maps.Map) => {
-    mapRef.current = map;
-    try {
-        const dbGeofences = await getGeofencesByCondoId(condo.id);
-        const gfObjects = dbGeofences
-            .map(dbGf => ({ id: dbGf.id, name: dbGf.name, shape: createShapeFromGeometry(dbGf.geometry) as google.maps.MVCObject }))
-            .filter(gf => gf.shape);
-
-        setGeofences(gfObjects);
-        const defaultGfDb = dbGeofences.find(g => g.is_default);
-        const initialDefaultId = defaultGfDb ? defaultGfDb.id : (gfObjects.length > 0 ? gfObjects[0].id : null);
-        
-        setDefaultGeofenceId(initialDefaultId);
-        setSelectedGeofenceId(initialDefaultId);
-        
-        const geofenceToCenter = gfObjects.find(g => g.id === initialDefaultId);
-        
-        if (geofenceToCenter?.shape) {
-            const bounds = getBoundsOfShape(geofenceToCenter.shape);
-            if (bounds) {
-                 google.maps.event.addListenerOnce(map, 'idle', () => {
-                    recalculateZoomLevels();
-                 });
-                 map.fitBounds(bounds, 0);
-            } else {
-                 centerMapOnAddress();
-            }
-        } else {
-            centerMapOnAddress();
-        }
-    } catch (error) {
-        console.error("Failed to initialize map:", error);
-        centerMapOnAddress();
-    } finally {
-        setIsLoading(false);
-    }
-  }, [condo.id, centerMapOnAddress, recalculateZoomLevels]);
-
   const mapContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -372,8 +334,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
     clearListeners();
 
-    // Reference shape (blue) if creating or editing
-    if (isEditingShape || isDrawing) {
+    if (isDrawing || isEditing) {
         const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
         if (selectedGeofence && selectedGeofence.shape) {
             (selectedGeofence.shape as any).setOptions({ 
@@ -387,7 +348,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             });
         }
     } else {
-        // Normal viewing mode logic
         geofences.forEach(gf => {
             const isDefault = gf.id === defaultGeofenceId;
             let isVisible = false;
@@ -399,19 +359,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
 
             if (isVisible && gf.shape) {
-                let colorOptions = isDefault ? DEFAULT_COLOR : VIEW_ALL_COLOR;
-                 if (isEditingEnabled) {
-                    if (gf.id === selectedGeofenceId) {
-                         colorOptions = gf.id === defaultGeofenceId 
-                            ? { ...DEFAULT_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' }
-                            : { ...SAVED_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' };
-                    } else {
-                         colorOptions = { ...VIEW_ALL_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' };
-                    }
-                 }
+                let colorOptions = SAVED_COLOR;
+                if(isDefault) colorOptions = DEFAULT_COLOR;
+                if(showAllGeofences) colorOptions = VIEW_ALL_COLOR;
+                if(isEditingEnabled && gf.id === selectedGeofenceId) colorOptions = EDIT_COLOR;
 
                 (gf.shape as any).setOptions({
                     ...colorOptions,
+                    fillOpacity: 0.1, 
+                    strokeWeight: 1, 
                     map: mapRef.current,
                     editable: false, draggable: false, clickable: false
                 });
@@ -419,64 +375,99 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         });
     }
   
-    // Active editing shape (green) on top
     if (isEditingShape && activeOverlay) {
-        (activeOverlay as any).setOptions({ ...EDIT_COLOR, editable: true, draggable: true, zIndex: 3, suppressUndo: true });
+        (activeOverlay as any).setOptions({ ...SAVED_COLOR, editable: true, draggable: true, zIndex: 3, suppressUndo: true });
         (activeOverlay as any).setMap(mapRef.current);
         setupListeners(activeOverlay);
     }
   
-  }, [activeOverlay, isEditingShape, isDrawing, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, geofences, isEditingEnabled, showAllGeofences]);
+  }, [activeOverlay, isEditingShape, isDrawing, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, geofences, isEditingEnabled, showAllGeofences, isEditing]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
   const handleZoomOut = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! - 1);
 
   const drawing = useMapsLibrary('drawing');
-  const [drawingManager, setDrawingManager] = useState<google.maps.drawing.DrawingManager | null>(null);
+  const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
 
-  useEffect(() => {
-    if (!mapRef.current || !drawing) return;
+  const handleMapLoad = useCallback(async (map: google.maps.Map) => {
+    mapRef.current = map;
+    if (!drawing) return;
 
-    if (!drawingManager) {
+    if (!drawingManagerRef.current) {
         const newDrawingManager = new drawing.DrawingManager({
           drawingControl: false,
           polygonOptions: { ...SAVED_COLOR, editable: true, draggable: true },
           rectangleOptions: { ...SAVED_COLOR, editable: true, draggable: true },
           circleOptions: { ...SAVED_COLOR, editable: true, draggable: true },
         });
-        setDrawingManager(newDrawingManager);
 
-        const overlayCompleteListener = google.maps.event.addListener(
-          newDrawingManager,
-          'overlaycomplete',
-          (event: any) => {
-            newDrawingManager.setDrawingMode(null);
-            
-            event.overlay.setMap(null); // Hide it momentarily
-            
-            setIsDrawing(false);
-            setIsCreating(true);
-            setActiveOverlay(event.overlay);
-            updateHistory(getGeometryFromShape(event.overlay));
-          }
+        google.maps.event.addListener(
+            newDrawingManager,
+            'overlaycomplete',
+            (event: any) => {
+                newDrawingManager.setDrawingMode(null);
+                
+                // Immediately make it editable and draggable
+                event.overlay.setEditable(true);
+                event.overlay.setDraggable(true);
+                
+                setActiveOverlay(event.overlay);
+
+                setIsDrawing(false);
+                setIsCreating(true);
+                updateHistory(getGeometryFromShape(event.overlay));
+            }
         );
-        return () => {
-            google.maps.event.removeListener(overlayCompleteListener);
-        }
+        drawingManagerRef.current = newDrawingManager;
     }
-  }, [drawing, drawingManager, setActiveOverlay, setIsCreating, setIsDrawing, updateHistory]);
+
+    try {
+        const dbGeofences = await getGeofencesByCondoId(condo.id);
+        const gfObjects = dbGeofences
+            .map(dbGf => ({ id: dbGf.id, name: dbGf.name, shape: createShapeFromGeometry(dbGf.geometry) as google.maps.MVCObject }))
+            .filter(gf => gf.shape);
+
+        setGeofences(gfObjects);
+        const defaultGfDb = dbGeofences.find(g => g.is_default);
+        const initialDefaultId = defaultGfDb ? defaultGfDb.id : (gfObjects.length > 0 ? gfObjects[0].id : null);
+        
+        setDefaultGeofenceId(initialDefaultId);
+        setSelectedGeofenceId(initialDefaultId);
+        
+        const geofenceToCenter = gfObjects.find(g => g.id === initialDefaultId);
+        
+        if (geofenceToCenter?.shape) {
+            const bounds = getBoundsOfShape(geofenceToCenter.shape);
+            if (bounds) {
+                 google.maps.event.addListenerOnce(map, 'idle', () => {
+                    recalculateZoomLevels();
+                 });
+                 map.fitBounds(bounds, 0);
+            } else {
+                 centerMapOnAddress();
+            }
+        } else {
+            centerMapOnAddress();
+        }
+    } catch (error) {
+        console.error("Failed to initialize map:", error);
+        centerMapOnAddress();
+    } finally {
+        setIsLoading(false);
+    }
+  }, [condo.id, centerMapOnAddress, recalculateZoomLevels, drawing, updateHistory]);
 
   useEffect(() => {
-    if (!drawingManager || !mapRef.current) return;
+    if (!drawingManagerRef.current || !mapRef.current) return;
     if (isDrawing) {
-      drawingManager.setMap(mapRef.current);
-      drawingManager.setDrawingMode(
+      drawingManagerRef.current.setMap(mapRef.current);
+      drawingManagerRef.current.setDrawingMode(
         drawingMode.toUpperCase() as keyof typeof google.maps.drawing.OverlayType
       );
     } else {
-      drawingManager.setMap(null);
+      drawingManagerRef.current.setMap(null);
     }
-  }, [isDrawing, drawingMode, drawingManager, mapRef]);
+  }, [isDrawing, drawingMode]);
   
   return (
     <>
