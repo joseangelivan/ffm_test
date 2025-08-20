@@ -441,33 +441,36 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
         } else if (isEditingEnabled) {
             // View mode with editing enabled: Show only the selected geofence
-            const geofenceToShow = geofences.find(g => g.id === selectedGeofenceId);
-            if (geofenceToShow?.shape) {
-                (geofenceToShow.shape as any).setOptions({
-                    ...EDIT_COLOR,
-                    map: mapRef.current,
-                    editable: false, draggable: false, clickable: true,
-                });
-            }
+            geofences.forEach(gf => {
+                const isVisible = gf.id === selectedGeofenceId;
+                if (gf.shape) {
+                    (gf.shape as any).setMap(isVisible ? mapRef.current : null);
+                    if (isVisible) {
+                        (gf.shape as any).setOptions({
+                            ...EDIT_COLOR,
+                            editable: false, draggable: false, clickable: true,
+                        });
+                    }
+                }
+            });
         } else {
             // Normal view mode (not editing)
             geofences.forEach(gf => {
-                let isVisible = false;
+                let isVisible = showAllGeofences || gf.id === defaultGeofenceId;
                 let colorOptions = SAVED_COLOR;
     
-                isVisible = showAllGeofences || gf.id === defaultGeofenceId;
                 if (showAllGeofences) {
                     colorOptions = gf.id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
                 } else {
                     colorOptions = DEFAULT_COLOR;
                 }
     
-                if (isVisible && gf.shape) {
+                if (gf.shape) {
                     (gf.shape as any).setOptions({
                         ...colorOptions,
-                        map: mapRef.current,
                         editable: false, draggable: false, clickable: false
                     });
+                    (gf.shape as any).setMap(isVisible ? mapRef.current : null);
                 }
             });
         }
@@ -532,7 +535,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   return (
     <>
         <Card>
-            <CardHeader className="flex flex-row items-start justify-between">
+            <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                     <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
                     <CardDescription>{t('condoDashboard.map.description')}</CardDescription>
@@ -561,7 +564,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             <MapInner 
                                 condo={condo}
                                 initialPosition={initialPosition}
-                                onMapLoad={handleMapLoad}
+                                onMapLoad={onMapLoad}
                                 onOverlayComplete={onOverlayComplete}
                                 drawingManagerRef={drawingManagerRef}
                                 onSettingsClick={() => setIsMapSettingsOpen(true)}
