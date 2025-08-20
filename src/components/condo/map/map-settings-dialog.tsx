@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -22,7 +22,7 @@ interface MapSettingsDialogProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     zoomLevel: number;
-    fitLevel: string;
+    initialFitLevel: string;
     onFitLevelChange: (level: '1' | '2' | '3') => void;
     onZoomIn: () => void;
     onZoomOut: () => void;
@@ -33,13 +33,25 @@ export function MapSettingsDialog({
     isOpen,
     onOpenChange,
     zoomLevel,
-    fitLevel,
+    initialFitLevel,
     onFitLevelChange,
     onZoomIn,
     onZoomOut,
     onFitBounds,
 }: MapSettingsDialogProps) {
     const { t } = useLocale();
+    const [selectedFitLevel, setSelectedFitLevel] = useState(initialFitLevel as '1' | '2' | '3');
+
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedFitLevel(initialFitLevel as '1' | '2' | '3');
+        }
+    }, [isOpen, initialFitLevel]);
+
+    const handleApplyFit = () => {
+        onFitLevelChange(selectedFitLevel);
+        onFitBounds(selectedFitLevel);
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -72,7 +84,7 @@ export function MapSettingsDialog({
                             </p>
                         </div>
                         
-                        <RadioGroup value={fitLevel} onValueChange={(v) => onFitLevelChange(v as '1' | '2' | '3')}>
+                        <RadioGroup value={selectedFitLevel} onValueChange={(v) => setSelectedFitLevel(v as '1' | '2' | '3')}>
                             <div className="flex items-center space-x-2">
                                 <RadioGroupItem value="1" id="level-1" />
                                 <Label htmlFor="level-1">{t('condoDashboard.map.settings.fitLevels.tight')}</Label>
@@ -87,7 +99,7 @@ export function MapSettingsDialog({
                             </div>
                         </RadioGroup>
 
-                         <Button onClick={() => onFitBounds(fitLevel)} className="w-full">
+                         <Button onClick={handleApplyFit} className="w-full">
                             <Frame className="h-4 w-4 mr-2" />
                             {t('condoDashboard.map.settings.applyAutoFit')}
                         </Button>
@@ -105,4 +117,3 @@ export function MapSettingsDialog({
     );
 }
 
-    

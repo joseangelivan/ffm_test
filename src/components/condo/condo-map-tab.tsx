@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -122,7 +123,7 @@ export default function CondoMapTab({ condo, center, isLoading }: { condo: Condo
     if (!currentMap) return;
 
     if (idleListener.current) {
-        idleListener.current.remove();
+        google.maps.event.removeListener(idleListener.current);
         idleListener.current = null;
     }
 
@@ -187,7 +188,7 @@ export default function CondoMapTab({ condo, center, isLoading }: { condo: Condo
         centerMapOnGeofence(map, '2');
         isInitialFit.current = false;
     }
-  }, [map, geofences, centerMapOnGeofence]);
+  }, [map, geofences.length, centerMapOnGeofence]);
 
 
   useEffect(() => {
@@ -478,7 +479,7 @@ export default function CondoMapTab({ condo, center, isLoading }: { condo: Condo
             isOpen={isMapSettingsOpen}
             onOpenChange={setIsMapSettingsOpen}
             zoomLevel={zoomLevel}
-            fitLevel={fitLevel}
+            initialFitLevel={fitLevel}
             onFitLevelChange={setFitLevel}
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
