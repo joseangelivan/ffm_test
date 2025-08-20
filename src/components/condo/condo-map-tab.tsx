@@ -121,19 +121,18 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
 
     if (geofenceToCenter && geofenceToCenter.shape) {
-        const bounds = getBoundsOfShape(geofenceToCenter.shape);
-        if (!bounds) return;
+      const bounds = getBoundsOfShape(geofenceToCenter.shape);
+      if (!bounds) return;
+      
+      const mapDiv = map.getDiv();
+      if (!mapDiv) return;
 
-        const mapDiv = map.getDiv();
-        if (!mapDiv) return;
+      const paddingX = (mapDiv.clientWidth * fitPadding) / 100;
+      const paddingY = (mapDiv.clientHeight * fitPadding) / 100;
+      
+      map.fitBounds(bounds, { left: paddingX, right: paddingX, top: paddingY, bottom: paddingY });
 
-        const { width: mapWidth, height: mapHeight } = mapDiv.getBoundingClientRect();
-        const paddingX = mapWidth * (fitPadding / 100);
-        const paddingY = mapHeight * (fitPadding / 100);
-
-        map.fitBounds(bounds, { top: paddingY, bottom: paddingY, left: paddingX, right: paddingX });
-
-        return;
+      return;
     }
     // If no default geofence, just zoom to a default level on the condo address
     map.setCenter(center);
@@ -146,7 +145,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     map.setZoom(15);
   }, [map, center]);
 
-
+  // Initial data fetching
   useEffect(() => {
     async function fetchGeofences() {
         const dbGeofences = await getGeofencesByCondoId(condo.id);
@@ -169,31 +168,25 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     fetchGeofences();
   }, [condo.id]);
 
-  // This effect runs after geofences are loaded to center the map.
-    useEffect(() => {
-        if (map && geofences.length > 0 && defaultGeofenceId) {
-             const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
-            if (geofenceToCenter?.shape) {
-                const bounds = getBoundsOfShape(geofenceToCenter.shape);
-                if (bounds) {
-                    map.fitBounds(bounds, fitPadding);
-                } else {
-                    map.setCenter(center);
-                    map.setZoom(15);
-                }
-            }
-        } else if (map) {
-            centerMapOnAddress();
-        }
-    }, [map, geofences, defaultGeofenceId]); // Removed dependencies to stop slider re-triggering
+  // This effect runs once after geofences are loaded to center the map.
+  useEffect(() => {
+      if (map && geofences.length > 0) {
+          centerMapOnGeofence();
+      } else if (map) {
+          centerMapOnAddress();
+      }
+      // This should only run once on mount.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map]); // Do not add other dependencies.
 
-    useEffect(() => {
-        if (!map) return;
-        const listener = map.addListener('zoom_changed', () => {
-            setZoomLevel(map.getZoom() || 15);
-        });
-        return () => listener.remove();
-    }, [map]);
+  // Zoom level listener
+  useEffect(() => {
+      if (!map) return;
+      const listener = map.addListener('zoom_changed', () => {
+          setZoomLevel(map.getZoom() || 15);
+      });
+      return () => listener.remove();
+  }, [map]);
 
 
   const updateHistory = useCallback((geometry: any) => {
