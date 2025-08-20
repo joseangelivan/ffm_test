@@ -381,7 +381,13 @@
             "paddingDescription": "Ajusta o espaço ao redor da geocerca ao usar o autoajuste.",
             "manualZoom": "Controle de Zoom Manual",
             "autoFitTitle": "Autoajuste para Geocerca",
-            "applyAutoFit": "Autoajustar à Geocerca"
+            "applyAutoFit": "Autoajustar à Geocerca",
+            "zoomLevelDescription": "Selecione o nível de zoom desejado para o autoajuste.",
+            "fitLevels": {
+              "tight": "Ajustado",
+              "normal": "Normal",
+              "wide": "Amplo"
+            }
         },
         "geofence": {
             "defaultLabel": "Geocerca Padrão",

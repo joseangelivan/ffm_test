@@ -109,7 +109,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   const [viewAll, setViewAll] = useState(false);
 
   const [zoomLevel, setZoomLevel] = useState(15);
-  const [fitPadding, setFitPadding] = useState(10); // Default to 10%
+  const [fitLevel, setFitLevel] = useState<'1' | '2' | '3'>('1');
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
 
 
@@ -123,21 +123,23 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     if (geofenceToCenter && geofenceToCenter.shape) {
       const bounds = getBoundsOfShape(geofenceToCenter.shape);
       if (!bounds) return;
-      
-      const mapDiv = map.getDiv();
-      if (!mapDiv) return;
 
-      const paddingX = (mapDiv.clientWidth * fitPadding) / 100;
-      const paddingY = (mapDiv.clientHeight * fitPadding) / 100;
+      map.fitBounds(bounds);
       
-      map.fitBounds(bounds, { left: paddingX, right: paddingX, top: paddingY, bottom: paddingY });
+      const zoomAdjustment = parseInt(fitLevel, 10) - 1; // 0, 1, or 2
+      const listener = google.maps.event.addListenerOnce(map, 'idle', () => {
+          const currentZoom = map.getZoom();
+          if(currentZoom) {
+              map.setZoom(currentZoom - zoomAdjustment);
+          }
+      });
 
       return;
     }
     // If no default geofence, just zoom to a default level on the condo address
     map.setCenter(center);
     map.setZoom(15);
-  }, [map, geofences, defaultGeofenceId, center, fitPadding]);
+  }, [map, geofences, defaultGeofenceId, center, fitLevel]);
   
   const centerMapOnAddress = useCallback(() => {
     if (!map) return;
@@ -459,8 +461,8 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             isOpen={isMapSettingsOpen}
             onOpenChange={setIsMapSettingsOpen}
             zoomLevel={zoomLevel}
-            fitPadding={fitPadding}
-            onFitPaddingChange={setFitPadding}
+            fitLevel={fitLevel}
+            onFitLevelChange={setFitLevel}
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
             onFitBounds={centerMapOnGeofence}

@@ -367,12 +367,11 @@
         "customMap2": "Mapa Personalizado 2",
         "undo": "Deshacer",
         "redo": "Rehacer",
-        "undoLast": "Deshacer última edición",
         "modules": {
-          "title": "Módulos del Mapa",
-          "selectPlaceholder": "Seleccionar módulo",
-          "geofence": "Geocerca",
-          "elements": "Elementos del mapa"
+            "title": "Módulos del Mapa",
+            "selectPlaceholder": "Seleccionar módulo",
+            "geofence": "Geocerca",
+            "elements": "Elementos del mapa"
         },
         "settings": {
             "title": "Configuración de Vista del Mapa",
@@ -382,7 +381,13 @@
             "paddingDescription": "Ajusta el espacio alrededor de la geocerca al usar el autoajuste.",
             "manualZoom": "Control de Zoom Manual",
             "autoFitTitle": "Autoajuste a Geocerca",
-            "applyAutoFit": "Autoajustar a Geocerca"
+            "applyAutoFit": "Autoajustar a Geocerca",
+            "zoomLevelDescription": "Seleccione el nivel de zoom deseado para el autoajuste.",
+            "fitLevels": {
+              "tight": "Ajustado",
+              "normal": "Normal",
+              "wide": "Amplio"
+            }
         },
         "geofence": {
           "defaultLabel": "Geocerca Predeterminada",

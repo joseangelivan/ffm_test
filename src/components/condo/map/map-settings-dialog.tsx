@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useLocale } from '@/lib/i18n';
 import { Frame, ZoomIn, ZoomOut } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -22,8 +22,8 @@ interface MapSettingsDialogProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     zoomLevel: number;
-    fitPadding: number;
-    onFitPaddingChange: (padding: number) => void;
+    fitLevel: string;
+    onFitLevelChange: (level: '1' | '2' | '3') => void;
     onZoomIn: () => void;
     onZoomOut: () => void;
     onFitBounds: () => void;
@@ -33,8 +33,8 @@ export function MapSettingsDialog({
     isOpen,
     onOpenChange,
     zoomLevel,
-    fitPadding,
-    onFitPaddingChange,
+    fitLevel,
+    onFitLevelChange,
     onZoomIn,
     onZoomOut,
     onFitBounds,
@@ -68,24 +68,25 @@ export function MapSettingsDialog({
                         <div className="space-y-1">
                             <Label>{t('condoDashboard.map.settings.autoFitTitle')}</Label>
                             <p className="text-xs text-muted-foreground">
-                               {t('condoDashboard.map.settings.paddingDescription')}
+                               {t('condoDashboard.map.settings.zoomLevelDescription')}
                             </p>
                         </div>
-
-                        <div className="space-y-2">
-                             <div className="flex justify-between items-center mb-1">
-                                <Label htmlFor="padding-slider">{t('condoDashboard.map.settings.autoFitPadding')}</Label>
-                                <span className="text-sm text-muted-foreground">{fitPadding}%</span>
+                        
+                        <RadioGroup defaultValue={fitLevel} onValueChange={(v) => onFitLevelChange(v as '1' | '2' | '3')}>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="1" id="level-1" />
+                                <Label htmlFor="level-1">{t('condoDashboard.map.settings.fitLevels.tight')}</Label>
                             </div>
-                            <Slider
-                                id="padding-slider"
-                                min={0}
-                                max={50}
-                                step={1}
-                                value={[fitPadding]}
-                                onValueChange={(value) => onFitPaddingChange(value[0])}
-                            />
-                        </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="2" id="level-2" />
+                                <Label htmlFor="level-2">{t('condoDashboard.map.settings.fitLevels.normal')}</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="3" id="level-3" />
+                                <Label htmlFor="level-3">{t('condoDashboard.map.settings.fitLevels.wide')}</Label>
+                            </div>
+                        </RadioGroup>
+
                          <Button onClick={onFitBounds} className="w-full">
                             <Frame className="h-4 w-4 mr-2" />
                             {t('condoDashboard.map.settings.applyAutoFit')}
