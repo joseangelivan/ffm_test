@@ -33,7 +33,7 @@ import { cn } from '@/lib/utils';
 
 
 export const EDIT_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: true, draggable: true };
-export const SAVED_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: false, draggable: false, clickable: true };
+export const SAVED_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2, editable: false, draggable: false, clickable: true };
 export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d', strokeWeight: 1, editable: false, draggable: false, clickable: false };
 export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50%)', fillOpacity: 0, strokeColor: 'hsl(28 80% 50%)', strokeWeight: 3, editable: false, draggable: false, clickable: true };
 
@@ -354,18 +354,26 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
         if ('getPath' in shape) { // Polygon
             const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(event.addListener(path, 'set_at', () => recordHistory(shape)));
-            listeners.push(event.addListener(path, 'insert_at', () => recordHistory(shape)));
-            listeners.push(event.addListener(path, 'remove_at', () => recordHistory(shape)));
+            listeners.push(event.addListener(path, 'set_at', () => { vertexChanged.current = true; }));
+            listeners.push(event.addListener(path, 'insert_at', () => { vertexChanged.current = true; }));
+            listeners.push(event.addListener(path, 'remove_at', () => { vertexChanged.current = true; }));
         }
         if ('getRadius' in shape) { // Circle
-            listeners.push(event.addListener(shape, 'radius_changed', () => recordHistory(shape)));
+            listeners.push(event.addListener(shape, 'radius_changed', () => { vertexChanged.current = true; }));
         }
         if ('getBounds' in shape) { // Rectangle
-            listeners.push(event.addListener(shape, 'bounds_changed', () => recordHistory(shape)));
+            listeners.push(event.addListener(shape, 'bounds_changed', () => { vertexChanged.current = true; }));
         }
         
         overlayListeners.current.push(...listeners);
+
+        const mapMouseUpListener = event.addListener(map, 'mouseup', () => {
+            if (vertexChanged.current) {
+                recordHistory(shape);
+                vertexChanged.current = false;
+            }
+        });
+        overlayListeners.current.push(mapMouseUpListener);
     };
     
     mapShapes.forEach((shape) => (shape as any).setMap(null));
