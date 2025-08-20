@@ -158,6 +158,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   const [condoAddressPosition] = useState(initialPosition);
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
+
+  const historyRef = useRef<any[]>([]);
+  const historyIndexRef = useRef<number>(-1);
   
    const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -285,8 +288,18 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     overlayListeners.current.forEach(l => l.remove());
     overlayListeners.current = [];
   }, []);
+
+  const updateAndRecordHistory = useCallback((shape: google.maps.MVCObject) => {
+    const newGeometry = getGeometryFromShape(shape);
+    if (!newGeometry) return;
+    
+    const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+    newHistory.push(newGeometry);
+    historyRef.current = newHistory;
+    historyIndexRef.current = newHistory.length - 1;
+  }, [historyRef, historyIndexRef]);
   
-    const setupListeners = useCallback((shape: google.maps.MVCObject, onShapeChanged: () => void) => {
+  const setupListeners = useCallback((shape: google.maps.MVCObject, onShapeChanged: () => void) => {
         clearListeners();
         const listeners: google.maps.MapsEventListener[] = [];
         
@@ -325,10 +338,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       const map = mapRef.current;
       if (!map || isLoading) return;
 
-      // Hide all shapes first to avoid artifacts
       mapShapes.forEach((shape) => shape.setMap(null));
       
-      // Always clear listeners before setting new ones
       clearListeners();
 
       if (mode === 'editing') {
@@ -336,6 +347,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
           if (shapeToEdit) {
               (shapeToEdit as any).setOptions(EDIT_COLOR);
               shapeToEdit.setMap(map);
+              setupListeners(shapeToEdit, () => updateAndRecordHistory(shapeToEdit));
           }
       } else if (mode === 'drawing') {
           // Drawing manager handles the new shape visibility
@@ -366,7 +378,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       }
   }, [
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-      mapShapes, clearListeners, isEditingEnabled, isLoading
+      mapShapes, clearListeners, isEditingEnabled, isLoading, setupListeners, updateAndRecordHistory
   ]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
@@ -477,7 +489,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     mapShapes={mapShapes}
                                     setupListeners={setupListeners}
                                     clearListeners={clearListeners}
+                                    updateAndRecordHistory={updateAndRecordHistory}
+                                    historyRef={historyRef}
+                                    historyIndexRef={historyIndexRef}
                                 />
+                                <ElementsControls condoId={condo.id}/>
                             </div>
                         </fieldset>
                     </div>
@@ -496,4 +512,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
