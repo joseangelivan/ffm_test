@@ -93,20 +93,8 @@ export function GeofenceControls({
     
     const resetActionStates = useCallback((revertChanges = true) => {
         if (activeShapeRef.current) {
-            (activeShapeRef.current.shape as any).setMap(null);
-            activeShapeRef.current = null;
-        }
-
-        if (revertChanges && selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-')) {
-            const originalGeometry = historyRef.current[0];
-            const shapeToRevert = mapShapes.get(selectedGeofenceId);
-             if (shapeToRevert && originalGeometry) {
-                const newShape = createShapeFromGeometry(originalGeometry);
-                if (newShape) {
-                    (shapeToRevert as any).setMap(null);
-                    mapShapes.set(selectedGeofenceId, newShape);
-                }
-            }
+            (activeShapeRef.current.shape as any).setMap(null); // Remove shape from map
+            activeShapeRef.current = null; // Clear the reference
         }
         
         if (drawingManager) drawingManager.setDrawingMode(null);
@@ -115,7 +103,8 @@ export function GeofenceControls({
         historyIndexRef.current = -1;
         updateHistoryButtons();
         setCurrentGeofenceName('');
-    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons, selectedGeofenceId, mapShapes]);
+    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons]);
+
 
     const getNextGeofenceName = useCallback(() => {
         const baseName = t('condoDashboard.map.geofence.defaultName');
