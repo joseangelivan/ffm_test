@@ -28,7 +28,6 @@ import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 import { MapSettingsDialog } from './map/map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Select } from '../ui/select';
 
 export const EDIT_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2, editable: true, draggable: true };
 export const SAVED_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: false, draggable: false, clickable: true };
@@ -39,14 +38,14 @@ export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50% / 0.3)', strokeColor: 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
     if (!shape) return null;
     
-    if ('getRadius' in shape) {
+    if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') {
         return { type: 'circle', center: (shape as google.maps.Circle).getCenter()?.toJSON(), radius: (shape as google.maps.Circle).getRadius() };
     }
-    if ('getPath' in shape) {
+    if ('getPath' in shape && typeof (shape as any).getPath === 'function') {
         const path = (shape as google.maps.Polygon).getPath();
         return { type: 'polygon', paths: path.getArray().map((latLng: google.maps.LatLng) => ({ lat: latLng.lat(), lng: latLng.lng() })) };
     }
-    if ('getBounds' in shape) {
+    if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
         return { type: 'rectangle', bounds: (shape as google.maps.Rectangle).getBounds()?.toJSON() };
     }
     
@@ -146,6 +145,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
   const [mapShapes, setMapShapes] = useState<Map<string, google.maps.MVCObject>>(new Map());
+  const [geofenceForEditing, setGeofenceForEditing] = useState<google.maps.MVCObject | null>(null);
 
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
   const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
@@ -293,51 +293,60 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
   
   const updateHistory = useCallback((geometry: any) => {
+    if (!geometry) return;
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
     newHistory.push(geometry);
     historyRef.current = newHistory;
     historyIndexRef.current++;
-    setCanUndo(true);
+    setCanUndo(historyIndexRef.current > 0);
     setCanRedo(false);
   }, []);
   
   const handleUndo = useCallback(() => {
-    if (!canUndo || !selectedGeofenceId) return;
+    if (!canUndo) return;
 
     historyIndexRef.current--;
     const previousGeometry = historyRef.current[historyIndexRef.current];
-    const shape = mapShapes.get(selectedGeofenceId);
     const newShape = createShapeFromGeometry(previousGeometry);
 
-    if (shape && newShape) {
-        if ('setPaths' in shape && 'getPaths' in newShape) (shape as any).setPaths((newShape as any).getPaths());
-        if ('setBounds' in shape && 'getBounds' in newShape) (shape as any).setBounds((newShape as any).getBounds());
-        if ('setRadius' in shape && 'getRadius' in newShape) (shape as any).setRadius((newShape as any).getRadius());
-        if ('setCenter' in shape && 'getCenter' in newShape) (shape as any).setCenter((newShape as any).getCenter());
+    let shapeToUpdate = geofenceForEditing;
+    if (!shapeToUpdate && selectedGeofenceId) {
+      shapeToUpdate = mapShapes.get(selectedGeofenceId) || null;
+    }
+
+    if (shapeToUpdate && newShape) {
+        if ('setPaths' in shapeToUpdate && 'getPaths' in newShape) (shapeToUpdate as any).setPaths((newShape as any).getPaths());
+        if ('setBounds' in shapeToUpdate && 'getBounds' in newShape) (shapeToUpdate as any).setBounds((newShape as any).getBounds());
+        if ('setRadius' in shapeToUpdate && 'getRadius' in newShape) (shapeToUpdate as any).setRadius((newShape as any).getRadius());
+        if ('setCenter' in shapeToUpdate && 'getCenter' in newShape) (shapeToUpdate as any).setCenter((newShape as any).getCenter());
     }
     
     setCanUndo(historyIndexRef.current > 0);
     setCanRedo(true);
-  }, [canUndo, mapShapes, selectedGeofenceId]);
+  }, [canUndo, geofenceForEditing, selectedGeofenceId, mapShapes]);
 
   const handleRedo = useCallback(() => {
-    if (!canRedo || !selectedGeofenceId) return;
+    if (!canRedo) return;
     
     historyIndexRef.current++;
     const nextGeometry = historyRef.current[historyIndexRef.current];
-    const shape = mapShapes.get(selectedGeofenceId);
     const newShape = createShapeFromGeometry(nextGeometry);
     
-    if (shape && newShape) {
-        if ('setPaths' in shape && 'getPaths' in newShape) (shape as any).setPaths((newShape as any).getPaths());
-        if ('setBounds' in shape && 'getBounds' in newShape) (shape as any).setBounds((newShape as any).getBounds());
-        if ('setRadius' in shape && 'getRadius' in newShape) (shape as any).setRadius((newShape as any).getRadius());
-        if ('setCenter' in shape && 'getCenter' in newShape) (shape as any).setCenter((newShape as any).getCenter());
+    let shapeToUpdate = geofenceForEditing;
+    if (!shapeToUpdate && selectedGeofenceId) {
+      shapeToUpdate = mapShapes.get(selectedGeofenceId) || null;
+    }
+
+    if (shapeToUpdate && newShape) {
+        if ('setPaths' in shapeToUpdate && 'getPaths' in newShape) (shapeToUpdate as any).setPaths((newShape as any).getPaths());
+        if ('setBounds' in shapeToUpdate && 'getBounds' in newShape) (shapeToUpdate as any).setBounds((newShape as any).getBounds());
+        if ('setRadius' in shapeToUpdate && 'getRadius' in newShape) (shapeToUpdate as any).setRadius((newShape as any).getRadius());
+        if ('setCenter' in shapeToUpdate && 'getCenter' in newShape) (shapeToUpdate as any).setCenter((newShape as any).getCenter());
     }
     
     setCanUndo(true);
     setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-  }, [canRedo, mapShapes, selectedGeofenceId]);
+  }, [canRedo, geofenceForEditing, selectedGeofenceId, mapShapes]);
   
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   const clearListeners = useCallback(() => {
@@ -347,31 +356,29 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const setupListeners = useCallback((shape: google.maps.MVCObject) => {
     clearListeners();
+    
     const updateAndRecordHistory = () => {
         const newGeometry = getGeometryFromShape(shape);
-        if (newGeometry) {
-            updateHistory(newGeometry);
-        }
+        updateHistory(newGeometry);
     };
-    
-    if ('getPaths' in shape) { // Polygon
+
+    if ('getPaths' in shape && typeof (shape as any).getPaths === 'function') { // Polygon
         const path = (shape as google.maps.Polygon).getPath();
-        overlayListeners.current.push(google.maps.event.addListener(path, 'set_at', updateAndRecordHistory));
-        overlayListeners.current.push(google.maps.event.addListener(path, 'insert_at', updateAndRecordHistory));
-        overlayListeners.current.push(google.maps.event.addListener(path, 'remove_at', updateAndRecordHistory));
-    } else if ('getRadius' in shape) { // Circle
-        overlayListeners.current.push(google.maps.event.addListener(shape, 'radius_changed', updateAndRecordHistory));
-        overlayListeners.current.push(google.maps.event.addListener(shape, 'center_changed', updateAndRecordHistory));
-    } else if ('getBounds' in shape) { // Rectangle
-        overlayListeners.current.push(google.maps.event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
+        overlayListeners.current.push(path.addListener('set_at', updateAndRecordHistory));
+        overlayListeners.current.push(path.addListener('insert_at', updateAndRecordHistory));
+        overlayListeners.current.push(path.addListener('remove_at', updateAndRecordHistory));
+    } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') { // Circle
+        overlayListeners.current.push(shape.addListener('radius_changed', updateAndRecordHistory));
+        overlayListeners.current.push(shape.addListener('center_changed', updateAndRecordHistory));
+    } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle
+        overlayListeners.current.push(shape.addListener('bounds_changed', updateAndRecordHistory));
     }
     
     // Listen for dragend on all editable shapes
-    overlayListeners.current.push(google.maps.event.addListener(shape, 'dragend', updateAndRecordHistory));
+    overlayListeners.current.push(shape.addListener('dragend', updateAndRecordHistory));
 
   }, [updateHistory, clearListeners]);
 
-  // Create/update map shape objects when dbGeofences change
   useEffect(() => {
         const newShapes = new Map<string, google.maps.MVCObject>();
         for (const dbGf of dbGeofences) {
@@ -383,27 +390,33 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         setMapShapes(newShapes);
   }, [dbGeofences]);
 
-    // Main render/visibility logic
   useEffect(() => {
       const map = mapRef.current;
       if (!map || isLoading) return;
 
-      mapShapes.forEach((shape, id) => {
-          let isVisible = false;
-          let colorOptions = {};
+      // Hide all DB-backed shapes first
+      mapShapes.forEach((shape) => shape.setMap(null));
+      
+      // Hide the temporary editing shape
+      if(geofenceForEditing) geofenceForEditing.setMap(null);
 
-          if (mode === 'editing') {
-              clearListeners();
-              if (id === selectedGeofenceId) {
-                  isVisible = true;
-                  colorOptions = EDIT_COLOR;
-                  setupListeners(shape);
-              }
-          } else if (mode === 'drawing') {
-              // Hide all persistent shapes while drawing
-          } else { // 'view' mode
-              clearListeners();
-              (shape as any).setOptions({ editable: false, draggable: false });
+      // Clear any existing event listeners
+      clearListeners();
+
+      if (mode === 'editing') {
+          const shapeToEdit = geofenceForEditing || (selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null);
+          if (shapeToEdit) {
+              (shapeToEdit as any).setOptions(EDIT_COLOR);
+              shapeToEdit.setMap(map);
+              setupListeners(shapeToEdit);
+          }
+      } else if (mode === 'drawing') {
+          // Drawing manager handles the new shape visibility
+      } else { // 'view' mode
+          mapShapes.forEach((shape, id) => {
+              let isVisible = false;
+              let colorOptions: any = {};
+
               if (isEditingEnabled) {
                   if (id === selectedGeofenceId) {
                       isVisible = true;
@@ -420,13 +433,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                        }
                    }
               }
-          }
-          (shape as any).setOptions(colorOptions);
-          (shape as any).setMap(isVisible ? map : null);
-      });
+              (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
+              shape.setMap(isVisible ? map : null);
+          });
+      }
   }, [
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-      mapShapes, setupListeners, clearListeners, isEditingEnabled, isLoading
+      mapShapes, setupListeners, clearListeners, isEditingEnabled, isLoading, geofenceForEditing
   ]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
@@ -555,6 +568,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     showAllGeofences={showAllGeofences}
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
+                                    geofenceForEditing={geofenceForEditing}
+                                    setGeofenceForEditing={setGeofenceForEditing}
                                 />
                             </div>
                         </fieldset>
