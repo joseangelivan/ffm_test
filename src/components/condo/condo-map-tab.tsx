@@ -294,13 +294,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   const updateHistory = useCallback((geometry: any) => {
     if (!geometry) return;
-    // If we undo and then make a new change, we want to discard the old "redo" path.
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
     newHistory.push(geometry);
     historyRef.current = newHistory;
     historyIndexRef.current++;
     setCanUndo(historyIndexRef.current > 0);
-    setCanRedo(false); // Any new action invalidates the old redo history
+    setCanRedo(false);
   }, []);
   
   const handleUndo = useCallback(() => {
@@ -310,11 +309,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const previousGeometry = historyRef.current[historyIndexRef.current];
     const newShape = createShapeFromGeometry(previousGeometry);
 
-    let shapeToUpdate = geofenceForEditing;
-    if (!shapeToUpdate && selectedGeofenceId) {
-      shapeToUpdate = mapShapes.get(selectedGeofenceId) || null;
-    }
-
+    const shapeToUpdate = geofenceForEditing;
+    
     if (shapeToUpdate && newShape) {
         if ('setPaths' in shapeToUpdate && 'getPaths' in newShape) (shapeToUpdate as any).setPaths((newShape as any).getPaths());
         if ('setBounds' in shapeToUpdate && 'getBounds' in newShape) (shapeToUpdate as any).setBounds((newShape as any).getBounds());
@@ -324,7 +320,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
     setCanUndo(historyIndexRef.current > 0);
     setCanRedo(true);
-  }, [canUndo, geofenceForEditing, selectedGeofenceId, mapShapes]);
+  }, [canUndo, geofenceForEditing]);
 
   const handleRedo = useCallback(() => {
     if (!canRedo) return;
@@ -333,10 +329,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const nextGeometry = historyRef.current[historyIndexRef.current];
     const newShape = createShapeFromGeometry(nextGeometry);
     
-    let shapeToUpdate = geofenceForEditing;
-    if (!shapeToUpdate && selectedGeofenceId) {
-      shapeToUpdate = mapShapes.get(selectedGeofenceId) || null;
-    }
+    const shapeToUpdate = geofenceForEditing;
 
     if (shapeToUpdate && newShape) {
         if ('setPaths' in shapeToUpdate && 'getPaths' in newShape) (shapeToUpdate as any).setPaths((newShape as any).getPaths());
@@ -347,7 +340,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
     setCanUndo(true);
     setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
-  }, [canRedo, geofenceForEditing, selectedGeofenceId, mapShapes]);
+  }, [canRedo, geofenceForEditing]);
   
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   const clearListeners = useCallback(() => {
@@ -367,18 +360,18 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         
         const event = google.maps.event;
         
-        overlayListeners.current.push(event.addListener(shape, 'dragend', updateAndRecordHistory));
+        event.addListener(shape, 'dragend', updateAndRecordHistory);
 
         if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygon
             const path = (shape as google.maps.Polygon).getPath();
-            overlayListeners.current.push(event.addListener(path, 'set_at', updateAndRecordHistory));
-            overlayListeners.current.push(event.addListener(path, 'insert_at', updateAndRecordHistory));
-            overlayListeners.current.push(event.addListener(path, 'remove_at', updateAndRecordHistory));
+            event.addListener(path, 'set_at', updateAndRecordHistory);
+            event.addListener(path, 'insert_at', updateAndRecordHistory);
+            event.addListener(path, 'remove_at', updateAndRecordHistory);
         } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') { // Circle
-            overlayListeners.current.push(event.addListener(shape, 'radius_changed', updateAndRecordHistory));
-            overlayListeners.current.push(event.addListener(shape, 'center_changed', updateAndRecordHistory));
+            event.addListener(shape, 'radius_changed', updateAndRecordHistory);
+            event.addListener(shape, 'center_changed', updateAndRecordHistory);
         } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle
-            overlayListeners.current.push(event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
+            event.addListener(shape, 'bounds_changed', updateAndRecordHistory);
         }
     }, [updateHistory, clearListeners]);
 
@@ -397,22 +390,23 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       const map = mapRef.current;
       if (!map || isLoading) return;
 
-      // Hide all DB-backed shapes first
       mapShapes.forEach((shape) => shape.setMap(null));
       
-      // Hide the temporary editing shape
-      if(geofenceForEditing) geofenceForEditing.setMap(null);
+      let shapeToEdit: google.maps.MVCObject | null = null;
+      if(selectedGeofenceId && mapShapes.has(selectedGeofenceId)) {
+        shapeToEdit = mapShapes.get(selectedGeofenceId)!;
+      }
+      if(geofenceForEditing) {
+        shapeToEdit = geofenceForEditing;
+      }
 
-      // Clear any existing event listeners
       clearListeners();
 
-      if (mode === 'editing') {
-          const shapeToEdit = geofenceForEditing || (selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null);
-          if (shapeToEdit) {
-              (shapeToEdit as any).setOptions(EDIT_COLOR);
-              shapeToEdit.setMap(map);
-              setupListeners(shapeToEdit);
-          }
+      if (mode === 'editing' && shapeToEdit) {
+          (shapeToEdit as any).setOptions(EDIT_COLOR);
+           shapeToEdit.setMap(map);
+           setupListeners(shapeToEdit);
+           setGeofenceForEditing(shapeToEdit);
       } else if (mode === 'drawing') {
           // Drawing manager handles the new shape visibility
       } else { // 'view' mode
@@ -442,7 +436,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       }
   }, [
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-      mapShapes, setupListeners, clearListeners, isEditingEnabled, isLoading, geofenceForEditing
+      mapShapes, setupListeners, clearListeners, isEditingEnabled, isLoading, geofenceForEditing, setGeofenceForEditing
   ]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);

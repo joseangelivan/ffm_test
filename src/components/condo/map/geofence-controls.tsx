@@ -184,7 +184,6 @@ export function GeofenceControls({
 
         if (!shapeToEdit || !geofenceData) return;
         
-        // This is the crucial step: save the state BEFORE any changes.
         updateHistory(getGeometryFromShape(shapeToEdit));
 
         setMode('editing');
@@ -230,14 +229,13 @@ export function GeofenceControls({
 
     const handleSaveGeofence = async () => {
         if (!selectedGeofenceId) return;
-        
-        let shapeToSave = geofenceForEditing;
-        if (!shapeToSave) {
-          shapeToSave = mapShapes?.get(selectedGeofenceId) || null;
-        }
+
+        // The shape being actively edited is the source of truth.
+        const shapeToSave = geofenceForEditing;
         
         if (!shapeToSave) {
-             toast({ title: "Error", description: "No shape found to save.", variant: "destructive"});
+             toast({ title: "Error", description: "No active shape found to save. Please try editing again.", variant: "destructive"});
+             resetActionStates();
              return;
         }
         
@@ -264,8 +262,8 @@ export function GeofenceControls({
         if (result?.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
             const newSelectedId = isCreatingNew ? result.data?.id : selectedGeofenceId;
+            resetActionStates(false); // Do not revert visual changes on success
             onDataNeedsRefresh(newSelectedId);
-            resetActionStates(false);
         } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
         }
