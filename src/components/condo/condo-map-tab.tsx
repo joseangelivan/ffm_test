@@ -275,7 +275,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       if (currentZoom) setZoomLevel(currentZoom);
     });
     return () => { zoomListener.remove(); };
-  }, []);
+  }, [mapRef.current]);
   
   const updateHistory = useCallback((geometry: any) => {
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -501,7 +501,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 <div className="w-1/3 p-1">
                     <div className="relative border h-full rounded-md flex flex-col">
                         <div className="pt-4 px-4">
-                             <h2 className="text-lg font-semibold tracking-tight -mb-2 px-2 bg-card relative z-10 w-fit">{t('condoDashboard.map.modules.title')}</h2>
+                            <h2 className="text-lg font-semibold tracking-tight -mb-2 px-2 bg-card relative z-10 w-fit">{t('condoDashboard.map.modules.title')}</h2>
                         </div>
                         <div className="flex-1 flex flex-col space-y-4 pt-4 p-4">
                             <div className="px-1 flex items-center gap-2">
@@ -569,3 +569,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
