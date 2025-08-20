@@ -12,10 +12,11 @@ export interface Marker {
 }
 
 interface MapProps {
-    center: { lat: number; lng: number };
+    center: { lat: number; lng: number } | null;
     markers?: Marker[];
     zoom?: number;
     children?: React.ReactNode;
+    onMapLoad?: (map: google.maps.Map) => void;
 }
 
 const BoundsUpdater = ({ markers }: { markers?: Marker[] }) => {
@@ -43,15 +44,29 @@ const BoundsUpdater = ({ markers }: { markers?: Marker[] }) => {
     return null;
 };
 
-const MapComponent: React.FC<MapProps> = ({ center, markers, zoom = 12, children }) => {
+const MapComponent: React.FC<MapProps> = ({ center, markers, zoom = 12, children, onMapLoad }) => {
+    const mapRef = useRef<google.maps.Map | null>(null);
+
+    const handleMapLoad = (map: google.maps.Map) => {
+        mapRef.current = map;
+        if (onMapLoad) {
+            onMapLoad(map);
+        }
+    };
+    
+    if (!center) {
+        return null;
+    }
+
     return (
         <Map
-            defaultCenter={center}
+            center={center}
             defaultZoom={zoom}
             gestureHandling={'greedy'}
             disableDefaultUI={true}
             mapId="follow-for-me-map"
             style={{ width: '100%', height: '100%' }}
+            onCameraChanged={(ev) => handleMapLoad(ev.map)}
         >
             {markers?.map((marker) => (
                 <GoogleAdvancedMarker key={marker.id} position={marker.position} title={marker.label}>
