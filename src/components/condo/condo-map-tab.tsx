@@ -22,6 +22,7 @@ import { GeofenceControls, type DrawingMode } from './map/geofence-controls';
 import { ElementsControls } from './map/elements-controls';
 import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence } from '@/actions/maps';
+import { Label } from '@/components/ui/label';
 
 
 export type GeofenceObject = {
