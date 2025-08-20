@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Loader,
@@ -21,15 +21,10 @@ import { handleLogoutAction, type SessionPayload } from '@/lib/session';
 import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
 import { type Theme } from '@/actions/themes';
-
-export const AdminDashboardContext = React.createContext<{
-    handleSetLocale: (locale: 'es' | 'pt-BR') => void,
-    handleSetTheme: (theme: string) => void,
-    theme: string,
-} | null>(null);
+import { AdminDashboardContext } from '@/contexts/admin-dashboard-context';
 
 export function useAdminDashboard() {
-    const context = React.useContext(AdminDashboardContext);
+    const context = useContext(AdminDashboardContext);
     if (!context) {
         throw new Error("useAdminDashboard must be used within an AdminDashboardProvider");
     }
