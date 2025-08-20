@@ -542,7 +542,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                         fill="currentColor"
                                         xmlns="http://www.w3.org/2000/svg"
                                     >
-                                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z" fillOpacity="0.4"/>
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" fill="none" stroke="currentColor" strokeWidth="1.5" />
                                         <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm-4 7H7v3H5v-3H4v-2h1V8h2v1h1v2zm6 2h-2v-2h2v2zm4-1h-2v-1h2v-1h-2v-1h-2V8h4v3z"/>
                                     </svg>
                                 </AdvancedMarker>
@@ -574,15 +574,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                         </div>
                     )}
                 </div>
-                <div className="w-1/3 p-1">
-                    <fieldset className="border h-full rounded-md p-4 pt-2 flex flex-col">
-                        <div className="text-right mb-4">
-                            <h3 className="font-semibold">{condo.name}</h3>
-                            <p className="text-xs text-muted-foreground">{condo.address}</p>
-                             <Button onClick={centerMapOnAddress} variant="link" className="p-0 h-auto text-xs text-muted-foreground hover:text-primary">
-                                {t('condoDashboard.map.recenterOnAddress')}
-                            </Button>
-                        </div>
+                <div className="w-1/3 p-1 flex flex-col">
+                    <div className="text-right mb-4">
+                        <h3 className="font-semibold">{condo.name}</h3>
+                        <p className="text-xs text-muted-foreground">{condo.address}</p>
+                            <Button onClick={centerMapOnAddress} variant="link" className="p-0 h-auto text-xs text-muted-foreground hover:text-primary">
+                            {t('condoDashboard.map.recenterOnAddress')}
+                        </Button>
+                    </div>
+                    <fieldset className="border rounded-md p-4 pt-2 flex-grow flex flex-col">
                         <legend className="text-lg font-semibold tracking-tight px-2 -ml-2">
                             {t('condoDashboard.map.modules.title')}
                         </legend>
@@ -651,4 +651,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
