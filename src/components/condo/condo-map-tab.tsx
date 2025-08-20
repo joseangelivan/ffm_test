@@ -416,9 +416,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   useEffect(() => {
     // Clear all shapes first
     geofences.forEach(gf => {
-        if (gf.shape) gf.shape.setMap(null);
+        if (gf.shape) (gf.shape as any).setMap(null);
     });
-    if (activeOverlay && !isEditingShape) {
+    if (activeOverlay) {
         (activeOverlay as any).setMap(null);
     }
     clearListeners();
@@ -429,29 +429,33 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         (activeOverlay as any).setOptions({ ...SAVED_COLOR, editable: true, draggable: true, zIndex: 3 });
         (activeOverlay as any).setMap(mapRef.current);
         setupListeners(activeOverlay);
+
+        // If creating, also show the reference geofence
+        if (isCreating) {
+            const referenceGeofence = geofences.find(g => g.id === selectedGeofenceId);
+            if (referenceGeofence?.shape) {
+                (referenceGeofence.shape as any).setOptions({
+                    ...VIEW_ALL_COLOR,
+                    map: mapRef.current,
+                    editable: false, draggable: false, clickable: false
+                });
+            }
+        }
     } else {
-        // Not editing/creating, show saved geofences
+        // Not editing/creating, show saved geofences based on view settings
         geofences.forEach(gf => {
             let isVisible = false;
             let colorOptions = SAVED_COLOR;
 
-            if (isDrawing && gf.id === selectedGeofenceId) {
-                // Show selected geofence as reference while drawing
-                isVisible = true;
-                colorOptions = VIEW_ALL_COLOR;
-            } else if (!isDrawing) {
-                if (isEditingEnabled) {
-                    // Edit mode is on, but not actively editing a shape. Show only selected.
-                    isVisible = gf.id === selectedGeofenceId;
-                    colorOptions = EDIT_COLOR;
+            if (isEditingEnabled) {
+                isVisible = gf.id === selectedGeofenceId;
+                colorOptions = EDIT_COLOR;
+            } else {
+                isVisible = showAllGeofences || gf.id === defaultGeofenceId;
+                if (showAllGeofences) {
+                    colorOptions = gf.id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
                 } else {
-                    // View mode. Show all or default.
-                    isVisible = showAllGeofences || gf.id === defaultGeofenceId;
-                    if (showAllGeofences) {
-                        colorOptions = gf.id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
-                    } else {
-                        colorOptions = DEFAULT_COLOR;
-                    }
+                    colorOptions = DEFAULT_COLOR;
                 }
             }
 
