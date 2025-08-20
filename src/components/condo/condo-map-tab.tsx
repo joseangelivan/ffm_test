@@ -14,7 +14,6 @@ import {
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MapComponent from '@/components/map';
@@ -82,7 +81,6 @@ const getBoundsOfShape = (shape: google.maps.MVCObject): google.maps.LatLngBound
 
 export default function CondoMapTab({ condo, center }: { condo: Condominio; center: { lat: number; lng: number } }) {
   const { t } = useLocale();
-  const { toast } = useToast();
   const map = useMap();
 
   const [geofences, setGeofences] = useState<GeofenceObject[]>([]);
@@ -312,16 +310,13 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                    <MapComponent center={center} zoom={15}>
                        {isDrawing && (
                            <GeofenceControls.DrawingManager
-                                drawingMode={drawingMode}
+                               drawingMode={drawingMode}
                                onOverlayComplete={(overlay: google.maps.MVCObject) => {
                                    setIsDrawing(false);
                                    setIsCreating(true);
                                    setActiveOverlay(overlay);
                                    updateHistory(getGeometryFromShape(overlay));
-                                   toast({
-                                       title: t('condoDashboard.map.toast.shapeDrawn.title'),
-                                       description: t('condoDashboard.map.toast.shapeDrawn.description')
-                                   });
+                                   // Consider showing a toast
                                }}
                            />
                        )}
@@ -411,3 +406,5 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     </Card>
   );
 }
+
+    

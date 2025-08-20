@@ -23,7 +23,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
@@ -131,7 +130,6 @@ export function GeofenceControls({
     setViewAll,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
-    const { toast } = useToast();
 
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
 
@@ -173,7 +171,8 @@ export function GeofenceControls({
         const shape = createShapeFromGeometry(geometry);
         
         if (!shape) {
-            toast({ title: t('toast.errorTitle'), description: t('condoDashboard.map.toast.shapeCloneError'), variant: "destructive"});
+            // Consider showing a toast message
+            console.error("Failed to clone shape for editing.");
             return;
         }
         
@@ -213,12 +212,14 @@ export function GeofenceControls({
                 return newGeofences;
             });
             if (isEditing || isCreating) resetActionStates();
-            toast({ title: t('condoDashboard.map.toast.geofenceDeleted'), variant: "destructive" });
+            // Consider showing toast
 
         } else if (result) {
-            toast({ title: t('toast.errorTitle'), description: result.message || "An unknown error occurred.", variant: "destructive" });
+            // Consider showing toast
+             console.error(result.message);
         } else {
-             toast({ title: t('toast.errorTitle'), description: "An unexpected error occurred while deleting.", variant: "destructive" });
+            // Consider showing toast
+            console.error("An unexpected error occurred while deleting.");
         }
     }
 
@@ -245,7 +246,7 @@ export function GeofenceControls({
 
         const geometryToSave = getGeometryFromShape(activeOverlay);
         if (!currentGeofenceName) {
-            toast({ title: t('toast.errorTitle'), description: "El nombre de la geocerca es obligatorio.", variant: "destructive"});
+            // toast({ title: t('toast.errorTitle'), description: "El nombre de la geocerca es obligatorio.", variant: "destructive"});
             return;
         }
         
@@ -262,9 +263,9 @@ export function GeofenceControls({
                 setGeofences(prev => [...prev, newGeofence]);
                 setSelectedGeofenceId(newGeofence.id);
                 if(result.data.is_default) setDefaultGeofenceId(newGeofence.id);
-                toast({ title: t('condoDashboard.map.toast.geofenceSaved.title'), description: t('condoDashboard.map.toast.geofenceSaved.description', {name: newGeofence.name})});
+                // toast({ title: t('condoDashboard.map.toast.geofenceSaved.title'), description: t('condoDashboard.map.toast.geofenceSaved.description', {name: newGeofence.name})});
             } else {
-                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+                //  toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
                  return;
             }
 
@@ -277,9 +278,9 @@ export function GeofenceControls({
                     ? {...g, name: currentGeofenceName, shape: createShapeFromGeometry(geometryToSave) as google.maps.MVCObject} 
                     : g
                 ));
-                toast({ title: t('condoDashboard.map.toast.geofenceUpdated') });
+                // toast({ title: t('condoDashboard.map.toast.geofenceUpdated') });
             } else {
-                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+                //  toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
                  return;
             }
         }
@@ -299,9 +300,9 @@ export function GeofenceControls({
         const result = await setCondoDefaultGeofence(condoId, selectedGeofenceId);
         if (result.success) {
             setDefaultGeofenceId(selectedGeofenceId);
-            toast({ title: t('condoDashboard.map.toast.defaultSet.title'), description: t('condoDashboard.map.toast.defaultSet.description')});
+            // toast({ title: t('condoDashboard.map.toast.defaultSet.title'), description: t('condoDashboard.map.toast.defaultSet.description')});
         } else {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+            // toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
         }
     }
 
@@ -422,3 +423,5 @@ export function GeofenceControls({
 }
 
 GeofenceControls.DrawingManager = GeofenceDrawingManager;
+
+    
