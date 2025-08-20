@@ -67,11 +67,11 @@ export const createShapeFromGeometry = (geometry: any): google.maps.MVCObject | 
 };
 
 const getBoundsOfShape = (shape: google.maps.MVCObject): google.maps.LatLngBounds | null => {
-    if ('getBounds' in shape) return (shape as google.maps.Rectangle | google.maps.Circle).getBounds();
-    if ('getPath' in shape) { // Polygons have getPath()
+    if ('getBounds' in shape && (shape as any).getBounds) return (shape as google.maps.Rectangle | google.maps.Circle).getBounds();
+    if ('getPath' in shape && (shape as any).getPath) { // Polygons have getPath()
         const bounds = new google.maps.LatLngBounds();
         // @ts-ignore
-        (shape as google.maps.Polygon).getPath().forEach(latlng => bounds.extend(latlng));
+        (shape as google.maps.Polygon).getPath().forEach((latlng: google.maps.LatLng) => bounds.extend(latlng));
         return bounds;
     }
     return null;
@@ -290,12 +290,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
   
   const updateHistory = useCallback((geometry: any) => {
-    // If we undo and then make a change, we want to discard the old "redo" history.
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
     newHistory.push(geometry);
     historyRef.current = newHistory;
     historyIndexRef.current++;
-    
     setCanUndo(true);
     setCanRedo(false);
   }, []);
@@ -353,18 +351,21 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
     };
     
-    let changedEvent = 'bounds_changed';
-    if ('getRadius' in shape) changedEvent = 'radius_changed';
-
-    if ('getPaths' in shape) {
+    if ('getPaths' in shape) { // Polygon
         const path = (shape as google.maps.Polygon).getPath();
         overlayListeners.current.push(google.maps.event.addListener(path, 'set_at', updateAndRecordHistory));
         overlayListeners.current.push(google.maps.event.addListener(path, 'insert_at', updateAndRecordHistory));
         overlayListeners.current.push(google.maps.event.addListener(path, 'remove_at', updateAndRecordHistory));
-    } else {
-        overlayListeners.current.push(google.maps.event.addListener(shape, changedEvent, updateAndRecordHistory));
+    } else if ('getRadius' in shape) { // Circle
+        overlayListeners.current.push(google.maps.event.addListener(shape, 'radius_changed', updateAndRecordHistory));
+        overlayListeners.current.push(google.maps.event.addListener(shape, 'center_changed', updateAndRecordHistory));
+    } else if ('getBounds' in shape) { // Rectangle
+        overlayListeners.current.push(google.maps.event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
     }
+    
+    // Listen for dragend on all editable shapes
     overlayListeners.current.push(google.maps.event.addListener(shape, 'dragend', updateAndRecordHistory));
+
   }, [updateHistory, clearListeners]);
 
   // Create/update map shape objects when dbGeofences change
@@ -390,7 +391,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
           let colorOptions = {};
 
           if (mode === 'editing') {
-              clearListeners();
               if (id === selectedGeofenceId) {
                   isVisible = true;
                   colorOptions = EDIT_COLOR;
