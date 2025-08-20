@@ -26,7 +26,7 @@ interface MapSettingsDialogProps {
     onFitLevelChange: (level: '1' | '2' | '3') => void;
     onZoomIn: () => void;
     onZoomOut: () => void;
-    onFitBounds: () => void;
+    onFitBounds: (level: '1' | '2' | '3') => void;
 }
 
 export function MapSettingsDialog({
@@ -87,7 +87,7 @@ export function MapSettingsDialog({
                             </div>
                         </RadioGroup>
 
-                         <Button onClick={onFitBounds} className="w-full">
+                         <Button onClick={() => onFitBounds(fitLevel)} className="w-full">
                             <Frame className="h-4 w-4 mr-2" />
                             {t('condoDashboard.map.settings.applyAutoFit')}
                         </Button>

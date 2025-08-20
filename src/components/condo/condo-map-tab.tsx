@@ -119,40 +119,39 @@ export default function CondoMapTab({ condo, center, isLoading }: { condo: Condo
   const isEditingShape = isEditing || isCreating;
   
    const centerMapOnGeofence = useCallback((currentMap: google.maps.Map | null, level: '1' | '2' | '3') => {
-        if (!currentMap) return;
+    if (!currentMap) return;
 
-        // Cleanup any previous listener to prevent multiple firings
-        if (idleListener.current) {
-            idleListener.current.remove();
-            idleListener.current = null;
-        }
+    if (idleListener.current) {
+        idleListener.current.remove();
+        idleListener.current = null;
+    }
 
-        const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
-        
-        if (geofenceToCenter && geofenceToCenter.shape) {
-            const bounds = getBoundsOfShape(geofenceToCenter.shape);
-            if (!bounds) return;
+    const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
+    
+    if (geofenceToCenter && geofenceToCenter.shape) {
+        const bounds = getBoundsOfShape(geofenceToCenter.shape);
+        if (!bounds) return;
 
-            currentMap.fitBounds(bounds);
+        currentMap.fitBounds(bounds);
 
-            idleListener.current = google.maps.event.addListenerOnce(currentMap, 'idle', () => {
-                const currentZoom = currentMap.getZoom();
-                if (currentZoom) {
-                    if (level === '1') {
-                        // "Ajustado", no change needed
-                    } else if (level === '2') {
-                        currentMap.setZoom(currentZoom - 1); // Normal
-                    } else if (level === '3') {
-                         currentMap.setZoom(currentZoom - 2); // Amplio
-                    }
+        idleListener.current = google.maps.event.addListenerOnce(currentMap, 'idle', () => {
+            const currentZoom = currentMap.getZoom();
+            if (currentZoom) {
+                let zoomModifier = 0;
+                if (level === '2') zoomModifier = -1; // Normal
+                if (level === '3') zoomModifier = -2; // Amplio
+                
+                if (zoomModifier !== 0) {
+                   currentMap.setZoom(currentZoom + zoomModifier);
                 }
-                idleListener.current = null;
-            });
+            }
+            idleListener.current = null;
+        });
 
-        } else {
-            currentMap.setCenter(center);
-            currentMap.setZoom(15);
-        }
+    } else {
+        currentMap.setCenter(center);
+        currentMap.setZoom(15);
+    }
    }, [geofences, defaultGeofenceId, center]);
   
   const centerMapOnAddress = useCallback(() => {
@@ -483,7 +482,7 @@ export default function CondoMapTab({ condo, center, isLoading }: { condo: Condo
             onFitLevelChange={setFitLevel}
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
-            onFitBounds={() => centerMapOnGeofence(map, fitLevel)}
+            onFitBounds={(level) => centerMapOnGeofence(map, level)}
         />
     </>
   );
