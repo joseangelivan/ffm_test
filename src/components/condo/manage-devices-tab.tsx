@@ -119,7 +119,7 @@ function ManageDeviceForm({
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="physical_device_id">{t('condoDashboard.devices.manageDialog.physicalDeviceId')}</Label>
-                            <Input id="physical_device_id" name="physical_device_id" defaultValue={device.physical_device_id || ''} placeholder="ID físico o MAC address" disabled={pending} />
+                            <Input id="physical_device_id" name="physical_device_id" defaultValue={device.physical_device_id || ''} placeholder="ID físico del dispositivo" disabled={pending} />
                         </div>
                     </div>
                     <DialogFooter>
