@@ -23,7 +23,7 @@ import { ManageElementTypeDialog } from './manage-element-type-dialog';
 
 type MapElementType = 'camera' | 'gatehouse' | 'housing_area' | 'other';
 
-export function ElementsControls() {
+export function ElementsControls({condoId}: {condoId: string}) {
     const { t } = useLocale();
     const [isElementEditing, setIsElementEditing] = useState(false);
     const [selectedElementType, setSelectedElementType] = useState<MapElementType>('camera');
@@ -85,7 +85,7 @@ export function ElementsControls() {
                                         <Settings className="h-4 w-4"/>
                                     </Button>
                                 </DialogTrigger>
-                                <ManageElementTypeDialog />
+                                <ManageElementTypeDialog condoId={condoId} />
                             </Dialog>
                         </div>
                     </div>
