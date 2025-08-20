@@ -382,7 +382,8 @@
             "setAsDefault": "Definir como Padrão",
             "draw": "Desenhar",
             "defaultName": "Geocerca",
-            "saveButton": "Salvar Geocerca"
+            "saveButton": "Salvar Geocerca",
+            "fitBounds": "Ajustar à Geocerca"
         },
         "shapes": {
             "polygon": "Polígono",

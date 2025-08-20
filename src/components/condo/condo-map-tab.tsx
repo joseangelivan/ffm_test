@@ -9,6 +9,10 @@ import {
   Layers,
   LocateFixed,
   Pin,
+  Locate,
+  ZoomIn,
+  ZoomOut,
+  Frame,
 } from 'lucide-react';
 
 import type { Condominio } from '@/actions/condos';
@@ -113,7 +117,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     if (defaultGeofence && defaultGeofence.shape) {
       const bounds = getBoundsOfShape(defaultGeofence.shape);
       if (bounds) {
-        map.fitBounds(bounds);
+        map.fitBounds(bounds, 50); // 50px padding
         return;
       }
     }
@@ -293,6 +297,9 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     }
   }, [activeOverlay, isEditing, isEditingShape, map, geofences, isEditingEnabled, viewAll, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners]);
   
+  const handleZoomIn = () => map && map.setZoom(map.getZoom()! + 1);
+  const handleZoomOut = () => map && map.setZoom(map.getZoom()! - 1);
+  
   return (
     <Card>
       <CardHeader>
@@ -316,14 +323,19 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                                    setIsCreating(true);
                                    setActiveOverlay(overlay);
                                    updateHistory(getGeometryFromShape(overlay));
-                                   // Consider showing a toast
                                }}
                            />
                        )}
                    </MapComponent>
-                   <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex gap-1 backdrop-blur-sm">
-                        <Button onClick={centerMapOnGeofence} variant="ghost" size="icon" title={t('condoDashboard.map.recenterOnGeofence')}>
-                            <LocateFixed className="h-5 w-5" />
+                   <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col gap-1 backdrop-blur-sm">
+                        <Button onClick={() => handleZoomIn()} variant="ghost" size="icon" title="Zoom In">
+                            <ZoomIn className="h-5 w-5" />
+                        </Button>
+                        <Button onClick={() => handleZoomOut()} variant="ghost" size="icon" title="Zoom Out">
+                            <ZoomOut className="h-5 w-5" />
+                        </Button>
+                        <Button onClick={centerMapOnGeofence} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
+                            <Frame className="h-5 w-5" />
                         </Button>
                    </div>
                    {isEditingShape && (canUndo || canRedo) && (
@@ -349,7 +361,10 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                             <Pin className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
                             <p className="text-sm text-muted-foreground">{condo.address}</p>
                         </div>
-                        <Button onClick={centerMapOnAddress} variant="link" className="p-0 h-auto mt-1 text-sm">{t('condoDashboard.map.recenterOnAddress')}</Button>
+                        <Button onClick={centerMapOnAddress} variant="outline" size="sm" className="mt-2">
+                          <Locate className="mr-2 h-4 w-4"/>
+                          {t('condoDashboard.map.recenterOnAddress')}
+                        </Button>
                     </div>
                      <div className="flex-1 flex flex-col space-y-4 pt-4">
                         <div className="px-1 flex items-center gap-2">

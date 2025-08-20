@@ -383,7 +383,8 @@
           "setAsDefault": "Establecer como Estándar",
           "draw": "Dibujar",
           "defaultName": "Geocerca",
-          "saveButton": "Guardar Geocerca"
+          "saveButton": "Guardar Geocerca",
+          "fitBounds": "Ajustar a Geocerca"
         },
         "shapes": {
           "polygon": "Polígono",
@@ -501,7 +502,7 @@
       },
       "devices": {
         "title": "Gestionar Dispositivos",
-        "description": "Añade o elimina dispositivos de seguimiento para este condominio.",
+        "description": "Añade o elimina dispositivos de rastreo para este condominio.",
         "addDeviceButton": "Añadir Dispositivo",
         "noDevices": "Aún no hay dispositivos para este condominio.",
         "table": {
@@ -577,11 +578,11 @@
         "title": "Primer Inicio de Sesión",
         "description": "Bienvenido. Activa tu cuenta estableciendo tu contraseña.",
         "emailLabel": "Email",
-        "pinLabel": "PIN de Activación",
-        "newPasswordLabel": "Nueva Contraseña",
-        "confirmPasswordLabel": "Confirmar Nueva Contraseña",
-        "activateButton": "Activar Cuenta",
-        "activating": "Activando...",
+        "pinLabel": "PIN de Ativação",
+        "newPasswordLabel": "Nova Senha",
+        "confirmPasswordLabel": "Confirmar Nova Senha",
+        "activateButton": "Ativar Conta",
+        "activating": "Ativando...",
         "backToLogin": "Volver al inicio de sesión"
     },
     "dbInitializer": {
