@@ -128,11 +128,11 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
         if (!mapDiv) return;
 
         const { width: mapWidth, height: mapHeight } = mapDiv.getBoundingClientRect();
-        
         const paddingX = mapWidth * (fitPadding / 100);
         const paddingY = mapHeight * (fitPadding / 100);
-        
+
         map.fitBounds(bounds, { top: paddingY, bottom: paddingY, left: paddingX, right: paddingX });
+
         return;
     }
     // If no default geofence, just zoom to a default level on the condo address
@@ -172,11 +172,20 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   // This effect runs after geofences are loaded to center the map.
     useEffect(() => {
         if (map && geofences.length > 0 && defaultGeofenceId) {
-            centerMapOnGeofence();
+             const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
+            if (geofenceToCenter?.shape) {
+                const bounds = getBoundsOfShape(geofenceToCenter.shape);
+                if (bounds) {
+                    map.fitBounds(bounds, fitPadding);
+                } else {
+                    map.setCenter(center);
+                    map.setZoom(15);
+                }
+            }
         } else if (map) {
             centerMapOnAddress();
         }
-    }, [map, geofences, defaultGeofenceId, centerMapOnGeofence, centerMapOnAddress]);
+    }, [map, geofences, defaultGeofenceId]); // Removed dependencies to stop slider re-triggering
 
     useEffect(() => {
         if (!map) return;
@@ -466,5 +475,3 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     </>
   );
 }
-
-    
