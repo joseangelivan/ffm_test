@@ -91,6 +91,7 @@ const getCenterOfShape = (shape: google.maps.MVCObject): google.maps.LatLng | nu
 export default function CondoMapTab({ condo, initialPosition }: { condo: Condominio, initialPosition: { lat: number; lng: number } }) {
   const { t } = useLocale();
   const mapRef = useRef<google.maps.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
   
   const [geofences, setGeofences] = useState<GeofenceObject[]>([]);
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
@@ -122,6 +123,41 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
 
   const isEditingShape = isEditing || isCreating;
+  
+  const recalculateZoomLevels = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    
+    const defaultGeofence = geofences.find(g => g.id === defaultGeofenceId);
+    if (defaultGeofence?.shape) {
+        const bounds = getBoundsOfShape(defaultGeofence.shape);
+        if (bounds) {
+            map.fitBounds(bounds, 0);
+            const maxZoom = map.getZoom();
+            if (maxZoom !== undefined) {
+                setCalculatedZoomLevels({
+                    tight: maxZoom,
+                    normal: maxZoom > 1 ? maxZoom - 1 : maxZoom,
+                    wide: maxZoom > 2 ? maxZoom - 2 : maxZoom,
+                });
+            }
+        }
+    }
+  }, [geofences, defaultGeofenceId]);
+
+  const centerMapOnGeofence = useCallback(() => {
+      const map = mapRef.current;
+      if (!map || !calculatedZoomLevels) return;
+
+      const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
+      if (geofenceToCenter?.shape) {
+          const center = getCenterOfShape(geofenceToCenter.shape);
+          if (center) map.setCenter(center);
+          map.setZoom(calculatedZoomLevels.normal);
+          setFitLevel('2');
+      }
+  }, [calculatedZoomLevels, defaultGeofenceId, geofences]);
+
 
   const centerMapOnAddress = useCallback(() => {
     const map = mapRef.current;
@@ -143,90 +179,88 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         if (level === '1') zoomToSet = calculatedZoomLevels.tight;
         if (level === '3') zoomToSet = calculatedZoomLevels.wide;
         
-        map.setZoom(zoomToSet);
+        if (map.getZoom() !== zoomToSet) {
+          map.setZoom(zoomToSet);
+        }
     }
     setFitLevel(level);
   }, [calculatedZoomLevels, geofences, defaultGeofenceId]);
 
+
  const handleMapLoad = useCallback(async (map: google.maps.Map) => {
     mapRef.current = map;
     try {
-      const dbGeofences = await getGeofencesByCondoId(condo.id);
-      const gfObjects = dbGeofences.map(dbGf => ({
-        id: dbGf.id, name: dbGf.name, shape: createShapeFromGeometry(dbGf.geometry) as google.maps.MVCObject
-      })).filter(gf => gf.shape); // Filter out any geofences that failed to create a shape
-      setGeofences(gfObjects);
+        const dbGeofences = await getGeofencesByCondoId(condo.id);
+        const gfObjects = dbGeofences.map(dbGf => ({
+            id: dbGf.id, name: dbGf.name, shape: createShapeFromGeometry(dbGf.geometry) as google.maps.MVCObject
+        })).filter(gf => gf.shape);
+        
+        setGeofences(gfObjects);
 
-      if (gfObjects.length > 0) {
-        const defaultGfDb = dbGeofences.find(g => g.is_default);
-        const initialDefaultId = defaultGfDb ? defaultGfDb.id : gfObjects[0].id;
-        setDefaultGeofenceId(initialDefaultId);
-        setSelectedGeofenceId(initialDefaultId);
-
-        const geofenceToCenter = gfObjects.find(g => g.id === initialDefaultId);
-        if (geofenceToCenter?.shape) {
-          const bounds = getBoundsOfShape(geofenceToCenter.shape);
-          if (bounds) {
-            // Add a one-time listener for when the map is idle after fitting bounds
-            const idleListener = google.maps.event.addListenerOnce(map, 'idle', () => {
-              const maxZoom = map.getZoom();
-              if (maxZoom !== undefined) {
-                const zoomLevels = {
-                  tight: maxZoom,
-                  normal: maxZoom > 1 ? maxZoom - 1 : maxZoom,
-                  wide: maxZoom > 2 ? maxZoom - 2 : maxZoom,
-                };
-                setCalculatedZoomLevels(zoomLevels);
-
-                // Set the initial view to 'normal'
-                const center = getCenterOfShape(geofenceToCenter.shape);
-                if (center) map.setCenter(center);
-                map.setZoom(zoomLevels.normal);
-                setFitLevel('2');
-              } else {
-                 centerMapOnAddress(); // Fallback if getZoom fails
-              }
-              setIsLoading(false); // Map is ready and configured
-            });
+        if (gfObjects.length > 0) {
+            const defaultGfDb = dbGeofences.find(g => g.is_default);
+            const initialDefaultId = defaultGfDb ? defaultGfDb.id : gfObjects[0].id;
+            setDefaultGeofenceId(initialDefaultId);
+            setSelectedGeofenceId(initialDefaultId);
             
-            // This will trigger the 'idle' event once done
-            map.fitBounds(bounds, 0);
-
-          } else {
-            centerMapOnAddress(); // Fallback if bounds can't be calculated
-            setIsLoading(false);
-          }
+            const geofenceToCenter = gfObjects.find(g => g.id === initialDefaultId);
+            if (geofenceToCenter?.shape) {
+                const bounds = getBoundsOfShape(geofenceToCenter.shape);
+                if (bounds) {
+                    const idleListener = google.maps.event.addListenerOnce(map, 'idle', () => {
+                       recalculateZoomLevels();
+                       centerMapOnGeofence();
+                       setIsLoading(false);
+                    });
+                    map.fitBounds(bounds, 0);
+                } else {
+                    centerMapOnAddress();
+                    setIsLoading(false);
+                }
+            } else {
+                 centerMapOnAddress();
+                 setIsLoading(false);
+            }
         } else {
-          centerMapOnAddress(); // Fallback if default geofence has no shape
-          setIsLoading(false);
+            centerMapOnAddress();
+            setIsLoading(false);
         }
-      } else {
-        centerMapOnAddress(); // No geofences, just center on address
-        setIsLoading(false);
-      }
     } catch (error) {
-      console.error("Failed to initialize map:", error);
-      centerMapOnAddress();
-      setIsLoading(false);
+        console.error("Failed to initialize map:", error);
+        centerMapOnAddress();
+        setIsLoading(false);
     }
-  }, [condo.id, centerMapOnAddress]);
-
+ }, [condo.id, centerMapOnAddress, recalculateZoomLevels, centerMapOnGeofence]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-
     const zoomListener = map.addListener('zoom_changed', () => {
       const currentZoom = map.getZoom();
-      if (currentZoom) {
-        setZoomLevel(currentZoom);
-      }
+      if (currentZoom) setZoomLevel(currentZoom);
     });
-    
-    return () => {
-        zoomListener.remove();
-    };
+    return () => { zoomListener.remove(); };
   }, []);
+
+  useEffect(() => {
+    const mapContainer = mapContainerRef.current;
+    if (!mapContainer) return;
+
+    let timeoutId: NodeJS.Timeout;
+    const observer = new ResizeObserver(() => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            recalculateZoomLevels();
+        }, 300); // Debounce to avoid rapid recalculations
+    });
+
+    observer.observe(mapContainer);
+
+    return () => {
+        clearTimeout(timeoutId);
+        observer.disconnect();
+    };
+}, [recalculateZoomLevels]);
   
   const updateHistory = useCallback((geometry: any) => {
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -379,7 +413,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         </CardHeader>
         <CardContent className="p-0">
             <div className="flex h-[70vh]">
-                <div className="flex-1 relative w-2/3 p-1">
+                <div ref={mapContainerRef} className="flex-1 relative w-2/3 p-1">
                      <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
                         {isLoading && (
                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
@@ -518,4 +552,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   );
 }
 
-    
