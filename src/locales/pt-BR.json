@@ -359,6 +359,11 @@
         "title": "Mapa do Condomínio",
         "description": "Visualize o mapa e a distribuição do condomínio.",
         "loadingMap": "Carregando mapa...",
+        "recenter": "Recentralizar Mapa",
+        "selectMapPlaceholder": "Selecionar mapa",
+        "defaultOSM": "Mapa Padrão (OSM)",
+        "customMap1": "Mapa Personalizado 1",
+        "customMap2": "Mapa Personalizado 2",
         "undo": "Desfazer",
         "redo": "Refazer",
         "modules": {

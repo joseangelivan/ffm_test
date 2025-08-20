@@ -359,6 +359,7 @@
         "title": "Mapa del Condominio",
         "description": "Visualiza el mapa y la distribución del condominio.",
         "loadingMap": "Cargando mapa...",
+        "recenter": "Recentrar Mapa",
         "selectMapPlaceholder": "Seleccionar mapa",
         "defaultOSM": "Mapa por Defecto (OSM)",
         "customMap1": "Mapa Personalizado 1",
@@ -513,7 +514,6 @@
         "manageDialog": {
             "title": "Gerenciar Dispositivo: {name}",
             "description": "Configura los parámetros de comunicación para el dispositivo.",
-            "serverConfigTitle": "Configuración del Servidor",
             "protocol": "Protocolo de Comunicación",
             "selectProtocol": "Seleccionar protocolo",
             "physicalDeviceId": "ID Físico del Dispositivo"

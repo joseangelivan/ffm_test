@@ -7,6 +7,7 @@ import {
   Undo,
   Redo,
   Layers,
+  LocateFixed,
 } from 'lucide-react';
 
 import type { Condominio } from '@/actions/condos';
@@ -67,6 +68,16 @@ export const createShapeFromGeometry = (geometry: any): google.maps.MVCObject | 
     return shape;
 };
 
+const getBoundsOfShape = (shape: google.maps.MVCObject): google.maps.LatLngBounds | null => {
+    if ('getBounds' in shape) return (shape as google.maps.Rectangle | google.maps.Circle).getBounds();
+    if ('getPaths' in shape) {
+        const bounds = new google.maps.LatLngBounds();
+        (shape as google.maps.Polygon).getPath().forEach(latlng => bounds.extend(latlng));
+        return bounds;
+    }
+    return null;
+}
+
 export default function CondoMapTab({ condo, center }: { condo: Condominio; center: { lat: number; lng: number } }) {
   const { t } = useLocale();
   const { toast } = useToast();
@@ -95,6 +106,21 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
 
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   const isEditingShape = isEditing || isCreating;
+  
+  const centerMap = useCallback(() => {
+    if (!map) return;
+    const defaultGeofence = geofences.find(g => g.id === defaultGeofenceId);
+    if (defaultGeofence && defaultGeofence.shape) {
+      const bounds = getBoundsOfShape(defaultGeofence.shape);
+      if (bounds) {
+        map.fitBounds(bounds);
+        return;
+      }
+    }
+    map.setCenter(center);
+    map.setZoom(15);
+  }, [map, geofences, defaultGeofenceId, center]);
+
 
   useEffect(() => {
     async function fetchGeofences() {
@@ -117,6 +143,13 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     }
     fetchGeofences();
   }, [condo.id]);
+
+  // This effect runs after geofences are loaded to center the map.
+    useEffect(() => {
+        if (map && geofences.length > 0) {
+            centerMap();
+        }
+    }, [map, geofences, centerMap]);
 
   const updateHistory = useCallback((geometry: any) => {
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -283,6 +316,11 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                            />
                        )}
                    </MapComponent>
+                   <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex gap-1 backdrop-blur-sm">
+                        <Button onClick={centerMap} variant="ghost" size="icon" title={t('condoDashboard.map.recenter')}>
+                            <LocateFixed className="h-5 w-5" />
+                        </Button>
+                   </div>
                    {isEditingShape && (canUndo || canRedo) && (
                      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex gap-1 backdrop-blur-sm">
                         <Button onClick={handleUndo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
