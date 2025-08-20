@@ -61,7 +61,7 @@ export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any |
 };
 
 export const createShapeFromGeometry = (geometry: any): google.maps.MVCObject | null => {
-    if (!geometry) return null;
+    if (!geometry || typeof google === 'undefined') return null;
     
     let shape: google.maps.MVCObject | null = null;
     
@@ -117,17 +117,14 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
 
   const isEditingShape = isEditing || isCreating;
   
-  const centerMapOnGeofence = useCallback((currentMap: google.maps.Map, level: '1' | '2' | '3') => {
-    const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
-    if (!geofenceToCenter || !geofenceToCenter.shape) return;
+   const centerMapOnGeofence = useCallback((currentMap: google.maps.Map, level: '1' | '2' | '3', geofence: GeofenceObject) => {
+    if (!geofence.shape) return;
 
-    const bounds = getBoundsOfShape(geofenceToCenter.shape);
+    const bounds = getBoundsOfShape(geofence.shape);
     if (!bounds) return;
 
-    // First fit to bounds with no padding to get the tightest zoom
     currentMap.fitBounds(bounds, 0); 
-
-    // Then, once the map is idle (finished fitting), adjust the zoom level
+    
     const listener = google.maps.event.addListenerOnce(currentMap, 'idle', () => {
         const maxZoom = currentMap.getZoom();
         if (maxZoom !== undefined) {
@@ -137,19 +134,18 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
             currentMap.setZoom(maxZoom - zoomModifier);
         }
     });
-   }, [geofences, defaultGeofenceId]);
+   }, []);
 
-   const centerMapOnAddress = useCallback(() => {
-    if (!map || !center) return;
-    map.setCenter(center);
-    map.setZoom(15);
-  }, [map, center]);
-
+   const centerMapOnAddress = useCallback((currentMap: google.maps.Map, coords: {lat: number, lng: number}) => {
+    currentMap.setCenter(coords);
+    currentMap.setZoom(15);
+  }, []);
 
   useEffect(() => {
-    if (!map) return;
+    if (!map || !condo.id) return;
 
     const initializeMap = async () => {
+        setIsLoading(true);
         try {
             const dbGeofences = await getGeofencesByCondoId(condo.id);
             const hasGeofences = dbGeofences && dbGeofences.length > 0;
@@ -167,10 +163,13 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                 setGeofences(gfObjects);
                 setDefaultGeofenceId(initialDefaultId);
                 setSelectedGeofenceId(initialDefaultId);
+                
+                const geofenceToCenter = gfObjects.find(g => g.id === initialDefaultId);
+                if (geofenceToCenter) {
+                    centerMapOnGeofence(map, fitLevel, geofenceToCenter);
+                }
 
-                // This will be called by the other useEffect that depends on geofences and defaultGeofenceId
             } else {
-                // No geofences, fall back to geocoding the address
                 const geoResult = await geocodeAddress({
                     street: condo.street,
                     city: condo.city,
@@ -178,25 +177,20 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                     country: condo.country,
                 });
                 
+                let location: {lat: number, lng: number};
                 if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
-                    const location = geoResult.data[0].geometry.location;
-                    setCenter(location);
-                    map.setCenter(location);
-                    map.setZoom(15);
+                    location = geoResult.data[0].geometry.location;
                 } else {
-                     // Fallback if geocoding fails
-                    const fallbackCenter = { lat: -23.5505, lng: -46.6333 };
-                    setCenter(fallbackCenter);
-                    map.setCenter(fallbackCenter);
-                    map.setZoom(15);
+                    location = { lat: -23.5505, lng: -46.6333 }; // Fallback
                 }
+                setCenter(location);
+                centerMapOnAddress(map, location);
             }
         } catch (error) {
             console.error("Failed to initialize map:", error);
             const fallbackCenter = { lat: -23.5505, lng: -46.6333 };
             setCenter(fallbackCenter);
-            map.setCenter(fallbackCenter);
-            map.setZoom(15);
+            centerMapOnAddress(map, fallbackCenter);
         } finally {
             setIsLoading(false);
         }
@@ -204,18 +198,15 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     
     initializeMap();
 
-  }, [map, condo.id, condo.street, condo.city, condo.state, condo.country]);
+  }, [map, condo.id, condo.street, condo.city, condo.state, condo.country, centerMapOnAddress, centerMapOnGeofence, fitLevel]);
   
-  useEffect(() => {
-    if (map && geofences.length > 0 && defaultGeofenceId) {
-        centerMapOnGeofence(map, fitLevel);
-    }
-  }, [map, geofences, defaultGeofenceId, fitLevel, centerMapOnGeofence]);
-
   useEffect(() => {
       if (!map) return;
       const listener = map.addListener('zoom_changed', () => {
-          setZoomLevel(map.getZoom() || 15);
+          const currentZoom = map.getZoom();
+          if (currentZoom) {
+            setZoomLevel(currentZoom);
+          }
       });
       return () => listener.remove();
   }, [map]);
@@ -411,7 +402,12 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                             <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
                                 <ZoomOut className="h-5 w-5" />
                             </Button>
-                            <Button onClick={() => map && centerMapOnGeofence(map, fitLevel)} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
+                            <Button onClick={() => {
+                                const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
+                                if (map && geofenceToCenter) {
+                                    centerMapOnGeofence(map, fitLevel, geofenceToCenter);
+                                }
+                            }} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
                                 <Frame className="h-5 w-5" />
                             </Button>
                     </div>
@@ -438,7 +434,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                                 <Pin className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
                                 <p className="text-sm text-muted-foreground">{condo.address}</p>
                             </div>
-                             <Button onClick={centerMapOnAddress} variant="outline" size="sm" className="mt-2">
+                             <Button onClick={() => map && center && centerMapOnAddress(map, center)} variant="outline" size="sm" className="mt-2">
                                 <Locate className="mr-2 h-4 w-4"/>
                                 {t('condoDashboard.map.recenterOnAddress')}
                             </Button>
@@ -507,7 +503,12 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
             onFitLevelChange={setFitLevel}
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
-            onFitBounds={(level) => map && centerMapOnGeofence(map, level)}
+            onFitBounds={(level) => {
+                const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
+                if (map && geofenceToCenter) {
+                    centerMapOnGeofence(map, level, geofenceToCenter);
+                }
+            }}
         />
     </>
   );
