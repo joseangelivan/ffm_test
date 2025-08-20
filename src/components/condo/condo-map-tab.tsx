@@ -139,14 +139,11 @@ export default function CondoMapTab({ condo, center, isLoading }: { condo: Condo
             const currentZoom = currentMap.getZoom();
             if (currentZoom) {
                 let zoomModifier = 0;
-                if (level === '2') zoomModifier = -1; // Normal
-                if (level === '3') zoomModifier = -2; // Amplio
-                
-                if (zoomModifier !== 0) {
-                   currentMap.setZoom(currentZoom + zoomModifier);
-                }
+                if (level === '2') zoomModifier = 1;
+                if (level === '3') zoomModifier = 2;
+                currentMap.setZoom(currentZoom - zoomModifier);
             }
-            idleListener.current = null;
+            idleListener.current = null; // Clean up listener
         });
 
     } else {
