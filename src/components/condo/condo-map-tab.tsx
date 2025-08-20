@@ -317,43 +317,47 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const drawingLibrary = useMapsLibrary('drawing');
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
 
+  // Create DrawingManager instance
   useEffect(() => {
-    if (!mapRef.current || !drawingLibrary) return;
+    if (!mapRef.current || !drawingLibrary || drawingManagerRef.current) return;
 
-    if (!drawingManagerRef.current) {
-      const newDrawingManager = new drawingLibrary.DrawingManager({
+    const newDrawingManager = new drawingLibrary.DrawingManager({
         drawingControl: false,
-        polygonOptions: { ...SAVED_COLOR, editable: true, draggable: true },
-        rectangleOptions: { ...SAVED_COLOR, editable: true, draggable: true },
-        circleOptions: { ...SAVED_COLOR, editable: true, draggable: true },
-      });
-      
-      google.maps.event.addListener(
+        polygonOptions: { ...SAVED_COLOR },
+        rectangleOptions: { ...SAVED_COLOR },
+        circleOptions: { ...SAVED_COLOR },
+    });
+    
+    google.maps.event.addListener(
         newDrawingManager,
         'overlaycomplete',
         (event: any) => {
-            newDrawingManager.setDrawingMode(null);
-            event.overlay.setMap(null);
-            setActiveOverlay(event.overlay);
+            const newOverlay = event.overlay;
+            newOverlay.setOptions({ editable: true, draggable: true });
+            
             setIsDrawing(false);
+            newDrawingManager.setDrawingMode(null);
+
+            // Hide the drawn shape temporarily to pass it to the state
+            newOverlay.setMap(null);
+            
+            setActiveOverlay(newOverlay);
             setIsCreating(true);
-            updateHistory(getGeometryFromShape(event.overlay));
+            updateHistory(getGeometryFromShape(newOverlay));
         }
-      );
-      drawingManagerRef.current = newDrawingManager;
-    }
+    );
+    drawingManagerRef.current = newDrawingManager;
+    newDrawingManager.setMap(mapRef.current);
   }, [drawingLibrary, updateHistory]);
 
+  // Control DrawingManager state
   useEffect(() => {
-    if (!drawingManagerRef.current || !mapRef.current) return;
-    
-    if (isDrawing) {
-      drawingManagerRef.current.setMap(mapRef.current);
-      drawingManagerRef.current.setDrawingMode(drawingMode as any);
-    } else {
-      drawingManagerRef.current.setDrawingMode(null);
-      drawingManagerRef.current.setMap(null);
-    }
+      if (!drawingManagerRef.current) return;
+      if (isDrawing) {
+          drawingManagerRef.current.setDrawingMode(drawingMode as any);
+      } else {
+          drawingManagerRef.current.setDrawingMode(null);
+      }
   }, [isDrawing, drawingMode]);
 
 
@@ -410,7 +414,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
   
     if (isEditingShape && activeOverlay) {
-        (activeOverlay as any).setOptions({ ...SAVED_COLOR, editable: true, draggable: true, zIndex: 3, suppressUndo: true });
+        (activeOverlay as any).setOptions({ ...SAVED_COLOR, editable: true, draggable: true, zIndex: 3 });
         (activeOverlay as any).setMap(mapRef.current);
         setupListeners(activeOverlay);
     }
@@ -475,7 +479,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         <CardHeader>
             <div className="flex justify-between items-start">
                 <div>
-                    <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
+                    <CardTitle>{t('condoDashboard.map.title')}: {condo.name}</CardTitle>
                     <p className="text-xs text-muted-foreground">{condo.address}</p>
                 </div>
                  <div className="text-right">
@@ -579,6 +583,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     showAllGeofences={showAllGeofences}
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
+                                    drawingManager={drawingManagerRef.current}
                                 />
                             )}
                             {activeModule === 'elements' && (

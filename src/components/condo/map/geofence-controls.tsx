@@ -13,10 +13,9 @@ import {
   Trash2,
   Settings,
 } from 'lucide-react';
-import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 import type { GeofenceObject } from '../condo-map-tab';
-import { getGeometryFromShape, createShapeFromGeometry, SAVED_COLOR, DEFAULT_COLOR, EDIT_COLOR } from '../condo-map-tab';
+import { getGeometryFromShape, createShapeFromGeometry } from '../condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 
 import { Button } from '@/components/ui/button';
@@ -60,6 +59,7 @@ type GeofenceControlsProps = {
     showAllGeofences: boolean;
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
+    drawingManager: google.maps.drawing.DrawingManager | null;
 }
 
 export function GeofenceControls({
@@ -90,7 +90,8 @@ export function GeofenceControls({
     setIsEditingEnabled,
     showAllGeofences,
     setShowAllGeofences,
-    onSettingsClick
+    onSettingsClick,
+    drawingManager,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
