@@ -449,11 +449,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       newDrawingManager,
       'overlaycomplete',
       (event: any) => {
-        // Immediately make the new shape editable and draggable
-        event.overlay.setEditable(true);
-        event.overlay.setDraggable(true);
-        
-        // Hide the drawn overlay and let our state handle it
         newDrawingManager.setDrawingMode(null);
         event.overlay.setMap(null); 
         
@@ -619,3 +614,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
