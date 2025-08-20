@@ -155,7 +155,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const map = mapRef.current;
     if(!map || !condoAddressPosition) return;
     map.setCenter(condoAddressPosition);
-    map.setZoom(15);
+    map.setZoom(17);
   }, [condoAddressPosition]);
 
 
@@ -442,10 +442,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                  <div className="text-right">
                     <p className="text-sm font-medium">{condo.name}</p>
                     <p className="text-xs text-muted-foreground">{condo.address}</p>
-                     <Button onClick={centerMapOnAddress} variant="link" size="sm" className="h-auto p-0 text-xs">
-                        <Locate className="mr-1 h-3 w-3"/>
-                        {t('condoDashboard.map.recenterOnAddress')}
-                    </Button>
                 </div>
             </div>
         </CardHeader>
@@ -508,11 +504,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                     )}
                 </div>
                 <div className="w-1/3 p-1">
-                    <fieldset className="border h-full rounded-md p-4 pt-0">
-                        <legend className="text-lg font-semibold tracking-tight px-2 -ml-2 bg-card">
+                    <fieldset className="border h-full rounded-md p-4 pt-2">
+                        <legend className="text-lg font-semibold tracking-tight px-2 -ml-2">
                             {t('condoDashboard.map.modules.title')}
                         </legend>
                         <div className="flex-1 flex flex-col space-y-4 pt-2">
+                            <Button onClick={centerMapOnAddress} variant="link" size="sm" className="h-auto p-0 text-xs justify-start -mt-1 text-muted-foreground">
+                                <Locate className="mr-1 h-3 w-3"/>
+                                {t('condoDashboard.map.recenterOnAddress')}
+                            </Button>
                             <div className="px-1 flex items-center gap-2">
                                 <Select value={activeModule} onValueChange={setActiveModule}>
                                     <SelectTrigger id="module-select" className="text-base font-bold text-primary">
