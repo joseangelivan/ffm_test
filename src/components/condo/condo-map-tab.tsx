@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -112,6 +113,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
   
   const [isEditingEnabled, setIsEditingEnabled] = useState(false);
+  const [showAllGeofences, setShowAllGeofences] = useState(false);
+
 
   const [zoomLevel, setZoomLevel] = useState(15);
   const [fitLevel, setFitLevel] = useState<'1' | '2' | '3'>('2');
@@ -224,10 +227,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         setDefaultGeofenceId(initialDefaultId);
         setSelectedGeofenceId(initialDefaultId);
         
-        if (initialDefaultId) {
-            const geofenceToCenter = gfObjects.find(g => g.id === initialDefaultId);
-            const bounds = geofenceToCenter?.shape ? getBoundsOfShape(geofenceToCenter.shape) : null;
-            
+        const geofenceToCenter = gfObjects.find(g => g.id === initialDefaultId);
+        if (geofenceToCenter?.shape) {
+            const bounds = getBoundsOfShape(geofenceToCenter.shape);
             if (bounds) {
                 map.fitBounds(bounds, 0);
                  const idleListener = google.maps.event.addListenerOnce(map, 'idle', () => {
@@ -368,43 +370,57 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [clearListeners, activeOverlay]);
 
   useEffect(() => {
-    // Clear all geofences from the map first to prevent ghosts.
     geofences.forEach(gf => {
       if (gf.shape) (gf.shape as any).setMap(null);
     });
   
-    // Also clear the active (being edited) overlay if we're not in an editing state
     if (activeOverlay && !isEditingShape) {
       (activeOverlay as any).setMap(null);
     }
   
     clearListeners();
   
-    // Now, draw the geofences based on the current state
-    const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
+    if (!isEditingEnabled) {
+      // Not in edit mode, show default or all
+      geofences.forEach(gf => {
+        const isDefault = gf.id === defaultGeofenceId;
+        const isVisible = showAllGeofences || isDefault;
   
-    if (selectedGeofence && selectedGeofence.shape) {
-      const isDefault = selectedGeofence.id === defaultGeofenceId;
-      let options: any = { editable: false, draggable: false, clickable: false };
+        if (isVisible && gf.shape) {
+          (gf.shape as any).setOptions({
+            ...VIEW_ALL_COLOR,
+            fillOpacity: isDefault ? 0.05 : 0.1,
+            strokeWeight: isDefault ? 2 : 1,
+            strokeDasharray: isDefault ? '1,0' : '5,5',
+            zIndex: isDefault ? 2 : 1,
+            map: mapRef.current,
+            editable: false, draggable: false, clickable: false
+          });
+        }
+      });
+    } else {
+      // In edit mode
+      const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
+      if (selectedGeofence && selectedGeofence.shape) {
+        const isDefault = selectedGeofence.id === defaultGeofenceId;
+        let options: any = { editable: false, draggable: false, clickable: false };
   
-      if (isEditingShape) {
-        // Background reference style when editing/creating
-        options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), fillOpacity: 0.1, strokeWeight: 1, zIndex: 1, strokeDasharray: '5,5' };
-      } else {
-        // Normal view style
-        options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), fillOpacity: isDefault ? 0 : 0.3, strokeWeight: 2, zIndex: 1 };
+        if (isEditingShape) {
+          options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), fillOpacity: 0.1, strokeWeight: 1, zIndex: 1, strokeDasharray: '5,5' };
+        } else {
+          options = { ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), fillOpacity: isDefault ? 0 : 0.3, strokeWeight: 2, zIndex: 1 };
+        }
+        (selectedGeofence.shape as any).setOptions({ ...options, map: mapRef.current });
       }
-      (selectedGeofence.shape as any).setOptions({ ...options, map: mapRef.current });
     }
   
-    // Handle the actively edited/created shape
     if (isEditingShape && activeOverlay) {
-      (activeOverlay as any).setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 2, suppressUndo: true });
+      (activeOverlay as any).setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 3, suppressUndo: true });
       (activeOverlay as any).setMap(mapRef.current);
       setupListeners(activeOverlay);
     }
-  }, [activeOverlay, isEditingShape, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, geofences]);
-
+  
+  }, [activeOverlay, isEditingShape, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, geofences, isEditingEnabled, showAllGeofences]);
   
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
@@ -536,6 +552,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     setDrawingMode={setDrawingMode}
                                     isEditingEnabled={isEditingEnabled}
                                     setIsEditingEnabled={setIsEditingEnabled}
+                                    showAllGeofences={showAllGeofences}
+                                    setShowAllGeofences={setShowAllGeofences}
                                 />
                             )}
                             {activeModule === 'elements' && (

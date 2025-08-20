@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -96,6 +97,8 @@ type GeofenceControlsProps = {
     setDrawingMode: React.Dispatch<React.SetStateAction<DrawingMode>>;
     isEditingEnabled: boolean;
     setIsEditingEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+    showAllGeofences: boolean;
+    setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export function GeofenceControls({
@@ -125,6 +128,8 @@ export function GeofenceControls({
     setDrawingMode,
     isEditingEnabled,
     setIsEditingEnabled,
+    showAllGeofences,
+    setShowAllGeofences,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -188,9 +193,9 @@ export function GeofenceControls({
         const result = await deleteGeofence(idToDelete);
         
         if (result && result.success) {
-            onDataNeedsRefresh();
             if (isEditing || isCreating) resetActionStates();
             toast({ title: t('toast.successTitle'), description: t('condoDashboard.map.toast.geofenceDeleted')});
+            onDataNeedsRefresh();
 
         } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
@@ -226,35 +231,25 @@ export function GeofenceControls({
             return;
         }
         
-        if (isCreating) { // Saving new
-            const result = await createGeofence({
+        let result: { success: boolean; message: string; data?: any; } | null = null;
+        if (isCreating) {
+            result = await createGeofence({
                 condoId,
                 name: currentGeofenceName,
                 geometry: geometryToSave,
                 isDefault: geofences.length === 0,
             });
-
-            if(result.success && result.data) {
-                onDataNeedsRefresh();
-                toast({ title: t('condoDashboard.map.toast.geofenceSaved.title'), description: t('condoDashboard.map.toast.geofenceSaved.description', {name: result.data.name})});
-            } else {
-                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
-                 return;
-            }
-
-        } else if (isEditing && selectedGeofenceId) { // Editing existing
-            const result = await updateGeofence(selectedGeofenceId, { name: currentGeofenceName, geometry: geometryToSave });
-            
-            if (result.success) {
-                onDataNeedsRefresh();
-                toast({ title: t('toast.successTitle'), description: t('condoDashboard.map.toast.geofenceUpdated') });
-            } else {
-                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
-                 return;
-            }
+        } else if (isEditing && selectedGeofenceId) {
+            result = await updateGeofence(selectedGeofenceId, { name: currentGeofenceName, geometry: geometryToSave });
         }
 
-        resetActionStates();
+        if (result?.success) {
+            toast({ title: t('toast.successTitle'), description: result.message });
+            resetActionStates();
+            onDataNeedsRefresh();
+        } else if (result) {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+        }
     };
     
     useEffect(() => {
@@ -298,11 +293,19 @@ export function GeofenceControls({
             </div>
 
             <div className="pt-4 border-t space-y-2">
-                <div className="flex items-center space-x-2">
-                    <Checkbox id="enable-editing" checked={isEditingEnabled} onCheckedChange={(checked) => handleEditingEnabledChange(!!checked)}/>
-                    <label htmlFor="enable-editing" className="text-base font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                        {t('condoDashboard.map.geofence.editMode')}
-                    </label>
+                 <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                        <Checkbox id="enable-editing" checked={isEditingEnabled} onCheckedChange={(checked) => handleEditingEnabledChange(!!checked)}/>
+                        <label htmlFor="enable-editing" className="text-base font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            {t('condoDashboard.map.geofence.editMode')}
+                        </label>
+                    </div>
+                     <div className="flex items-center space-x-2">
+                        <Checkbox id="view-all" disabled={isEditingEnabled} checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)}/>
+                        <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            {t('condoDashboard.map.geofence.viewAll')}
+                        </label>
+                    </div>
                 </div>
 
                 <fieldset disabled={!isEditingEnabled} className="space-y-4">
