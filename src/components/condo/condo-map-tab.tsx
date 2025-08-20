@@ -128,32 +128,11 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
         if (!mapDiv) return;
 
         const { width: mapWidth, height: mapHeight } = mapDiv.getBoundingClientRect();
-
-        const ne = bounds.getNorthEast();
-        const sw = bounds.getSouthWest();
         
-        const geofenceSpan = {
-            lat: Math.abs(ne.lat() - sw.lat()),
-            lng: Math.abs(ne.lng() - sw.lng()),
-        };
-
-        const mapAspectRatio = mapHeight > 0 ? mapWidth / mapHeight : 1;
-        const geofenceAspectRatio = geofenceSpan.lat > 0 ? geofenceSpan.lng / geofenceSpan.lat : 1;
-
-        let padding = { top: 0, bottom: 0, left: 0, right: 0 };
+        const paddingX = mapWidth * (fitPadding / 100);
+        const paddingY = mapHeight * (fitPadding / 100);
         
-        // Compare aspect ratios to determine the dominant dimension
-        if (geofenceAspectRatio > mapAspectRatio) {
-            // Width is the dominant dimension
-            const paddingValue = mapWidth * (fitPadding / 100);
-            padding = { top: 0, bottom: 0, left: paddingValue, right: paddingValue };
-        } else {
-            // Height is the dominant dimension
-            const paddingValue = mapHeight * (fitPadding / 100);
-            padding = { top: paddingValue, bottom: paddingValue, left: 0, right: 0 };
-        }
-        
-        map.fitBounds(bounds, padding);
+        map.fitBounds(bounds, { top: paddingY, bottom: paddingY, left: paddingX, right: paddingX });
         return;
     }
     // If no default geofence, just zoom to a default level on the condo address
@@ -386,7 +365,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                             <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
                                 <ZoomOut className="h-5 w-5" />
                             </Button>
-                            <Button onClick={() => centerMapOnGeofence()} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
+                            <Button onClick={centerMapOnGeofence} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
                                 <Frame className="h-5 w-5" />
                             </Button>
                     </div>
@@ -487,3 +466,5 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     </>
   );
 }
+
+    
