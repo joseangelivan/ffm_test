@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
 import {
   Locate,
   Pin,
@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils';
 export const EDIT_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2, editable: true, draggable: true };
 export const SAVED_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: false, draggable: false, clickable: true };
 export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d', strokeWeight: 1, editable: false, draggable: false, clickable: false };
-export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50%)', fillOpacity: 0, strokeColor: 'hsl(28 80% 50%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
+export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50%)', fillOpacity: 0, strokeColor: 'hsl(28 80% 50%)', strokeWeight: 3, editable: false, draggable: false, clickable: true };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -366,12 +366,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const listeners: google.maps.MapsEventListener[] = [];
         const event = google.maps.event;
 
-        // Listener for dragging the whole shape
         listeners.push(event.addListener(shape, 'dragend', recordHistory));
 
         const debouncedRecordHistory = debounce(recordHistory, 200);
 
-        // Listeners for vertex/bounds/radius changes
         if ('getPath' in shape) {
             const path = (shape as google.maps.Polygon).getPath();
             listeners.push(event.addListener(path, 'set_at', debouncedRecordHistory));
