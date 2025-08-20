@@ -72,7 +72,7 @@ export function MapSettingsDialog({
                             </p>
                         </div>
                         
-                        <RadioGroup defaultValue={fitLevel} onValueChange={(v) => onFitLevelChange(v as '1' | '2' | '3')}>
+                        <RadioGroup value={fitLevel} onValueChange={(v) => onFitLevelChange(v as '1' | '2' | '3')}>
                             <div className="flex items-center space-x-2">
                                 <RadioGroupItem value="1" id="level-1" />
                                 <Label htmlFor="level-1">{t('condoDashboard.map.settings.fitLevels.tight')}</Label>
