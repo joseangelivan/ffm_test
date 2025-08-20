@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -93,8 +92,8 @@ export function GeofenceControls({
     const isActionActive = mode === 'editing' || mode === 'drawing';
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
-    const resetActionStates = useCallback(() => {
-        if (mode === 'editing' && selectedGeofenceId && historyRef.current.length > 0) {
+    const resetActionStates = useCallback((revertChanges = true) => {
+        if (revertChanges && mode === 'editing' && selectedGeofenceId && historyRef.current.length > 0) {
             const originalGeometry = historyRef.current[0];
             const shape = mapShapes?.get(selectedGeofenceId);
             if(shape && originalGeometry) {
@@ -103,7 +102,7 @@ export function GeofenceControls({
                     if('setPaths' in shape && 'getPaths' in revertedShape) (shape as any).setPaths((revertedShape as any).getPaths());
                     if('setBounds' in shape && 'getBounds' in revertedShape) (shape as any).setBounds((revertedShape as any).getBounds());
                     if('setRadius' in shape && 'getRadius' in revertedShape) (shape as any).setRadius((revertedShape as any).getRadius());
-                     if ('setCenter' in shape && 'getCenter' in revertedShape) (shape as any).setCenter((revertedShape as any).getCenter());
+                    if ('setCenter' in shape && 'getCenter' in revertedShape) (shape as any).setCenter((revertedShape as any).getCenter());
                 }
             }
         }
@@ -132,19 +131,22 @@ export function GeofenceControls({
         const newShape = event.overlay;
         if(!newShape) return;
         
-        const newGeofenceId = `new_${Date.now()}`;
-        const newMapShapes = new Map(mapShapes);
-        newMapShapes.set(newGeofenceId, newShape);
+        // This is a temporary shape for editing, not saved to state yet.
+        const tempId = `new_${Date.now()}`;
         
-        // This is a workaround, ideally we would not re-set the state like this
-        // But for now it forces a re-render
-        onDataNeedsRefresh();
-
-        setSelectedGeofenceId(newGeofenceId);
+        // Directly transition to editing this new shape
         setMode('editing');
+        setSelectedGeofenceId(tempId);
         setCurrentGeofenceName(getNextGeofenceName());
+        
+        // Pass the new shape to the parent to manage
+        const parentComponent = (window as any).mapTab;
+        if(parentComponent) {
+            parentComponent.setGeofenceForEditing(newShape);
+        }
+
         updateHistory(getGeometryFromShape(newShape));
-    }, [drawingManager, mapShapes, setSelectedGeofenceId, setMode, updateHistory, onDataNeedsRefresh]);
+    }, [drawingManager, setSelectedGeofenceId, setMode, updateHistory, onDataNeedsRefresh]);
 
     useEffect(() => {
         if (mode === 'drawing' && drawingManager) {
@@ -165,18 +167,23 @@ export function GeofenceControls({
     }, [mode, drawingManager, onOverlayComplete]);
 
 
-     const handleStartEdit = () => {
+    const handleStartEdit = () => {
         if (!selectedGeofenceId || !mapShapes) return;
         const shapeToEdit = mapShapes.get(selectedGeofenceId);
         const geofenceData = geofences.find(g => g.id === selectedGeofenceId);
-        
-        if (!shapeToEdit || !geofenceData) return;
 
-        resetActionStates();
+        if (!shapeToEdit || !geofenceData) return;
+        
+        // CRITICAL FIX: Ensure history is captured BEFORE resetting state.
         updateHistory(getGeometryFromShape(shapeToEdit));
+
+        // Now, reset other states without reverting the shape, as we're about to edit it.
+        resetActionStates(false);
+
         setMode('editing');
         setCurrentGeofenceName(geofenceData.name);
     }
+
 
     const handleDelete = async () => {
         if (!selectedGeofenceId) return;
@@ -215,10 +222,18 @@ export function GeofenceControls({
     }
 
     const handleSaveGeofence = async () => {
-        if (!selectedGeofenceId || !mapShapes) return;
+        if (!selectedGeofenceId) return;
+        
+        const parentComponent = (window as any).mapTab;
+        const geofenceForEditing = parentComponent?.getGeofenceForEditing();
 
-        const shapeToSave = mapShapes.get(selectedGeofenceId);
-        if (!shapeToSave) return;
+        // Determine which shape to save
+        const shapeToSave = geofenceForEditing || (mapShapes ? mapShapes.get(selectedGeofenceId) : null);
+        
+        if (!shapeToSave) {
+             toast({ title: "Error", description: "No shape found to save.", variant: "destructive"});
+             return;
+        }
         
         const geometryToSave = getGeometryFromShape(shapeToSave);
         if (!currentGeofenceName) {
@@ -243,8 +258,9 @@ export function GeofenceControls({
         if (result?.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
             const newSelectedId = isCreatingNew ? result.data?.id : selectedGeofenceId;
+            if(parentComponent) parentComponent.setGeofenceForEditing(null);
             onDataNeedsRefresh(newSelectedId);
-            resetActionStates();
+            resetActionStates(false);
         } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
         }
@@ -376,7 +392,7 @@ export function GeofenceControls({
                                     />
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
-                                    <Button onClick={() => resetActionStates()} variant="ghost">
+                                    <Button onClick={() => resetActionStates(true)} variant="ghost">
                                         <X className="mr-2 h-4 w-4" /> {t('common.cancel')}
                                     </Button>
                                     <Button onClick={handleSaveGeofence}>
