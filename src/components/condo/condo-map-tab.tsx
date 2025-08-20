@@ -68,7 +68,7 @@ export const createShapeFromGeometry = (geometry: any): google.maps.MVCObject | 
 
 const getBoundsOfShape = (shape: google.maps.MVCObject): google.maps.LatLngBounds | null => {
     if ('getBounds' in shape) return (shape as google.maps.Rectangle | google.maps.Circle).getBounds();
-    if ('getPaths' in shape) {
+    if ('getPath' in shape) { // Polygons have getPath()
         const bounds = new google.maps.LatLngBounds();
         // @ts-ignore
         (shape as google.maps.Polygon).getPath().forEach(latlng => bounds.extend(latlng));
@@ -290,6 +290,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
   
   const updateHistory = useCallback((geometry: any) => {
+    // If we undo and then make a change, we want to discard the old "redo" history.
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
     newHistory.push(geometry);
     historyRef.current = newHistory;
@@ -327,10 +328,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const newShape = createShapeFromGeometry(nextGeometry);
     
     if (shape && newShape) {
-        if ('getBounds' in newShape) (shape as any).setBounds((newShape as any).getBounds());
-        if ('getPaths' in newShape) (shape as any).setPaths((newShape as any).getPaths());
-        if ('getRadius' in newShape) (shape as any).setRadius((newShape as any).getRadius());
-        if ('setCenter' in newShape) (shape as any).setCenter((newShape as any).getCenter());
+        if ('setPaths' in shape && 'getPaths' in newShape) (shape as any).setPaths((newShape as any).getPaths());
+        if ('setBounds' in shape && 'getBounds' in newShape) (shape as any).setBounds((newShape as any).getBounds());
+        if ('setRadius' in shape && 'getRadius' in newShape) (shape as any).setRadius((newShape as any).getRadius());
+        if ('setCenter' in shape && 'getCenter' in newShape) (shape as any).setCenter((newShape as any).getCenter());
     }
     
     setCanUndo(true);
@@ -389,6 +390,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
           let colorOptions = {};
 
           if (mode === 'editing') {
+              clearListeners();
               if (id === selectedGeofenceId) {
                   isVisible = true;
                   colorOptions = EDIT_COLOR;
@@ -431,30 +433,32 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const handleMapLoad = useCallback(async (map: google.maps.Map) => {
     mapRef.current = map;
     await onDataNeedsRefresh();
-    
-    // This needs to run after onDataNeedsRefresh has populated dbGeofences and set the default
-    const geofenceToCenter = dbGeofences.find(g => g.is_default);
-    
-    if (geofenceToCenter) {
-         const shape = createShapeFromGeometry(geofenceToCenter.geometry);
-         if(shape) {
-            const bounds = getBoundsOfShape(shape);
-            if (bounds) {
-                google.maps.event.addListenerOnce(map, 'idle', () => {
-                    recalculateZoomLevels();
-                });
-                map.fitBounds(bounds, 0);
-            } else {
-                centerMapOnAddress();
-            }
-         } else {
-             centerMapOnAddress();
-         }
-    } else {
-        centerMapOnAddress();
-    }
-  }, [condo.id, centerMapOnAddress, recalculateZoomLevels, onDataNeedsRefresh, dbGeofences]);
+  }, [onDataNeedsRefresh]);
 
+  useEffect(() => {
+      if (isLoading || !mapRef.current) return;
+
+      const geofenceToCenter = dbGeofences.find(g => g.is_default);
+      
+      if (geofenceToCenter) {
+           const shape = createShapeFromGeometry(geofenceToCenter.geometry);
+           if(shape) {
+              const bounds = getBoundsOfShape(shape);
+              if (bounds) {
+                  google.maps.event.addListenerOnce(mapRef.current, 'idle', () => {
+                      recalculateZoomLevels();
+                  });
+                  mapRef.current.fitBounds(bounds, 0);
+              } else {
+                  centerMapOnAddress();
+              }
+           } else {
+               centerMapOnAddress();
+           }
+      } else {
+          centerMapOnAddress();
+      }
+  }, [isLoading, dbGeofences, centerMapOnAddress, recalculateZoomLevels]);
   
   return (
     <>
