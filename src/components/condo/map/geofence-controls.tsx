@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -14,9 +13,9 @@ import {
   Settings,
 } from 'lucide-react';
 
-import type { GeofenceObject } from '../condo-map-tab';
 import { getGeometryFromShape, createShapeFromGeometry } from '../condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
+import type { Geofence as DbGeofence } from '@/actions/maps';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -32,7 +31,8 @@ export type DrawingMode = 'polygon' | 'rectangle' | 'circle';
 
 type GeofenceControlsProps = {
     condoId: string;
-    geofences: GeofenceObject[];
+    geofences: DbGeofence[];
+    mapShapes: Map<string, google.maps.MVCObject>;
     onDataNeedsRefresh: (newSelectedId?: string) => void;
     selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -60,6 +60,7 @@ type GeofenceControlsProps = {
 export function GeofenceControls({
     condoId,
     geofences,
+    mapShapes,
     onDataNeedsRefresh,
     selectedGeofenceId,
     setSelectedGeofenceId,
@@ -115,10 +116,11 @@ export function GeofenceControls({
 
      const handleStartEdit = () => {
         if (!selectedGeofenceId) return;
-        const geofenceToEdit = geofences.find(g => g.id === selectedGeofenceId);
-        if (!geofenceToEdit || !geofenceToEdit.shape) return;
+        const geofenceToEdit = mapShapes.get(selectedGeofenceId);
+        const geofenceData = geofences.find(g => g.id === selectedGeofenceId);
+        if (!geofenceToEdit || !geofenceData) return;
 
-        const geometry = getGeometryFromShape(geofenceToEdit.shape);
+        const geometry = getGeometryFromShape(geofenceToEdit);
         const shape = createShapeFromGeometry(geometry);
         
         if (!shape) {
@@ -130,7 +132,7 @@ export function GeofenceControls({
         resetActionStates();
         setMode('editing');
         setActiveOverlay(shape);
-        setCurrentGeofenceName(geofenceToEdit.name);
+        setCurrentGeofenceName(geofenceData.name);
         updateHistory(geometry);
     }
 
@@ -194,6 +196,7 @@ export function GeofenceControls({
         if (result?.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
             const newSelectedId = isCreatingNew ? result.data?.id : selectedGeofenceId;
+            // The order here is important. Refresh data first, then reset state.
             onDataNeedsRefresh(newSelectedId);
             resetActionStates();
         } else if (result) {
