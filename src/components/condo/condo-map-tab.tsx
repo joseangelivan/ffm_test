@@ -567,14 +567,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                     )}
                 </div>
                 <div className="w-1/3 p-1 flex flex-col">
-                    <div className="text-right">
-                        <h3 className="font-semibold">{condo.name}</h3>
-                        <p className="text-xs text-muted-foreground">{condo.address}</p>
-                            <Button onClick={centerMapOnAddress} variant="link" className="p-0 h-auto text-xs text-muted-foreground hover:text-primary">
-                            {t('condoDashboard.map.recenterOnAddress')}
-                        </Button>
-                    </div>
-                    <fieldset className="border rounded-md p-4 pt-2 flex-grow flex flex-col mt-4">
+                    <fieldset className="border rounded-md p-4 pt-2 flex-grow flex flex-col">
                         <legend className="text-lg font-semibold tracking-tight px-2 -ml-2">
                             {t('condoDashboard.map.modules.title')}
                         </legend>
@@ -643,4 +636,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
