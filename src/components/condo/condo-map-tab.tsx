@@ -391,18 +391,21 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   // Handle drawing completion
   const onOverlayComplete = useCallback((event: google.maps.drawing.OverlayCompleteEvent) => {
-      const newOverlay = event.overlay;
-      if (newOverlay) {
-        newOverlay.setMap(null); // Temporarily hide it
-        setMode('editing');
+    const newOverlay = event.overlay;
+    if (newOverlay) {
+        // Instead of hiding it, use it directly. This prevents duplicates.
         setGeofenceForEditing(newOverlay);
+        setMode('editing');
         updateHistory(getGeometryFromShape(newOverlay));
-        toast({ title: t('condoDashboard.map.toast.shapeDrawn.title'), description: t('condoDashboard.map.toast.shapeDrawn.description') });
-      }
-      if(drawingManagerRef.current) {
+        toast({
+            title: t('condoDashboard.map.toast.shapeDrawn.title'),
+            description: t('condoDashboard.map.toast.shapeDrawn.description'),
+        });
+    }
+    if (drawingManagerRef.current) {
         drawingManagerRef.current.setDrawingMode(null);
-      }
-  }, [updateHistory, toast, t]);
+    }
+}, [updateHistory, toast, t]);
 
     // Create/update map shape objects when dbGeofences change
     useEffect(() => {
@@ -666,3 +669,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
