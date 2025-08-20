@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -49,15 +50,11 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     mapShapes: Map<string, google.maps.MVCObject>;
-    setupListeners: (shape: google.maps.MVCObject) => void;
+    setupListeners: (shape: google.maps.MVCObject, historyUpdateCallback: () => void) => void;
     clearListeners: () => void;
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
     updateHistoryButtons: () => void;
-    canUndo: boolean;
-    canRedo: boolean;
-    handleUndo: () => void;
-    handleRedo: () => void;
 }
 
 export function GeofenceControls({
@@ -82,10 +79,6 @@ export function GeofenceControls({
     historyRef,
     historyIndexRef,
     updateHistoryButtons,
-    canUndo,
-    canRedo,
-    handleUndo,
-    handleRedo,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -133,6 +126,18 @@ export function GeofenceControls({
             drawingManager.setDrawingMode(drawingMode as any);
         }
     }
+
+    const updateAndRecordHistory = useCallback(() => {
+        if (!selectedGeofenceId) return;
+        const shape = mapShapes.get(selectedGeofenceId);
+        if (!shape) return;
+
+        const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+        newHistory.push(getGeometryFromShape(shape));
+        historyRef.current = newHistory;
+        historyIndexRef.current = newHistory.length - 1;
+        updateHistoryButtons();
+    }, [selectedGeofenceId, mapShapes, historyRef, historyIndexRef, updateHistoryButtons]);
     
     const onOverlayComplete = useCallback((event: google.maps.drawing.OverlayCompleteEvent) => {
         if(drawingManager) drawingManager.setDrawingMode(null);
@@ -152,9 +157,9 @@ export function GeofenceControls({
         historyIndexRef.current = 0;
         updateHistoryButtons();
         
-        setupListeners(newShape);
+        setupListeners(newShape, updateAndRecordHistory);
 
-    }, [drawingManager, setMode, mapShapes, setSelectedGeofenceId, setupListeners, geofences, t, historyRef, historyIndexRef, updateHistoryButtons]);
+    }, [drawingManager, setMode, mapShapes, setSelectedGeofenceId, setupListeners, geofences, t, historyRef, historyIndexRef, updateHistoryButtons, updateAndRecordHistory]);
 
 
     useEffect(() => {
@@ -297,18 +302,6 @@ export function GeofenceControls({
     
     return (
         <div className="space-y-4 pt-2 border-t">
-            {mode === 'editing' && (
-                 <div className="flex gap-1 justify-center">
-                    <Button onClick={handleUndo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
-                        <Undo className="h-4 w-4"/>
-                        {t('condoDashboard.map.undo')}
-                    </Button>
-                    <Button onClick={handleRedo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canRedo}>
-                        <Redo className="h-4 w-4"/>
-                        {t('condoDashboard.map.redo')}
-                    </Button>
-                </div>
-            )}
             <div className="flex flex-col gap-4">
                  <div className="space-y-2">
                     <div className="flex items-center justify-between">

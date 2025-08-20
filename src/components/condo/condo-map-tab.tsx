@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -10,6 +11,8 @@ import {
   Frame,
   Building,
   Loader,
+  Undo,
+  Redo,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 
@@ -25,6 +28,7 @@ import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 import { MapSettingsDialog } from './map/map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export const EDIT_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2, editable: true, draggable: true };
 export const SAVED_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: false, draggable: false, clickable: true };
@@ -299,40 +303,28 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
   }, []);
 
-  const updateAndRecordHistory = useCallback(() => {
-    if (!selectedGeofenceId) return;
-    const shape = mapShapes.get(selectedGeofenceId);
-    if (!shape) return;
-
-    const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-    newHistory.push(getGeometryFromShape(shape));
-    historyRef.current = newHistory;
-    historyIndexRef.current = newHistory.length - 1;
-    updateHistoryButtons();
-  }, [selectedGeofenceId, mapShapes, updateHistoryButtons]);
-  
-    const setupListeners = useCallback((shape: google.maps.MVCObject) => {
-        clearListeners();
-        const listeners: google.maps.MapsEventListener[] = [];
-        
-        if (typeof google === 'undefined' || !google.maps.event) return;
-        const event = google.maps.event;
+  const setupListeners = useCallback((shape: google.maps.MVCObject, historyUpdateCallback: () => void) => {
+    clearListeners();
+    const listeners: google.maps.MapsEventListener[] = [];
     
-        listeners.push(event.addListener(shape, 'dragend', updateAndRecordHistory));
-        
-        if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygon
-            const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(event.addListener(path, 'set_at', updateAndRecordHistory));
-            listeners.push(event.addListener(path, 'insert_at', updateAndRecordHistory));
-            listeners.push(event.addListener(path, 'remove_at', updateAndRecordHistory));
-        } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') { // Circle
-            listeners.push(event.addListener(shape, 'radius_changed', updateAndRecordHistory));
-            listeners.push(event.addListener(shape, 'center_changed', updateAndRecordHistory));
-        } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle
-            listeners.push(event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
-        }
-        overlayListeners.current = listeners;
-    }, [clearListeners, updateAndRecordHistory]);
+    if (typeof google === 'undefined' || !google.maps.event) return;
+    const event = google.maps.event;
+
+    listeners.push(event.addListener(shape, 'dragend', historyUpdateCallback));
+    
+    if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygon
+        const path = (shape as google.maps.Polygon).getPath();
+        listeners.push(event.addListener(path, 'set_at', historyUpdateCallback));
+        listeners.push(event.addListener(path, 'insert_at', historyUpdateCallback));
+        listeners.push(event.addListener(path, 'remove_at', historyUpdateCallback));
+    } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') { // Circle
+        listeners.push(event.addListener(shape, 'radius_changed', historyUpdateCallback));
+        listeners.push(event.addListener(shape, 'center_changed', historyUpdateCallback));
+    } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle
+        listeners.push(event.addListener(shape, 'bounds_changed', historyUpdateCallback));
+    }
+    overlayListeners.current = listeners;
+}, [clearListeners]);
   
   useEffect(() => {
         const newShapes = new Map<string, google.maps.MVCObject>();
@@ -346,51 +338,63 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [dbGeofences]);
 
   useEffect(() => {
-      const map = mapRef.current;
-      if (!map || isLoading) return;
+    const map = mapRef.current;
+    if (!map || isLoading) return;
 
-      mapShapes.forEach((shape) => shape.setMap(null));
-      
-      clearListeners();
+    const updateAndRecordHistory = () => {
+      if (!selectedGeofenceId) return;
+      const shape = mapShapes.get(selectedGeofenceId);
+      if (!shape) return;
 
-      if (mode === 'editing') {
-          const shapeToEdit = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
-          if (shapeToEdit) {
-              (shapeToEdit as any).setOptions(EDIT_COLOR);
-              shapeToEdit.setMap(map);
-              setupListeners(shapeToEdit);
-          }
-      } else if (mode === 'drawing') {
-          // Drawing manager handles the new shape visibility
-      } else { // 'view' mode
-          mapShapes.forEach((shape, id) => {
-              let isVisible = false;
-              let colorOptions: any = {};
+      const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+      newHistory.push(getGeometryFromShape(shape));
+      historyRef.current = newHistory;
+      historyIndexRef.current = newHistory.length - 1;
+      updateHistoryButtons();
+    };
 
-              if (isEditingEnabled) {
-                  if (id === selectedGeofenceId) {
+    mapShapes.forEach((shape) => shape.setMap(null));
+    clearListeners();
+
+    if (mode === 'editing') {
+        const shapeToEdit = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
+        if (shapeToEdit) {
+            (shapeToEdit as any).setOptions(EDIT_COLOR);
+            shapeToEdit.setMap(map);
+            setupListeners(shapeToEdit, updateAndRecordHistory);
+        }
+    } else if (mode === 'drawing') {
+        // Drawing manager handles the new shape visibility
+    } else { // 'view' mode
+        mapShapes.forEach((shape, id) => {
+            let isVisible = false;
+            let colorOptions: any = {};
+
+            if (isEditingEnabled) {
+                if (id === selectedGeofenceId) {
+                    isVisible = true;
+                    colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
+                }
+            } else {
+                 if (showAllGeofences) {
                       isVisible = true;
-                      colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
-                  }
-              } else {
-                   if (showAllGeofences) {
-                        isVisible = true;
-                        colorOptions = id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
-                   } else {
-                       if (id === defaultGeofenceId) {
-                           isVisible = true;
-                           colorOptions = DEFAULT_COLOR;
-                       }
-                   }
-              }
-              (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
-              shape.setMap(isVisible ? map : null);
-          });
-      }
-  }, [
-      mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-      mapShapes, clearListeners, isEditingEnabled, isLoading, setupListeners
-  ]);
+                      colorOptions = id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
+                 } else {
+                     if (id === defaultGeofenceId) {
+                         isVisible = true;
+                         colorOptions = DEFAULT_COLOR;
+                     }
+                 }
+            }
+            (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
+            shape.setMap(isVisible ? map : null);
+        });
+    }
+}, [
+    mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
+    mapShapes, clearListeners, isEditingEnabled, isLoading, setupListeners, updateHistoryButtons
+]);
+
 
   useEffect(() => {
     updateHistoryButtons();
@@ -447,7 +451,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             ...EDIT_COLOR
         });
     
-        setupListeners(newShape);
+        setupListeners(newShape, () => {});
     
         mapShapes.set(selectedGeofenceId, newShape);
 
@@ -507,6 +511,18 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 drawingManagerRef={drawingManagerRef}
                             />
                         </div>
+                         {mode === 'editing' && (
+                            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">
+                                <Button onClick={handleUndo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
+                                    <Undo className="h-4 w-4"/>
+                                    {t('condoDashboard.map.undo')}
+                                </Button>
+                                <Button onClick={handleRedo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canRedo}>
+                                    <Redo className="h-4 w-4"/>
+                                    {t('condoDashboard.map.redo')}
+                                </Button>
+                            </div>
+                         )}
                         <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
                             <Button onClick={handleZoomIn} variant="ghost" size="icon" title="Zoom In">
                                 <ZoomIn className="h-5 w-5" />
@@ -560,10 +576,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     historyRef={historyRef}
                                     historyIndexRef={historyIndexRef}
                                     updateHistoryButtons={updateHistoryButtons}
-                                    canUndo={canUndo}
-                                    canRedo={canRedo}
-                                    handleUndo={handleUndo}
-                                    handleRedo={handleRedo}
                                 />
                             )}
                             {selectedModule === 'elements' && (
