@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -93,7 +94,6 @@ export function GeofenceControls({
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
     const resetActionStates = useCallback(() => {
-        // Revert geometry if editing is cancelled
         if (mode === 'editing' && selectedGeofenceId && historyRef.current.length > 0) {
             const originalGeometry = historyRef.current[0];
             const shape = mapShapes?.get(selectedGeofenceId);
@@ -131,15 +131,20 @@ export function GeofenceControls({
         if(drawingManager) drawingManager.setDrawingMode(null);
         const newShape = event.overlay;
         if(!newShape) return;
-        (newShape as any).setMap(null); // Hide original, we manage it now
-    
+        
         const newGeofenceId = `new_${Date.now()}`;
-        mapShapes?.set(newGeofenceId, newShape);
+        const newMapShapes = new Map(mapShapes);
+        newMapShapes.set(newGeofenceId, newShape);
+        
+        // This is a workaround, ideally we would not re-set the state like this
+        // But for now it forces a re-render
+        onDataNeedsRefresh();
+
         setSelectedGeofenceId(newGeofenceId);
         setMode('editing');
         setCurrentGeofenceName(getNextGeofenceName());
         updateHistory(getGeometryFromShape(newShape));
-    }, [drawingManager, mapShapes, setSelectedGeofenceId, setMode, updateHistory]);
+    }, [drawingManager, mapShapes, setSelectedGeofenceId, setMode, updateHistory, onDataNeedsRefresh]);
 
     useEffect(() => {
         if (mode === 'drawing' && drawingManager) {
@@ -170,7 +175,6 @@ export function GeofenceControls({
         resetActionStates();
         setMode('editing');
         setCurrentGeofenceName(geofenceData.name);
-        // Save the initial state for undo
         updateHistory(getGeometryFromShape(shapeToEdit));
     }
 

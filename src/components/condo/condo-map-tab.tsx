@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -27,6 +28,7 @@ import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 import { MapSettingsDialog } from './map/map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Select } from '../ui/select';
 
 export const EDIT_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2, editable: true, draggable: true };
 export const SAVED_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: false, draggable: false, clickable: true };
@@ -40,7 +42,7 @@ export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any |
     if ('getRadius' in shape) {
         return { type: 'circle', center: (shape as google.maps.Circle).getCenter()?.toJSON(), radius: (shape as google.maps.Circle).getRadius() };
     }
-    if ('getPaths' in shape) {
+    if ('getPath' in shape) {
         const path = (shape as google.maps.Polygon).getPath();
         return { type: 'polygon', paths: path.getArray().map((latLng: google.maps.LatLng) => ({ lat: latLng.lat(), lng: latLng.lng() })) };
     }
@@ -66,18 +68,19 @@ export const createShapeFromGeometry = (geometry: any): google.maps.MVCObject | 
     return shape;
 };
 
-const getBoundsOfShape = (shape: google.maps.MVCObject): google.maps.LatLngBounds | null => {
-    if ('getBounds' in shape && (shape as any).getBounds) return (shape as google.maps.Rectangle | google.maps.Circle).getBounds();
-    if ('getPath' in shape && (shape as any).getPath) { // Polygons have getPath()
+const getBoundsOfShape = (shape: google.maps.MVCObject | null): google.maps.LatLngBounds | null => {
+    if (!shape) return null;
+    if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') return (shape as google.maps.Rectangle | google.maps.Circle).getBounds();
+    if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygons have getPath()
         const bounds = new google.maps.LatLngBounds();
-        // @ts-ignore
         (shape as google.maps.Polygon).getPath().forEach((latlng: google.maps.LatLng) => bounds.extend(latlng));
         return bounds;
     }
     return null;
 }
 
-const getCenterOfShape = (shape: google.maps.MVCObject): google.maps.LatLng | null => {
+const getCenterOfShape = (shape: google.maps.MVCObject | null): google.maps.LatLng | null => {
+    if (!shape) return null;
     const bounds = getBoundsOfShape(shape);
     return bounds ? bounds.getCenter() : null;
 }
@@ -378,7 +381,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
         }
         setMapShapes(newShapes);
-        setIsLoading(false);
   }, [dbGeofences]);
 
     // Main render/visibility logic
@@ -391,6 +393,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
           let colorOptions = {};
 
           if (mode === 'editing') {
+              clearListeners();
               if (id === selectedGeofenceId) {
                   isVisible = true;
                   colorOptions = EDIT_COLOR;
