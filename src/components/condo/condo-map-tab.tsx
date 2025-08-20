@@ -15,7 +15,7 @@ import {
   Redo,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-import { isEqual, debounce } from 'lodash';
+import { isEqual } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
@@ -308,30 +308,17 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const applyHistoryState = useCallback((geometry: any) => {
         if (!selectedGeofenceId) return;
 
-        const map = mapRef.current;
-        if (!map) return;
-
         const currentShape = mapShapes.get(selectedGeofenceId);
         if (!currentShape) return;
         
-        if ('setPath' in currentShape && geometry.type === 'polygon') {
-            (currentShape as google.maps.Polygon).setPath(geometry.paths);
-        } else if ('setBounds' in currentShape && geometry.type === 'rectangle') {
-            (currentShape as google.maps.Rectangle).setBounds(geometry.bounds);
-        } else if ('setCenter' in currentShape && geometry.type === 'circle') {
-            (currentShape as google.maps.Circle).setCenter(geometry.center);
-            (currentShape as google.maps.Circle).setRadius(geometry.radius);
-        } else {
-            // Fallback for type mismatch or other issues
-            const newShape = createShapeFromGeometry(geometry);
-            if(newShape) {
-                (currentShape as any).setMap(null);
-                (newShape as any).setOptions({ map, ...EDIT_COLOR });
-                const newMapShapes = new Map(mapShapes);
-                newMapShapes.set(selectedGeofenceId, newShape);
-                setMapShapes(newMapShapes);
-            }
+        const newShape = createShapeFromGeometry(geometry);
+        if(newShape) {
+            (currentShape as any).setMap(null);
+            (newShape as any).setOptions({ map: mapRef.current, ...EDIT_COLOR });
+            mapShapes.set(selectedGeofenceId, newShape);
+            setMapShapes(new Map(mapShapes));
         }
+
     }, [selectedGeofenceId, mapShapes]);
 
 
@@ -350,7 +337,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const map = mapRef.current;
     if (!map || isLoading) return;
 
-    const updateAndRecordHistory = debounce(() => {
+    const recordHistory = () => {
         const shapeToUpdate = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
         if (!shapeToUpdate) return;
 
@@ -366,28 +353,45 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         historyRef.current = newHistory;
         historyIndexRef.current = newHistory.length - 1;
         updateHistoryButtons();
-    }, 200);
+    };
 
     const setupListeners = (shape: google.maps.MVCObject) => {
         clearListeners();
         const listeners: google.maps.MapsEventListener[] = [];
         const event = google.maps.event;
         
-        listeners.push(event.addListener(shape, 'dragend', updateAndRecordHistory));
-
+        listeners.push(event.addListener(shape, 'dragend', recordHistory));
+        
         if ('getPath' in shape && typeof (shape as any).getPath === 'function') {
             const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(event.addListener(path, 'set_at', updateAndRecordHistory));
-            listeners.push(event.addListener(path, 'insert_at', updateAndRecordHistory));
-            listeners.push(event.addListener(path, 'remove_at', updateAndRecordHistory));
+            const debouncedRecordHistory = () => {
+                const mouseUpListener = event.addListenerOnce(map, 'mouseup', () => {
+                    recordHistory();
+                });
+                overlayListeners.current.push(mouseUpListener);
+            };
+
+            listeners.push(event.addListener(path, 'set_at', debouncedRecordHistory));
+            listeners.push(event.addListener(path, 'insert_at', debouncedRecordHistory));
+            listeners.push(event.addListener(path, 'remove_at', debouncedRecordHistory));
         }
 
         if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
-             listeners.push(event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
+             listeners.push(event.addListener(shape, 'bounds_changed', () => {
+                 const mouseUpListener = event.addListenerOnce(map, 'mouseup', () => {
+                    recordHistory();
+                });
+                overlayListeners.current.push(mouseUpListener);
+             }));
         }
 
         if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') {
-             listeners.push(event.addListener(shape, 'radius_changed', updateAndRecordHistory));
+             listeners.push(event.addListener(shape, 'radius_changed', () => {
+                 const mouseUpListener = event.addListenerOnce(map, 'mouseup', () => {
+                    recordHistory();
+                });
+                overlayListeners.current.push(mouseUpListener);
+             }));
         }
         
         overlayListeners.current = listeners;
@@ -611,14 +615,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             isGeofenceAvailable={!!calculatedZoomLevels}
             onCenterAddress={centerMapOnAddress}
         />
-        <script
-            src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"
-            integrity="sha512-WFN04846sdKMIP5LKNphMaWzU7YpMyCU245etK3g/2ARYbPK9Ub18eG+ljU96qKRCWh+quCY7yefSmlkQw1ANQ=="
-            crossOrigin="anonymous"
-            referrerPolicy="no-referrer"
-            async
-        ></script>
     </>
   );
 }
-
