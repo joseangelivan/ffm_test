@@ -294,12 +294,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   const updateHistory = useCallback((geometry: any) => {
     if (!geometry) return;
+    // If we undo and then make a new change, we want to discard the old "redo" path.
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
     newHistory.push(geometry);
     historyRef.current = newHistory;
     historyIndexRef.current++;
     setCanUndo(historyIndexRef.current > 0);
-    setCanRedo(false);
+    setCanRedo(false); // Any new action invalidates the old redo history
   }, []);
   
   const handleUndo = useCallback(() => {
@@ -362,21 +363,23 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         updateHistory(newGeometry);
     };
 
-    if ('getPaths' in shape && typeof (shape as any).getPaths === 'function') { // Polygon
-        const path = (shape as google.maps.Polygon).getPath();
-        overlayListeners.current.push(path.addListener('set_at', updateAndRecordHistory));
-        overlayListeners.current.push(path.addListener('insert_at', updateAndRecordHistory));
-        overlayListeners.current.push(path.addListener('remove_at', updateAndRecordHistory));
-    } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') { // Circle
-        overlayListeners.current.push(shape.addListener('radius_changed', updateAndRecordHistory));
-        overlayListeners.current.push(shape.addListener('center_changed', updateAndRecordHistory));
-    } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle
-        overlayListeners.current.push(shape.addListener('bounds_changed', updateAndRecordHistory));
-    }
-    
-    // Listen for dragend on all editable shapes
-    overlayListeners.current.push(shape.addListener('dragend', updateAndRecordHistory));
+    // Use google.maps.event.addListener for robust event handling
+    if (typeof google !== 'undefined') {
+        // This is the key event for tracking movements
+        overlayListeners.current.push(google.maps.event.addListener(shape, 'dragend', updateAndRecordHistory));
 
+        if ('getPaths' in shape && typeof (shape as any).getPaths === 'function') { // Polygon
+            const path = (shape as google.maps.Polygon).getPath();
+            overlayListeners.current.push(google.maps.event.addListener(path, 'set_at', updateAndRecordHistory));
+            overlayListeners.current.push(google.maps.event.addListener(path, 'insert_at', updateAndRecordHistory));
+            overlayListeners.current.push(google.maps.event.addListener(path, 'remove_at', updateAndRecordHistory));
+        } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') { // Circle
+            overlayListeners.current.push(google.maps.event.addListener(shape, 'radius_changed', updateAndRecordHistory));
+            overlayListeners.current.push(google.maps.event.addListener(shape, 'center_changed', updateAndRecordHistory));
+        } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle
+            overlayListeners.current.push(google.maps.event.addListener(shape, 'bounds_changed', updateAndRecordHistory));
+        }
+    }
   }, [updateHistory, clearListeners]);
 
   useEffect(() => {
