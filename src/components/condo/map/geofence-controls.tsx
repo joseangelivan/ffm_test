@@ -287,24 +287,24 @@ export function GeofenceControls({
             <div className="flex flex-col gap-4">
                  <div className="space-y-2">
                     <Label htmlFor="default-geofence">{t('condoDashboard.map.geofence.defaultLabel')}</Label>
-                    <div className="relative">
-                        {defaultGeofenceId && (
-                            <Star className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-500 fill-orange-400" />
-                        )}
-                        <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled className="pl-8 text-xs h-8"/>
+                    <div className="flex items-center gap-2">
+                         <div className="relative flex-grow">
+                            {defaultGeofenceId && (
+                                <Star className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-500 fill-orange-400" />
+                            )}
+                            <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled className="pl-8 text-xs h-8"/>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <Checkbox id="view-all" disabled={isEditingEnabled} checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)}/>
+                            <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                {t('condoDashboard.map.geofence.viewAll')}
+                            </label>
+                        </div>
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={onSettingsClick}>
+                            <Settings className="h-4 w-4" />
+                        </Button>
                     </div>
                  </div>
-                 <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center space-x-2">
-                        <Checkbox id="view-all" disabled={isEditingEnabled} checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)}/>
-                        <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                            {t('condoDashboard.map.geofence.viewAll')}
-                        </label>
-                    </div>
-                     <Button variant="outline" size="icon" className="h-8 w-8" onClick={onSettingsClick}>
-                        <Settings className="h-4 w-4" />
-                    </Button>
-                </div>
             </div>
 
             <div className="pt-4 border-t space-y-2">
@@ -397,4 +397,5 @@ export function GeofenceControls({
 }
 
 GeofenceControls.DrawingManager = GeofenceDrawingManager;
+
 
