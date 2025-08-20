@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -299,17 +300,18 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
   
   const handleUndo = useCallback(() => {
-    if (!canUndo) return;
+    if (!canUndo || !selectedGeofenceId) return;
 
     historyIndexRef.current--;
     const previousGeometry = historyRef.current[historyIndexRef.current];
-    const shape = mapShapes.get(selectedGeofenceId!)
-    if(shape) {
-        const newShape = createShapeFromGeometry(previousGeometry);
-        if('setPaths' in shape && 'getPaths' in newShape) (shape as any).setPaths((newShape as any).getPaths());
-        if('setBounds' in shape && 'getBounds' in newShape) (shape as any).setBounds((newShape as any).getBounds());
-        if('setRadius' in shape && 'getRadius' in newShape) (shape as any).setRadius((newShape as any).getRadius());
-        if('setCenter' in shape && 'getCenter' in newShape) (shape as any).setCenter((newShape as any).getCenter());
+    const shape = mapShapes.get(selectedGeofenceId);
+    const newShape = createShapeFromGeometry(previousGeometry);
+
+    if (shape && newShape) {
+        if ('setPaths' in shape && 'getPaths' in newShape) (shape as any).setPaths((newShape as any).getPaths());
+        if ('setBounds' in shape && 'getBounds' in newShape) (shape as any).setBounds((newShape as any).getBounds());
+        if ('setRadius' in shape && 'getRadius' in newShape) (shape as any).setRadius((newShape as any).getRadius());
+        if ('setCenter' in shape && 'getCenter' in newShape) (shape as any).setCenter((newShape as any).getCenter());
     }
     
     setCanUndo(historyIndexRef.current > 0);
@@ -317,19 +319,20 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [canUndo, mapShapes, selectedGeofenceId]);
 
   const handleRedo = useCallback(() => {
-    if (!canRedo) return;
+    if (!canRedo || !selectedGeofenceId) return;
     
     historyIndexRef.current++;
     const nextGeometry = historyRef.current[historyIndexRef.current];
-    const shape = mapShapes.get(selectedGeofenceId!)
-    if(shape) {
-        const newShape = createShapeFromGeometry(nextGeometry);
-        if('setPaths' in shape && 'getPaths' in newShape) (shape as any).setPaths((newShape as any).getPaths());
-        if('setBounds' in shape && 'getBounds' in newShape) (shape as any).setBounds((newShape as any).getBounds());
-        if('setRadius' in shape && 'getRadius' in newShape) (shape as any).setRadius((newShape as any).getRadius());
-        if('setCenter' in shape && 'getCenter' in newShape) (shape as any).setCenter((newShape as any).getCenter());
+    const shape = mapShapes.get(selectedGeofenceId);
+    const newShape = createShapeFromGeometry(nextGeometry);
+    
+    if (shape && newShape) {
+        if ('getBounds' in newShape) (shape as any).setBounds((newShape as any).getBounds());
+        if ('getPaths' in newShape) (shape as any).setPaths((newShape as any).getPaths());
+        if ('getRadius' in newShape) (shape as any).setRadius((newShape as any).getRadius());
+        if ('setCenter' in newShape) (shape as any).setCenter((newShape as any).getCenter());
     }
-
+    
     setCanUndo(true);
     setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
   }, [canRedo, mapShapes, selectedGeofenceId]);
