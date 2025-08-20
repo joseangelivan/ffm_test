@@ -498,11 +498,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                     )}
                 </div>
                 <div className="w-1/3 p-1">
-                    <div className="relative border h-full rounded-md pt-6">
-                        <h2 className="absolute -top-3 left-4 text-lg font-semibold tracking-tight px-2 bg-card">
+                    <fieldset className="border h-full rounded-md p-4 pt-0">
+                        <legend className="text-lg font-semibold tracking-tight px-2 ml-2 -mt-3 bg-card">
                             {t('condoDashboard.map.modules.title')}
-                        </h2>
-                        <div className="flex-1 flex flex-col space-y-4 p-4">
+                        </legend>
+                        <div className="flex-1 flex flex-col space-y-4 pt-2">
                             <div className="px-1 flex items-center gap-2">
                                 <Select value={activeModule} onValueChange={setActiveModule}>
                                     <SelectTrigger id="module-select" className="text-base font-bold text-primary">
@@ -551,7 +551,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             <ElementsControls condoId={condo.id} />
                             )}
                         </div>
-                    </div>
+                    </fieldset>
                 </div>
             </div>
         </CardContent>
