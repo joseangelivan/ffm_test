@@ -13,15 +13,17 @@ import type { UserSettings } from '@/actions/admin';
 export const dynamic = 'force-dynamic';
 
 export default async function CondominioDashboardPage({ params }: { params: { id: string } }) {
+  // First, await the session to satisfy Next.js's requirement for using params.
   const session = await getSession();
   if (!session) {
     // This should be handled by middleware, but as a safeguard
     notFound();
   }
 
+  // Now it's safe to access params.id
   const id = params.id;
 
-  // Fetch all data needed for the dashboard in parallel
+  // Fetch all other data needed for the dashboard in parallel
   const [condoResult, devices, settings] = await Promise.all([
     getCondominioById(id),
     getDevicesByCondoId(id),
