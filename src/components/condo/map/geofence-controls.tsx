@@ -129,6 +129,24 @@ export function GeofenceControls({
         }
     }
     
+    const getNextGeofenceName = useCallback(() => {
+        const baseName = t('condoDashboard.map.geofence.defaultName');
+        const existingNumbers = geofences.map(g => {
+            const match = g.name.match(new RegExp(`^${baseName}_(\\d+)$`));
+            return match ? parseInt(match[1], 10) : 0;
+        }).filter(n => n > 0).sort((a,b) => a-b);
+        
+        let nextNumber = 1;
+        for (const num of existingNumbers) {
+            if (num === nextNumber) {
+                nextNumber++;
+            } else {
+                break;
+            }
+        }
+        return `${baseName}_${String(nextNumber).padStart(2, '0')}`;
+    }, [geofences, t]);
+
     const onOverlayComplete = useCallback((event: google.maps.drawing.OverlayCompleteEvent) => {
         if(drawingManager) drawingManager.setDrawingMode(null);
         const newShape = event.overlay;
@@ -147,7 +165,7 @@ export function GeofenceControls({
         historyIndexRef.current = 0;
         updateHistoryButtons();
 
-    }, [drawingManager, setMode, mapShapes, setSelectedGeofenceId, geofences, t, historyRef, historyIndexRef, updateHistoryButtons]);
+    }, [drawingManager, setMode, mapShapes, setSelectedGeofenceId, getNextGeofenceName, historyRef, historyIndexRef, updateHistoryButtons]);
 
 
     useEffect(() => {
@@ -204,24 +222,6 @@ export function GeofenceControls({
         } else {
             toast({ title: t('toast.errorTitle'), description: t('toast.adminLogin.serverError'), variant: "destructive" });
         }
-    }
-
-    const getNextGeofenceName = () => {
-        const baseName = t('condoDashboard.map.geofence.defaultName');
-        const existingNumbers = geofences.map(g => {
-            const match = g.name.match(new RegExp(`^${baseName}_(\\d+)$`));
-            return match ? parseInt(match[1], 10) : 0;
-        }).filter(n => n > 0).sort((a,b) => a-b);
-        
-        let nextNumber = 1;
-        for (const num of existingNumbers) {
-            if (num === nextNumber) {
-                nextNumber++;
-            } else {
-                break;
-            }
-        }
-        return `${baseName}_${String(nextNumber).padStart(2, '0')}`;
     }
 
     const handleSaveGeofence = async () => {

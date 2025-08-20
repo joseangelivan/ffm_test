@@ -321,7 +321,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const newMapShapes = new Map(mapShapes);
     newMapShapes.set(selectedGeofenceId, newShape);
     setMapShapes(newMapShapes);
-    // No recentering here
   }, [selectedGeofenceId, mapShapes]);
 
 
@@ -359,7 +358,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             historyIndexRef.current = newHistory.length - 1;
             updateHistoryButtons();
         };
-
+        
         const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
             let timeout: NodeJS.Timeout;
             return (...args: Parameters<F>): void => {
@@ -377,7 +376,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             listeners.push(event.addListener(path, 'insert_at', updateAndRecordHistory));
             listeners.push(event.addListener(path, 'remove_at', updateAndRecordHistory));
         } else if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') {
-            listeners.push(event.addListener(shape, 'radius_changed', debouncedUpdate));
+             listeners.push(event.addListener(shape, 'radius_changed', debouncedUpdate));
         } else if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
              listeners.push(event.addListener(shape, 'bounds_changed', debouncedUpdate));
         }
