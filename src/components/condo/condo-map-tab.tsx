@@ -109,7 +109,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   const [viewAll, setViewAll] = useState(false);
 
   const [zoomLevel, setZoomLevel] = useState(15);
-  const [fitPadding, setFitPadding] = useState(50);
+  const [fitPadding, setFitPadding] = useState(10); // Default to 10%
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
 
 
@@ -122,7 +122,39 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
     if (defaultGeofence && defaultGeofence.shape) {
       const bounds = getBoundsOfShape(defaultGeofence.shape);
       if (bounds) {
-        map.fitBounds(bounds, fitPadding);
+        
+        // Custom fitBounds logic with percentage padding
+        const mapDiv = map.getDiv();
+        const mapWidth = mapDiv.clientWidth;
+        const mapHeight = mapDiv.clientHeight;
+        const mapAspectRatio = mapHeight / mapWidth;
+
+        const ne = bounds.getNorthEast();
+        const sw = bounds.getSouthWest();
+        const geofenceHeight = Math.abs(ne.lat() - sw.lat());
+        const geofenceWidth = Math.abs(ne.lng() - sw.lng());
+        const geofenceAspectRatio = geofenceHeight / geofenceWidth;
+        
+        let newBounds;
+
+        // Compare aspect ratios to determine the limiting dimension
+        if (geofenceAspectRatio > mapAspectRatio) {
+            // Geofence is "taller" than map view, height is the limit
+            const paddingValue = geofenceHeight * (fitPadding / 100);
+            newBounds = new google.maps.LatLngBounds(
+                new google.maps.LatLng(sw.lat() - paddingValue, sw.lng()),
+                new google.maps.LatLng(ne.lat() + paddingValue, ne.lng())
+            );
+        } else {
+            // Geofence is "wider" than map view, width is the limit
+            const paddingValue = geofenceWidth * (fitPadding / 100);
+             newBounds = new google.maps.LatLngBounds(
+                new google.maps.LatLng(sw.lat(), sw.lng() - paddingValue),
+                new google.maps.LatLng(ne.lat(), ne.lng() + paddingValue)
+            );
+        }
+        
+        map.fitBounds(newBounds);
         return;
       }
     }

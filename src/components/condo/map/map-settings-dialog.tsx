@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -74,13 +75,13 @@ export function MapSettingsDialog({
                         <div className="space-y-2">
                              <div className="flex justify-between items-center mb-1">
                                 <Label htmlFor="padding-slider">{t('condoDashboard.map.settings.autoFitPadding')}</Label>
-                                <span className="text-sm text-muted-foreground">{fitPadding}px</span>
+                                <span className="text-sm text-muted-foreground">{fitPadding}%</span>
                             </div>
                             <Slider
                                 id="padding-slider"
                                 min={0}
-                                max={100}
-                                step={5}
+                                max={50}
+                                step={1}
                                 value={[fitPadding]}
                                 onValueChange={(value) => onFitPaddingChange(value[0])}
                             />
