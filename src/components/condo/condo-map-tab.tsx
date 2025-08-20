@@ -91,8 +91,7 @@ const getCenterOfShape = (shape: google.maps.MVCObject): google.maps.LatLng | nu
 export default function CondoMapTab({ condo, initialPosition }: { condo: Condominio, initialPosition: { lat: number; lng: number } }) {
   const { t } = useLocale();
   const mapRef = useRef<google.maps.Map | null>(null);
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
-
+  
   const [geofences, setGeofences] = useState<GeofenceObject[]>([]);
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
   const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
@@ -123,56 +122,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
 
   const isEditingShape = isEditing || isCreating;
-
-  const recalculateZoomLevels = useCallback(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
-    
-    if (!geofenceToCenter?.shape) {
-      setCalculatedZoomLevels(null);
-      return;
-    }
-
-    const bounds = getBoundsOfShape(geofenceToCenter.shape);
-    if (!bounds) {
-      setCalculatedZoomLevels(null);
-      return;
-    }
-
-    map.fitBounds(bounds, 0);
-    const maxZoom = map.getZoom();
-
-    if (maxZoom !== undefined) {
-      const zoomLevels = {
-        tight: maxZoom,
-        normal: maxZoom > 1 ? maxZoom - 1 : maxZoom,
-        wide: maxZoom > 2 ? maxZoom - 2 : maxZoom,
-      };
-      setCalculatedZoomLevels(zoomLevels);
-      return zoomLevels;
-    }
-    return null;
-  }, [geofences, defaultGeofenceId]);
-
-
-  const centerMapOnGeofence = useCallback((level: '1' | '2' | '3', currentZoomLevels: { tight: number, normal: number, wide: number } | null) => {
-      const map = mapRef.current;
-      if (!map || !currentZoomLevels) return;
-
-      const geofenceToCenter = geofences.find(g => g.id === defaultGeofenceId);
-      if (geofenceToCenter?.shape) {
-        const center = getCenterOfShape(geofenceToCenter.shape);
-        if (center) map.setCenter(center);
-      }
-      
-      let zoomToSet = currentZoomLevels.normal;
-      if (level === '1') zoomToSet = currentZoomLevels.tight;
-      if (level === '3') zoomToSet = currentZoomLevels.wide;
-      
-      map.setZoom(zoomToSet);
-      setFitLevel(level);
-  }, [geofences, defaultGeofenceId]);
   
   const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
     const map = mapRef.current;
@@ -218,45 +167,39 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
             setDefaultGeofenceId(initialDefaultId);
             setSelectedGeofenceId(initialDefaultId);
-
-            // Temporarily update state to recalculate zooms
-            setGeofences(gfObjects);
-            setDefaultGeofenceId(initialDefaultId);
             
-            // We need to ensure state is updated before calculating, so we use a small timeout
-            setTimeout(() => {
-                const map = mapRef.current;
-                if (!map) return;
+            const geofenceToCenter = gfObjects.find(g => g.id === initialDefaultId);
+            
+            if (!geofenceToCenter?.shape) {
+                centerMapOnAddress();
+                return;
+            }
+            const bounds = getBoundsOfShape(geofenceToCenter.shape);
+            if (!bounds) {
+                centerMapOnAddress();
+                return;
+            }
 
-                const geofenceToCenter = gfObjects.find(g => g.id === initialDefaultId);
+            map.fitBounds(bounds, 0); // This is key: Fit to bounds to get the max zoom
+            const maxZoom = map.getZoom();
+
+            if (maxZoom !== undefined) {
+                 const zoomLevels = {
+                    tight: maxZoom,
+                    normal: maxZoom > 1 ? maxZoom - 1 : maxZoom,
+                    wide: maxZoom > 2 ? maxZoom - 2 : maxZoom,
+                };
+                setCalculatedZoomLevels(zoomLevels);
                 
-                if (!geofenceToCenter?.shape) {
-                    centerMapOnAddress();
-                    return;
-                }
+                // Now apply the "normal" zoom level for the initial view
+                const center = getCenterOfShape(geofenceToCenter.shape);
+                if (center) map.setCenter(center);
+                map.setZoom(zoomLevels.normal);
+                setFitLevel('2');
 
-                const bounds = getBoundsOfShape(geofenceToCenter.shape);
-                if (!bounds) {
-                    centerMapOnAddress();
-                    return;
-                }
-
-                map.fitBounds(bounds, 0);
-                const maxZoom = map.getZoom();
-
-                if (maxZoom !== undefined) {
-                    const zoomLevels = {
-                        tight: maxZoom,
-                        normal: maxZoom > 1 ? maxZoom - 1 : maxZoom,
-                        wide: maxZoom > 2 ? maxZoom - 2 : maxZoom,
-                    };
-                    setCalculatedZoomLevels(zoomLevels);
-                    centerMapOnGeofence('2', zoomLevels);
-                } else {
-                     centerMapOnAddress();
-                }
-            }, 0);
-
+            } else {
+                 centerMapOnAddress();
+            }
         } else {
             centerMapOnAddress();
         }
@@ -266,7 +209,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     } finally {
         setIsLoading(false);
     }
-  }, [condo.id, centerMapOnAddress, centerMapOnGeofence]);
+  }, [condo.id, centerMapOnAddress]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -437,7 +380,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         <CardContent className="p-0">
             <div className="flex h-[70vh]">
                 <div className="flex-1 relative w-2/3 p-1">
-                     <div ref={mapContainerRef} className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
+                     <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
                         {isLoading && (
                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
                                 <div className="flex items-center gap-2 text-muted-foreground">
