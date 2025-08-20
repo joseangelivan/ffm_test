@@ -26,7 +26,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/lib/i18n';
 import { getCondominioById, type Condominio } from '@/actions/condos';
-import { geocodeAddress } from '@/actions/geocoding';
 
 import ManageUsersTab from './condo/manage-users-tab';
 import ManageDevicesTab from './condo/manage-devices-tab';
@@ -41,7 +40,6 @@ import { getActiveTheme, updateSettings, getSettings } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 
-type Coords = { lat: number; lng: number };
 
 type CondoDashboardClientProps = {
     session: SessionPayload;
@@ -58,11 +56,9 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   const [condo, setCondo] = useState<Condominio>(initialCondo);
   const [devices, setDevices] = useState<Device[]>(initialDevices);
   
-  const [mapCenter, setMapCenter] = useState<Coords | null>(null);
   const [activeTab, setActiveTab] = useState('users');
   const [theme, setTheme] = useState(initialSettings.theme);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
     const root = document.documentElement;
@@ -130,32 +126,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   useEffect(() => {
     setLocale(initialSettings.language);
     setTheme(initialSettings.theme);
-
-    const geocodeCondoAddress = async () => {
-        let center: Coords;
-        if (initialCondo.street && initialCondo.city && initialCondo.state && initialCondo.country) {
-            const geoResult = await geocodeAddress({
-                street: initialCondo.street,
-                city: initialCondo.city,
-                state: initialCondo.state,
-                country: initialCondo.country,
-            });
-
-            if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
-                center = geoResult.data[0].geometry.location;
-            } else {
-                console.warn("Could not geocode address for map center.", geoResult.message);
-                center = { lat: -23.5505, lng: -46.6333 }; // Fallback
-            }
-        } else {
-            center = { lat: -23.5505, lng: -46.6333 }; // Fallback
-        }
-        setMapCenter(center);
-        setIsLoading(false);
-    };
-
-    geocodeCondoAddress();
-  }, [initialCondo, setLocale, initialSettings]);
+  }, [initialSettings, setLocale]);
 
 
   const handleConfirmLogout = async () => {
@@ -194,16 +165,16 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                 <TabsTrigger value="map" className="flex items-center gap-2"><Map className="h-4 w-4"/>{t('condoDashboard.tabs.map')}</TabsTrigger>
               </TabsList>
               <div className="mt-4">
-                  <div className={cn(activeTab !== 'users' && 'hidden')}>
+                  <TabsContent value="users" forceMount className={cn(activeTab !== 'users' && 'hidden')}>
                       <ManageUsersTab condoId={condo.id} />
-                  </div>
-                  <div className={cn(activeTab !== 'devices' && 'hidden')}>
+                  </TabsContent>
+                  <TabsContent value="devices" forceMount className={cn(activeTab !== 'devices' && 'hidden')}>
                       <ManageDevicesTab condoId={condo.id} devices={devices} onDataNeedsRefresh={onDataNeedsRefresh} />
-                  </div>
-                  <div className={cn(activeTab !== 'map' && 'hidden')}>
-                      {apiKey && mapCenter ? (
+                  </TabsContent>
+                  <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
+                      {apiKey ? (
                           <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']}>
-                            <CondoMapTab condo={condo} center={mapCenter} isLoading={isLoading} />
+                            <CondoMapTab condo={condo} />
                           </APIProvider>
                       ) : (
                       <Card>
@@ -212,19 +183,12 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                           </CardHeader>
                           <CardContent>
                                <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
-                                  {!apiKey ? (
-                                     <p className="text-sm text-muted-foreground text-center p-4">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
-                                  ) : (
-                                      <div className="flex items-center gap-2 text-muted-foreground">
-                                          <Loader className="h-5 w-5 animate-spin" />
-                                          <span>{t('condoDashboard.map.loadingMap')}</span>
-                                      </div>
-                                  )}
+                                  <p className="text-sm text-muted-foreground text-center p-4">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
                               </div>
                           </CardContent>
                       </Card>
                       )}
-                  </div>
+                  </TabsContent>
               </div>
             </Tabs>
           </div>

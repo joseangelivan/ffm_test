@@ -125,7 +125,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
 
     currentMap.fitBounds(bounds, 0); 
     
-    const listener = google.maps.event.addListenerOnce(currentMap, 'idle', () => {
+    google.maps.event.addListenerOnce(currentMap, 'idle', () => {
         const maxZoom = currentMap.getZoom();
         if (maxZoom !== undefined) {
             let zoomModifier = 0;
@@ -363,8 +363,8 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
         </CardHeader>
         <CardContent className="p-0">
             <div className="flex h-[70vh]">
-                <div className="w-2/3 p-1 flex-1">
-                    <div className="h-full w-full bg-muted overflow-hidden relative shadow-inner rounded-md border">
+                <div className="w-2/3 p-1 flex-1 flex">
+                    <div className="flex-1 h-full w-full bg-muted overflow-hidden relative shadow-inner rounded-md border">
                         {isLoading ? (
                             <div className="flex items-center justify-center h-full">
                                 <div className="flex items-center gap-2 text-muted-foreground">
