@@ -372,7 +372,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     clearListeners();
 
     // Reference shape (blue) if creating or editing
-    if (isEditingShape) {
+    if (isEditingShape || isDrawing) {
         const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
         if (selectedGeofence && selectedGeofence.shape) {
             (selectedGeofence.shape as any).setOptions({ 
@@ -401,9 +401,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 let colorOptions = isDefault ? DEFAULT_COLOR : VIEW_ALL_COLOR;
                  if (isEditingEnabled) {
                     if (gf.id === selectedGeofenceId) {
-                        colorOptions = isDefault 
+                         colorOptions = isDefault 
                             ? { ...DEFAULT_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' }
-                            : { ...SAVED_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' };
+                            : { ...EDIT_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' };
                     } else {
                          colorOptions = { ...VIEW_ALL_COLOR, fillOpacity: 0.1, strokeWeight: 1, strokeDasharray: '5,5' };
                     }
@@ -425,7 +425,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         setupListeners(activeOverlay);
     }
   
-  }, [activeOverlay, isEditingShape, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, geofences, isEditingEnabled, showAllGeofences]);
+  }, [activeOverlay, isEditingShape, isDrawing, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, geofences, isEditingEnabled, showAllGeofences]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
   const handleZoomOut = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! - 1);
@@ -441,6 +441,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 </div>
                  <div className="text-right">
                     <p className="text-sm font-medium">{condo.name}</p>
+                    <p className="text-xs text-muted-foreground">{condo.address}</p>
+                     <Button onClick={centerMapOnAddress} variant="link" size="sm" className="h-auto p-0 text-xs">
+                        <Locate className="mr-1 h-3 w-3"/>
+                        {t('condoDashboard.map.recenterOnAddress')}
+                    </Button>
                 </div>
             </div>
         </CardHeader>
@@ -503,69 +508,60 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                     )}
                 </div>
                 <div className="w-1/3 p-1">
-                    <div className="space-y-4 pt-2">
-                        <div className="text-right space-y-1 px-4">
-                            <p className="text-xs text-muted-foreground">{condo.address}</p>
-                            <Button onClick={centerMapOnAddress} variant="link" size="sm" className="h-auto p-0 text-xs">
-                                <Locate className="mr-1 h-3 w-3"/>
-                                {t('condoDashboard.map.recenterOnAddress')}
-                            </Button>
-                        </div>
-                        <fieldset className="border h-full rounded-md p-4 pt-0">
-                            <legend className="text-lg font-semibold tracking-tight px-2 -ml-2 bg-card">
-                                {t('condoDashboard.map.modules.title')}
-                            </legend>
-                            <div className="flex-1 flex flex-col space-y-4 pt-2">
-                                <div className="px-1 flex items-center gap-2">
-                                    <Select value={activeModule} onValueChange={setActiveModule}>
-                                        <SelectTrigger id="module-select" className="text-base font-bold text-primary">
-                                            <SelectValue placeholder={t('condoDashboard.map.modules.selectPlaceholder')} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="geofence">{t('condoDashboard.map.modules.geofence')}</SelectItem>
-                                            <SelectItem value="elements">{t('condoDashboard.map.modules.elements')}</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                {activeModule === 'geofence' && (
-                                    <GeofenceControls
-                                        condoId={condo.id}
-                                        geofences={geofences}
-                                        onDataNeedsRefresh={onDataNeedsRefresh}
-                                        selectedGeofenceId={selectedGeofenceId}
-                                        setSelectedGeofenceId={setSelectedGeofenceId}
-                                        defaultGeofenceId={defaultGeofenceId}
-                                        setDefaultGeofenceId={setDefaultGeofenceId}
-                                        isDrawing={isDrawing}
-                                        setIsDrawing={setIsDrawing}
-                                        isEditing={isEditing}
-                                        setIsEditing={setIsEditing}
-                                        isCreating={isCreating}
-                                        setIsCreating={setIsCreating}
-                                        activeOverlay={activeOverlay}
-                                        setActiveOverlay={setActiveOverlay}
-                                        updateHistory={updateHistory}
-                                        historyRef={historyRef}
-                                        historyIndexRef={historyIndexRef}
-                                        setCanUndo={setCanUndo}
-                                        setCanRedo={setCanRedo}
-                                        clearListeners={clearListeners}
-                                        map={mapRef.current}
-                                        drawingMode={drawingMode}
-                                        setDrawingMode={setDrawingMode}
-                                        isEditingEnabled={isEditingEnabled}
-                                        setIsEditingEnabled={setIsEditingEnabled}
-                                        showAllGeofences={showAllGeofences}
-                                        setShowAllGeofences={setShowAllGeofences}
-                                        onSettingsClick={() => setIsMapSettingsOpen(true)}
-                                    />
-                                )}
-                                {activeModule === 'elements' && (
-                                <ElementsControls condoId={condo.id} />
-                                )}
+                    <fieldset className="border h-full rounded-md p-4 pt-0">
+                        <legend className="text-lg font-semibold tracking-tight px-2 -ml-2 bg-card">
+                            {t('condoDashboard.map.modules.title')}
+                        </legend>
+                        <div className="flex-1 flex flex-col space-y-4 pt-2">
+                            <div className="px-1 flex items-center gap-2">
+                                <Select value={activeModule} onValueChange={setActiveModule}>
+                                    <SelectTrigger id="module-select" className="text-base font-bold text-primary">
+                                        <SelectValue placeholder={t('condoDashboard.map.modules.selectPlaceholder')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="geofence">{t('condoDashboard.map.modules.geofence')}</SelectItem>
+                                        <SelectItem value="elements">{t('condoDashboard.map.modules.elements')}</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                        </fieldset>
-                    </div>
+                            {activeModule === 'geofence' && (
+                                <GeofenceControls
+                                    condoId={condo.id}
+                                    geofences={geofences}
+                                    onDataNeedsRefresh={onDataNeedsRefresh}
+                                    selectedGeofenceId={selectedGeofenceId}
+                                    setSelectedGeofenceId={setSelectedGeofenceId}
+                                    defaultGeofenceId={defaultGeofenceId}
+                                    setDefaultGeofenceId={setDefaultGeofenceId}
+                                    isDrawing={isDrawing}
+                                    setIsDrawing={setIsDrawing}
+                                    isEditing={isEditing}
+                                    setIsEditing={setIsEditing}
+                                    isCreating={isCreating}
+                                    setIsCreating={setIsCreating}
+                                    activeOverlay={activeOverlay}
+                                    setActiveOverlay={setActiveOverlay}
+                                    updateHistory={updateHistory}
+                                    historyRef={historyRef}
+                                    historyIndexRef={historyIndexRef}
+                                    setCanUndo={setCanUndo}
+                                    setCanRedo={setCanRedo}
+                                    clearListeners={clearListeners}
+                                    map={mapRef.current}
+                                    drawingMode={drawingMode}
+                                    setDrawingMode={setDrawingMode}
+                                    isEditingEnabled={isEditingEnabled}
+                                    setIsEditingEnabled={setIsEditingEnabled}
+                                    showAllGeofences={showAllGeofences}
+                                    setShowAllGeofences={setShowAllGeofences}
+                                    onSettingsClick={() => setIsMapSettingsOpen(true)}
+                                />
+                            )}
+                            {activeModule === 'elements' && (
+                            <ElementsControls condoId={condo.id} />
+                            )}
+                        </div>
+                    </fieldset>
                 </div>
             </div>
         </CardContent>
