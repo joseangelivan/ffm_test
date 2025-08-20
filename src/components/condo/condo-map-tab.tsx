@@ -336,6 +336,29 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
         setMapShapes(newShapes);
   }, [dbGeofences]);
+  
+  const applyHistoryState = useCallback((geometry: any) => {
+      if (!selectedGeofenceId) return;
+
+      const shapeToUpdate = mapShapes.get(selectedGeofenceId);
+      if (!shapeToUpdate) return;
+  
+      const map = (shapeToUpdate as any).getMap();
+      (shapeToUpdate as any).setMap(null);
+  
+      const newShape = createShapeFromGeometry(geometry);
+      if (!newShape) return;
+  
+      (newShape as any).setOptions({
+          map: map,
+          ...EDIT_COLOR
+      });
+  
+      setupListeners(newShape, () => {});
+  
+      mapShapes.set(selectedGeofenceId, newShape);
+
+  }, [selectedGeofenceId, mapShapes, setupListeners]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -433,29 +456,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
           centerMapOnAddress();
       }
   }, [isLoading, dbGeofences, centerMapOnAddress, recalculateZoomLevels]);
-
-    const applyHistoryState = useCallback((geometry: any) => {
-        if (!selectedGeofenceId) return;
-
-        const shapeToUpdate = mapShapes.get(selectedGeofenceId);
-        if (!shapeToUpdate) return;
-    
-        const map = (shapeToUpdate as any).getMap();
-        (shapeToUpdate as any).setMap(null);
-    
-        const newShape = createShapeFromGeometry(geometry);
-        if (!newShape) return;
-    
-        (newShape as any).setOptions({
-            map: map,
-            ...EDIT_COLOR
-        });
-    
-        setupListeners(newShape, () => {});
-    
-        mapShapes.set(selectedGeofenceId, newShape);
-
-    }, [selectedGeofenceId, mapShapes, setupListeners]);
     
     
     const handleUndo = useCallback(() => {
@@ -571,11 +571,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
                                     mapShapes={mapShapes}
-                                    setupListeners={setupListeners}
-                                    clearListeners={clearListeners}
                                     historyRef={historyRef}
                                     historyIndexRef={historyIndexRef}
-                                    updateHistoryButtons={updateHistoryButtons}
                                 />
                             )}
                             {selectedModule === 'elements' && (

@@ -50,11 +50,8 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     mapShapes: Map<string, google.maps.MVCObject>;
-    setupListeners: (shape: google.maps.MVCObject, historyUpdateCallback: () => void) => void;
-    clearListeners: () => void;
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
-    updateHistoryButtons: () => void;
 }
 
 export function GeofenceControls({
@@ -74,23 +71,19 @@ export function GeofenceControls({
     setShowAllGeofences,
     onSettingsClick,
     mapShapes,
-    setupListeners,
-    clearListeners,
     historyRef,
     historyIndexRef,
-    updateHistoryButtons,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
     const drawingCompleteListener = useRef<google.maps.MapsEventListener | null>(null);
-
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
     
     const isActionActive = mode === 'editing' || mode === 'drawing';
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
-
+    
     const resetActionStates = useCallback((revertChanges = true) => {
         if (revertChanges && selectedGeofenceId && historyRef.current.length > 0) {
             const originalGeometry = historyRef.current[0];
@@ -113,10 +106,8 @@ export function GeofenceControls({
         setMode('view');
         historyRef.current = [];
         historyIndexRef.current = -1;
-        updateHistoryButtons();
-        clearListeners();
         setCurrentGeofenceName('');
-    }, [drawingManager, setMode, clearListeners, selectedGeofenceId, mapShapes, historyRef, historyIndexRef, updateHistoryButtons]);
+    }, [drawingManager, setMode, selectedGeofenceId, mapShapes, historyRef, historyIndexRef]);
     
 
     const handleStartDraw = () => {
@@ -126,18 +117,6 @@ export function GeofenceControls({
             drawingManager.setDrawingMode(drawingMode as any);
         }
     }
-
-    const updateAndRecordHistory = useCallback(() => {
-        if (!selectedGeofenceId) return;
-        const shape = mapShapes.get(selectedGeofenceId);
-        if (!shape) return;
-
-        const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-        newHistory.push(getGeometryFromShape(shape));
-        historyRef.current = newHistory;
-        historyIndexRef.current = newHistory.length - 1;
-        updateHistoryButtons();
-    }, [selectedGeofenceId, mapShapes, historyRef, historyIndexRef, updateHistoryButtons]);
     
     const onOverlayComplete = useCallback((event: google.maps.drawing.OverlayCompleteEvent) => {
         if(drawingManager) drawingManager.setDrawingMode(null);
@@ -155,11 +134,8 @@ export function GeofenceControls({
         
         historyRef.current = [getGeometryFromShape(newShape)];
         historyIndexRef.current = 0;
-        updateHistoryButtons();
-        
-        setupListeners(newShape, updateAndRecordHistory);
 
-    }, [drawingManager, setMode, mapShapes, setSelectedGeofenceId, setupListeners, geofences, t, historyRef, historyIndexRef, updateHistoryButtons, updateAndRecordHistory]);
+    }, [drawingManager, setMode, mapShapes, setSelectedGeofenceId, geofences, t, historyRef, historyIndexRef]);
 
 
     useEffect(() => {
@@ -194,7 +170,6 @@ export function GeofenceControls({
         
         historyRef.current = [getGeometryFromShape(shapeToEdit)];
         historyIndexRef.current = 0;
-        updateHistoryButtons();
         
         setCurrentGeofenceName(geofenceData.name);
     }
