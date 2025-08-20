@@ -109,7 +109,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
   const [viewAll, setViewAll] = useState(false);
 
   const [zoomLevel, setZoomLevel] = useState(15);
-  const [fitPadding, setFitPadding] = useState(10);
+  const [fitPadding, setFitPadding] = useState(50);
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
 
 
@@ -126,6 +126,7 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
         return;
       }
     }
+    // If no default geofence, just zoom to a default level
     map.setCenter(center);
     map.setZoom(15);
   }, [map, geofences, defaultGeofenceId, center, fitPadding]);
@@ -348,11 +349,11 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                         </AdvancedMarker>
                     </MapComponent>
                     <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
-                            <Button onClick={() => handleZoomIn()} variant="ghost" size="icon" title="Zoom In">
+                            <Button onClick={handleZoomIn} variant="ghost" size="icon" title="Zoom In">
                                 <ZoomIn className="h-5 w-5" />
                             </Button>
                             <span className="text-xs font-bold w-6 text-center select-none">{zoomLevel}</span>
-                            <Button onClick={() => handleZoomOut()} variant="ghost" size="icon" title="Zoom Out">
+                            <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
                                 <ZoomOut className="h-5 w-5" />
                             </Button>
                             <Button onClick={centerMapOnGeofence} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
@@ -382,9 +383,9 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
                                 <Pin className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
                                 <p className="text-sm text-muted-foreground">{condo.address}</p>
                             </div>
-                            <Button onClick={centerMapOnAddress} variant="outline" size="sm" className="mt-2">
-                            <Locate className="mr-2 h-4 w-4"/>
-                            {t('condoDashboard.map.recenterOnAddress')}
+                             <Button onClick={centerMapOnAddress} variant="outline" size="sm" className="mt-2">
+                                <Locate className="mr-2 h-4 w-4"/>
+                                {t('condoDashboard.map.recenterOnAddress')}
                             </Button>
                         </div>
                         <div className="flex-1 flex flex-col space-y-4 pt-4">
@@ -449,6 +450,9 @@ export default function CondoMapTab({ condo, center }: { condo: Condominio; cent
             zoomLevel={zoomLevel}
             fitPadding={fitPadding}
             onFitPaddingChange={setFitPadding}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onFitBounds={centerMapOnGeofence}
         />
     </>
   );

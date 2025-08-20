@@ -379,7 +379,10 @@
             "description": "Ajusta cómo se muestra el mapa.",
             "currentZoom": "Nivel de Zoom Actual",
             "autoFitPadding": "Margen de Autoajuste",
-            "paddingDescription": "El margen se aplica de forma inteligente al eje más restrictivo (ancho o alto)."
+            "paddingDescription": "Ajusta el espacio alrededor de la geocerca al usar el autoajuste.",
+            "manualZoom": "Control de Zoom Manual",
+            "autoFitTitle": "Autoajuste a Geocerca",
+            "applyAutoFit": "Autoajustar a Geocerca"
         },
         "geofence": {
           "defaultLabel": "Geocerca Predeterminada",
@@ -576,7 +579,7 @@
             "title": "Verifica tu nuevo correo electrónico",
             "hello": "Hola",
             "intro": "Has solicitado cambiar tu correo electrónico en Follow For Me a esta dirección.",
-            "pinPrompt": "Para confirmar el cambio, usa el siguiente PIN de verificación:",
+            "pinPrompt": "Para confirmar la alteración, use el siguiente PIN de verificación:",
             "expiration": "Este PIN expirará en 10 minutos.",
             "thanks": "El Equipo de Follow For Me"
         }
