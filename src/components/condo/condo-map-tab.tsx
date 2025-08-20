@@ -38,7 +38,7 @@ export type GeofenceObject = {
 export const EDIT_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9' };
 export const SAVED_COLOR = { fillColor: '#1ABC9C', strokeColor: '#16A085' };
 export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d' };
-export const DEFAULT_COLOR = { fillColor: '#f39c12', strokeColor: '#e67e22', fillOpacity: 0 };
+export const DEFAULT_COLOR = { fillColor: '#f39c12', strokeColor: '#e67e22', fillOpacity: 0.1 };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -227,9 +227,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         if (geofenceToCenter?.shape) {
             const bounds = getBoundsOfShape(geofenceToCenter.shape);
             if (bounds) {
-                 const idleListener = google.maps.event.addListenerOnce(map, 'idle', () => {
+                 google.maps.event.addListenerOnce(map, 'idle', () => {
                     recalculateZoomLevels();
-                });
+                 });
+                 map.fitBounds(bounds, 0);
             } else {
                  centerMapOnAddress();
             }
@@ -361,53 +362,51 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   useEffect(() => {
     geofences.forEach(gf => {
-      if (gf.shape) gf.shape.setMap(null);
+        if (gf.shape) gf.shape.setMap(null);
     });
-  
+
     if (activeOverlay && !isEditingShape) {
-      (activeOverlay as any).setMap(null);
+        (activeOverlay as any).setMap(null);
     }
   
     clearListeners();
-  
-    if (!isEditingEnabled) {
-      // Not in edit mode, show default or all
-      geofences.forEach(gf => {
-        const isDefault = gf.id === defaultGeofenceId;
-        const isVisible = showAllGeofences || isDefault;
-  
-        if (isVisible && gf.shape) {
-          (gf.shape as any).setOptions({
-            ...VIEW_ALL_COLOR,
-            fillOpacity: isDefault ? 0.05 : 0.1,
-            strokeWeight: isDefault ? 2 : 1,
-            strokeDasharray: isDefault ? '1,0' : '5,5',
-            zIndex: isDefault ? 2 : 1,
-            map: mapRef.current,
-            editable: false, draggable: false, clickable: false
-          });
+
+    if (isEditingShape) {
+        const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
+        if (selectedGeofence && selectedGeofence.shape) {
+            (selectedGeofence.shape as any).setOptions({ 
+                ...(selectedGeofence.id === defaultGeofenceId ? DEFAULT_COLOR : SAVED_COLOR),
+                fillOpacity: 0.1, 
+                strokeWeight: 1, 
+                zIndex: 1, 
+                strokeDasharray: '5,5',
+                map: mapRef.current,
+                editable: false, draggable: false, clickable: false
+            });
         }
-      });
     } else {
-      const selectedGeofence = geofences.find(gf => gf.id === selectedGeofenceId);
-      if (selectedGeofence && selectedGeofence.shape) {
-        const isDefault = selectedGeofence.id === defaultGeofenceId;
-        (selectedGeofence.shape as any).setOptions({ 
-          ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), 
-          fillOpacity: 0.1, 
-          strokeWeight: 1, 
-          zIndex: 1, 
-          strokeDasharray: '5,5',
-          map: mapRef.current,
-          editable: false, draggable: false, clickable: false
+        geofences.forEach(gf => {
+            const isDefault = gf.id === defaultGeofenceId;
+            const isVisible = showAllGeofences || isDefault;
+    
+            if (isVisible && gf.shape) {
+                (gf.shape as any).setOptions({
+                    ...(isDefault ? DEFAULT_COLOR : VIEW_ALL_COLOR),
+                    fillOpacity: isDefault ? 0.1 : 0.05,
+                    strokeWeight: isDefault ? 2 : 1,
+                    strokeDasharray: isDefault ? '1,0' : '5,5',
+                    zIndex: isDefault ? 2 : 1,
+                    map: mapRef.current,
+                    editable: false, draggable: false, clickable: false
+                });
+            }
         });
-      }
     }
   
     if (isEditingShape && activeOverlay) {
-      (activeOverlay as any).setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 3, suppressUndo: true });
-      (activeOverlay as any).setMap(mapRef.current);
-      setupListeners(activeOverlay);
+        (activeOverlay as any).setOptions({ ...EDIT_COLOR, fillOpacity: 0.3, strokeWeight: 2, editable: true, draggable: true, zIndex: 3, suppressUndo: true });
+        (activeOverlay as any).setMap(mapRef.current);
+        setupListeners(activeOverlay);
     }
   
   }, [activeOverlay, isEditingShape, selectedGeofenceId, defaultGeofenceId, setupListeners, clearListeners, geofences, isEditingEnabled, showAllGeofences]);
