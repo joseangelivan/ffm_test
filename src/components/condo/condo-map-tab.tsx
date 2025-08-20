@@ -317,22 +317,18 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const applyHistoryState = useCallback((geometry: any) => {
     if (!selectedGeofenceId) return;
 
-    const shapeToUpdate = mapShapes.get(selectedGeofenceId);
-    if (!shapeToUpdate) return;
+    const map = mapRef.current;
+    if (!map) return;
 
-    const map = (shapeToUpdate as any).getMap();
-    (shapeToUpdate as any).setMap(null);
+    const oldShape = mapShapes.get(selectedGeofenceId);
+    if(oldShape) (oldShape as any).setMap(null);
 
     const newShape = createShapeFromGeometry(geometry);
     if (!newShape) return;
 
-    (newShape as any).setOptions({
-        map: map,
-        ...EDIT_COLOR
-    });
-
-    mapShapes.set(selectedGeofenceId, newShape);
-    setMapShapes(new Map(mapShapes)); // Force re-render
+    (newShape as any).setOptions({ map, ...EDIT_COLOR });
+    
+    setMapShapes(prev => new Map(prev).set(selectedGeofenceId, newShape));
   }, [selectedGeofenceId, mapShapes]);
 
   useEffect(() => {
@@ -424,7 +420,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   ]);
 
   useEffect(() => {
-    updateHistoryButtons();
+    if (mode === 'editing') {
+      updateHistoryButtons();
+    }
   }, [mode, updateHistoryButtons]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
