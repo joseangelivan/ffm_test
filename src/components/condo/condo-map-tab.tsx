@@ -404,10 +404,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         (activeShape as any).setOptions(EDIT_COLOR);
         setupShapeListeners(activeShape);
 
-        // Mostrar referencia si es un nuevo dibujo
-        if (activeShapeRef.current.id.startsWith('new-shape-') && selectedGeofenceId) {
+        // Mostrar referencia si no es un nuevo dibujo
+        if (!activeShapeRef.current.id.startsWith('new-shape-') && selectedGeofenceId) {
             const referenceShape = mapShapes.get(selectedGeofenceId);
-            if (referenceShape) {
+            if (referenceShape && referenceShape !== activeShape) {
                 referenceShape.setMap(map);
                 (referenceShape as any).setOptions(REFERENCE_COLOR);
             }

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { debounce } from 'lodash';
 
-import { getGeometryFromShape, createShapeFromGeometry, restoreShapeToGeometry, EDIT_COLOR, SAVED_COLOR, DEFAULT_COLOR } from '../condo-map-tab';
+import { getGeometryFromShape, createShapeFromGeometry, restoreShapeToGeometry, EDIT_COLOR, SAVED_COLOR, DEFAULT_COLOR, REFERENCE_COLOR } from '../condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 
@@ -99,15 +99,12 @@ export function GeofenceControls({
     
     const resetActionStates = useCallback(() => {
         if (activeShapeRef.current) {
-            // Restore original geometry if editing was cancelled
-            if (activeShapeRef.current.originalGeometry) {
-                 const originalShape = mapShapes.get(activeShapeRef.current.id);
-                 if (originalShape) {
-                    restoreShapeToGeometry(originalShape, activeShapeRef.current.originalGeometry);
-                 }
+            const { id, shape, originalGeometry } = activeShapeRef.current;
+            if (id.startsWith('new-shape-')) {
+                (shape as any).setMap(null);
             } else {
-                // If it was a new drawing, remove it from the map
-                (activeShapeRef.current.shape as any).setMap(null);
+                (shape as any).setOptions({ editable: false, draggable: false });
+                restoreShapeToGeometry(shape, originalGeometry);
             }
             activeShapeRef.current = null;
         }
@@ -119,7 +116,7 @@ export function GeofenceControls({
         updateHistoryButtons();
         setCurrentGeofenceName('');
         setIsShapeDrawn(false);
-    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons, mapShapes]);
+    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons]);
 
 
     const getNextGeofenceName = useCallback(() => {
@@ -143,7 +140,6 @@ export function GeofenceControls({
     const handleStartDraw = () => {
         if (activeShapeRef.current && activeShapeRef.current.id.startsWith('new-shape-')) {
             (activeShapeRef.current.shape as any).setMap(null);
-            activeShapeRef.current = null;
         }
         
         setMode('editing');
