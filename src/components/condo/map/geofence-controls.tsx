@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { debounce } from 'lodash';
 
-import { getGeometryFromShape, createShapeFromGeometry, restoreShapeToGeometry, EDIT_COLOR, SAVED_COLOR, DEFAULT_COLOR, REFERENCE_COLOR } from '../condo-map-tab';
+import { getGeometryFromShape, createShapeFromGeometry, restoreShapeToGeometry } from '../condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 
@@ -47,8 +47,6 @@ type GeofenceControlsProps = {
     mode: 'view' | 'editing';
     setMode: React.Dispatch<React.SetStateAction<'view' | 'editing'>>;
     drawingManager: google.maps.drawing.DrawingManager | null;
-    isEditingEnabled: boolean;
-    setIsEditingEnabled: React.Dispatch<React.SetStateAction<boolean>>;
     showAllGeofences: boolean;
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
@@ -59,12 +57,6 @@ type GeofenceControlsProps = {
     mapShapes: Map<string, google.maps.MVCObject>;
     setupShapeListeners: (shape: google.maps.MVCObject) => void;
 }
-
-const VIEW_STYLE_DEFAULT = { fillColor: 'hsl(28 80% 50%)', fillOpacity: 0.0, strokeColor: 'hsl(28 80% 50%)', strokeWeight: 3, editable: false, draggable: false, clickable: true };
-const VIEW_STYLE_SELECTED = { fillColor: 'hsl(210 80% 50%)', fillOpacity: 0.15, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
-const EDIT_STYLE_UNIFIED = { fillColor: 'hsl(142 71% 45%)', fillOpacity: 0.1, strokeColor: 'hsl(142 71% 45%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
-const ACTIVE_EDIT_STYLE = { ...EDIT_STYLE_UNIFIED, editable: true, draggable: true, clickable: false };
-
 
 export function GeofenceControls({
     condoId,
@@ -77,8 +69,6 @@ export function GeofenceControls({
     mode,
     setMode,
     drawingManager,
-    isEditingEnabled,
-    setIsEditingEnabled,
     showAllGeofences,
     setShowAllGeofences,
     onSettingsClick,
@@ -106,16 +96,8 @@ export function GeofenceControls({
     
     const resetActionStates = useCallback(() => {
         if (activeShapeRef.current) {
-            const { shape, originalGeometry } = activeShapeRef.current;
+            const { shape } = activeShapeRef.current;
             (shape as any).setMap(null);
-            
-            if (originalGeometry) {
-                const originalShape = mapShapes.get(activeShapeRef.current.id);
-                if (originalShape) {
-                    restoreShapeToGeometry(originalShape, originalGeometry);
-                    originalShape.setMap(null); 
-                }
-            }
             activeShapeRef.current = null;
         }
         
@@ -126,7 +108,7 @@ export function GeofenceControls({
         updateHistoryButtons();
         setCurrentGeofenceName('');
         setIsShapeDrawn(false);
-    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons, mapShapes]);
+    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons]);
 
 
     const getNextGeofenceName = useCallback(() => {
@@ -290,19 +272,6 @@ export function GeofenceControls({
             }
         });
     }
-
-    const handleEditingEnabledChange = (checked: boolean) => {
-        setIsEditingEnabled(checked);
-        if (!checked) {
-            resetActionStates();
-            setSelectedGeofenceId(defaultGeofenceId);
-            setShowAllGeofences(false);
-        } else {
-            if (geofences.length > 0) {
-                 setSelectedGeofenceId(defaultGeofenceId);
-            }
-        }
-    };
     
     const isBusy = isSaving || isDeleting || isSettingDefault;
 
@@ -313,7 +282,7 @@ export function GeofenceControls({
                     <div className="flex items-center justify-between">
                         <Label htmlFor="default-geofence">{t('condoDashboard.map.geofence.defaultLabel')}</Label>
                         <div className="flex items-center space-x-2">
-                            <Checkbox id="view-all" disabled={!isEditingEnabled || isActionActive} checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)}/>
+                            <Checkbox id="view-all" checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)}/>
                             <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                 {t('condoDashboard.map.geofence.viewAll')}
                             </label>
@@ -334,17 +303,8 @@ export function GeofenceControls({
             </div>
 
             <div className="pt-4 border-t space-y-2">
-                 <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                        <Checkbox id="enable-editing" checked={isEditingEnabled} onCheckedChange={(checked) => handleEditingEnabledChange(!!checked)}/>
-                        <label htmlFor="enable-editing" className="text-base font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                            {t('condoDashboard.map.geofence.editMode')}
-                        </label>
-                    </div>
-                </div>
-
                 <div className="space-y-4">
-                    <fieldset disabled={!isEditingEnabled || isBusy} className="space-y-4 disabled:opacity-50">
+                    <fieldset disabled={isBusy} className="space-y-4 disabled:opacity-50">
                             <div className="flex items-center gap-2">
                                 <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive || isBusy}>
                                     <SelectTrigger className={cn("flex-1", selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-') && "text-blue-600 border-blue-400 font-bold")}>
@@ -393,7 +353,7 @@ export function GeofenceControls({
                         
                         
                             {mode === 'editing' ? (
-                                <div className='space-y-4 p-4 border border-green-300 rounded-md bg-green-50/30'>
+                                <div className='space-y-4 p-4 border border-blue-300 rounded-md bg-blue-50/30 dark:border-blue-700 dark:bg-blue-900/20'>
                                     <div className="space-y-2">
                                         <Input 
                                             id="geofence-name" 

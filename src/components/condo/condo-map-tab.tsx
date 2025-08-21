@@ -31,10 +31,11 @@ import { MapSettingsDialog } from './map/map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-const VIEW_STYLE_DEFAULT = { fillColor: 'hsl(28 80% 50%)', fillOpacity: 0.0, strokeColor: 'hsl(28 80% 50%)', strokeWeight: 3, editable: false, draggable: false, clickable: true };
-const VIEW_STYLE_SELECTED = { fillColor: 'hsl(210 80% 50%)', fillOpacity: 0.15, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
-const EDIT_STYLE_UNIFIED = { fillColor: 'hsl(142 71% 45%)', fillOpacity: 0.1, strokeColor: 'hsl(142 71% 45%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
-const ACTIVE_EDIT_STYLE = { ...EDIT_STYLE_UNIFIED, editable: true, draggable: true, clickable: false };
+
+// --- Style Definitions ---
+const VIEW_STYLE = { fillColor: 'hsl(210 80% 50%)', fillOpacity: 0.0, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
+const EDIT_MODE_STYLE = { fillColor: 'hsl(142 71% 45%)', fillOpacity: 0.1, strokeColor: 'hsl(142 71% 45%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
+const ACTIVE_EDIT_STYLE = { fillColor: 'hsl(210 80% 50%)', fillOpacity: 0.15, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: true, draggable: true, clickable: true };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -86,12 +87,12 @@ export const restoreShapeToGeometry = (shape: google.maps.MVCObject, geometry: a
 
 const getBoundsOfShape = (shape: google.maps.MVCObject | null): google.maps.LatLngBounds | null => {
     if (!shape) return null;
-    if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
+    if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle, Circle
         const bounds = (shape as any).getBounds();
         if (!bounds) return null;
         return new google.maps.LatLngBounds(bounds.getSouthWest(), bounds.getNorthEast());
     }
-    if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygons have getPath()
+    if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygon
         const bounds = new google.maps.LatLngBounds();
         (shape as google.maps.Polygon).getPath().forEach((latlng: google.maps.LatLng) => bounds.extend(latlng));
         return bounds;
@@ -173,7 +174,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   const [mode, setMode] = useState<'view' | 'editing'>('view');
   
-  const [isEditingEnabled, setIsEditingEnabled] = useState(false);
   const [showAllGeofences, setShowAllGeofences] = useState(false);
 
   const [zoomLevel, setZoomLevel] = useState(15);
@@ -378,18 +378,21 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [clearListeners, handleHistoryUpdate]);
     
   useEffect(() => {
-    if (!mapRef.current) return;
+    const map = mapRef.current;
+    if (!map || isLoading) return;
 
+    // Sync mapShapesRef with dbGeofences (create/delete shapes)
     const currentShapeIds = new Set(mapShapesRef.current.keys());
     const dbShapeIds = new Set(dbGeofences.map(g => g.id));
 
+    // Delete shapes that are no longer in db
     for (const id of currentShapeIds) {
         if (!dbShapeIds.has(id)) {
             mapShapesRef.current.get(id)?.setMap(null);
             mapShapesRef.current.delete(id);
         }
     }
-
+    // Create shapes for new geofences from db
     for (const dbGf of dbGeofences) {
         if (!currentShapeIds.has(dbGf.id)) {
             const newShape = createShapeFromGeometry(dbGf.geometry);
@@ -398,54 +401,46 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
         }
     }
-  }, [dbGeofences]);
-
     
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    
-    mapShapesRef.current.forEach(shape => shape.setMap(null));
-    if (activeShapeRef.current) activeShapeRef.current.shape.setMap(null);
+    // Now, manage visibility and styles based on the current mode
+    mapShapesRef.current.forEach((shape, id) => {
+        shape.setMap(null);
+    });
+    if (activeShapeRef.current) {
+        activeShapeRef.current.shape.setMap(null);
+    }
     clearListeners();
 
     if (mode === 'editing') {
-        const isDrawingNew = !activeShapeRef.current?.id.startsWith('new-shape-');
-
-        if (isDrawingNew && selectedGeofenceId) {
-             const referenceShape = mapShapesRef.current.get(selectedGeofenceId);
-             if(referenceShape) {
-                referenceShape.setOptions(EDIT_STYLE_UNIFIED);
-                referenceShape.setMap(map);
-             }
-        }
-
+        mapShapesRef.current.forEach((shape, id) => {
+            if (showAllGeofences || id === selectedGeofenceId) {
+                if (id !== activeShapeRef.current?.id) {
+                    shape.setOptions(EDIT_MODE_STYLE);
+                    shape.setMap(map);
+                }
+            }
+        });
         if (activeShapeRef.current) {
-            const activeShape = activeShapeRef.current.shape;
-            activeShape.setOptions(ACTIVE_EDIT_STYLE);
-            activeShape.setMap(map);
-            setupShapeListeners(activeShape);
+            activeShapeRef.current.shape.setOptions(ACTIVE_EDIT_STYLE);
+            activeShapeRef.current.shape.setMap(map);
+            setupShapeListeners(activeShapeRef.current.shape);
         }
-    } else {
-        if (isEditingEnabled && showAllGeofences) {
-            mapShapesRef.current.forEach((shape) => {
-                shape.setOptions(EDIT_STYLE_UNIFIED);
+    } else { // mode === 'view'
+        mapShapesRef.current.forEach((shape, id) => {
+             if (id === selectedGeofenceId || (showAllGeofences && id !== defaultGeofenceId)) {
+                shape.setOptions(VIEW_STYLE);
                 shape.setMap(map);
-            });
-        } else if (selectedGeofenceId) {
-            const shape = mapShapesRef.current.get(selectedGeofenceId);
-            if (shape) {
-                 const isDefault = selectedGeofenceId === defaultGeofenceId;
-                 const style = isEditingEnabled
-                    ? EDIT_STYLE_UNIFIED
-                    : (isDefault ? VIEW_STYLE_DEFAULT : VIEW_STYLE_SELECTED);
-
-                shape.setOptions(style);
-                shape.setMap(map);
+            }
+        });
+        if (defaultGeofenceId && !showAllGeofences) {
+            const defaultShape = mapShapesRef.current.get(defaultGeofenceId);
+            if(defaultShape) {
+                defaultShape.setOptions(VIEW_STYLE);
+                defaultShape.setMap(map);
             }
         }
     }
-}, [mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, clearListeners, setupShapeListeners, isEditingEnabled]);
+  }, [mode, dbGeofences, selectedGeofenceId, defaultGeofenceId, showAllGeofences, isLoading, clearListeners, setupShapeListeners]);
 
 
 
@@ -595,8 +590,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     mode={mode}
                                     setMode={setMode}
                                     drawingManager={drawingManagerRef.current}
-                                    isEditingEnabled={isEditingEnabled}
-                                    setIsEditingEnabled={setIsEditingEnabled}
                                     showAllGeofences={showAllGeofences}
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
