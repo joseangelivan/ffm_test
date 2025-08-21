@@ -175,6 +175,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const historyIndexRef = useRef<number>(-1);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [selectedModule, setSelectedModule] = useState('geofence');
 
   const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject } | null>(null);
   const originalGeometries = useRef<Map<string, any>>(new Map());
@@ -377,16 +378,18 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         overlayListeners.current.push(...listeners);
     };
     
+    // Hide all shapes initially
     mapShapes.forEach((shape) => (shape as any).setMap(null));
     if (activeShapeRef.current) (activeShapeRef.current.shape as any).setMap(null);
     clearListeners();
 
+    // Logic for what to display based on mode
     if (mode === 'view') {
         mapShapes.forEach((shape, id) => {
             let isVisible = false;
             let colorOptions: any = {};
             if (isEditingEnabled) {
-                if (id === selectedGeofenceId) {
+                 if (id === selectedGeofenceId) {
                     isVisible = true;
                     colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
                 }
@@ -405,14 +408,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             if(isVisible) shape.setMap(map);
         });
     } else { // 'editing' or 'drawing'
-        // Show reference shape if it exists and is not the same as the active one
-        const refShape = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
-        if(refShape && activeShapeRef.current?.id !== selectedGeofenceId){
-            const isDefault = selectedGeofenceId === defaultGeofenceId;
+        // Show reference shape if it exists
+        const refShapeId = selectedGeofenceId;
+        const refShape = refShapeId ? mapShapes.get(refShapeId) : null;
+        if(refShape){
+            const isDefault = refShapeId === defaultGeofenceId;
             (refShape as any).setOptions({ ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), editable: false, draggable: false });
             refShape.setMap(map);
         }
 
+        // Show the active shape for editing
         const activeShape = activeShapeRef.current?.shape;
         if(activeShape) {
             (activeShape as any).setOptions(EDIT_COLOR);
