@@ -15,7 +15,7 @@ import {
   Redo,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-import { isEqual, debounce } from 'lodash';
+import { isEqual } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
@@ -23,11 +23,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLocale } from '@/lib/i18n';
 import MapComponent, { AdvancedMarker } from '@/components/map';
-import { GeofenceControls } from './map/geofence-controls';
-import { ElementsControls } from './map/elements-controls';
+import { GeofenceControls } from './geofence-controls';
+import { ElementsControls } from './elements-controls';
 import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-import { MapSettingsDialog } from './map/map-settings-dialog';
+import { MapSettingsDialog } from './map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -336,11 +336,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     if (isEqual(newGeometry, lastGeometry)) {
         return;
     }
-
+    
+    // If we make a new edit after undoing, we clear the "redo" history.
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+    
     newHistory.push(newGeometry);
     historyRef.current = newHistory;
     historyIndexRef.current = newHistory.length - 1;
+    
     updateHistoryButtons();
   }, [updateHistoryButtons]);
 
@@ -349,20 +352,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       const listeners: google.maps.MapsEventListener[] = [];
       const event = google.maps.event;
 
-      const debouncedHistoryUpdate = debounce(() => handleHistoryUpdate(shape), 100);
-
-      listeners.push(event.addListener(shape, 'dragend', registerVertexChange));
+      // Listen to dragend for the whole shape for all types
+      listeners.push(event.addListener(shape, 'dragend', () => handleHistoryUpdate(shape)));
       
-      const registerVertexChange = () => { debouncedHistoryUpdate(); };
-
-      if ('getPath' in shape) {
+      // Listen to vertex changes for polygons
+      if ('getPath' in shape && typeof (shape as google.maps.Polygon).getPath === 'function') {
           const path = (shape as google.maps.Polygon).getPath();
-          listeners.push(event.addListener(path, 'set_at', registerVertexChange));
-          listeners.push(event.addListener(path, 'insert_at', registerVertexChange));
-          listeners.push(event.addListener(path, 'remove_at', registerVertexChange));
+          listeners.push(event.addListener(path, 'set_at', () => handleHistoryUpdate(shape)));
+          listeners.push(event.addListener(path, 'insert_at', () => handleHistoryUpdate(shape)));
+          listeners.push(event.addListener(path, 'remove_at', () => handleHistoryUpdate(shape)));
       }
-      if ('getRadius' in shape) listeners.push(event.addListener(shape, 'radius_changed', registerVertexChange));
-      if ('getBounds' in shape) listeners.push(event.addListener(shape, 'bounds_changed', registerVertexChange));
       
       overlayListeners.current.push(...listeners);
   }, [clearListeners, handleHistoryUpdate]);
@@ -397,16 +396,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 isVisible = true;
                 styleOptions = { ...STYLE_FOCUSED_BLUE };
             } else if (mode === 'view') {
-                isVisible = isDefault || (showAllGeofences && !isDefault);
+                isVisible = (isDefault && !showAllGeofences) || (showAllGeofences);
                 styleOptions = isDefault ? { ...STYLE_VIEW_MODE } : { ...STYLE_BACKGROUND_GREY };
                 if (isSelected && !isDefault) styleOptions = { ...STYLE_VIEW_MODE };
             } else { // mode === 'editing'
-                if (activeActionId) {
-                    isVisible = id === selectedGeofenceId;
+                 if (activeActionId) {
+                    isVisible = isSelected;
                 } else {
                     isVisible = showAllGeofences || isSelected;
                 }
-                styleOptions = { ...STYLE_REFERENCE_GREEN };
+                styleOptions = isSelected ? { ...STYLE_FOCUSED_BLUE, editable: false, draggable: false, fillOpacity: 0.1 } : { ...STYLE_REFERENCE_GREEN };
             }
             shape.setOptions(styleOptions);
             shape.setMap(isVisible ? map : null);
