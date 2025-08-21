@@ -408,8 +408,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             shape.setMap(isVisible ? map : null);
         });
     } else { // mode is 'editing' or 'drawing'
-        // Always show the reference geofence (if not drawing a brand new one)
-        if (selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-')) {
+        // Show the reference geofence if it exists and we're not editing it directly
+        if (selectedGeofenceId && activeShapeRef.current?.id !== selectedGeofenceId) {
             const refShape = mapShapes.get(selectedGeofenceId);
             if (refShape) {
                 const color = selectedGeofenceId === defaultGeofenceId ? DEFAULT_COLOR : SAVED_COLOR;

@@ -91,7 +91,10 @@ export function GeofenceControls({
     
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
     
-    const resetActionStates = useCallback((revertChanges = true) => {
+    const resetActionStates = useCallback(() => {
+        // This is the key part: only remove the shape from the map if it exists
+        // in the activeShapeRef. This reference is only set for NEW shapes or shapes
+        // being explicitly edited. The reference geofence is never in activeShapeRef.
         if (activeShapeRef.current) {
             (activeShapeRef.current.shape as any).setMap(null); // Remove shape from map
             activeShapeRef.current = null; // Clear the reference
@@ -240,7 +243,7 @@ export function GeofenceControls({
             if (result?.success) {
                 toast({ title: t('toast.successTitle'), description: result.message });
                 const newSelectedId = isNewShape ? result.data?.id : id;
-                resetActionStates(false); 
+                resetActionStates(); 
                 onDataNeedsRefresh(newSelectedId);
                 setShowAllGeofences(false);
             } else if (result) {
@@ -379,7 +382,7 @@ export function GeofenceControls({
                                     />
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
-                                    <Button onClick={() => resetActionStates(true)} variant="ghost" disabled={isSaving}>
+                                    <Button onClick={() => resetActionStates()} variant="ghost" disabled={isSaving}>
                                         <X className="mr-2 h-4 w-4" /> {t('common.cancel')}
                                     </Button>
                                     <Button onClick={handleSaveGeofence} disabled={isSaving}>
