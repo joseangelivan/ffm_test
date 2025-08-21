@@ -33,9 +33,10 @@ import { cn } from '@/lib/utils';
 
 
 // --- Style Definitions ---
-const VIEW_STYLE = { fillColor: 'hsl(210 80% 50%)', fillOpacity: 0.0, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
-const EDIT_MODE_STYLE = { fillColor: 'hsl(142 71% 45%)', fillOpacity: 0.1, strokeColor: 'hsl(142 71% 45%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
-const ACTIVE_EDIT_STYLE = { fillColor: 'hsl(210 80% 50%)', fillOpacity: 0.15, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: true, draggable: true, clickable: true };
+const STYLE_FOCUSED = { fillColor: 'hsl(210 80% 50%)', fillOpacity: 0.15, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: true, draggable: true };
+const STYLE_EDIT_MODE = { fillColor: 'hsl(142 71% 45%)', fillOpacity: 0.1, strokeColor: 'hsl(142 71% 45%)', strokeWeight: 2, editable: false, draggable: false };
+const STYLE_VIEW_MODE = { fillColor: 'hsl(210 80% 50%)', fillOpacity: 0.0, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: false, draggable: false };
+const STYLE_BACKGROUND = { fillColor: '#808080', fillOpacity: 0.1, strokeColor: '#808080', strokeWeight: 1, editable: false, draggable: false };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -126,9 +127,9 @@ const DrawingManagerComponent = ({
 
     const newDrawingManager = new drawingLibrary.DrawingManager({
       drawingControl: false,
-      polygonOptions: { ...ACTIVE_EDIT_STYLE },
-      rectangleOptions: { ...ACTIVE_EDIT_STYLE },
-      circleOptions: { ...ACTIVE_EDIT_STYLE },
+      polygonOptions: { ...STYLE_FOCUSED },
+      rectangleOptions: { ...STYLE_FOCUSED },
+      circleOptions: { ...STYLE_FOCUSED },
     });
 
     drawingManagerRef.current = newDrawingManager;
@@ -381,64 +382,61 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const map = mapRef.current;
     if (!map || isLoading) return;
 
-    // Sync mapShapesRef with dbGeofences (create/delete shapes)
-    const currentShapeIds = new Set(mapShapesRef.current.keys());
-    const dbShapeIds = new Set(dbGeofences.map(g => g.id));
-
-    // Delete shapes that are no longer in db
-    for (const id of currentShapeIds) {
-        if (!dbShapeIds.has(id)) {
-            mapShapesRef.current.get(id)?.setMap(null);
-            mapShapesRef.current.delete(id);
+    // First, ensure all necessary shape objects exist in our reference map.
+    dbGeofences.forEach(dbGf => {
+      if (!mapShapesRef.current.has(dbGf.id)) {
+        const newShape = createShapeFromGeometry(dbGf.geometry);
+        if (newShape) {
+          mapShapesRef.current.set(dbGf.id, newShape);
         }
-    }
-    // Create shapes for new geofences from db
-    for (const dbGf of dbGeofences) {
-        if (!currentShapeIds.has(dbGf.id)) {
-            const newShape = createShapeFromGeometry(dbGf.geometry);
-            if (newShape) {
-                mapShapesRef.current.set(dbGf.id, newShape);
-            }
-        }
-    }
-    
-    // Now, manage visibility and styles based on the current mode
-    mapShapesRef.current.forEach((shape, id) => {
-        shape.setMap(null);
+      }
     });
-    if (activeShapeRef.current) {
-        activeShapeRef.current.shape.setMap(null);
-    }
-    clearListeners();
 
-    if (mode === 'editing') {
-        mapShapesRef.current.forEach((shape, id) => {
-            if (showAllGeofences || id === selectedGeofenceId) {
-                if (id !== activeShapeRef.current?.id) {
-                    shape.setOptions(EDIT_MODE_STYLE);
-                    shape.setMap(map);
-                }
-            }
-        });
-        if (activeShapeRef.current) {
-            activeShapeRef.current.shape.setOptions(ACTIVE_EDIT_STYLE);
-            activeShapeRef.current.shape.setMap(map);
-            setupShapeListeners(activeShapeRef.current.shape);
+    // Determine the focused shape ID (could be an existing one or the one being created)
+    const focusedId = activeShapeRef.current?.id || selectedGeofenceId;
+    
+    // Apply styles and visibility based on the rules
+    mapShapesRef.current.forEach((shape, id) => {
+      let isVisible = false;
+      let style = { ...STYLE_VIEW_MODE };
+
+      if (mode === 'editing') {
+        if (id === focusedId) {
+          isVisible = true;
+          style = { ...STYLE_FOCUSED };
+        } else if (showAllGeofences) {
+          isVisible = true;
+          style = { ...STYLE_BACKGROUND }; // Gray
         }
-    } else { // mode === 'view'
-        mapShapesRef.current.forEach((shape, id) => {
-             if (id === selectedGeofenceId || (showAllGeofences && id !== defaultGeofenceId)) {
-                shape.setOptions(VIEW_STYLE);
-                shape.setMap(map);
-            }
-        });
-        if (defaultGeofenceId && !showAllGeofences) {
-            const defaultShape = mapShapesRef.current.get(defaultGeofenceId);
-            if(defaultShape) {
-                defaultShape.setOptions(VIEW_STYLE);
-                defaultShape.setMap(map);
-            }
+      } else { // mode === 'view'
+        if (id === defaultGeofenceId) {
+          isVisible = true;
+          style = { ...STYLE_VIEW_MODE }; // Blue border
+        } else if (showAllGeofences && id !== defaultGeofenceId) {
+          isVisible = true;
+          style = { ...STYLE_BACKGROUND }; // Gray
+        } else if (!showAllGeofences && id === selectedGeofenceId) {
+            isVisible = true;
+            style = {...STYLE_VIEW_MODE };
         }
+      }
+      
+      shape.setOptions(style);
+      shape.setMap(isVisible ? map : null);
+    });
+
+    // Special handling for a newly drawn shape that is not yet in mapShapesRef
+    if (activeShapeRef.current && activeShapeRef.current.id.startsWith('new-shape-')) {
+        const shape = activeShapeRef.current.shape;
+        shape.setOptions({ ...STYLE_FOCUSED });
+        shape.setMap(map);
+    }
+
+    // Set up listeners for the active shape
+    if (activeShapeRef.current) {
+        setupShapeListeners(activeShapeRef.current.shape);
+    } else {
+        clearListeners();
     }
   }, [mode, dbGeofences, selectedGeofenceId, defaultGeofenceId, showAllGeofences, isLoading, clearListeners, setupShapeListeners]);
 
@@ -597,8 +595,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     historyRef={historyRef}
                                     historyIndexRef={historyIndexRef}
                                     updateHistoryButtons={updateHistoryButtons}
-                                    mapShapes={mapShapesRef.current}
-                                    setupShapeListeners={setupShapeListeners}
                                 />
                             )}
                             {selectedModule === 'elements' && (
