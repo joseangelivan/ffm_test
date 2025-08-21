@@ -415,35 +415,32 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     if (!map) return;
     
     // --- STEP 1: Clean Slate Principle ---
-    // Hide all map objects before deciding which ones to show.
     mapShapesRef.current.forEach(shape => shape.setMap(null));
-    if (activeShapeRef.current) {
-        activeShapeRef.current.shape.setMap(null);
-    }
+    if (activeShapeRef.current) activeShapeRef.current.shape.setMap(null);
     clearListeners();
 
     // --- STEP 2: Render based on the current mode ---
     if (mode === 'editing') {
-        // --- EDITING/DRAWING MODE ---
+        const isDrawingNew = !activeShapeRef.current;
+        
+        // Show the reference geofence (the one in focus) if we're drawing a new shape
+        if (isDrawingNew && selectedGeofenceId) {
+            const referenceShape = mapShapesRef.current.get(selectedGeofenceId);
+            if (referenceShape) {
+                referenceShape.setOptions(REFERENCE_COLOR);
+                referenceShape.setMap(map);
+            }
+        }
+
+        // Show the active shape (being drawn or edited)
         if (activeShapeRef.current) {
             const activeShape = activeShapeRef.current.shape;
             activeShape.setOptions(EDIT_COLOR);
             activeShape.setMap(map);
             setupShapeListeners(activeShape);
-
-            // If editing an existing geofence, show its original version as reference.
-            const isEditingExisting = !activeShapeRef.current.id.startsWith('new-shape-');
-            const referenceId = isEditingExisting ? activeShapeRef.current.id : selectedGeofenceId;
-            const referenceShape = referenceId ? mapShapesRef.current.get(referenceId) : null;
-            
-            // Do not show reference if it's the same as the active shape
-            if (referenceShape && referenceShape !== activeShape) {
-                 referenceShape.setOptions(REFERENCE_COLOR);
-                 referenceShape.setMap(map);
-            }
         }
-    } else {
-        // --- VIEW MODE ---
+
+    } else { // VIEW MODE
         if (showAllGeofences) {
             mapShapesRef.current.forEach((shape, id) => {
                 const isDefault = id === defaultGeofenceId;
@@ -465,7 +462,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
         }
     }
-  }, [mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, dbGeofences, clearListeners, setupShapeListeners]);
+}, [mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, clearListeners, setupShapeListeners]);
 
 
 
