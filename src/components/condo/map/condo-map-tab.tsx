@@ -193,7 +193,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [selectedModule, setSelectedModule] = useState('geofence');
 
   const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>(null);
-  const isDraggingRef = useRef(false);
+  const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
   
   
    const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
@@ -316,13 +316,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => { zoomListener.remove(); };
   }, []);
   
-  const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
-
-  const clearListeners = useCallback(() => {
-    overlayListeners.current.forEach(l => l.remove());
-    overlayListeners.current = [];
-  }, []);
-
   const updateHistoryButtons = useCallback(() => {
       setCanUndo(historyIndexRef.current > 0);
       setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
@@ -333,11 +326,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
     const newGeometry = getGeometryFromShape(shape);
     const lastGeometry = historyRef.current[historyIndexRef.current];
-
+    
     if (isEqual(newGeometry, lastGeometry)) {
         return;
     }
     
+    // If we undo and then make a new change, we should discard the old 'redo' history.
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
     
     newHistory.push(newGeometry);
@@ -348,23 +342,27 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [updateHistoryButtons]);
 
   const setupShapeListeners = useCallback((shape: google.maps.MVCObject) => {
-    clearListeners();
-    const listeners: google.maps.MapsEventListener[] = [];
+    // Crucial: Always clear previous listeners to avoid duplicates.
+    overlayListeners.current.forEach(l => l.remove());
+    overlayListeners.current = [];
+    
     const event = google.maps.event;
 
-    // Listen to dragend for the whole shape
-    listeners.push(event.addListener(shape, 'dragend', () => handleHistoryUpdate(shape)));
+    const addListener = (target: any, eventName: string, handler: () => void) => {
+        const listener = event.addListener(target, eventName, handler);
+        overlayListeners.current.push(listener);
+    };
+
+    addListener(shape, 'dragend', () => handleHistoryUpdate(shape));
     
-    // Listen to vertex changes for polygons and rectangles
     if ('getPath' in shape) {
         const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(event.addListener(path, 'set_at', () => handleHistoryUpdate(shape)));
-        listeners.push(event.addListener(path, 'insert_at', () => handleHistoryUpdate(shape)));
-        listeners.push(event.addListener(path, 'remove_at', () => handleHistoryUpdate(shape)));
+        addListener(path, 'set_at', () => handleHistoryUpdate(shape));
+        addListener(path, 'insert_at', () => handleHistoryUpdate(shape));
+        addListener(path, 'remove_at', () => handleHistoryUpdate(shape));
     }
     
-    overlayListeners.current.push(...listeners);
-  }, [clearListeners, handleHistoryUpdate]);
+  }, [handleHistoryUpdate]);
     
     useEffect(() => {
         const map = mapRef.current;
@@ -402,15 +400,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 if (isBeingEdited) {
                     isVisible = true;
                     styleOptions = { ...STYLE_FOCUSED_BLUE };
-                } else if (isActionActive) {
+                } else if (isActionActive) { // Another action is active (e.g. drawing new)
+                    // Show the selected geofence as a green reference
                     isVisible = id === selectedGeofenceId;
-                    styleOptions = { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.2 };
+                    styleOptions = { ...STYLE_REFERENCE_GREEN };
                 } else if(showAllGeofences) {
                     isVisible = true;
                     styleOptions = isSelected ? { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3 } : { ...STYLE_BACKGROUND_GREY };
                 } else {
                     isVisible = isSelected;
-                    styleOptions = { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3 };
+                    styleOptions = isSelected ? { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3 } : { ...STYLE_BACKGROUND_GREY };
                 }
             }
             shape.setOptions(styleOptions);
@@ -478,11 +477,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
     if (!geometry || !shapeToUpdate) return;
     
-    clearListeners();
     restoreShapeToGeometry(shapeToUpdate, geometry);
     historyIndexRef.current = newIndex;
     updateHistoryButtons();
-    setupShapeListeners(shapeToUpdate);
+    // No need to re-setup listeners here, they are persistent until a new shape is selected.
   };
   
   return (
@@ -606,6 +604,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
 
 
 
