@@ -32,7 +32,7 @@ import { cn } from '@/lib/utils';
 
 
 // --- Style Definitions ---
-export const STYLE_ACTIVE_BLUE = { fillColor: 'hsl(210 80% 50%)', strokeColor: 'hsl(210 80% 50%)', fillOpacity: 0.2, strokeWeight: 2, editable: true, draggable: true };
+export const STYLE_FOCUSED_BLUE = { fillColor: 'hsl(210 80% 50%)', strokeColor: 'hsl(210 80% 50%)', fillOpacity: 0.2, strokeWeight: 2, editable: true, draggable: true };
 export const STYLE_REFERENCE_GREEN = { fillColor: 'hsl(142 71% 45%)', strokeColor: 'hsl(142 71% 45%)', fillOpacity: 0.2, strokeWeight: 2, editable: false, draggable: false };
 export const STYLE_BACKGROUND_GREY = { fillColor: '#808080', strokeColor: '#808080', fillOpacity: 0.1, strokeWeight: 1, editable: false, draggable: false };
 export const STYLE_VIEW_MODE = { fillOpacity: 0.0, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: false, draggable: false };
@@ -126,9 +126,9 @@ const DrawingManagerComponent = ({
 
     const newDrawingManager = new drawingLibrary.DrawingManager({
       drawingControl: false,
-      polygonOptions: { ...STYLE_ACTIVE_BLUE },
-      rectangleOptions: { ...STYLE_ACTIVE_BLUE },
-      circleOptions: { ...STYLE_ACTIVE_BLUE },
+      polygonOptions: { ...STYLE_FOCUSED_BLUE },
+      rectangleOptions: { ...STYLE_FOCUSED_BLUE },
+      circleOptions: { ...STYLE_FOCUSED_BLUE },
     });
 
     drawingManagerRef.current = newDrawingManager;
@@ -315,7 +315,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
   
   const overlayListeners = useRef<google.maps.MapsEventListener[]>([]);
-  const vertexChanged = useRef(false);
 
   const clearListeners = useCallback(() => {
     overlayListeners.current.forEach(l => l.remove());
@@ -384,38 +383,34 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             let isVisible = false;
             let styleOptions: any = {};
             const isSelected = id === selectedGeofenceId;
-            
+            const isDefault = id === defaultGeofenceId;
+
             if (activeActionId === id) {
                 // This is the shape being actively edited or drawn.
                 isVisible = true;
-                styleOptions = STYLE_ACTIVE_BLUE;
+                styleOptions = { ...STYLE_FOCUSED_BLUE };
                 shape.setOptions({ editable: true, draggable: true });
                 setupShapeListeners(shape);
             } else {
-                 shape.setOptions({ editable: false, draggable: false });
+                shape.setOptions({ editable: false, draggable: false });
                 if (mode === 'view') {
+                    styleOptions = { ...STYLE_VIEW_MODE };
                     if (showAllGeofences) {
                         isVisible = true;
-                        styleOptions = id === defaultGeofenceId ? STYLE_VIEW_MODE : STYLE_BACKGROUND_GREY;
                     } else {
-                        isVisible = id === defaultGeofenceId;
-                        styleOptions = STYLE_VIEW_MODE;
+                        isVisible = isDefault;
                     }
                 } else { // mode === 'editing'
                     if (activeActionId) {
-                        // An action (edit/draw) is happening, hide others
-                        isVisible = id === selectedGeofenceId;
-                        styleOptions = STYLE_REFERENCE_GREEN;
+                        isVisible = id === selectedGeofenceId; // Show reference if editing
                     } else {
-                        // In editing mode, but no specific action is active
                         if (showAllGeofences) {
                             isVisible = true;
-                            styleOptions = isSelected ? STYLE_REFERENCE_GREEN : STYLE_BACKGROUND_GREY;
                         } else {
                             isVisible = isSelected;
-                            styleOptions = STYLE_REFERENCE_GREEN;
                         }
                     }
+                    styleOptions = isSelected ? { ...STYLE_FOCUSED_BLUE, editable: false, draggable: false } : { ...STYLE_REFERENCE_GREEN };
                 }
             }
             shape.setOptions(styleOptions);
@@ -429,8 +424,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         defaultGeofenceId,
         showAllGeofences,
         isLoading,
-        setupShapeListeners,
-        clearListeners
+        setupShapeListeners
     ]);
 
   useEffect(() => {
