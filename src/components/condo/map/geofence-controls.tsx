@@ -60,6 +60,12 @@ type GeofenceControlsProps = {
     setupShapeListeners: (shape: google.maps.MVCObject) => void;
 }
 
+const VIEW_STYLE_DEFAULT = { fillColor: 'hsl(28 80% 50%)', fillOpacity: 0.0, strokeColor: 'hsl(28 80% 50%)', strokeWeight: 3, editable: false, draggable: false, clickable: true };
+const VIEW_STYLE_SELECTED = { fillColor: 'hsl(210 80% 50%)', fillOpacity: 0.15, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
+const EDIT_STYLE_UNIFIED = { fillColor: 'hsl(142 71% 45%)', fillOpacity: 0.1, strokeColor: 'hsl(142 71% 45%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
+const ACTIVE_EDIT_STYLE = { ...EDIT_STYLE_UNIFIED, editable: true, draggable: true, clickable: false };
+
+
 export function GeofenceControls({
     condoId,
     geofences,
@@ -101,14 +107,13 @@ export function GeofenceControls({
     const resetActionStates = useCallback(() => {
         if (activeShapeRef.current) {
             const { shape, originalGeometry } = activeShapeRef.current;
-            (shape as any).setMap(null); // Always hide the active shape
+            (shape as any).setMap(null);
             
-            // If it was an edit, restore original shape visibility and state
             if (originalGeometry) {
                 const originalShape = mapShapes.get(activeShapeRef.current.id);
                 if (originalShape) {
                     restoreShapeToGeometry(originalShape, originalGeometry);
-                    originalShape.setMap(null); // Ensure it's hidden before master effect takes over
+                    originalShape.setMap(null); 
                 }
             }
             activeShapeRef.current = null;
@@ -199,7 +204,6 @@ export function GeofenceControls({
         
         const originalGeometry = getGeometryFromShape(shapeToEdit);
         
-        // --- THIS IS THE KEY: We are now referencing the ORIGINAL shape object ---
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
         
         setMode('editing');
@@ -207,7 +211,7 @@ export function GeofenceControls({
         historyRef.current = [originalGeometry];
         historyIndexRef.current = 0;
         updateHistoryButtons();
-        setIsShapeDrawn(true); // An existing shape is considered "drawn"
+        setIsShapeDrawn(true);
         setupShapeListeners(shapeToEdit);
         
         setCurrentGeofenceName(geofenceData.name);

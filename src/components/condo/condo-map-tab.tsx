@@ -31,13 +31,10 @@ import { MapSettingsDialog } from './map/map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-
-export const EDIT_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: true, draggable: true, clickable: false };
-export const SAVED_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2, editable: false, draggable: false, clickable: true };
-export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d', strokeWeight: 1, editable: false, draggable: false, clickable: false };
-export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50%)', fillOpacity: 0.1, strokeColor: 'hsl(28 80% 50%)', strokeWeight: 3, editable: false, draggable: false, clickable: true };
-export const REFERENCE_COLOR = { fillColor: 'hsl(220 80% 50%)', fillOpacity: 0, strokeColor: 'hsl(220 80% 50%)', strokeWeight: 2, editable: false, draggable: false, clickable: false };
-
+const VIEW_STYLE_DEFAULT = { fillColor: 'hsl(28 80% 50%)', fillOpacity: 0.0, strokeColor: 'hsl(28 80% 50%)', strokeWeight: 3, editable: false, draggable: false, clickable: true };
+const VIEW_STYLE_SELECTED = { fillColor: 'hsl(210 80% 50%)', fillOpacity: 0.15, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
+const EDIT_STYLE_UNIFIED = { fillColor: 'hsl(142 71% 45%)', fillOpacity: 0.1, strokeColor: 'hsl(142 71% 45%)', strokeWeight: 2, editable: false, draggable: false, clickable: true };
+const ACTIVE_EDIT_STYLE = { ...EDIT_STYLE_UNIFIED, editable: true, draggable: true, clickable: false };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -128,9 +125,9 @@ const DrawingManagerComponent = ({
 
     const newDrawingManager = new drawingLibrary.DrawingManager({
       drawingControl: false,
-      polygonOptions: { ...EDIT_COLOR },
-      rectangleOptions: { ...EDIT_COLOR },
-      circleOptions: { ...EDIT_COLOR },
+      polygonOptions: { ...ACTIVE_EDIT_STYLE },
+      rectangleOptions: { ...ACTIVE_EDIT_STYLE },
+      circleOptions: { ...ACTIVE_EDIT_STYLE },
     });
 
     drawingManagerRef.current = newDrawingManager;
@@ -167,7 +164,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const mapRef = useRef<google.maps.Map | null>(null);
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
   
-  // UNIFIED STATE FOR MAP OBJECTS
   const mapShapesRef = useRef<Map<string, google.maps.MVCObject>>(new Map());
   
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
@@ -195,7 +191,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [canRedo, setCanRedo] = useState(false);
   const [selectedModule, setSelectedModule] = useState('geofence');
 
-  // This is the only shape that is actively being edited or drawn.
   const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject, originalGeometry?: any } | null>(null);
   
   
@@ -382,14 +377,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       overlayListeners.current.push(...listeners);
   }, [clearListeners, handleHistoryUpdate]);
     
-  // Effect to synchronize DB state with map objects state.
   useEffect(() => {
     if (!mapRef.current) return;
 
     const currentShapeIds = new Set(mapShapesRef.current.keys());
     const dbShapeIds = new Set(dbGeofences.map(g => g.id));
 
-    // Remove map objects for geofences that were deleted from DB
     for (const id of currentShapeIds) {
         if (!dbShapeIds.has(id)) {
             mapShapesRef.current.get(id)?.setMap(null);
@@ -397,7 +390,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
     }
 
-    // Add map objects for new geofences from DB
     for (const dbGf of dbGeofences) {
         if (!currentShapeIds.has(dbGf.id)) {
             const newShape = createShapeFromGeometry(dbGf.geometry);
@@ -409,60 +401,51 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [dbGeofences]);
 
     
-  // This is the MASTER effect for controlling shape visibility and styles
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     
-    // --- STEP 1: Clean Slate Principle ---
     mapShapesRef.current.forEach(shape => shape.setMap(null));
     if (activeShapeRef.current) activeShapeRef.current.shape.setMap(null);
     clearListeners();
 
-    // --- STEP 2: Render based on the current mode ---
     if (mode === 'editing') {
-        const isDrawingNew = !activeShapeRef.current;
-        
-        // Show the reference geofence (the one in focus) if we're drawing a new shape
+        const isDrawingNew = !activeShapeRef.current?.id.startsWith('new-shape-');
+
         if (isDrawingNew && selectedGeofenceId) {
-            const referenceShape = mapShapesRef.current.get(selectedGeofenceId);
-            if (referenceShape) {
-                referenceShape.setOptions(REFERENCE_COLOR);
+             const referenceShape = mapShapesRef.current.get(selectedGeofenceId);
+             if(referenceShape) {
+                referenceShape.setOptions(EDIT_STYLE_UNIFIED);
                 referenceShape.setMap(map);
-            }
+             }
         }
 
-        // Show the active shape (being drawn or edited)
         if (activeShapeRef.current) {
             const activeShape = activeShapeRef.current.shape;
-            activeShape.setOptions(EDIT_COLOR);
+            activeShape.setOptions(ACTIVE_EDIT_STYLE);
             activeShape.setMap(map);
             setupShapeListeners(activeShape);
         }
-
-    } else { // VIEW MODE
-        if (showAllGeofences) {
-            mapShapesRef.current.forEach((shape, id) => {
-                const isDefault = id === defaultGeofenceId;
-                const isSelected = id === selectedGeofenceId;
-                
-                let colorOptions = VIEW_ALL_COLOR;
-                if (isDefault) colorOptions = DEFAULT_COLOR;
-                if (isSelected && !isDefault) colorOptions = SAVED_COLOR;
-
-                shape.setOptions(colorOptions);
+    } else {
+        if (isEditingEnabled && showAllGeofences) {
+            mapShapesRef.current.forEach((shape) => {
+                shape.setOptions(EDIT_STYLE_UNIFIED);
                 shape.setMap(map);
             });
         } else if (selectedGeofenceId) {
             const shape = mapShapesRef.current.get(selectedGeofenceId);
             if (shape) {
-                const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
-                shape.setOptions(colorOptions);
+                 const isDefault = selectedGeofenceId === defaultGeofenceId;
+                 const style = isEditingEnabled
+                    ? EDIT_STYLE_UNIFIED
+                    : (isDefault ? VIEW_STYLE_DEFAULT : VIEW_STYLE_SELECTED);
+
+                shape.setOptions(style);
                 shape.setMap(map);
             }
         }
     }
-}, [mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, clearListeners, setupShapeListeners]);
+}, [mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, clearListeners, setupShapeListeners, isEditingEnabled]);
 
 
 
