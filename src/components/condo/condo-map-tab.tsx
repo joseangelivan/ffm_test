@@ -60,7 +60,7 @@ export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any |
 };
 
 export const createShapeFromGeometry = (geometry: any): google.maps.MVCObject | null => {
-    if (!geometry || typeof google === 'undefined') return null;
+    if (!geometry || typeof google === 'undefined' || !google.maps) return null;
     
     let shape: google.maps.MVCObject | null = null;
     
@@ -91,7 +91,8 @@ const getBoundsOfShape = (shape: google.maps.MVCObject | null): google.maps.LatL
     if (!shape) return null;
     if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
         const bounds = (shape as any).getBounds();
-        return bounds ? new google.maps.LatLngBounds(bounds) : null;
+        if (!bounds) return null;
+        return new google.maps.LatLngBounds(bounds.getSouthWest(), bounds.getNorthEast());
     }
     if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygons have getPath()
         const bounds = new google.maps.LatLngBounds();
@@ -194,21 +195,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject, originalGeometry?: any } | null>(null);
   
+  
    const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
     try {
         const freshDbGeofences = await getGeofencesByCondoId(condo.id);
         setDbGeofences(freshDbGeofences);
-
-        const newMapShapes = new Map<string, google.maps.MVCObject>();
-
-        for (const dbGf of freshDbGeofences) {
-            const shape = createShapeFromGeometry(dbGf.geometry);
-            if (shape) {
-                newMapShapes.set(dbGf.id, shape);
-            }
-        }
-        setMapShapes(newMapShapes);
         
         const defaultGfDb = freshDbGeofences.find(g => g.is_default);
         const newDefaultId = defaultGfDb ? defaultGfDb.id : (freshDbGeofences.length > 0 ? freshDbGeofences[0].id : null);
@@ -387,50 +379,56 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       overlayListeners.current.push(...listeners);
   }, [clearListeners, handleHistoryUpdate]);
 
+  useEffect(() => {
+      if (!mapRef.current) return;
+
+      const newShapes = new Map<string, google.maps.MVCObject>();
+      for (const dbGf of dbGeofences) {
+          const shape = createShapeFromGeometry(dbGf.geometry);
+          if (shape) {
+              newShapes.set(dbGf.id, shape);
+          }
+      }
+      setMapShapes(newShapes);
+  }, [dbGeofences]);
+
     
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || isLoading) return;
+    if (!map) return;
 
-    // 1. Hide everything first. This is the crucial cleanup step.
+    // --- Clean Slate Principle ---
     mapShapes.forEach(shape => (shape as any).setMap(null));
-    if (activeShapeRef.current && activeShapeRef.current.id.startsWith('new-shape-')) {
-        (activeShapeRef.current.shape as any).setMap(null);
-    }
+    if (activeShapeRef.current) (activeShapeRef.current.shape as any).setMap(null);
     clearListeners();
 
-    // 2. Logic for what to show.
+    // --- Single Source of Truth Rendering ---
     if (mode === 'editing' && activeShapeRef.current) {
         // --- EDITING/DRAWING MODE ---
-        // Show the active shape (the one being edited/drawn)
+        // Show the shape being edited/drawn
         const activeShape = activeShapeRef.current.shape;
-        activeShape.setMap(map);
         (activeShape as any).setOptions(EDIT_COLOR);
+        activeShape.setMap(map);
         setupShapeListeners(activeShape);
 
-        // Also show the reference geofence if we started from an existing one
-        const isNewDrawing = activeShapeRef.current.id.startsWith('new-shape-');
-        const referenceId = isNewDrawing ? selectedGeofenceId : activeShapeRef.current.id;
-        
-        if (referenceId) {
+        // Show the reference shape if applicable
+        const referenceId = selectedGeofenceId;
+        if (referenceId && activeShapeRef.current.id !== referenceId) {
              const referenceShape = mapShapes.get(referenceId);
-             if (referenceShape && referenceShape !== activeShape) {
-                referenceShape.setMap(map);
+             if (referenceShape) {
                 (referenceShape as any).setOptions(REFERENCE_COLOR);
+                referenceShape.setMap(map);
              }
         }
-
-    } else if (isEditingEnabled) {
-        // --- VIEW MODE (with editing enabled) ---
+    } else {
+        // --- VIEW MODE ---
         if (showAllGeofences) {
-            // Show all geofences with appropriate styling
             mapShapes.forEach((shape, id) => {
                 const colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : VIEW_ALL_COLOR;
                 (shape as any).setOptions(colorOptions);
                 shape.setMap(map);
             });
         } else if (selectedGeofenceId) {
-            // Show only the selected geofence
             const shape = mapShapes.get(selectedGeofenceId);
             if (shape) {
                 const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
@@ -438,21 +436,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 shape.setMap(map);
             }
         }
-    } else {
-        // --- VIEW MODE (editing disabled) ---
-        // Only show the default geofence
-        if (defaultGeofenceId) {
-            const shape = mapShapes.get(defaultGeofenceId);
-            if (shape) {
-                (shape as any).setOptions(DEFAULT_COLOR);
-                shape.setMap(map);
-            }
-        }
     }
-
   }, [
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-      mapShapes, clearListeners, isEditingEnabled, isLoading, handleHistoryUpdate, setupShapeListeners
+      mapShapes, clearListeners, setupShapeListeners
   ]);
 
 
