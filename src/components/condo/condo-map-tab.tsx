@@ -33,10 +33,10 @@ import { cn } from '@/lib/utils';
 
 
 // --- Style Definitions ---
-export const STYLE_FOCUSED_BLUE = { fillColor: 'hsl(210 80% 50%)', strokeColor: 'hsl(210 80% 50%)', fillOpacity: 0.2, strokeWeight: 2 };
-export const STYLE_EDIT_MODE_GREEN = { fillColor: 'hsl(142 71% 45%)', strokeColor: 'hsl(142 71% 45%)', fillOpacity: 0.2, strokeWeight: 2 };
-export const STYLE_VIEW_MODE_NO_FILL = { fillColor: 'hsl(210 80% 50%)', strokeColor: 'hsl(210 80% 50%)', fillOpacity: 0.0, strokeWeight: 2 };
-export const STYLE_BACKGROUND_GREY = { fillColor: '#808080', strokeColor: '#808080', fillOpacity: 0.1, strokeWeight: 1 };
+export const STYLE_FOCUSED_BLUE = { fillColor: 'hsl(210 80% 50%)', strokeColor: 'hsl(210 80% 50%)', fillOpacity: 0.2, strokeWeight: 2, editable: true, draggable: true };
+export const STYLE_REFERENCE_GREEN = { fillColor: 'hsl(142 71% 45%)', strokeColor: 'hsl(142 71% 45%)', fillOpacity: 0.2, strokeWeight: 2, editable: false, draggable: false };
+export const STYLE_BACKGROUND_GREY = { fillColor: '#808080', strokeColor: '#808080', fillOpacity: 0.1, strokeWeight: 1, editable: false, draggable: false };
+export const STYLE_VIEW_MODE = { fillOpacity: 0.0, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: false, draggable: false };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -400,49 +400,44 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             const isDefault = id === defaultGeofenceId;
             const isBeingEdited = id === activeActionId;
 
-            //--- Determine Visibility ---
-            if (isBeingEdited) {
-                isVisible = true;
-            } else if (activeActionId && activeActionId.startsWith('new-shape-')) {
-                // If drawing a new shape, show the selected shape as reference
-                if (isSelected) isVisible = true;
-            } else if (showAllGeofences) {
-                isVisible = true;
+            // --- VISIBILITY LOGIC ---
+            if (mode === 'editing') {
+                // If editing, only show the selected geofence and the one being actively edited.
+                isVisible = isSelected || isBeingEdited;
+                if(activeActionId?.startsWith('new-shape-') && isSelected){
+                    isVisible = true; // Also show reference shape when drawing a new one.
+                }
             } else {
-                isVisible = isSelected || isDefault;
+                // In view mode, visibility depends on "showAllGeofences"
+                if (showAllGeofences) {
+                    isVisible = true;
+                } else {
+                    isVisible = isSelected || isDefault;
+                }
             }
 
-            //--- Determine Style ---
-            const behaviorProps = {
-                editable: false,
-                draggable: false,
-            };
-
+            // --- STYLE LOGIC ---
             if (isBeingEdited) {
+                // The shape being actively drawn or edited is always blue.
                 styleOptions = STYLE_FOCUSED_BLUE;
             } else if (mode === 'editing') {
-                styleOptions = STYLE_EDIT_MODE_GREEN;
-            } else { // mode === 'view'
-                styleOptions = STYLE_VIEW_MODE_NO_FILL;
+                // In edit mode, all visible non-edited shapes are green.
+                 styleOptions = STYLE_REFERENCE_GREEN;
+            } else {
+                 // In view mode, all shapes have no fill.
+                styleOptions = STYLE_VIEW_MODE;
             }
-            
-            shape.setOptions({ ...styleOptions, ...behaviorProps });
+
+            // Set final options
+            shape.setOptions(styleOptions);
             shape.setMap(isVisible ? map : null);
         });
 
-        // Handle the shape currently being drawn by the manager
-        if (activeShapeRef.current?.shape && activeActionId) {
-            const shape = activeShapeRef.current.shape;
-            shape.setOptions({ ...STYLE_FOCUSED_BLUE, editable: true, draggable: true });
+        // Handle the shape currently being drawn by the manager separately to ensure it's on top
+        if (activeShapeRef.current?.shape) {
+            const { shape } = activeShapeRef.current;
+            shape.setOptions(STYLE_FOCUSED_BLUE);
             shape.setMap(map);
-            if(activeActionId.startsWith('new-shape-')) {
-                // If it's a new shape, we need to show the selected one as reference
-                const refShape = mapShapesRef.current.get(selectedGeofenceId!);
-                if(refShape) {
-                    refShape.setMap(map);
-                    refShape.setOptions(STYLE_EDIT_MODE_GREEN);
-                }
-            }
             setupShapeListeners(shape);
         } else {
              clearListeners();
