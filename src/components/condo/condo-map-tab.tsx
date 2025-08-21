@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -33,7 +32,7 @@ import { cn } from '@/lib/utils';
 
 
 // --- Style Definitions ---
-export const STYLE_FOCUSED_BLUE = { fillColor: 'hsl(210 80% 50%)', strokeColor: 'hsl(210 80% 50%)', fillOpacity: 0.2, strokeWeight: 2, editable: true, draggable: true };
+export const STYLE_ACTIVE_BLUE = { fillColor: 'hsl(210 80% 50%)', strokeColor: 'hsl(210 80% 50%)', fillOpacity: 0.2, strokeWeight: 2, editable: true, draggable: true };
 export const STYLE_REFERENCE_GREEN = { fillColor: 'hsl(142 71% 45%)', strokeColor: 'hsl(142 71% 45%)', fillOpacity: 0.2, strokeWeight: 2, editable: false, draggable: false };
 export const STYLE_BACKGROUND_GREY = { fillColor: '#808080', strokeColor: '#808080', fillOpacity: 0.1, strokeWeight: 1, editable: false, draggable: false };
 export const STYLE_VIEW_MODE = { fillOpacity: 0.0, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: false, draggable: false };
@@ -127,9 +126,9 @@ const DrawingManagerComponent = ({
 
     const newDrawingManager = new drawingLibrary.DrawingManager({
       drawingControl: false,
-      polygonOptions: { ...STYLE_FOCUSED_BLUE, editable: true, draggable: true },
-      rectangleOptions: { ...STYLE_FOCUSED_BLUE, editable: true, draggable: true },
-      circleOptions: { ...STYLE_FOCUSED_BLUE, editable: true, draggable: true },
+      polygonOptions: { ...STYLE_ACTIVE_BLUE },
+      rectangleOptions: { ...STYLE_ACTIVE_BLUE },
+      circleOptions: { ...STYLE_ACTIVE_BLUE },
     });
 
     drawingManagerRef.current = newDrawingManager;
@@ -350,9 +349,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       const listeners: google.maps.MapsEventListener[] = [];
       const event = google.maps.event;
 
+      const debouncedHistoryUpdate = debounce(() => handleHistoryUpdate(shape), 100);
+
       listeners.push(event.addListener(shape, 'dragend', () => handleHistoryUpdate(shape)));
       
-      const registerVertexChange = () => { vertexChanged.current = true; };
+      const registerVertexChange = () => { debouncedHistoryUpdate(); };
+
       if ('getPath' in shape) {
           const path = (shape as google.maps.Polygon).getPath();
           listeners.push(event.addListener(path, 'set_at', registerVertexChange));
@@ -362,19 +364,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       if ('getRadius' in shape) listeners.push(event.addListener(shape, 'radius_changed', registerVertexChange));
       if ('getBounds' in shape) listeners.push(event.addListener(shape, 'bounds_changed', registerVertexChange));
       
-      const mapDiv = mapRef.current?.getDiv();
-      if (!mapDiv) return;
-
-      const mapMouseUpListener = () => {
-            if (vertexChanged.current) {
-              handleHistoryUpdate(shape);
-              vertexChanged.current = false;
-          }
-      };
-
-      mapDiv.addEventListener('mouseup', mapMouseUpListener);
-      
-      overlayListeners.current.push({ remove: () => mapDiv.removeEventListener('mouseup', mapMouseUpListener) } as any);
       overlayListeners.current.push(...listeners);
   }, [clearListeners, handleHistoryUpdate]);
     
@@ -395,30 +384,40 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             let isVisible = false;
             let styleOptions: any = {};
             const isSelected = id === selectedGeofenceId;
-            const isDefault = id === defaultGeofenceId;
-            const isBeingEdited = id === activeActionId;
             
-            shape.setOptions({ editable: false, draggable: false });
-
-            if (isBeingEdited) {
+            if (activeActionId === id) {
+                // This is the shape being actively edited or drawn.
                 isVisible = true;
-                styleOptions = STYLE_FOCUSED_BLUE;
+                styleOptions = STYLE_ACTIVE_BLUE;
+                shape.setOptions({ editable: true, draggable: true });
                 setupShapeListeners(shape);
             } else {
-                if (mode === 'editing') {
-                    isVisible = isSelected;
-                    styleOptions = STYLE_REFERENCE_GREEN;
-                } else { // mode === 'view'
+                 shape.setOptions({ editable: false, draggable: false });
+                if (mode === 'view') {
                     if (showAllGeofences) {
                         isVisible = true;
-                        styleOptions = isDefault ? STYLE_VIEW_MODE : STYLE_BACKGROUND_GREY;
+                        styleOptions = id === defaultGeofenceId ? STYLE_VIEW_MODE : STYLE_BACKGROUND_GREY;
                     } else {
-                        isVisible = isDefault;
+                        isVisible = id === defaultGeofenceId;
                         styleOptions = STYLE_VIEW_MODE;
+                    }
+                } else { // mode === 'editing'
+                    if (activeActionId) {
+                        // An action (edit/draw) is happening, hide others
+                        isVisible = id === selectedGeofenceId;
+                        styleOptions = STYLE_REFERENCE_GREEN;
+                    } else {
+                        // In editing mode, but no specific action is active
+                        if (showAllGeofences) {
+                            isVisible = true;
+                            styleOptions = isSelected ? STYLE_REFERENCE_GREEN : STYLE_BACKGROUND_GREY;
+                        } else {
+                            isVisible = isSelected;
+                            styleOptions = STYLE_REFERENCE_GREEN;
+                        }
                     }
                 }
             }
-            
             shape.setOptions(styleOptions);
             shape.setMap(isVisible ? map : null);
         });
