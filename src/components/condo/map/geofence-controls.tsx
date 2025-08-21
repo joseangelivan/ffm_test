@@ -353,7 +353,7 @@ export function GeofenceControls({
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" onClick={handleSetAsDefault} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-') || isBusy}>
+                                            <Button variant="ghost" size="icon" disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-') || isBusy} onClick={handleSetAsDefault}>
                                                 {isSettingDefault ? <Loader className="h-4 w-4 animate-spin"/> : <Star className={cn("h-4 w-4", defaultGeofenceId === selectedGeofenceId && "fill-orange-400 text-orange-500")} />}
                                             </Button>
                                         </TooltipTrigger>
@@ -368,7 +368,7 @@ export function GeofenceControls({
                                         <TooltipContent><p>{t('common.edit')}</p></TooltipContent>
                                     </Tooltip>
                                      <Tooltip>
-                                        <TooltipTrigger asChild>
+                                         <TooltipTrigger asChild>
                                             <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-') || isBusy}>
                                                 {isDeleting ? <Loader className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4 text-destructive"/>}
                                             </Button>

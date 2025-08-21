@@ -411,7 +411,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         // Show reference shape if it exists
         const refShapeId = selectedGeofenceId;
         const refShape = refShapeId ? mapShapes.get(refShapeId) : null;
-        if(refShape){
+        if(refShape && activeShapeRef.current?.shape !== refShape){
             const isDefault = refShapeId === defaultGeofenceId;
             (refShape as any).setOptions({ ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), editable: false, draggable: false });
             refShape.setMap(map);
