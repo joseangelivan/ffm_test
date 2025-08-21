@@ -32,6 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export type DrawingMode = 'polygon' | 'rectangle' | 'circle';
 
@@ -85,19 +86,18 @@ export function GeofenceControls({
     const drawingCompleteListener = useRef<google.maps.MapsEventListener | null>(null);
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
     const [isSaving, startSavingTransition] = useTransition();
-    
+    const [isDeleting, startDeletingTransition] = useTransition();
+    const [isSettingDefault, startSettingDefaultTransition] = useTransition();
+
     const isActionActive = mode === 'editing' || mode === 'drawing';
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
     
     const resetActionStates = useCallback(() => {
-        // This is the key part: only remove the shape from the map if it exists
-        // in the activeShapeRef. This reference is only set for NEW shapes or shapes
-        // being explicitly edited. The reference geofence is never in activeShapeRef.
         if (activeShapeRef.current) {
-            (activeShapeRef.current.shape as any).setMap(null); // Remove shape from map
-            activeShapeRef.current = null; // Clear the reference
+            (activeShapeRef.current.shape as any).setMap(null);
+            activeShapeRef.current = null;
         }
         
         if (drawingManager) drawingManager.setDrawingMode(null);
@@ -191,22 +191,24 @@ export function GeofenceControls({
     }
 
 
-    const handleDelete = async () => {
+    const handleDelete = () => {
         if (!selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-')) return;
         const idToDelete = selectedGeofenceId;
         
-        const result = await deleteGeofence(idToDelete);
-        
-        if (result && result.success) {
-            resetActionStates();
-            toast({ title: t('toast.successTitle'), description: t('condoDashboard.map.toast.geofenceDeleted')});
-            onDataNeedsRefresh();
+        startDeletingTransition(async () => {
+            const result = await deleteGeofence(idToDelete);
+            
+            if (result && result.success) {
+                resetActionStates();
+                toast({ title: t('toast.successTitle'), description: t('condoDashboard.map.toast.geofenceDeleted')});
+                onDataNeedsRefresh();
 
-        } else if (result) {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
-        } else {
-            toast({ title: t('toast.errorTitle'), description: t('toast.adminLogin.serverError'), variant: "destructive" });
-        }
+            } else if (result) {
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+            } else {
+                toast({ title: t('toast.errorTitle'), description: t('toast.adminLogin.serverError'), variant: "destructive" });
+            }
+        });
     }
 
     const handleSaveGeofence = () => {
@@ -252,15 +254,17 @@ export function GeofenceControls({
         });
     };
     
-    const handleSetAsDefault = async () => {
+    const handleSetAsDefault = () => {
         if (!selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-')) return;
-        const result = await setCondoDefaultGeofence(condoId, selectedGeofenceId);
-        if (result.success) {
-            setDefaultGeofenceId(selectedGeofenceId);
-            toast({ title: t('condoDashboard.map.toast.defaultSet.title'), description: t('condoDashboard.map.toast.defaultSet.description')});
-        } else {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
-        }
+        startSettingDefaultTransition(async () => {
+            const result = await setCondoDefaultGeofence(condoId, selectedGeofenceId!);
+            if (result.success) {
+                setDefaultGeofenceId(selectedGeofenceId);
+                toast({ title: t('condoDashboard.map.toast.defaultSet.title'), description: t('condoDashboard.map.toast.defaultSet.description')});
+            } else {
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+            }
+        });
     }
 
     const handleEditingEnabledChange = (checked: boolean) => {
@@ -276,6 +280,8 @@ export function GeofenceControls({
         }
     };
     
+    const isBusy = isSaving || isDeleting || isSettingDefault;
+
     return (
         <div className="space-y-4 pt-2 border-t">
             <div className="flex flex-col gap-4">
@@ -315,7 +321,7 @@ export function GeofenceControls({
 
                 <fieldset disabled={!isEditingEnabled || isSaving} className="space-y-4">
                         <div className="flex items-center gap-2">
-                            <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive}>
+                            <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive || isBusy}>
                                 <SelectTrigger className={cn("flex-1", selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-') && "text-blue-600 border-blue-400 font-bold")}>
                                     <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
                                 </SelectTrigger>
@@ -331,29 +337,43 @@ export function GeofenceControls({
                                 </SelectContent>
                             </Select>
                             <div className="flex items-center">
-                                <Button variant="ghost" size="icon" onClick={handleSetAsDefault} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-')}>
-                                    <Star className={cn("h-4 w-4", defaultGeofenceId === selectedGeofenceId && "fill-orange-400 text-orange-500")} />
-                                    <span className="sr-only">{t('condoDashboard.map.geofence.setAsDefault')}</span>
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={handleStartEdit} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-')}>
-                                    <Edit className="h-4 w-4"/>
-                                    <span className="sr-only">{t('common.edit')}</span>
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-')}>
-                                    <Trash2 className="h-4 w-4 text-destructive"/>
-                                    <span className="sr-only">{t('common.delete')}</span>
-                                </Button>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" onClick={handleSetAsDefault} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-') || isBusy}>
+                                                {isSettingDefault ? <Loader className="h-4 w-4 animate-spin"/> : <Star className={cn("h-4 w-4", defaultGeofenceId === selectedGeofenceId && "fill-orange-400 text-orange-500")} />}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent><p>{t('condoDashboard.map.geofence.setAsDefault')}</p></TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                         <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" onClick={handleStartEdit} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-') || isBusy}>
+                                                <Edit className="h-4 w-4"/>
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent><p>{t('common.edit')}</p></TooltipContent>
+                                    </Tooltip>
+                                     <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-') || isBusy}>
+                                                {isDeleting ? <Loader className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4 text-destructive"/>}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent><p>{t('common.delete')}</p></TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             </div>
                         </div>
                     
                     <div className="flex items-center gap-2">
-                         <Button onClick={handleStartDraw} variant="outline" className="flex-1" disabled={isActionActive}>
+                         <Button onClick={handleStartDraw} variant="outline" className="flex-1" disabled={isActionActive || isBusy}>
                             <PencilRuler className="mr-2 h-4 w-4"/>
                             {t('condoDashboard.map.geofence.draw')}
                         </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="w-40 justify-between" disabled={isActionActive}>
+                                <Button variant="outline" className="w-40 justify-between" disabled={isActionActive || isBusy}>
                                     <span>
                                         {drawingMode === 'polygon' && t('condoDashboard.map.shapes.polygon')}
                                         {drawingMode === 'rectangle' && t('condoDashboard.map.shapes.rectangle')}
