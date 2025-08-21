@@ -101,15 +101,15 @@ export function GeofenceControls({
     const resetActionStates = useCallback(() => {
         if (activeShapeRef.current) {
             const { shape, originalGeometry } = activeShapeRef.current;
-            (shape as any).setOptions({ editable: false, draggable: false });
-            // Restore original geometry if we were editing
+            (shape as any).setMap(null); // Always hide the active shape
+            
+            // If it was an edit, restore original shape visibility and state
             if (originalGeometry) {
-                restoreShapeToGeometry(shape, originalGeometry);
-                 (shape as any).setOptions(originalGeometry.id === defaultGeofenceId ? DEFAULT_COLOR : SAVED_COLOR);
-            }
-             // If it was a new shape, just remove it from the map
-            if (activeShapeRef.current.id.startsWith('new-shape-')) {
-                (shape as any).setMap(null);
+                const originalShape = mapShapes.get(activeShapeRef.current.id);
+                if (originalShape) {
+                    restoreShapeToGeometry(originalShape, originalGeometry);
+                    originalShape.setMap(null); // Ensure it's hidden before master effect takes over
+                }
             }
             activeShapeRef.current = null;
         }
@@ -121,7 +121,7 @@ export function GeofenceControls({
         updateHistoryButtons();
         setCurrentGeofenceName('');
         setIsShapeDrawn(false);
-    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons, defaultGeofenceId]);
+    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons, mapShapes]);
 
 
     const getNextGeofenceName = useCallback(() => {
@@ -198,16 +198,16 @@ export function GeofenceControls({
         if (!shapeToEdit || !geofenceData) return;
         
         const originalGeometry = getGeometryFromShape(shapeToEdit);
-        activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
         
-        shapeToEdit.setOptions({ editable: true, draggable: true });
+        // --- THIS IS THE KEY: We are now referencing the ORIGINAL shape object ---
+        activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
         
         setMode('editing');
         
         historyRef.current = [originalGeometry];
         historyIndexRef.current = 0;
         updateHistoryButtons();
-        setIsShapeDrawn(true);
+        setIsShapeDrawn(true); // An existing shape is considered "drawn"
         setupShapeListeners(shapeToEdit);
         
         setCurrentGeofenceName(geofenceData.name);
@@ -223,15 +223,7 @@ export function GeofenceControls({
             
             if (result?.success) {
                 toast({ title: t('toast.successTitle'), description: t('condoDashboard.map.toast.geofenceDeleted')});
-                
-                const shapeToRemove = mapShapes.get(idToDelete);
-                if (shapeToRemove) {
-                    (shapeToRemove as any).setMap(null);
-                    mapShapes.delete(idToDelete);
-                }
-                
                 await onDataNeedsRefresh();
-
             } else if (result) {
                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
             } else {
@@ -241,14 +233,14 @@ export function GeofenceControls({
     }
 
     const handleSaveGeofence = () => {
-        startSavingTransition(async () => {
-            if (!activeShapeRef.current) {
-                toast({ title: "Error", description: "No active shape found to save. Please try again.", variant: "destructive"});
-                resetActionStates();
-                return;
-            }
+        if (!activeShapeRef.current) {
+            toast({ title: "Error", description: "No active shape found to save. Please try again.", variant: "destructive"});
+            resetActionStates();
+            return;
+        }
 
-            const { id, shape } = activeShapeRef.current;
+        startSavingTransition(async () => {
+            const { id, shape } = activeShapeRef.current!;
             
             const geometryToSave = getGeometryFromShape(shape);
             if (!currentGeofenceName) {
@@ -274,7 +266,6 @@ export function GeofenceControls({
             if (result?.success) {
                 toast({ title: t('toast.successTitle'), description: result.message });
                 const newSelectedId = isNewShape ? result.data?.id : id;
-                activeShapeRef.current = null;
                 resetActionStates();
                 await onDataNeedsRefresh(newSelectedId);
             } else if (result) {

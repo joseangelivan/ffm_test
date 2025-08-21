@@ -166,6 +166,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const { toast } = useToast();
   const mapRef = useRef<google.maps.Map | null>(null);
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
+  
+  // UNIFIED STATE FOR MAP OBJECTS
   const mapShapesRef = useRef<Map<string, google.maps.MVCObject>>(new Map());
   
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
@@ -193,6 +195,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [canRedo, setCanRedo] = useState(false);
   const [selectedModule, setSelectedModule] = useState('geofence');
 
+  // This is the only shape that is actively being edited or drawn.
   const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject, originalGeometry?: any } | null>(null);
   
   
@@ -379,14 +382,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       overlayListeners.current.push(...listeners);
   }, [clearListeners, handleHistoryUpdate]);
     
+  // Effect to synchronize DB state with map objects state.
   useEffect(() => {
     if (!mapRef.current) return;
-    
-    const map = mapRef.current;
+
     const currentShapeIds = new Set(mapShapesRef.current.keys());
     const dbShapeIds = new Set(dbGeofences.map(g => g.id));
 
-    // Remove shapes that are no longer in dbGeofences
+    // Remove map objects for geofences that were deleted from DB
     for (const id of currentShapeIds) {
         if (!dbShapeIds.has(id)) {
             mapShapesRef.current.get(id)?.setMap(null);
@@ -394,7 +397,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
     }
 
-    // Add or update shapes from dbGeofences
+    // Add map objects for new geofences from DB
     for (const dbGf of dbGeofences) {
         if (!currentShapeIds.has(dbGf.id)) {
             const newShape = createShapeFromGeometry(dbGf.geometry);
@@ -406,51 +409,64 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [dbGeofences]);
 
     
+  // This is the MASTER effect for controlling shape visibility and styles
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-
-    // --- Clean Slate Principle ---
-    mapShapesRef.current.forEach(shape => (shape as any).setMap(null));
-    if (activeShapeRef.current) (activeShapeRef.current.shape as any).setMap(null);
+    
+    // --- STEP 1: Clean Slate Principle ---
+    // Hide all map objects before deciding which ones to show.
+    mapShapesRef.current.forEach(shape => shape.setMap(null));
+    if (activeShapeRef.current) {
+        activeShapeRef.current.shape.setMap(null);
+    }
     clearListeners();
 
-    // --- Single Source of Truth Rendering ---
-    if (mode === 'editing' && activeShapeRef.current) {
+    // --- STEP 2: Render based on the current mode ---
+    if (mode === 'editing') {
         // --- EDITING/DRAWING MODE ---
-        const activeShape = activeShapeRef.current.shape;
-        (activeShape as any).setOptions(EDIT_COLOR);
-        activeShape.setMap(map);
-        setupShapeListeners(activeShape);
+        if (activeShapeRef.current) {
+            const activeShape = activeShapeRef.current.shape;
+            activeShape.setOptions(EDIT_COLOR);
+            activeShape.setMap(map);
+            setupShapeListeners(activeShape);
 
-        // Show the reference shape if applicable
-        const referenceId = selectedGeofenceId;
-        const referenceShape = referenceId ? mapShapesRef.current.get(referenceId) : null;
-        if (referenceShape && activeShapeRef.current.id !== referenceId) {
-            (referenceShape as any).setOptions(REFERENCE_COLOR);
-            referenceShape.setMap(map);
+            // If editing an existing geofence, show its original version as reference.
+            const isEditingExisting = !activeShapeRef.current.id.startsWith('new-shape-');
+            const referenceId = isEditingExisting ? activeShapeRef.current.id : selectedGeofenceId;
+            const referenceShape = referenceId ? mapShapesRef.current.get(referenceId) : null;
+            
+            // Do not show reference if it's the same as the active shape
+            if (referenceShape && referenceShape !== activeShape) {
+                 referenceShape.setOptions(REFERENCE_COLOR);
+                 referenceShape.setMap(map);
+            }
         }
     } else {
         // --- VIEW MODE ---
         if (showAllGeofences) {
             mapShapesRef.current.forEach((shape, id) => {
-                const colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : VIEW_ALL_COLOR;
-                (shape as any).setOptions(colorOptions);
+                const isDefault = id === defaultGeofenceId;
+                const isSelected = id === selectedGeofenceId;
+                
+                let colorOptions = VIEW_ALL_COLOR;
+                if (isDefault) colorOptions = DEFAULT_COLOR;
+                if (isSelected && !isDefault) colorOptions = SAVED_COLOR;
+
+                shape.setOptions(colorOptions);
                 shape.setMap(map);
             });
         } else if (selectedGeofenceId) {
             const shape = mapShapesRef.current.get(selectedGeofenceId);
             if (shape) {
                 const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
-                (shape as any).setOptions(colorOptions);
+                shape.setOptions(colorOptions);
                 shape.setMap(map);
             }
         }
     }
-  }, [
-      mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-      clearListeners, setupShapeListeners, dbGeofences
-  ]);
+  }, [mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, dbGeofences, clearListeners, setupShapeListeners]);
+
 
 
   useEffect(() => {
@@ -474,7 +490,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       const geofenceToCenter = dbGeofences.find(g => g.is_default);
       
       if (geofenceToCenter) {
-           const shape = createShapeFromGeometry(geofenceToCenter.geometry);
+           const shape = mapShapesRef.current.get(geofenceToCenter.id);
            if(shape) {
               const bounds = getBoundsOfShape(shape);
               if (bounds) {
