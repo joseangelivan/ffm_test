@@ -33,10 +33,10 @@ import { cn } from '@/lib/utils';
 
 
 // --- Style Definitions ---
-const STYLE_FOCUSED = { fillColor: 'hsl(210 80% 50%)', fillOpacity: 0.15, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: true, draggable: true };
-const STYLE_EDIT_MODE = { fillColor: 'hsl(142 71% 45%)', fillOpacity: 0.1, strokeColor: 'hsl(142 71% 45%)', strokeWeight: 2, editable: false, draggable: false };
-const STYLE_VIEW_MODE = { fillColor: 'hsl(210 80% 50%)', fillOpacity: 0.0, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: false, draggable: false };
-const STYLE_BACKGROUND = { fillColor: '#808080', fillOpacity: 0.1, strokeColor: '#808080', strokeWeight: 1, editable: false, draggable: false };
+const STYLE_FOCUSED_BLUE = { fillColor: 'hsl(210 80% 50%)', strokeColor: 'hsl(210 80% 50%)', fillOpacity: 0.2, strokeWeight: 2 };
+const STYLE_EDIT_MODE_GREEN = { fillColor: 'hsl(142 71% 45%)', strokeColor: 'hsl(142 71% 45%)', fillOpacity: 0.2, strokeWeight: 2 };
+const STYLE_VIEW_MODE_BLUE_NO_FILL = { fillColor: 'hsl(210 80% 50%)', strokeColor: 'hsl(210 80% 50%)', fillOpacity: 0.0, strokeWeight: 2 };
+const STYLE_BACKGROUND_GREY = { fillColor: '#808080', strokeColor: '#808080', fillOpacity: 0.1, strokeWeight: 1 };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -127,9 +127,9 @@ const DrawingManagerComponent = ({
 
     const newDrawingManager = new drawingLibrary.DrawingManager({
       drawingControl: false,
-      polygonOptions: { ...STYLE_FOCUSED },
-      rectangleOptions: { ...STYLE_FOCUSED },
-      circleOptions: { ...STYLE_FOCUSED },
+      polygonOptions: { ...STYLE_FOCUSED_BLUE, editable: true, draggable: true },
+      rectangleOptions: { ...STYLE_FOCUSED_BLUE, editable: true, draggable: true },
+      circleOptions: { ...STYLE_FOCUSED_BLUE, editable: true, draggable: true },
     });
 
     drawingManagerRef.current = newDrawingManager;
@@ -392,47 +392,74 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       }
     });
 
-    // Determine the focused shape ID (could be an existing one or the one being created)
-    const focusedId = activeShapeRef.current?.id || selectedGeofenceId;
-    
-    // Apply styles and visibility based on the rules
-    mapShapesRef.current.forEach((shape, id) => {
-      let isVisible = false;
-      let style = { ...STYLE_VIEW_MODE };
+    const isActionActive = !!activeShapeRef.current;
+    const isDrawingNew = isActionActive && activeShapeRef.current.id.startsWith('new-shape-');
 
-      if (mode === 'editing') {
-        if (id === focusedId) {
-          isVisible = true;
-          style = { ...STYLE_FOCUSED };
-        } else if (showAllGeofences) {
-          isVisible = true;
-          style = { ...STYLE_BACKGROUND }; // Gray
+    // Determine the ID of the shape that should be in "focus" (blue)
+    const focusId = isActionActive ? activeShapeRef.current.id : selectedGeofenceId;
+
+    // Apply styles and visibility
+    mapShapesRef.current.forEach((shape, id) => {
+        let isVisible = false;
+        let styleOptions: any = {};
+        const isFocused = id === focusId;
+        const isDefault = id === defaultGeofenceId;
+        
+        // Determine visibility
+        if (mode === 'editing') {
+            if (isFocused) {
+                isVisible = true;
+            } else if (isDrawingNew) {
+                isVisible = (id === selectedGeofenceId); // Show reference geofence when drawing
+            } else if (showAllGeofences) {
+                isVisible = true;
+            } else {
+                isVisible = false;
+            }
+        } else { // mode === 'view'
+            if (isDefault) {
+                isVisible = true;
+            } else if (showAllGeofences) {
+                isVisible = true;
+            } else if (isFocused) {
+                isVisible = true;
+            }
         }
-      } else { // mode === 'view'
-        if (id === defaultGeofenceId) {
-          isVisible = true;
-          style = { ...STYLE_VIEW_MODE }; // Blue border
-        } else if (showAllGeofences && id !== defaultGeofenceId) {
-          isVisible = true;
-          style = { ...STYLE_BACKGROUND }; // Gray
-        } else if (!showAllGeofences && id === selectedGeofenceId) {
-            isVisible = true;
-            style = {...STYLE_VIEW_MODE };
+        
+        // Determine style
+        if (isActionActive) {
+            if (isFocused) {
+                styleOptions = STYLE_FOCUSED_BLUE; // Blue for the shape being edited/drawn
+            } else {
+                styleOptions = STYLE_EDIT_MODE_GREEN; // Green for other visible shapes in edit mode
+            }
+        } else { // Not actively editing a shape
+            if (mode === 'editing') {
+                styleOptions = STYLE_EDIT_MODE_GREEN; // All green in visual edit mode
+            } else { // View mode
+                if (isDefault) {
+                    styleOptions = STYLE_VIEW_MODE_BLUE_NO_FILL; // Default is blue outline
+                } else {
+                    styleOptions = STYLE_BACKGROUND_GREY; // Others are grey
+                }
+            }
         }
-      }
-      
-      shape.setOptions(style);
-      shape.setMap(isVisible ? map : null);
+
+        // Determine if editable
+        const isEditable = isActionActive && isFocused;
+
+        shape.setOptions({ ...styleOptions, editable: isEditable, draggable: isEditable });
+        shape.setMap(isVisible ? map : null);
     });
 
-    // Special handling for a newly drawn shape that is not yet in mapShapesRef
-    if (activeShapeRef.current && activeShapeRef.current.id.startsWith('new-shape-')) {
+    // Special handling for a newly drawn shape that isn't in mapShapesRef yet
+    if (isDrawingNew) {
         const shape = activeShapeRef.current.shape;
-        shape.setOptions({ ...STYLE_FOCUSED });
+        shape.setOptions({ ...STYLE_FOCUSED_BLUE, editable: true, draggable: true });
         shape.setMap(map);
     }
-
-    // Set up listeners for the active shape
+    
+    // Setup listeners
     if (activeShapeRef.current) {
         setupShapeListeners(activeShapeRef.current.shape);
     } else {
@@ -580,6 +607,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 <GeofenceControls
                                     condoId={condo.id}
                                     geofences={dbGeofences}
+                                    mapShapesRef={mapShapesRef}
                                     onDataNeedsRefresh={onDataNeedsRefresh}
                                     selectedGeofenceId={selectedGeofenceId}
                                     setSelectedGeofenceId={setSelectedGeofenceId}

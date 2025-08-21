@@ -192,8 +192,6 @@ export function GeofenceControls({
         
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
         
-        setMode('editing');
-        
         historyRef.current = [originalGeometry];
         historyIndexRef.current = 0;
         updateHistoryButtons();
@@ -326,7 +324,7 @@ export function GeofenceControls({
                         />
                         <label
                             htmlFor="edit-mode"
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            className="text-base font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                         >
                             {t('condoDashboard.map.geofence.editMode')}
                         </label>
