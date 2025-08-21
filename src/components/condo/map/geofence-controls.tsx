@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -95,8 +96,13 @@ export function GeofenceControls({
     
     const resetActionStates = useCallback(() => {
         if (activeShapeRef.current) {
-            const { shape } = activeShapeRef.current;
-            (shape as any).setMap(null); // Remove from map
+            // Restore original geometry if editing was cancelled
+            if (activeShapeRef.current.originalGeometry) {
+                restoreShapeToGeometry(activeShapeRef.current.shape, activeShapeRef.current.originalGeometry);
+            } else {
+                // If it was a new drawing, remove it from the map
+                (activeShapeRef.current.shape as any).setMap(null);
+            }
             activeShapeRef.current = null;
         }
         
@@ -128,12 +134,13 @@ export function GeofenceControls({
     }, [geofences, t]);
 
     const handleStartDraw = () => {
-        if (activeShapeRef.current) {
+        // Clean up any previous unsaved new shape
+        if (activeShapeRef.current && activeShapeRef.current.id.startsWith('new-shape-')) {
             (activeShapeRef.current.shape as any).setMap(null);
-            activeShapeRef.current = null;
         }
-
-        setMode('editing'); // Show UI immediately
+        activeShapeRef.current = null;
+        
+        setMode('editing');
         setCurrentGeofenceName(getNextGeofenceName());
         
         if (drawingManager) {
@@ -149,7 +156,6 @@ export function GeofenceControls({
         const tempId = `new-shape-${Date.now()}`;
         activeShapeRef.current = { id: tempId, shape: newShape };
         
-        // Mode is already 'editing', just set up history
         historyRef.current = [getGeometryFromShape(newShape)];
         historyIndexRef.current = 0;
         updateHistoryButtons();
@@ -208,9 +214,9 @@ export function GeofenceControls({
                 
                 const shapeToRemove = mapShapes.get(idToDelete);
                 if (shapeToRemove) {
-                    shapeToRemove.setMap(null);
+                    (shapeToRemove as any).setMap(null); // Explicitly remove from map
                 }
-                mapShapes.delete(idToDelete);
+                mapShapes.delete(idToDelete); // Remove from state
 
                 onDataNeedsRefresh();
 
@@ -256,8 +262,9 @@ export function GeofenceControls({
             if (result?.success) {
                 toast({ title: t('toast.successTitle'), description: result.message });
                 const newSelectedId = isNewShape ? result.data?.id : id;
-                resetActionStates(); 
-                onDataNeedsRefresh(newSelectedId);
+                activeShapeRef.current = null; // Clear the active shape ref
+                onDataNeedsRefresh(newSelectedId); // This will reload data and set the new focus
+                setMode('view');
                 setShowAllGeofences(false);
             } else if (result) {
                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });

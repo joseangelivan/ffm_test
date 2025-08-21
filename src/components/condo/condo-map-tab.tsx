@@ -387,54 +387,55 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         overlayListeners.current.push(...listeners);
     };
     
-    // Hide all shapes first
+    // --- Core Visibility Logic ---
+    // 1. Hide all shapes first to ensure a clean slate.
     mapShapes.forEach(shape => (shape as any).setMap(null));
     clearListeners();
 
-    if (activeShapeRef.current?.shape) {
-        // If there's an active shape (being edited/drawn), show it.
+    // 2. Decide what to show based on the current mode and state.
+    if (activeShapeRef.current) {
+        // If we are actively drawing or editing a shape.
         const activeShape = activeShapeRef.current.shape;
-        (activeShape as any).setOptions({ ...EDIT_COLOR, draggable: true });
+        (activeShape as any).setOptions({ ...EDIT_COLOR });
         activeShape.setMap(map);
         setupListeners(activeShape);
 
-        // Also show the reference shape if it's not the same as the active one
-        if (selectedGeofenceId && selectedGeofenceId !== activeShapeRef.current.id) {
+        // Show the reference geofence if we are drawing a new one.
+        if (activeShapeRef.current.id.startsWith('new-shape-') && selectedGeofenceId) {
             const referenceShape = mapShapes.get(selectedGeofenceId);
             if (referenceShape) {
                 const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
-                (referenceShape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
+                (referenceShape as any).setOptions({ ...colorOptions });
                 referenceShape.setMap(map);
             }
         }
-
-    } else {
-        // If no active shape, show shapes based on view mode.
-        if (showAllGeofences) {
-             mapShapes.forEach((shape, id) => {
-                const colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : VIEW_ALL_COLOR;
-                (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
-                shape.setMap(map);
-            });
-        } else if (isEditingEnabled && selectedGeofenceId) {
-            const shape = mapShapes.get(selectedGeofenceId);
-            if (shape) {
-                const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
-                (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
-                shape.setMap(map);
-            }
-        } else if (!isEditingEnabled && defaultGeofenceId) {
-             const shape = mapShapes.get(defaultGeofenceId);
-            if (shape) {
-                (shape as any).setOptions({ ...DEFAULT_COLOR, editable: false, draggable: false });
-                shape.setMap(map);
-            }
+    } else if (showAllGeofences) {
+        // Show all geofences if the toggle is active.
+        mapShapes.forEach((shape, id) => {
+            const colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : VIEW_ALL_COLOR;
+            (shape as any).setOptions({ ...colorOptions });
+            shape.setMap(map);
+        });
+    } else if (isEditingEnabled && selectedGeofenceId) {
+        // In editing mode, show only the selected geofence.
+        const shape = mapShapes.get(selectedGeofenceId);
+        if (shape) {
+            const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
+            (shape as any).setOptions({ ...colorOptions });
+            shape.setMap(map);
+        }
+    } else if (!isEditingEnabled && defaultGeofenceId) {
+        // In view mode, show only the default geofence.
+        const shape = mapShapes.get(defaultGeofenceId);
+        if (shape) {
+            (shape as any).setOptions({ ...DEFAULT_COLOR });
+            shape.setMap(map);
         }
     }
-}, [
-    mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-    mapShapes, clearListeners, isEditingEnabled, isLoading, handleHistoryUpdate
-]);
+  }, [
+      mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
+      mapShapes, clearListeners, isEditingEnabled, isLoading, handleHistoryUpdate
+  ]);
 
 
 
