@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { debounce } from 'lodash';
 
-import { getGeometryFromShape, createShapeFromGeometry, EDIT_COLOR } from '../condo-map-tab';
+import { getGeometryFromShape, createShapeFromGeometry, restoreShapeToGeometry, EDIT_COLOR, SAVED_COLOR, DEFAULT_COLOR } from '../condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 
@@ -52,12 +52,11 @@ type GeofenceControlsProps = {
     showAllGeofences: boolean;
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
-    activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject } | null>;
+    activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject, originalGeometry?: any } | null>;
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
     updateHistoryButtons: () => void;
     mapShapes: Map<string, google.maps.MVCObject>;
-    originalGeometries: React.MutableRefObject<Map<string, any>>;
 }
 
 export function GeofenceControls({
@@ -81,7 +80,6 @@ export function GeofenceControls({
     historyIndexRef,
     updateHistoryButtons,
     mapShapes,
-    originalGeometries,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -98,18 +96,14 @@ export function GeofenceControls({
     
     const resetActionStates = useCallback(() => {
         if (activeShapeRef.current) {
-            const {id, shape} = activeShapeRef.current;
-            if(id.startsWith('new-shape-')){
-                 (shape as any).setMap(null);
-            } else {
-                const originalGeometry = originalGeometries.current.get(id);
-                if(originalGeometry) {
-                    const originalShape = createShapeFromGeometry(originalGeometry);
-                    if(originalShape && 'setPath' in shape) (shape as google.maps.Polygon).setPath((originalShape as google.maps.Polygon).getPath());
-                    if(originalShape && 'setBounds' in shape) (shape as google.maps.Rectangle).setBounds((originalShape as google.maps.Rectangle).getBounds());
-                    if(originalShape && 'setCenter' in shape) (shape as google.maps.Circle).setCenter((originalShape as google.maps.Circle).getCenter());
-                    if(originalShape && 'setRadius' in shape) (shape as google.maps.Circle).setRadius((originalShape as google.maps.Circle).getRadius());
-                }
+            const { shape, id, originalGeometry } = activeShapeRef.current;
+            if (id.startsWith('new-shape-')) {
+                (shape as any).setMap(null);
+            } else if (originalGeometry) {
+                // Restore original state if it was an edit
+                restoreShapeToGeometry(shape, originalGeometry);
+                const isDefault = id === defaultGeofenceId;
+                (shape as any).setOptions(isDefault ? DEFAULT_COLOR : SAVED_COLOR);
             }
              activeShapeRef.current = null;
         }
@@ -120,7 +114,7 @@ export function GeofenceControls({
         historyIndexRef.current = -1;
         updateHistoryButtons();
         setCurrentGeofenceName('');
-    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons, originalGeometries]);
+    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons, defaultGeofenceId]);
 
 
     const getNextGeofenceName = useCallback(() => {
@@ -192,11 +186,11 @@ export function GeofenceControls({
 
         if (!shapeToEdit || !geofenceData) return;
         
-        activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit };
+        const originalGeometry = getGeometryFromShape(shapeToEdit);
+        activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
         setMode('editing');
         
-        const originalGeometry = originalGeometries.current.get(selectedGeofenceId);
-        historyRef.current = [originalGeometry || getGeometryFromShape(shapeToEdit)];
+        historyRef.current = [originalGeometry];
         historyIndexRef.current = 0;
         updateHistoryButtons();
         
