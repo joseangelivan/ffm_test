@@ -391,10 +391,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     mapShapes.forEach(shape => (shape as any).setMap(null));
     clearListeners();
 
-    // Determine which shapes to show based on the current mode
     if (mode === 'view') {
         if (isEditingEnabled) {
-            // Show only the selected geofence
             if (selectedGeofenceId) {
                 const shape = mapShapes.get(selectedGeofenceId);
                 if (shape) {
@@ -404,7 +402,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 }
             }
         } else {
-            // Show either all or just the default
             if (showAllGeofences) {
                 mapShapes.forEach((shape, id) => {
                     const colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : VIEW_ALL_COLOR;
@@ -420,7 +417,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
         }
     } else { // 'editing' or 'drawing'
-        // Always show the reference shape (the one selected in the list) if we are drawing a new one.
+        // Always show the reference shape (the one selected in the list)
         if (selectedGeofenceId && activeShapeRef.current?.id !== selectedGeofenceId) {
             const refShape = mapShapes.get(selectedGeofenceId);
             if (refShape) {
@@ -430,7 +427,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
         }
         
-        // Show the active shape for editing/drawing. This is either a brand new shape or the one being edited.
         if (activeShapeRef.current?.shape) {
             const activeShape = activeShapeRef.current.shape;
             (activeShape as any).setOptions({ ...EDIT_COLOR, draggable: true });
