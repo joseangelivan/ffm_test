@@ -382,7 +382,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const map = mapRef.current;
         if (!map || isLoading) return;
 
-        // Ensure all DB geofences have a corresponding shape object in our ref
         dbGeofences.forEach(dbGf => {
             if (!mapShapesRef.current.has(dbGf.id)) {
                 const newShape = createShapeFromGeometry(dbGf.geometry);
@@ -390,7 +389,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
         });
 
-        // Determine which shape is currently in an active editing/drawing state
         const activeActionId = activeShapeRef.current?.id;
 
         mapShapesRef.current.forEach((shape, id) => {
@@ -399,49 +397,31 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             const isSelected = id === selectedGeofenceId;
             const isDefault = id === defaultGeofenceId;
             const isBeingEdited = id === activeActionId;
+            
+            shape.setOptions({ editable: false, draggable: false });
 
-            // --- VISIBILITY LOGIC ---
-            if (mode === 'editing') {
-                // If editing, only show the selected geofence and the one being actively edited.
-                isVisible = isSelected || isBeingEdited;
-                if(activeActionId?.startsWith('new-shape-') && isSelected){
-                    isVisible = true; // Also show reference shape when drawing a new one.
-                }
-            } else {
-                // In view mode, visibility depends on "showAllGeofences"
-                if (showAllGeofences) {
-                    isVisible = true;
-                } else {
-                    isVisible = isSelected || isDefault;
-                }
-            }
-
-            // --- STYLE LOGIC ---
             if (isBeingEdited) {
-                // The shape being actively drawn or edited is always blue.
+                isVisible = true;
                 styleOptions = STYLE_FOCUSED_BLUE;
-            } else if (mode === 'editing') {
-                // In edit mode, all visible non-edited shapes are green.
-                 styleOptions = STYLE_REFERENCE_GREEN;
+                setupShapeListeners(shape);
             } else {
-                 // In view mode, all shapes have no fill.
-                styleOptions = STYLE_VIEW_MODE;
+                if (mode === 'editing') {
+                    isVisible = isSelected;
+                    styleOptions = STYLE_REFERENCE_GREEN;
+                } else { // mode === 'view'
+                    if (showAllGeofences) {
+                        isVisible = true;
+                        styleOptions = isDefault ? STYLE_VIEW_MODE : STYLE_BACKGROUND_GREY;
+                    } else {
+                        isVisible = isDefault;
+                        styleOptions = STYLE_VIEW_MODE;
+                    }
+                }
             }
-
-            // Set final options
+            
             shape.setOptions(styleOptions);
             shape.setMap(isVisible ? map : null);
         });
-
-        // Handle the shape currently being drawn by the manager separately to ensure it's on top
-        if (activeShapeRef.current?.shape) {
-            const { shape } = activeShapeRef.current;
-            shape.setOptions(STYLE_FOCUSED_BLUE);
-            shape.setMap(map);
-            setupShapeListeners(shape);
-        } else {
-             clearListeners();
-        }
 
     }, [
         mode,
