@@ -387,9 +387,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         overlayListeners.current.push(...listeners);
     };
     
+    // Hide all shapes first
     mapShapes.forEach(shape => (shape as any).setMap(null));
     clearListeners();
 
+    // Determine which shapes to show based on the current mode
     if (mode === 'view') {
         mapShapes.forEach((shape, id) => {
             let isVisible = false;
@@ -416,7 +418,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
         });
     } else { // 'editing' or 'drawing'
-        // Display the reference shape if it exists and we're not editing it
+        // Always show the reference shape (the one selected in the list) if we are drawing a new one.
         if (selectedGeofenceId && activeShapeRef.current?.id !== selectedGeofenceId) {
             const refShape = mapShapes.get(selectedGeofenceId);
             if (refShape) {
@@ -426,19 +428,18 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
         }
         
-        // Display the active shape for editing/drawing
+        // Show the active shape for editing/drawing. This is either a brand new shape or the one being edited.
         if (activeShapeRef.current?.shape) {
             const activeShape = activeShapeRef.current.shape;
-            const originalShapeOptions = (mapShapes.get(activeShapeRef.current.id) as any)?.getOptions();
-            (activeShape as any).setOptions({ ...originalShapeOptions, ...EDIT_COLOR });
+            (activeShape as any).setOptions({ ...EDIT_COLOR, draggable: true });
             activeShape.setMap(map);
             setupListeners(activeShape);
         }
     }
-  }, [
-      mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-      mapShapes, clearListeners, isEditingEnabled, isLoading, handleHistoryUpdate
-  ]);
+}, [
+    mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
+    mapShapes, clearListeners, isEditingEnabled, isLoading, handleHistoryUpdate
+]);
 
 
 

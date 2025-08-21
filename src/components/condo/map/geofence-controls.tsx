@@ -103,8 +103,11 @@ export function GeofenceControls({
             } else if (originalGeometry) {
                 // If it was an existing shape being edited, restore its original geometry and look
                 restoreShapeToGeometry(shape, originalGeometry);
-                const isDefault = id === defaultGeofenceId;
+                 const isDefault = id === defaultGeofenceId;
                 (shape as any).setOptions({ ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), editable: false, draggable: false });
+                if(mapShapes.has(id)) {
+                    shape.setMap(mapShapes.get(id)!.getMap());
+                }
             }
              activeShapeRef.current = null;
         }
@@ -115,7 +118,7 @@ export function GeofenceControls({
         historyIndexRef.current = -1;
         updateHistoryButtons();
         setCurrentGeofenceName('');
-    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons, defaultGeofenceId]);
+    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons, defaultGeofenceId, mapShapes]);
 
 
     const getNextGeofenceName = useCallback(() => {
