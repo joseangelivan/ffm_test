@@ -198,6 +198,10 @@ export function GeofenceControls({
         if (!shapeToEdit || !geofenceData) return;
         
         const originalGeometry = getGeometryFromShape(shapeToEdit);
+
+        // This is the direct object modification, NO CLONE.
+        shapeToEdit.setOptions({ editable: true, draggable: true });
+        
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
         
         setMode('editing');
@@ -224,8 +228,8 @@ export function GeofenceControls({
                 const shapeToRemove = mapShapes.get(idToDelete);
                 if (shapeToRemove) {
                     (shapeToRemove as any).setMap(null);
+                    mapShapes.delete(idToDelete); // Ensure it's removed from state
                 }
-                mapShapes.delete(idToDelete);
                 
                 await onDataNeedsRefresh();
 
@@ -445,4 +449,5 @@ export function GeofenceControls({
             </div>
         </div>
     );
-}
+
+    
