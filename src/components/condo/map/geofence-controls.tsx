@@ -100,14 +100,15 @@ export function GeofenceControls({
     
     const resetActionStates = useCallback(() => {
         if (activeShapeRef.current) {
-            const { id, shape, originalGeometry } = activeShapeRef.current;
+            const { shape, originalGeometry } = activeShapeRef.current;
             (shape as any).setOptions({ editable: false, draggable: false });
             // Restore original geometry if we were editing
             if (originalGeometry) {
                 restoreShapeToGeometry(shape, originalGeometry);
+                 (shape as any).setOptions(originalGeometry.id === defaultGeofenceId ? DEFAULT_COLOR : SAVED_COLOR);
             }
              // If it was a new shape, just remove it from the map
-            if (id.startsWith('new-shape-')) {
+            if (activeShapeRef.current.id.startsWith('new-shape-')) {
                 (shape as any).setMap(null);
             }
             activeShapeRef.current = null;
@@ -120,7 +121,7 @@ export function GeofenceControls({
         updateHistoryButtons();
         setCurrentGeofenceName('');
         setIsShapeDrawn(false);
-    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons]);
+    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons, defaultGeofenceId]);
 
 
     const getNextGeofenceName = useCallback(() => {
@@ -190,17 +191,16 @@ export function GeofenceControls({
 
     const handleStartEdit = () => {
         if (!selectedGeofenceId) return;
-
+        
         const shapeToEdit = mapShapes.get(selectedGeofenceId);
         const geofenceData = geofences.find(g => g.id === selectedGeofenceId);
 
         if (!shapeToEdit || !geofenceData) return;
-
-        // Directly modify the existing shape
-        shapeToEdit.setOptions({ editable: true, draggable: true, ...EDIT_COLOR });
         
         const originalGeometry = getGeometryFromShape(shapeToEdit);
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
+        
+        shapeToEdit.setOptions({ editable: true, draggable: true });
         
         setMode('editing');
         
@@ -449,4 +449,3 @@ export function GeofenceControls({
         </div>
     );
 }
-

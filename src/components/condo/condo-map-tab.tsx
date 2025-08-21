@@ -166,10 +166,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const { toast } = useToast();
   const mapRef = useRef<google.maps.Map | null>(null);
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
+  const mapShapesRef = useRef<Map<string, google.maps.MVCObject>>(new Map());
   
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
-  const [mapShapes, setMapShapes] = useState<Map<string, google.maps.MVCObject>>(new Map());
-
+  
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
   const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
   
@@ -234,9 +234,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const recalculateZoomLevels = useCallback(() => {
       const map = mapRef.current;
       const geofenceToCenter = dbGeofences.find(g => g.id === defaultGeofenceId);
-      if (!map || !geofenceToCenter || !mapShapes) return;
+      if (!map || !geofenceToCenter || !mapShapesRef.current) return;
 
-      const shape = mapShapes.get(geofenceToCenter.id);
+      const shape = mapShapesRef.current.get(geofenceToCenter.id);
       if (!shape) return;
 
       const bounds = getBoundsOfShape(shape);
@@ -259,16 +259,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
               map.setZoom(zoomToSet);
           }
       }
-  }, [dbGeofences, defaultGeofenceId, fitLevel, mapShapes]);
+  }, [dbGeofences, defaultGeofenceId, fitLevel]);
 
 
   const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
     const map = mapRef.current;
-    if (!map || !calculatedZoomLevels || !mapShapes) return;
+    if (!map || !calculatedZoomLevels || !mapShapesRef.current) return;
     
     const geofenceToCenter = dbGeofences.find(g => g.id === defaultGeofenceId);
     if(geofenceToCenter) {
-        const shape = mapShapes.get(geofenceToCenter.id);
+        const shape = mapShapesRef.current.get(geofenceToCenter.id);
         if(shape) {
             const center = getCenterOfShape(shape);
             if (center) map.setCenter(center);
@@ -284,7 +284,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
     
     setFitLevel(level);
-  }, [calculatedZoomLevels, dbGeofences, defaultGeofenceId, mapShapes]);
+  }, [calculatedZoomLevels, dbGeofences, defaultGeofenceId]);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
 
@@ -378,18 +378,31 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       overlayListeners.current.push({ remove: () => mapDiv.removeEventListener('mouseup', mapMouseUpListener) } as any);
       overlayListeners.current.push(...listeners);
   }, [clearListeners, handleHistoryUpdate]);
-
+    
   useEffect(() => {
-      if (!mapRef.current) return;
+    if (!mapRef.current) return;
+    
+    const map = mapRef.current;
+    const currentShapeIds = new Set(mapShapesRef.current.keys());
+    const dbShapeIds = new Set(dbGeofences.map(g => g.id));
 
-      const newShapes = new Map<string, google.maps.MVCObject>();
-      for (const dbGf of dbGeofences) {
-          const shape = createShapeFromGeometry(dbGf.geometry);
-          if (shape) {
-              newShapes.set(dbGf.id, shape);
-          }
-      }
-      setMapShapes(newShapes);
+    // Remove shapes that are no longer in dbGeofences
+    for (const id of currentShapeIds) {
+        if (!dbShapeIds.has(id)) {
+            mapShapesRef.current.get(id)?.setMap(null);
+            mapShapesRef.current.delete(id);
+        }
+    }
+
+    // Add or update shapes from dbGeofences
+    for (const dbGf of dbGeofences) {
+        if (!currentShapeIds.has(dbGf.id)) {
+            const newShape = createShapeFromGeometry(dbGf.geometry);
+            if (newShape) {
+                mapShapesRef.current.set(dbGf.id, newShape);
+            }
+        }
+    }
   }, [dbGeofences]);
 
     
@@ -398,14 +411,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     if (!map) return;
 
     // --- Clean Slate Principle ---
-    mapShapes.forEach(shape => (shape as any).setMap(null));
+    mapShapesRef.current.forEach(shape => (shape as any).setMap(null));
     if (activeShapeRef.current) (activeShapeRef.current.shape as any).setMap(null);
     clearListeners();
 
     // --- Single Source of Truth Rendering ---
     if (mode === 'editing' && activeShapeRef.current) {
         // --- EDITING/DRAWING MODE ---
-        // Show the shape being edited/drawn
         const activeShape = activeShapeRef.current.shape;
         (activeShape as any).setOptions(EDIT_COLOR);
         activeShape.setMap(map);
@@ -413,23 +425,21 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
         // Show the reference shape if applicable
         const referenceId = selectedGeofenceId;
-        if (referenceId && activeShapeRef.current.id !== referenceId) {
-             const referenceShape = mapShapes.get(referenceId);
-             if (referenceShape) {
-                (referenceShape as any).setOptions(REFERENCE_COLOR);
-                referenceShape.setMap(map);
-             }
+        const referenceShape = referenceId ? mapShapesRef.current.get(referenceId) : null;
+        if (referenceShape && activeShapeRef.current.id !== referenceId) {
+            (referenceShape as any).setOptions(REFERENCE_COLOR);
+            referenceShape.setMap(map);
         }
     } else {
         // --- VIEW MODE ---
         if (showAllGeofences) {
-            mapShapes.forEach((shape, id) => {
+            mapShapesRef.current.forEach((shape, id) => {
                 const colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : VIEW_ALL_COLOR;
                 (shape as any).setOptions(colorOptions);
                 shape.setMap(map);
             });
         } else if (selectedGeofenceId) {
-            const shape = mapShapes.get(selectedGeofenceId);
+            const shape = mapShapesRef.current.get(selectedGeofenceId);
             if (shape) {
                 const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
                 (shape as any).setOptions(colorOptions);
@@ -439,7 +449,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
   }, [
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-      mapShapes, clearListeners, setupShapeListeners
+      clearListeners, setupShapeListeners, dbGeofences
   ]);
 
 
@@ -598,7 +608,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     historyRef={historyRef}
                                     historyIndexRef={historyIndexRef}
                                     updateHistoryButtons={updateHistoryButtons}
-                                    mapShapes={mapShapes}
+                                    mapShapes={mapShapesRef.current}
                                     setupShapeListeners={setupShapeListeners}
                                 />
                             )}
