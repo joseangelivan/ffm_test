@@ -36,7 +36,8 @@ export const EDIT_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', stroke
 export const SAVED_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2, editable: false, draggable: false, clickable: true };
 export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d', strokeWeight: 1, editable: false, draggable: false, clickable: false };
 export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50%)', fillOpacity: 0.1, strokeColor: 'hsl(28 80% 50%)', strokeWeight: 3, editable: false, draggable: false, clickable: true };
-export const REFERENCE_COLOR = { fillColor: 'hsl(220 80% 50%)', fillOpacity: 0, strokeColor: 'hsl(220 80% 50%)', strokeWeight: 2, strokeDasharray: '5,5', editable: false, draggable: false, clickable: false };
+export const REFERENCE_COLOR = { fillColor: 'hsl(220 80% 50%)', fillOpacity: 0, strokeColor: 'hsl(220 80% 50%)', strokeWeight: 2, editable: false, draggable: false, clickable: false };
+
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -353,90 +354,95 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     updateHistoryButtons();
   }, [updateHistoryButtons]);
 
+  const setupShapeListeners = useCallback((shape: google.maps.MVCObject) => {
+      clearListeners();
+      const listeners: google.maps.MapsEventListener[] = [];
+      const event = google.maps.event;
+
+      listeners.push(event.addListener(shape, 'dragend', () => handleHistoryUpdate(shape)));
+      
+      const registerVertexChange = () => { vertexChanged.current = true; };
+      if ('getPath' in shape) {
+          const path = (shape as google.maps.Polygon).getPath();
+          listeners.push(event.addListener(path, 'set_at', registerVertexChange));
+          listeners.push(event.addListener(path, 'insert_at', registerVertexChange));
+          listeners.push(event.addListener(path, 'remove_at', registerVertexChange));
+      }
+      if ('getRadius' in shape) listeners.push(event.addListener(shape, 'radius_changed', registerVertexChange));
+      if ('getBounds' in shape) listeners.push(event.addListener(shape, 'bounds_changed', registerVertexChange));
+      
+      const mapDiv = mapRef.current?.getDiv();
+      if (!mapDiv) return;
+
+      const mapMouseUpListener = () => {
+            if (vertexChanged.current) {
+              handleHistoryUpdate(shape);
+              vertexChanged.current = false;
+          }
+      };
+
+      mapDiv.addEventListener('mouseup', mapMouseUpListener);
+      
+      overlayListeners.current.push({ remove: () => mapDiv.removeEventListener('mouseup', mapMouseUpListener) } as any);
+      overlayListeners.current.push(...listeners);
+  }, [clearListeners, handleHistoryUpdate]);
 
     
   useEffect(() => {
     const map = mapRef.current;
     if (!map || isLoading) return;
 
-    const setupListeners = (shape: google.maps.MVCObject) => {
-        clearListeners();
-        const listeners: google.maps.MapsEventListener[] = [];
-        const event = google.maps.event;
-
-        listeners.push(event.addListener(shape, 'dragend', () => handleHistoryUpdate(shape)));
-        
-        const registerVertexChange = () => { vertexChanged.current = true; };
-        if ('getPath' in shape) {
-            const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(event.addListener(path, 'set_at', registerVertexChange));
-            listeners.push(event.addListener(path, 'insert_at', registerVertexChange));
-            listeners.push(event.addListener(path, 'remove_at', registerVertexChange));
-        }
-        if ('getRadius' in shape) listeners.push(event.addListener(shape, 'radius_changed', registerVertexChange));
-        if ('getBounds' in shape) listeners.push(event.addListener(shape, 'bounds_changed', registerVertexChange));
-        
-        const mapDiv = map.getDiv();
-        const mapMouseUpListener = mapDiv.addEventListener('mouseup', () => {
-             if (vertexChanged.current) {
-                handleHistoryUpdate(shape);
-                vertexChanged.current = false;
-            }
-        });
-        
-        overlayListeners.current.push({ remove: () => mapDiv.removeEventListener('mouseup', mapMouseUpListener as any) } as any);
-        overlayListeners.current.push(...listeners);
-    };
-    
-    // --- Core Visibility Logic ---
+    // 1. Ocultar todo primero
     mapShapes.forEach(shape => (shape as any).setMap(null));
     clearListeners();
 
-    if (activeShapeRef.current) {
-        // We are drawing or editing
+    // 2. Lógica de visibilidad
+    if (mode === 'editing' && activeShapeRef.current) {
+        // Modo de edición/dibujo activo
         const activeShape = activeShapeRef.current.shape;
-        (activeShape as any).setOptions(EDIT_COLOR);
         activeShape.setMap(map);
-        setupListeners(activeShape);
+        (activeShape as any).setOptions(EDIT_COLOR);
+        setupShapeListeners(activeShape);
 
-        // Show reference shape if it exists and is not the same as the active one
-        if (selectedGeofenceId && activeShapeRef.current.id !== selectedGeofenceId) {
+        // Mostrar referencia si es un nuevo dibujo
+        if (activeShapeRef.current.id.startsWith('new-shape-') && selectedGeofenceId) {
             const referenceShape = mapShapes.get(selectedGeofenceId);
             if (referenceShape) {
-                (referenceShape as any).setOptions(REFERENCE_COLOR);
                 referenceShape.setMap(map);
+                (referenceShape as any).setOptions(REFERENCE_COLOR);
             }
         }
-    } else if (showAllGeofences) {
-        // Show all geofences
-        mapShapes.forEach((shape, id) => {
-            const colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : VIEW_ALL_COLOR;
-            (shape as any).setOptions(colorOptions);
-            shape.setMap(map);
-        });
-    } else if (isEditingEnabled && selectedGeofenceId) {
-        // In editing mode, show only the selected geofence
-        const shape = mapShapes.get(selectedGeofenceId);
-        if (shape) {
-            const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
-            (shape as any).setOptions(colorOptions);
-            shape.setMap(map);
+    } else if (isEditingEnabled) {
+        // Modo de edición habilitado, pero sin acción activa
+        if (showAllGeofences) {
+            mapShapes.forEach((shape, id) => {
+                const colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : VIEW_ALL_COLOR;
+                (shape as any).setOptions(colorOptions);
+                shape.setMap(map);
+            });
+        } else if (selectedGeofenceId) {
+            const shape = mapShapes.get(selectedGeofenceId);
+            if (shape) {
+                const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
+                (shape as any).setOptions(colorOptions);
+                shape.setMap(map);
+            }
         }
-    } else if (!isEditingEnabled && defaultGeofenceId) {
-        // In view mode, show only the default geofence
-        const shape = mapShapes.get(defaultGeofenceId);
-        if (shape) {
-            (shape as any).setOptions(DEFAULT_COLOR);
-            shape.setMap(map);
+    } else {
+        // Modo de visualización (edición deshabilitada)
+        if (defaultGeofenceId) {
+            const shape = mapShapes.get(defaultGeofenceId);
+            if (shape) {
+                (shape as any).setOptions(DEFAULT_COLOR);
+                shape.setMap(map);
+            }
         }
     }
 
   }, [
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
-      mapShapes, clearListeners, isEditingEnabled, isLoading, handleHistoryUpdate
+      mapShapes, clearListeners, isEditingEnabled, isLoading, handleHistoryUpdate, setupShapeListeners
   ]);
-
-
 
 
   useEffect(() => {
@@ -595,6 +601,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     historyIndexRef={historyIndexRef}
                                     updateHistoryButtons={updateHistoryButtons}
                                     mapShapes={mapShapes}
+                                    setupShapeListeners={setupShapeListeners}
                                 />
                             )}
                             {selectedModule === 'elements' && (
