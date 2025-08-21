@@ -57,7 +57,7 @@ type GeofenceControlsProps = {
     historyIndexRef: React.MutableRefObject<number>;
     updateHistoryButtons: () => void;
     mapShapes: Map<string, google.maps.MVCObject>;
-    originalGeometries: Map<string, any>;
+    originalGeometries: React.MutableRefObject<Map<string, any>>;
 }
 
 export function GeofenceControls({
@@ -102,7 +102,7 @@ export function GeofenceControls({
             if(id.startsWith('new-shape-')){
                  (shape as any).setMap(null);
             } else {
-                const originalGeometry = originalGeometries.get(id);
+                const originalGeometry = originalGeometries.current.get(id);
                 if(originalGeometry) {
                     const originalShape = createShapeFromGeometry(originalGeometry);
                     if(originalShape && 'setPath' in shape) (shape as google.maps.Polygon).setPath((originalShape as google.maps.Polygon).getPath());
@@ -195,7 +195,7 @@ export function GeofenceControls({
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit };
         setMode('editing');
         
-        const originalGeometry = originalGeometries.get(selectedGeofenceId);
+        const originalGeometry = originalGeometries.current.get(selectedGeofenceId);
         historyRef.current = [originalGeometry || getGeometryFromShape(shapeToEdit)];
         historyIndexRef.current = 0;
         updateHistoryButtons();
@@ -403,7 +403,7 @@ export function GeofenceControls({
                         </DropdownMenu>
                     </div>
                     
-                        {(mode === 'editing' || mode === 'drawing') && (
+                        {mode === 'editing' && (
                             <div className='space-y-4 p-4 border border-green-300 rounded-md bg-green-50/30'>
                                 <div className="space-y-2">
                                     <Input 

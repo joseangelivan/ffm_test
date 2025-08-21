@@ -32,7 +32,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 
-export const EDIT_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: true, draggable: true };
+export const EDIT_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: true, draggable: true, clickable: false };
 export const SAVED_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2, editable: false, draggable: false, clickable: true };
 export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d', strokeWeight: 1, editable: false, draggable: false, clickable: false };
 export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50%)', fillOpacity: 0, strokeColor: 'hsl(28 80% 50%)', strokeWeight: 3, editable: false, draggable: false, clickable: true };
@@ -176,7 +176,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
 
-  const [selectedModule, setSelectedModule] = useState('geofence');
   const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject } | null>(null);
   const originalGeometries = useRef<Map<string, any>>(new Map());
   
@@ -405,9 +404,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
             if(isVisible) shape.setMap(map);
         });
-    } else {
+    } else { // 'editing' or 'drawing'
+        // Show reference shape if it exists and is not the same as the active one
         const refShape = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
-        if(refShape){
+        if(refShape && activeShapeRef.current?.id !== selectedGeofenceId){
             const isDefault = selectedGeofenceId === defaultGeofenceId;
             (refShape as any).setOptions({ ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), editable: false, draggable: false });
             refShape.setMap(map);
@@ -589,7 +589,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     historyIndexRef={historyIndexRef}
                                     updateHistoryButtons={updateHistoryButtons}
                                     mapShapes={mapShapes}
-                                    originalGeometries={originalGeometries.current}
+                                    originalGeometries={originalGeometries}
                                 />
                             )}
                             {selectedModule === 'elements' && (
