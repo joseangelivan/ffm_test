@@ -104,7 +104,9 @@ export function GeofenceControls({
                 (shape as any).setMap(null);
             } else {
                 (shape as any).setOptions({ editable: false, draggable: false });
-                restoreShapeToGeometry(shape, originalGeometry);
+                if (originalGeometry) {
+                  restoreShapeToGeometry(shape, originalGeometry);
+                }
             }
             activeShapeRef.current = null;
         }
@@ -269,10 +271,9 @@ export function GeofenceControls({
             if (result?.success) {
                 toast({ title: t('toast.successTitle'), description: result.message });
                 const newSelectedId = isNewShape ? result.data?.id : id;
-                activeShapeRef.current = null;
+                activeShapeRef.current = null; // Important: Clear ref before refresh
                 await onDataNeedsRefresh(newSelectedId);
-                setMode('view');
-                setIsShapeDrawn(false);
+                resetActionStates();
             } else if (result) {
                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
             }
