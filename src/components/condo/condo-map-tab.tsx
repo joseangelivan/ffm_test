@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -380,15 +381,18 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const activeActionId = activeShapeRef.current?.id;
 
         mapShapesRef.current.forEach((shape, id) => {
+            const isBeingEdited = activeActionId === id;
+            shape.setOptions({ editable: isBeingEdited, draggable: isBeingEdited });
+
+            if (isBeingEdited) {
+                setupShapeListeners(shape);
+            }
+
             let isVisible = false;
             let styleOptions: any = {};
             const isSelected = id === selectedGeofenceId;
             const isDefault = id === defaultGeofenceId;
-            const isBeingEdited = activeActionId === id;
-
-            shape.setOptions({ editable: isBeingEdited, draggable: isBeingEdited });
-            if (isBeingEdited) setupShapeListeners(shape);
-
+            
             if (isBeingEdited) {
                 isVisible = true;
                 styleOptions = { ...STYLE_FOCUSED_BLUE };
@@ -397,11 +401,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 styleOptions = isDefault ? { ...STYLE_VIEW_MODE } : { ...STYLE_BACKGROUND_GREY };
                 if (isSelected && !isDefault) styleOptions = { ...STYLE_VIEW_MODE };
             } else { // mode === 'editing'
-                 if (activeActionId) {
+                if (activeActionId) {
                     isVisible = id === selectedGeofenceId;
-                 } else {
+                } else {
                     isVisible = showAllGeofences || isSelected;
-                 }
+                }
                 styleOptions = { ...STYLE_REFERENCE_GREEN };
             }
             shape.setOptions(styleOptions);
@@ -572,6 +576,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     historyRef={historyRef}
                                     historyIndexRef={historyIndexRef}
                                     updateHistoryButtons={updateHistoryButtons}
+                                    setupShapeListeners={setupShapeListeners}
                                 />
                             )}
                             {selectedModule === 'elements' && (

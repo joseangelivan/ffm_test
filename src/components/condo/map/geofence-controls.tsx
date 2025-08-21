@@ -55,6 +55,7 @@ type GeofenceControlsProps = {
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
     updateHistoryButtons: () => void;
+    setupShapeListeners: (shape: google.maps.MVCObject) => void;
 }
 
 export function GeofenceControls({
@@ -76,6 +77,7 @@ export function GeofenceControls({
     historyRef,
     historyIndexRef,
     updateHistoryButtons,
+    setupShapeListeners
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -164,10 +166,11 @@ export function GeofenceControls({
         historyRef.current = [getGeometryFromShape(newShape)];
         historyIndexRef.current = 0;
         updateHistoryButtons();
+        setupShapeListeners(newShape);
         setIsShapeDrawn(true);
 
 
-    }, [drawingManager, updateHistoryButtons, historyRef, historyIndexRef]);
+    }, [drawingManager, updateHistoryButtons, historyRef, historyIndexRef, setupShapeListeners]);
 
 
     useEffect(() => {
