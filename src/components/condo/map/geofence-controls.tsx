@@ -18,7 +18,7 @@ import {
   Loader,
 } from 'lucide-react';
 
-import { getGeometryFromShape, createShapeFromGeometry, restoreShapeToGeometry } from '../condo-map-tab';
+import { getGeometryFromShape, createShapeFromGeometry, restoreShapeToGeometry } from './condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 
@@ -173,7 +173,7 @@ export function GeofenceControls({
         if (drawingManager) {
              if (drawingCompleteListener.current) {
                 drawingCompleteListener.current.remove();
-            }
+             }
             drawingCompleteListener.current = google.maps.event.addListener(
                 drawingManager,
                 'overlaycomplete',
