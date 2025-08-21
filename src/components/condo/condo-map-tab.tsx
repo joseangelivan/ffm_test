@@ -36,6 +36,7 @@ export const EDIT_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', stroke
 export const SAVED_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2, editable: false, draggable: false, clickable: true };
 export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d', strokeWeight: 1, editable: false, draggable: false, clickable: false };
 export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50%)', fillOpacity: 0.1, strokeColor: 'hsl(28 80% 50%)', strokeWeight: 3, editable: false, draggable: false, clickable: true };
+export const REFERENCE_COLOR = { fillColor: 'hsl(220 80% 50%)', fillOpacity: 0, strokeColor: 'hsl(220 80% 50%)', strokeWeight: 2, strokeDasharray: '5,5', editable: false, draggable: false, clickable: false };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -388,50 +389,48 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     };
     
     // --- Core Visibility Logic ---
-    // 1. Hide all shapes first to ensure a clean slate.
     mapShapes.forEach(shape => (shape as any).setMap(null));
     clearListeners();
 
-    // 2. Decide what to show based on the current mode and state.
     if (activeShapeRef.current) {
-        // If we are actively drawing or editing a shape.
+        // We are drawing or editing
         const activeShape = activeShapeRef.current.shape;
-        (activeShape as any).setOptions({ ...EDIT_COLOR });
+        (activeShape as any).setOptions(EDIT_COLOR);
         activeShape.setMap(map);
         setupListeners(activeShape);
 
-        // Show the reference geofence if we are drawing or editing.
+        // Show reference shape if it exists and is not the same as the active one
         if (selectedGeofenceId && activeShapeRef.current.id !== selectedGeofenceId) {
             const referenceShape = mapShapes.get(selectedGeofenceId);
             if (referenceShape) {
-                const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
-                (referenceShape as any).setOptions({ ...colorOptions });
+                (referenceShape as any).setOptions(REFERENCE_COLOR);
                 referenceShape.setMap(map);
             }
         }
-    } else if (showAllGeofences && isEditingEnabled) {
-        // Show all geofences if the toggle is active.
+    } else if (showAllGeofences) {
+        // Show all geofences
         mapShapes.forEach((shape, id) => {
             const colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : VIEW_ALL_COLOR;
-            (shape as any).setOptions({ ...colorOptions });
+            (shape as any).setOptions(colorOptions);
             shape.setMap(map);
         });
     } else if (isEditingEnabled && selectedGeofenceId) {
-        // In editing mode, show only the selected geofence.
+        // In editing mode, show only the selected geofence
         const shape = mapShapes.get(selectedGeofenceId);
         if (shape) {
             const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
-            (shape as any).setOptions({ ...colorOptions });
+            (shape as any).setOptions(colorOptions);
             shape.setMap(map);
         }
     } else if (!isEditingEnabled && defaultGeofenceId) {
-        // In view mode, show only the default geofence.
+        // In view mode, show only the default geofence
         const shape = mapShapes.get(defaultGeofenceId);
         if (shape) {
-            (shape as any).setOptions({ ...DEFAULT_COLOR });
+            (shape as any).setOptions(DEFAULT_COLOR);
             shape.setMap(map);
         }
     }
+
   }, [
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
       mapShapes, clearListeners, isEditingEnabled, isLoading, handleHistoryUpdate

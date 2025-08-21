@@ -89,7 +89,7 @@ export function GeofenceControls({
     const [isDeleting, startDeletingTransition] = useTransition();
     const [isSettingDefault, startSettingDefaultTransition] = useTransition();
 
-    const isActionActive = mode === 'editing' || mode === 'drawing';
+    const isActionActive = mode === 'editing';
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
@@ -98,7 +98,10 @@ export function GeofenceControls({
         if (activeShapeRef.current) {
             // Restore original geometry if editing was cancelled
             if (activeShapeRef.current.originalGeometry) {
-                restoreShapeToGeometry(activeShapeRef.current.shape, activeShapeRef.current.originalGeometry);
+                 const originalShape = mapShapes.get(activeShapeRef.current.id);
+                 if (originalShape) {
+                    restoreShapeToGeometry(originalShape, activeShapeRef.current.originalGeometry);
+                 }
             } else {
                 // If it was a new drawing, remove it from the map
                 (activeShapeRef.current.shape as any).setMap(null);
@@ -112,7 +115,7 @@ export function GeofenceControls({
         historyIndexRef.current = -1;
         updateHistoryButtons();
         setCurrentGeofenceName('');
-    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons]);
+    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons, mapShapes]);
 
 
     const getNextGeofenceName = useCallback(() => {
@@ -134,11 +137,10 @@ export function GeofenceControls({
     }, [geofences, t]);
 
     const handleStartDraw = () => {
-        // Clean up any previous unsaved new shape
         if (activeShapeRef.current && activeShapeRef.current.id.startsWith('new-shape-')) {
             (activeShapeRef.current.shape as any).setMap(null);
+            activeShapeRef.current = null;
         }
-        activeShapeRef.current = null;
         
         setMode('editing');
         setCurrentGeofenceName(getNextGeofenceName());
@@ -214,11 +216,11 @@ export function GeofenceControls({
                 
                 const shapeToRemove = mapShapes.get(idToDelete);
                 if (shapeToRemove) {
-                    (shapeToRemove as any).setMap(null); // Explicitly remove from map
+                    (shapeToRemove as any).setMap(null);
                 }
-                mapShapes.delete(idToDelete); // Remove from state
-
-                onDataNeedsRefresh();
+                mapShapes.delete(idToDelete);
+                
+                await onDataNeedsRefresh();
 
             } else if (result) {
                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
@@ -262,8 +264,8 @@ export function GeofenceControls({
             if (result?.success) {
                 toast({ title: t('toast.successTitle'), description: result.message });
                 const newSelectedId = isNewShape ? result.data?.id : id;
-                activeShapeRef.current = null; // Clear the active shape ref
-                await onDataNeedsRefresh(newSelectedId); // This will reload data and set the new focus
+                activeShapeRef.current = null;
+                await onDataNeedsRefresh(newSelectedId);
                 setMode('view');
             } else if (result) {
                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
@@ -306,7 +308,7 @@ export function GeofenceControls({
                     <div className="flex items-center justify-between">
                         <Label htmlFor="default-geofence">{t('condoDashboard.map.geofence.defaultLabel')}</Label>
                         <div className="flex items-center space-x-2">
-                            <Checkbox id="view-all" disabled={isEditingEnabled} checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)}/>
+                            <Checkbox id="view-all" disabled={!isEditingEnabled || isActionActive} checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)}/>
                             <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                 {t('condoDashboard.map.geofence.viewAll')}
                             </label>
@@ -383,31 +385,8 @@ export function GeofenceControls({
                             </div>
                         </div>
                     
-                    <div className="flex items-center gap-2">
-                         <Button onClick={handleStartDraw} variant="outline" className="flex-1" disabled={isActionActive || isBusy}>
-                            <PencilRuler className="mr-2 h-4 w-4"/>
-                            {t('condoDashboard.map.geofence.draw')}
-                        </Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="w-40 justify-between" disabled={isActionActive || isBusy}>
-                                    <span>
-                                        {drawingMode === 'polygon' && t('condoDashboard.map.shapes.polygon')}
-                                        {drawingMode === 'rectangle' && t('condoDashboard.map.shapes.rectangle')}
-                                        {drawingMode === 'circle' && t('condoDashboard.map.shapes.circle')}
-                                    </span>
-                                    <ChevronDown className="h-4 w-4"/>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuItem onSelect={() => setDrawingMode('polygon')}>{t('condoDashboard.map.shapes.polygon')}</DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => setDrawingMode('rectangle')}>{t('condoDashboard.map.shapes.rectangle')}</DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => setDrawingMode('circle')}>{t('condoDashboard.map.shapes.circle')}</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
                     
-                        {mode === 'editing' && (
+                        {mode === 'editing' ? (
                             <div className='space-y-4 p-4 border border-green-300 rounded-md bg-green-50/30'>
                                 <div className="space-y-2">
                                     <Input 
@@ -422,13 +401,37 @@ export function GeofenceControls({
                                     <Button onClick={() => resetActionStates()} variant="ghost" disabled={isSaving}>
                                         <X className="mr-2 h-4 w-4" /> {t('common.cancel')}
                                     </Button>
-                                    <Button onClick={handleSaveGeofence} disabled={isSaving}>
+                                    <Button onClick={handleSaveGeofence} disabled={isSaving || !activeShapeRef.current}>
                                         {isSaving ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                         {activeShapeRef.current?.id.startsWith('new-shape-') ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
                                     </Button>
                                 </div>
                             </div>
-                    )}
+                        ) : (
+                             <div className="flex items-center gap-2">
+                                <Button onClick={handleStartDraw} variant="outline" className="flex-1" disabled={isActionActive || isBusy}>
+                                    <PencilRuler className="mr-2 h-4 w-4"/>
+                                    {t('condoDashboard.map.geofence.draw')}
+                                </Button>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="w-40 justify-between" disabled={isActionActive || isBusy}>
+                                            <span>
+                                                {drawingMode === 'polygon' && t('condoDashboard.map.shapes.polygon')}
+                                                {drawingMode === 'rectangle' && t('condoDashboard.map.shapes.rectangle')}
+                                                {drawingMode === 'circle' && t('condoDashboard.map.shapes.circle')}
+                                            </span>
+                                            <ChevronDown className="h-4 w-4"/>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                        <DropdownMenuItem onSelect={() => setDrawingMode('polygon')}>{t('condoDashboard.map.shapes.polygon')}</DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => setDrawingMode('rectangle')}>{t('condoDashboard.map.shapes.rectangle')}</DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => setDrawingMode('circle')}>{t('condoDashboard.map.shapes.circle')}</DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        )}
                 </fieldset>
             </div>
         </div>
