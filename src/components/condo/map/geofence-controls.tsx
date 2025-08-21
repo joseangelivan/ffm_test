@@ -17,7 +17,6 @@ import {
   Redo,
   Loader,
 } from 'lucide-react';
-import { debounce } from 'lodash';
 
 import { getGeometryFromShape, createShapeFromGeometry, restoreShapeToGeometry } from '../condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
@@ -55,7 +54,6 @@ type GeofenceControlsProps = {
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
     updateHistoryButtons: () => void;
-    setupShapeListeners: (shape: google.maps.MVCObject) => void;
 }
 
 export function GeofenceControls({
@@ -77,7 +75,6 @@ export function GeofenceControls({
     historyRef,
     historyIndexRef,
     updateHistoryButtons,
-    setupShapeListeners
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -98,6 +95,7 @@ export function GeofenceControls({
         if (activeShapeRef.current) {
             const { shape, id, originalGeometry } = activeShapeRef.current;
             if (shape) {
+                google.maps.event.clearInstanceListeners(shape);
                 if (id.startsWith('new-shape-')) {
                     shape.setMap(null); // Completely remove new shapes from the map
                 } else if (originalGeometry) {
@@ -166,11 +164,9 @@ export function GeofenceControls({
         historyRef.current = [getGeometryFromShape(newShape)];
         historyIndexRef.current = 0;
         updateHistoryButtons();
-        setupShapeListeners(newShape);
         setIsShapeDrawn(true);
 
-
-    }, [drawingManager, updateHistoryButtons, historyRef, historyIndexRef, setupShapeListeners]);
+    }, [drawingManager, updateHistoryButtons, historyRef, historyIndexRef]);
 
 
     useEffect(() => {
