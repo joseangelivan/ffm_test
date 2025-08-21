@@ -15,7 +15,7 @@ import {
   Redo,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-import { isEqual } from 'lodash';
+import { isEqual, debounce } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
@@ -337,7 +337,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         return;
     }
 
-    // If we make a new change after undoing, we clear the "redo" history.
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
     
     newHistory.push(newGeometry);
@@ -371,6 +370,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       if ('getRadius' in shape) {
           listeners.push(event.addListener(shape, 'radius_changed', registerChange));
       }
+       if ('getBounds' in shape) {
+          listeners.push(event.addListener(shape, 'bounds_changed', registerChange));
+      }
       
       overlayListeners.current.push(...listeners);
   }, [clearListeners, handleHistoryUpdate]);
@@ -390,8 +392,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
         mapShapesRef.current.forEach((shape, id) => {
             const isBeingEdited = activeActionId === id;
-            
-            // This is now the ONLY place that controls editability
             shape.setOptions({ editable: isBeingEdited, draggable: isBeingEdited });
 
             if (isBeingEdited) {
@@ -412,12 +412,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 if (isSelected && !isDefault) styleOptions = { ...STYLE_VIEW_MODE };
             } else { // mode === 'editing'
                  if (activeActionId) { // If an action (edit/draw) is active...
-                    isVisible = id === activeActionId; // ...only show the shape being acted upon
+                    isVisible = id === activeActionId || id === selectedGeofenceId;
                 } else {
-                    // When in editing mode but no specific action is active
-                    isVisible = isSelected;
-                    styleOptions = { ...STYLE_REFERENCE_GREEN };
+                    isVisible = showAllGeofences || isSelected;
                 }
+                styleOptions = { ...STYLE_REFERENCE_GREEN };
             }
             shape.setOptions(styleOptions);
             shape.setMap(isVisible ? map : null);
@@ -483,12 +482,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
     if (!geometry || !shapeToUpdate) return;
     
-    // Clear existing listeners to prevent an infinite loop during restore
     clearListeners();
     restoreShapeToGeometry(shapeToUpdate, geometry);
     historyIndexRef.current = newIndex;
     updateHistoryButtons();
-    // Re-attach listeners after the state has been programmatically updated
     setupShapeListeners(shapeToUpdate);
   };
   
@@ -613,3 +610,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
