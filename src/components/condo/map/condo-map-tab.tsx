@@ -335,7 +335,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         historyIndexRef.current = newHistory.length - 1;
 
         updateHistoryButtons();
-    }, [updateHistoryButtons, historyRef, historyIndexRef]);
+    }, [updateHistoryButtons]);
 
     useEffect(() => {
         const shape = activeShapeRef.current?.shape;
@@ -344,24 +344,23 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
 
         const event = google.maps.event;
-        const isDraggingRef = { current: false };
-
         const listeners: google.maps.MapsEventListener[] = [];
+        
         const addListener = (target: any, eventName: string, handler: (e?: any) => void) => {
             listeners.push(event.addListener(target, eventName, handler));
         };
+
+        const registerChange = () => {
+          handleHistoryUpdate(shape);
+        };
         
-        addListener(shape, 'dragstart', () => { isDraggingRef.current = true; });
-        addListener(shape, 'dragend', () => {
-            isDraggingRef.current = false;
-            handleHistoryUpdate(shape);
-        });
+        addListener(shape, 'dragend', registerChange);
 
         if ('getPath' in shape) {
             const path = (shape as google.maps.Polygon).getPath();
-            addListener(path, 'set_at', () => { if (!isDraggingRef.current) handleHistoryUpdate(shape); });
-            addListener(path, 'insert_at', () => { if (!isDraggingRef.current) handleHistoryUpdate(shape); });
-            addListener(path, 'remove_at', () => { if (!isDraggingRef.current) handleHistoryUpdate(shape); });
+            addListener(path, 'set_at', registerChange);
+            addListener(path, 'insert_at', registerChange);
+            addListener(path, 'remove_at', registerChange);
         }
 
         return () => {
