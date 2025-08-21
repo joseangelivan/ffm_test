@@ -51,9 +51,7 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>;
-    historyRef: React.MutableRefObject<any[]>;
-    historyIndexRef: React.MutableRefObject<number>;
-    updateHistoryButtons: () => void;
+    handleHistoryUpdate: (shape: google.maps.MVCObject | null) => void;
 }
 
 export function GeofenceControls({
@@ -72,9 +70,7 @@ export function GeofenceControls({
     setShowAllGeofences,
     onSettingsClick,
     activeShapeRef,
-    historyRef,
-    historyIndexRef,
-    updateHistoryButtons,
+    handleHistoryUpdate,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -112,13 +108,11 @@ export function GeofenceControls({
             drawingManager.setDrawingMode(null);
         }
 
-        // Reset history and UI states
-        historyRef.current = [];
-        historyIndexRef.current = -1;
-        updateHistoryButtons();
+        // Reset UI states
         setCurrentGeofenceName('');
         setIsShapeDrawn(false);
-    }, [drawingManager, updateHistoryButtons, historyRef, historyIndexRef]);
+        handleHistoryUpdate(null);
+    }, [drawingManager, handleHistoryUpdate, activeShapeRef]);
 
 
     const getNextGeofenceName = useCallback(() => {
@@ -161,12 +155,10 @@ export function GeofenceControls({
         const tempId = `new-shape-${Date.now()}`;
         activeShapeRef.current = { id: tempId, shape: newShape };
         
-        historyRef.current = [getGeometryFromShape(newShape)];
-        historyIndexRef.current = 0;
-        updateHistoryButtons();
+        handleHistoryUpdate(newShape); // Initial history state
         setIsShapeDrawn(true);
 
-    }, [drawingManager, updateHistoryButtons, historyRef, historyIndexRef]);
+    }, [drawingManager, handleHistoryUpdate, activeShapeRef]);
 
 
     useEffect(() => {
@@ -201,9 +193,7 @@ export function GeofenceControls({
         
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
         
-        historyRef.current = [originalGeometry];
-        historyIndexRef.current = 0;
-        updateHistoryButtons();
+        handleHistoryUpdate(shapeToEdit); // Initial history state
         setIsShapeDrawn(true);
         
         setCurrentGeofenceName(geofenceData.name);
