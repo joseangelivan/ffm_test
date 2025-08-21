@@ -178,6 +178,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const [selectedModule, setSelectedModule] = useState('geofence');
   const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject } | null>(null);
+  const originalGeometries = useRef<Map<string, any>>(new Map());
   
    const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -185,6 +186,19 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const freshDbGeofences = await getGeofencesByCondoId(condo.id);
         setDbGeofences(freshDbGeofences);
 
+        const newMapShapes = new Map<string, google.maps.MVCObject>();
+        const newOriginalGeometries = new Map<string, any>();
+
+        for (const dbGf of freshDbGeofences) {
+            const shape = createShapeFromGeometry(dbGf.geometry);
+            if (shape) {
+                newMapShapes.set(dbGf.id, shape);
+                newOriginalGeometries.set(dbGf.id, dbGf.geometry);
+            }
+        }
+        setMapShapes(newMapShapes);
+        originalGeometries.current = newOriginalGeometries;
+        
         const defaultGfDb = freshDbGeofences.find(g => g.is_default);
         const newDefaultId = defaultGfDb ? defaultGfDb.id : (freshDbGeofences.length > 0 ? freshDbGeofences[0].id : null);
         setDefaultGeofenceId(newDefaultId);
@@ -330,16 +344,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [updateHistoryButtons]);
 
 
-  useEffect(() => {
-        const newShapes = new Map<string, google.maps.MVCObject>();
-        for (const dbGf of dbGeofences) {
-            const shape = createShapeFromGeometry(dbGf.geometry);
-            if (shape) {
-                newShapes.set(dbGf.id, shape);
-            }
-        }
-        setMapShapes(newShapes);
-  }, [dbGeofences]);
     
   useEffect(() => {
     const map = mapRef.current;
@@ -350,10 +354,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const listeners: google.maps.MapsEventListener[] = [];
         const event = google.maps.event;
 
-        // Listener for dragging the whole shape
         listeners.push(event.addListener(shape, 'dragend', () => handleHistoryUpdate(shape)));
         
-        // Listeners for vertex/bound changes
         const registerVertexChange = () => { vertexChanged.current = true; };
         if ('getPath' in shape) {
             const path = (shape as google.maps.Polygon).getPath();
@@ -364,7 +366,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         if ('getRadius' in shape) listeners.push(event.addListener(shape, 'radius_changed', registerVertexChange));
         if ('getBounds' in shape) listeners.push(event.addListener(shape, 'bounds_changed', registerVertexChange));
         
-        // Use a mouseup listener on the map div to commit vertex changes
         const mapDiv = map.getDiv();
         const mapMouseUpListener = mapDiv.addEventListener('mouseup', () => {
              if (vertexChanged.current) {
@@ -373,12 +374,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
         });
         
-        // Cleanup function for the mouseup listener
         overlayListeners.current.push({ remove: () => mapDiv.removeEventListener('mouseup', mapMouseUpListener as any) } as any);
         overlayListeners.current.push(...listeners);
     };
     
-    // Hide all shapes first
     mapShapes.forEach((shape) => (shape as any).setMap(null));
     if (activeShapeRef.current) (activeShapeRef.current.shape as any).setMap(null);
     clearListeners();
@@ -387,7 +386,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         mapShapes.forEach((shape, id) => {
             let isVisible = false;
             let colorOptions: any = {};
-
             if (isEditingEnabled) {
                 if (id === selectedGeofenceId) {
                     isVisible = true;
@@ -395,8 +393,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 }
             } else {
                 if (showAllGeofences) {
-                      isVisible = true;
-                      colorOptions = id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
+                    isVisible = true;
+                    colorOptions = id === defaultGeofenceId ? DEFAULT_COLOR : VIEW_ALL_COLOR;
                 } else {
                     if (id === defaultGeofenceId) {
                         isVisible = true;
@@ -405,20 +403,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 }
             }
             (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
-            shape.setMap(isVisible ? map : null);
+            if(isVisible) shape.setMap(map);
         });
-    } else { // mode is 'editing' or 'drawing'
-        // Show the reference geofence if it exists and we're not editing it directly
-        if (selectedGeofenceId && activeShapeRef.current?.id !== selectedGeofenceId) {
-            const refShape = mapShapes.get(selectedGeofenceId);
-            if (refShape) {
-                const color = selectedGeofenceId === defaultGeofenceId ? DEFAULT_COLOR : SAVED_COLOR;
-                (refShape as any).setOptions({ ...color, editable: false, draggable: false });
-                refShape.setMap(map);
-            }
+    } else {
+        const refShape = selectedGeofenceId ? mapShapes.get(selectedGeofenceId) : null;
+        if(refShape){
+            const isDefault = selectedGeofenceId === defaultGeofenceId;
+            (refShape as any).setOptions({ ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), editable: false, draggable: false });
+            refShape.setMap(map);
         }
-        
-        // Show and configure the active shape (being edited or drawn)
+
         const activeShape = activeShapeRef.current?.shape;
         if(activeShape) {
             (activeShape as any).setOptions(EDIT_COLOR);
@@ -595,6 +589,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     historyIndexRef={historyIndexRef}
                                     updateHistoryButtons={updateHistoryButtons}
                                     mapShapes={mapShapes}
+                                    originalGeometries={originalGeometries.current}
                                 />
                             )}
                             {selectedModule === 'elements' && (

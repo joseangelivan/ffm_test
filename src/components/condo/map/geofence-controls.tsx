@@ -57,6 +57,7 @@ type GeofenceControlsProps = {
     historyIndexRef: React.MutableRefObject<number>;
     updateHistoryButtons: () => void;
     mapShapes: Map<string, google.maps.MVCObject>;
+    originalGeometries: Map<string, any>;
 }
 
 export function GeofenceControls({
@@ -80,6 +81,7 @@ export function GeofenceControls({
     historyIndexRef,
     updateHistoryButtons,
     mapShapes,
+    originalGeometries,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -96,8 +98,20 @@ export function GeofenceControls({
     
     const resetActionStates = useCallback(() => {
         if (activeShapeRef.current) {
-            (activeShapeRef.current.shape as any).setMap(null);
-            activeShapeRef.current = null;
+            const {id, shape} = activeShapeRef.current;
+            if(id.startsWith('new-shape-')){
+                 (shape as any).setMap(null);
+            } else {
+                const originalGeometry = originalGeometries.get(id);
+                if(originalGeometry) {
+                    const originalShape = createShapeFromGeometry(originalGeometry);
+                    if(originalShape && 'setPath' in shape) (shape as google.maps.Polygon).setPath((originalShape as google.maps.Polygon).getPath());
+                    if(originalShape && 'setBounds' in shape) (shape as google.maps.Rectangle).setBounds((originalShape as google.maps.Rectangle).getBounds());
+                    if(originalShape && 'setCenter' in shape) (shape as google.maps.Circle).setCenter((originalShape as google.maps.Circle).getCenter());
+                    if(originalShape && 'setRadius' in shape) (shape as google.maps.Circle).setRadius((originalShape as google.maps.Circle).getRadius());
+                }
+            }
+             activeShapeRef.current = null;
         }
         
         if (drawingManager) drawingManager.setDrawingMode(null);
@@ -106,7 +120,7 @@ export function GeofenceControls({
         historyIndexRef.current = -1;
         updateHistoryButtons();
         setCurrentGeofenceName('');
-    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons]);
+    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons, originalGeometries]);
 
 
     const getNextGeofenceName = useCallback(() => {
@@ -139,8 +153,6 @@ export function GeofenceControls({
         if(drawingManager) drawingManager.setDrawingMode(null);
         const newShape = event.overlay;
         if(!newShape) return;
-
-        (newShape as any).setOptions(EDIT_COLOR);
         
         const tempId = `new-shape-${Date.now()}`;
         activeShapeRef.current = { id: tempId, shape: newShape };
@@ -183,7 +195,8 @@ export function GeofenceControls({
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit };
         setMode('editing');
         
-        historyRef.current = [getGeometryFromShape(shapeToEdit)];
+        const originalGeometry = originalGeometries.get(selectedGeofenceId);
+        historyRef.current = [originalGeometry || getGeometryFromShape(shapeToEdit)];
         historyIndexRef.current = 0;
         updateHistoryButtons();
         
