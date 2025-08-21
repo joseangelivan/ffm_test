@@ -89,7 +89,7 @@ export function GeofenceControls({
     const [isShapeDrawn, setIsShapeDrawn] = useState(false);
 
 
-    const isActionActive = mode === 'editing';
+    const isActionActive = !!activeShapeRef.current;
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
@@ -97,18 +97,17 @@ export function GeofenceControls({
     const resetActionStates = useCallback(() => {
         if (activeShapeRef.current) {
             const { shape } = activeShapeRef.current;
-            (shape as any).setMap(null);
+            shape.setMap(null);
             activeShapeRef.current = null;
         }
         
         if (drawingManager) drawingManager.setDrawingMode(null);
-        setMode('view');
         historyRef.current = [];
         historyIndexRef.current = -1;
         updateHistoryButtons();
         setCurrentGeofenceName('');
         setIsShapeDrawn(false);
-    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons]);
+    }, [drawingManager, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons]);
 
 
     const getNextGeofenceName = useCallback(() => {
@@ -130,6 +129,7 @@ export function GeofenceControls({
     }, [geofences, t]);
 
     const handleStartDraw = () => {
+        resetActionStates();
         setMode('editing');
         setCurrentGeofenceName(getNextGeofenceName());
         setIsShapeDrawn(false);
@@ -184,6 +184,7 @@ export function GeofenceControls({
 
         if (!shapeToEdit || !geofenceData) return;
         
+        resetActionStates();
         const originalGeometry = getGeometryFromShape(shapeToEdit);
         
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
@@ -304,6 +305,23 @@ export function GeofenceControls({
 
             <div className="pt-4 border-t space-y-2">
                 <div className="space-y-4">
+                     <div className="flex items-center space-x-2">
+                        <Checkbox 
+                            id="edit-mode" 
+                            checked={mode === 'editing'} 
+                            onCheckedChange={(checked) => {
+                                if (!checked) resetActionStates();
+                                setMode(checked ? 'editing' : 'view');
+                            }}
+                        />
+                        <label
+                            htmlFor="edit-mode"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                            {t('condoDashboard.map.geofence.editMode')}
+                        </label>
+                    </div>
+
                     <fieldset disabled={isBusy} className="space-y-4 disabled:opacity-50">
                             <div className="flex items-center gap-2">
                                 <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive || isBusy}>
@@ -352,7 +370,7 @@ export function GeofenceControls({
                             </div>
                         
                         
-                            {mode === 'editing' ? (
+                            {isActionActive ? (
                                 <div className='space-y-4 p-4 border border-blue-300 rounded-md bg-blue-50/30 dark:border-blue-700 dark:bg-blue-900/20'>
                                     <div className="space-y-2">
                                         <Input 
