@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -100,13 +101,14 @@ export function GeofenceControls({
     const resetActionStates = useCallback(() => {
         if (activeShapeRef.current) {
             const { id, shape, originalGeometry } = activeShapeRef.current;
+            (shape as any).setOptions({ editable: false, draggable: false });
+            // Restore original geometry if we were editing
+            if (originalGeometry) {
+                restoreShapeToGeometry(shape, originalGeometry);
+            }
+             // If it was a new shape, just remove it from the map
             if (id.startsWith('new-shape-')) {
                 (shape as any).setMap(null);
-            } else {
-                (shape as any).setOptions({ editable: false, draggable: false });
-                if (originalGeometry) {
-                  restoreShapeToGeometry(shape, originalGeometry);
-                }
             }
             activeShapeRef.current = null;
         }
@@ -140,10 +142,6 @@ export function GeofenceControls({
     }, [geofences, t]);
 
     const handleStartDraw = () => {
-        if (activeShapeRef.current && activeShapeRef.current.id.startsWith('new-shape-')) {
-            (activeShapeRef.current.shape as any).setMap(null);
-        }
-        
         setMode('editing');
         setCurrentGeofenceName(getNextGeofenceName());
         setIsShapeDrawn(false);
@@ -191,17 +189,17 @@ export function GeofenceControls({
 
 
     const handleStartEdit = () => {
-        if (!selectedGeofenceId || !mapShapes) return;
+        if (!selectedGeofenceId) return;
+
         const shapeToEdit = mapShapes.get(selectedGeofenceId);
         const geofenceData = geofences.find(g => g.id === selectedGeofenceId);
 
         if (!shapeToEdit || !geofenceData) return;
+
+        // Directly modify the existing shape
+        shapeToEdit.setOptions({ editable: true, draggable: true, ...EDIT_COLOR });
         
         const originalGeometry = getGeometryFromShape(shapeToEdit);
-
-        // This is the direct object modification, NO CLONE.
-        shapeToEdit.setOptions({ editable: true, draggable: true });
-        
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
         
         setMode('editing');
@@ -228,7 +226,7 @@ export function GeofenceControls({
                 const shapeToRemove = mapShapes.get(idToDelete);
                 if (shapeToRemove) {
                     (shapeToRemove as any).setMap(null);
-                    mapShapes.delete(idToDelete); // Ensure it's removed from state
+                    mapShapes.delete(idToDelete);
                 }
                 
                 await onDataNeedsRefresh();
@@ -275,9 +273,9 @@ export function GeofenceControls({
             if (result?.success) {
                 toast({ title: t('toast.successTitle'), description: result.message });
                 const newSelectedId = isNewShape ? result.data?.id : id;
-                activeShapeRef.current = null; // Important: Clear ref before refresh
-                await onDataNeedsRefresh(newSelectedId);
+                activeShapeRef.current = null;
                 resetActionStates();
+                await onDataNeedsRefresh(newSelectedId);
             } else if (result) {
                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
             }
@@ -449,5 +447,4 @@ export function GeofenceControls({
             </div>
         </div>
     );
-
-    
+}
