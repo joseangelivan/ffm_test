@@ -392,11 +392,22 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     clearListeners();
 
     if (activeShapeRef.current?.shape) {
-        // If there's an active shape (being edited/drawn), show only that one.
+        // If there's an active shape (being edited/drawn), show it.
         const activeShape = activeShapeRef.current.shape;
         (activeShape as any).setOptions({ ...EDIT_COLOR, draggable: true });
         activeShape.setMap(map);
         setupListeners(activeShape);
+
+        // Also show the reference shape if it's not the same as the active one
+        if (selectedGeofenceId && selectedGeofenceId !== activeShapeRef.current.id) {
+            const referenceShape = mapShapes.get(selectedGeofenceId);
+            if (referenceShape) {
+                const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
+                (referenceShape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
+                referenceShape.setMap(map);
+            }
+        }
+
     } else {
         // If no active shape, show shapes based on view mode.
         if (showAllGeofences) {
@@ -405,16 +416,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
                 shape.setMap(map);
             });
-        } else if (isEditingEnabled) {
-            if (selectedGeofenceId) {
-                 const shape = mapShapes.get(selectedGeofenceId);
-                if (shape) {
-                    const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
-                    (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
-                    shape.setMap(map);
-                }
+        } else if (isEditingEnabled && selectedGeofenceId) {
+            const shape = mapShapes.get(selectedGeofenceId);
+            if (shape) {
+                const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
+                (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
+                shape.setMap(map);
             }
-        } else if (defaultGeofenceId) {
+        } else if (!isEditingEnabled && defaultGeofenceId) {
              const shape = mapShapes.get(defaultGeofenceId);
             if (shape) {
                 (shape as any).setOptions({ ...DEFAULT_COLOR, editable: false, draggable: false });
@@ -426,6 +435,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
     mapShapes, clearListeners, isEditingEnabled, isLoading, handleHistoryUpdate
 ]);
+
 
 
 

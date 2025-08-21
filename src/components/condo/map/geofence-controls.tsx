@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -96,18 +95,9 @@ export function GeofenceControls({
     
     const resetActionStates = useCallback(() => {
         if (activeShapeRef.current) {
-            const { shape, id, originalGeometry } = activeShapeRef.current;
-            if (id.startsWith('new-shape-')) {
-                (shape as any).setMap(null);
-            } else if (originalGeometry) {
-                restoreShapeToGeometry(shape, originalGeometry);
-                 const isDefault = id === defaultGeofenceId;
-                (shape as any).setOptions({ ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), editable: false, draggable: false });
-                if(mapShapes.has(id)) {
-                    shape.setMap(mapShapes.get(id)!.getMap());
-                }
-            }
-             activeShapeRef.current = null;
+            const { shape } = activeShapeRef.current;
+            (shape as any).setMap(null); // Remove from map
+            activeShapeRef.current = null;
         }
         
         if (drawingManager) drawingManager.setDrawingMode(null);
@@ -116,7 +106,7 @@ export function GeofenceControls({
         historyIndexRef.current = -1;
         updateHistoryButtons();
         setCurrentGeofenceName('');
-    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons, defaultGeofenceId, mapShapes]);
+    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons]);
 
 
     const getNextGeofenceName = useCallback(() => {
@@ -138,13 +128,14 @@ export function GeofenceControls({
     }, [geofences, t]);
 
     const handleStartDraw = () => {
-        if (activeShapeRef.current && activeShapeRef.current.id.startsWith('new-shape-')) {
+        if (activeShapeRef.current) {
             (activeShapeRef.current.shape as any).setMap(null);
             activeShapeRef.current = null;
         }
 
-        setMode('drawing');
+        setMode('editing'); // Show UI immediately
         setCurrentGeofenceName(getNextGeofenceName());
+        
         if (drawingManager) {
             drawingManager.setDrawingMode(drawingMode as any);
         }
@@ -158,18 +149,17 @@ export function GeofenceControls({
         const tempId = `new-shape-${Date.now()}`;
         activeShapeRef.current = { id: tempId, shape: newShape };
         
-        setMode('editing');
-        
+        // Mode is already 'editing', just set up history
         historyRef.current = [getGeometryFromShape(newShape)];
         historyIndexRef.current = 0;
         updateHistoryButtons();
 
-    }, [drawingManager, setMode, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons]);
+    }, [drawingManager, activeShapeRef, historyRef, historyIndexRef, updateHistoryButtons]);
 
 
     useEffect(() => {
-        if (mode === 'drawing' && drawingManager) {
-            if (drawingCompleteListener.current) {
+        if (drawingManager) {
+             if (drawingCompleteListener.current) {
                 drawingCompleteListener.current.remove();
             }
             drawingCompleteListener.current = google.maps.event.addListener(
@@ -183,7 +173,7 @@ export function GeofenceControls({
                 google.maps.event.removeListener(drawingCompleteListener.current);
              }
         }
-    }, [mode, drawingManager, onOverlayComplete]);
+    }, [drawingManager, onOverlayComplete]);
 
 
     const handleStartEdit = () => {
@@ -213,10 +203,9 @@ export function GeofenceControls({
         startDeletingTransition(async () => {
             const result = await deleteGeofence(idToDelete);
             
-            if (result && result.success) {
+            if (result?.success) {
                 toast({ title: t('toast.successTitle'), description: t('condoDashboard.map.toast.geofenceDeleted')});
                 
-                // Explicitly remove from map and state before refresh
                 const shapeToRemove = mapShapes.get(idToDelete);
                 if (shapeToRemove) {
                     shapeToRemove.setMap(null);
