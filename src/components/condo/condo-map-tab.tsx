@@ -384,34 +384,25 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             let styleOptions: any = {};
             const isSelected = id === selectedGeofenceId;
             const isDefault = id === defaultGeofenceId;
+            const isBeingEdited = activeActionId === id;
 
-            if (activeActionId === id) {
-                // This is the shape being actively edited or drawn.
+            shape.setOptions({ editable: isBeingEdited, draggable: isBeingEdited });
+            if (isBeingEdited) setupShapeListeners(shape);
+
+            if (isBeingEdited) {
                 isVisible = true;
                 styleOptions = { ...STYLE_FOCUSED_BLUE };
-                shape.setOptions({ editable: true, draggable: true });
-                setupShapeListeners(shape);
-            } else {
-                shape.setOptions({ editable: false, draggable: false });
-                if (mode === 'view') {
-                    styleOptions = { ...STYLE_VIEW_MODE };
-                    if (showAllGeofences) {
-                        isVisible = true;
-                    } else {
-                        isVisible = isDefault;
-                    }
-                } else { // mode === 'editing'
-                    if (activeActionId) {
-                        isVisible = id === selectedGeofenceId; // Show reference if editing
-                    } else {
-                        if (showAllGeofences) {
-                            isVisible = true;
-                        } else {
-                            isVisible = isSelected;
-                        }
-                    }
-                    styleOptions = isSelected ? { ...STYLE_FOCUSED_BLUE, editable: false, draggable: false } : { ...STYLE_REFERENCE_GREEN };
-                }
+            } else if (mode === 'view') {
+                isVisible = isDefault || (showAllGeofences && !isDefault);
+                styleOptions = isDefault ? { ...STYLE_VIEW_MODE } : { ...STYLE_BACKGROUND_GREY };
+                if (isSelected && !isDefault) styleOptions = { ...STYLE_VIEW_MODE };
+            } else { // mode === 'editing'
+                 if (activeActionId) {
+                    isVisible = id === selectedGeofenceId;
+                 } else {
+                    isVisible = showAllGeofences || isSelected;
+                 }
+                styleOptions = { ...STYLE_REFERENCE_GREEN };
             }
             shape.setOptions(styleOptions);
             shape.setMap(isVisible ? map : null);
