@@ -208,6 +208,7 @@ export function GeofenceControls({
         historyIndexRef.current = 0;
         updateHistoryButtons();
         setIsShapeDrawn(true);
+        setupShapeListeners(shapeToEdit);
         
         setCurrentGeofenceName(geofenceData.name);
     }
@@ -419,7 +420,7 @@ export function GeofenceControls({
                                 </div>
                             ) : (
                                  <div className="flex items-center gap-2">
-                                    <Button onClick={handleStartDraw} variant="outline" className="flex-1" disabled={isActionActive || isBusy}>
+                                    <Button onClick={handleStartDraw} variant="outline" className="flex-1">
                                         <PencilRuler className="mr-2 h-4 w-4"/>
                                         {t('condoDashboard.map.geofence.draw')}
                                     </Button>
@@ -448,3 +449,4 @@ export function GeofenceControls({
         </div>
     );
 }
+

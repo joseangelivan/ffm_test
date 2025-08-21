@@ -392,35 +392,45 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const map = mapRef.current;
     if (!map || isLoading) return;
 
-    // 1. Ocultar todo primero
+    // 1. Hide everything first. This is the crucial cleanup step.
     mapShapes.forEach(shape => (shape as any).setMap(null));
+    if (activeShapeRef.current && activeShapeRef.current.id.startsWith('new-shape-')) {
+        (activeShapeRef.current.shape as any).setMap(null);
+    }
     clearListeners();
 
-    // 2. Lógica de visibilidad
+    // 2. Logic for what to show.
     if (mode === 'editing' && activeShapeRef.current) {
-        // Modo de edición/dibujo activo
+        // --- EDITING/DRAWING MODE ---
+        // Show the active shape (the one being edited/drawn)
         const activeShape = activeShapeRef.current.shape;
         activeShape.setMap(map);
         (activeShape as any).setOptions(EDIT_COLOR);
         setupShapeListeners(activeShape);
 
-        // Mostrar referencia si no es un nuevo dibujo
-        if (!activeShapeRef.current.id.startsWith('new-shape-') && selectedGeofenceId) {
-            const referenceShape = mapShapes.get(selectedGeofenceId);
-            if (referenceShape && referenceShape !== activeShape) {
+        // Also show the reference geofence if we started from an existing one
+        const isNewDrawing = activeShapeRef.current.id.startsWith('new-shape-');
+        const referenceId = isNewDrawing ? selectedGeofenceId : activeShapeRef.current.id;
+        
+        if (referenceId) {
+             const referenceShape = mapShapes.get(referenceId);
+             if (referenceShape && referenceShape !== activeShape) {
                 referenceShape.setMap(map);
                 (referenceShape as any).setOptions(REFERENCE_COLOR);
-            }
+             }
         }
+
     } else if (isEditingEnabled) {
-        // Modo de edición habilitado, pero sin acción activa
+        // --- VIEW MODE (with editing enabled) ---
         if (showAllGeofences) {
+            // Show all geofences with appropriate styling
             mapShapes.forEach((shape, id) => {
                 const colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : VIEW_ALL_COLOR;
                 (shape as any).setOptions(colorOptions);
                 shape.setMap(map);
             });
         } else if (selectedGeofenceId) {
+            // Show only the selected geofence
             const shape = mapShapes.get(selectedGeofenceId);
             if (shape) {
                 const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
@@ -429,7 +439,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
         }
     } else {
-        // Modo de visualización (edición deshabilitada)
+        // --- VIEW MODE (editing disabled) ---
+        // Only show the default geofence
         if (defaultGeofenceId) {
             const shape = mapShapes.get(defaultGeofenceId);
             if (shape) {
