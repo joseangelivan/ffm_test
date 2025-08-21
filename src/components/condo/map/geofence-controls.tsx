@@ -263,9 +263,8 @@ export function GeofenceControls({
                 toast({ title: t('toast.successTitle'), description: result.message });
                 const newSelectedId = isNewShape ? result.data?.id : id;
                 activeShapeRef.current = null; // Clear the active shape ref
-                onDataNeedsRefresh(newSelectedId); // This will reload data and set the new focus
+                await onDataNeedsRefresh(newSelectedId); // This will reload data and set the new focus
                 setMode('view');
-                setShowAllGeofences(false);
             } else if (result) {
                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
             }

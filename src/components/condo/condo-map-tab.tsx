@@ -170,7 +170,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
   const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
   
-  const [mode, setMode] = useState<'view' | 'editing' | 'drawing'>('view');
+  const [mode, setMode] = useState<'view' | 'editing'>('view');
   
   const [isEditingEnabled, setIsEditingEnabled] = useState(false);
   const [showAllGeofences, setShowAllGeofences] = useState(false);
@@ -400,8 +400,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         activeShape.setMap(map);
         setupListeners(activeShape);
 
-        // Show the reference geofence if we are drawing a new one.
-        if (activeShapeRef.current.id.startsWith('new-shape-') && selectedGeofenceId) {
+        // Show the reference geofence if we are drawing or editing.
+        if (selectedGeofenceId && activeShapeRef.current.id !== selectedGeofenceId) {
             const referenceShape = mapShapes.get(selectedGeofenceId);
             if (referenceShape) {
                 const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
@@ -409,7 +409,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 referenceShape.setMap(map);
             }
         }
-    } else if (showAllGeofences) {
+    } else if (showAllGeofences && isEditingEnabled) {
         // Show all geofences if the toggle is active.
         mapShapes.forEach((shape, id) => {
             const colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : VIEW_ALL_COLOR;
