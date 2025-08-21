@@ -97,13 +97,14 @@ export function GeofenceControls({
     const resetActionStates = useCallback(() => {
         if (activeShapeRef.current) {
             const { shape, id, originalGeometry } = activeShapeRef.current;
+            // IMPORTANT: If it's a new shape (never saved), remove it from the map completely
             if (id.startsWith('new-shape-')) {
                 (shape as any).setMap(null);
             } else if (originalGeometry) {
-                // Restore original state if it was an edit
+                // If it was an existing shape being edited, restore its original geometry and look
                 restoreShapeToGeometry(shape, originalGeometry);
                 const isDefault = id === defaultGeofenceId;
-                (shape as any).setOptions(isDefault ? DEFAULT_COLOR : SAVED_COLOR);
+                (shape as any).setOptions({ ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), editable: false, draggable: false });
             }
              activeShapeRef.current = null;
         }
@@ -136,6 +137,12 @@ export function GeofenceControls({
     }, [geofences, t]);
 
     const handleStartDraw = () => {
+        // **CRITICAL FIX**: If there's an unsaved shape from a previous drawing attempt, remove it first.
+        if (activeShapeRef.current && activeShapeRef.current.id.startsWith('new-shape-')) {
+            (activeShapeRef.current.shape as any).setMap(null);
+            activeShapeRef.current = null;
+        }
+
         setMode('drawing');
         setCurrentGeofenceName(getNextGeofenceName());
         if (drawingManager) {
@@ -188,6 +195,7 @@ export function GeofenceControls({
         
         const originalGeometry = getGeometryFromShape(shapeToEdit);
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
+        
         setMode('editing');
         
         historyRef.current = [originalGeometry];
@@ -326,7 +334,7 @@ export function GeofenceControls({
                     </div>
                 </div>
 
-                <fieldset disabled={!isEditingEnabled || isSaving} className="space-y-4">
+                <fieldset disabled={!isEditingEnabled || isBusy} className="space-y-4">
                         <div className="flex items-center gap-2">
                             <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive || isBusy}>
                                 <SelectTrigger className={cn("flex-1", selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-') && "text-blue-600 border-blue-400 font-bold")}>

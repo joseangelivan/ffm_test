@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils';
 export const EDIT_COLOR = { fillColor: '#2ECC71', strokeColor: '#27AE60', strokeWeight: 2, editable: true, draggable: true, clickable: false };
 export const SAVED_COLOR = { fillColor: '#3498db', strokeColor: '#2980b9', strokeWeight: 2, editable: false, draggable: false, clickable: true };
 export const VIEW_ALL_COLOR = { fillColor: '#95a5a6', strokeColor: '#7f8c8d', strokeWeight: 1, editable: false, draggable: false, clickable: false };
-export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50%)', fillOpacity: 0, strokeColor: 'hsl(28 80% 50%)', strokeWeight: 3, editable: false, draggable: false, clickable: true };
+export const DEFAULT_COLOR = { fillColor: 'hsl(28 80% 50%)', fillOpacity: 0.1, strokeColor: 'hsl(28 80% 50%)', strokeWeight: 3, editable: false, draggable: false, clickable: true };
 
 
 export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
@@ -190,7 +190,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [canRedo, setCanRedo] = useState(false);
   const [selectedModule, setSelectedModule] = useState('geofence');
 
-  const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject } | null>(null);
+  const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject, originalGeometry?: any } | null>(null);
   
    const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -387,11 +387,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         overlayListeners.current.push(...listeners);
     };
     
-    // Hide all shapes initially
     mapShapes.forEach(shape => (shape as any).setMap(null));
     clearListeners();
 
-    // Logic for what to display based on mode
     if (mode === 'view') {
         mapShapes.forEach((shape, id) => {
             let isVisible = false;
@@ -412,12 +410,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                     }
                 }
             }
-            (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
-            if(isVisible) shape.setMap(map);
+            if(isVisible) {
+                (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
+                shape.setMap(map);
+            }
         });
     } else { // 'editing' or 'drawing'
-        // Display the reference shape if it exists
-        if (selectedGeofenceId) {
+        // Display the reference shape if it exists and we're not editing it
+        if (selectedGeofenceId && activeShapeRef.current?.id !== selectedGeofenceId) {
             const refShape = mapShapes.get(selectedGeofenceId);
             if (refShape) {
                 const isDefault = selectedGeofenceId === defaultGeofenceId;
@@ -429,7 +429,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         // Display the active shape for editing/drawing
         if (activeShapeRef.current?.shape) {
             const activeShape = activeShapeRef.current.shape;
-            (activeShape as any).setOptions(EDIT_COLOR);
+            const originalShapeOptions = (mapShapes.get(activeShapeRef.current.id) as any)?.getOptions();
+            (activeShape as any).setOptions({ ...originalShapeOptions, ...EDIT_COLOR });
             activeShape.setMap(map);
             setupListeners(activeShape);
         }
