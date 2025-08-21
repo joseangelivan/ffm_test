@@ -134,7 +134,6 @@ export function GeofenceControls({
 
     const handleStartDraw = () => {
         resetActionStates();
-        setMode('editing');
         setCurrentGeofenceName(getNextGeofenceName());
         setIsShapeDrawn(false);
         
@@ -330,7 +329,7 @@ export function GeofenceControls({
                         </label>
                     </div>
 
-                    <fieldset disabled={isBusy} className="space-y-4 disabled:opacity-50">
+                    <fieldset disabled={mode === 'view' || isBusy} className="space-y-4 disabled:opacity-50">
                             <div className="flex items-center gap-2">
                                 <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive || isBusy}>
                                     <SelectTrigger className={cn("flex-1", selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-') && "text-blue-600 border-blue-400 font-bold")}>
