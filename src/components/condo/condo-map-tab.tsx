@@ -391,47 +391,35 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     mapShapes.forEach(shape => (shape as any).setMap(null));
     clearListeners();
 
-    if (mode === 'view') {
-        if (isEditingEnabled) {
+    if (activeShapeRef.current?.shape) {
+        // If there's an active shape (being edited/drawn), show only that one.
+        const activeShape = activeShapeRef.current.shape;
+        (activeShape as any).setOptions({ ...EDIT_COLOR, draggable: true });
+        activeShape.setMap(map);
+        setupListeners(activeShape);
+    } else {
+        // If no active shape, show shapes based on view mode.
+        if (showAllGeofences) {
+             mapShapes.forEach((shape, id) => {
+                const colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : VIEW_ALL_COLOR;
+                (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
+                shape.setMap(map);
+            });
+        } else if (isEditingEnabled) {
             if (selectedGeofenceId) {
-                const shape = mapShapes.get(selectedGeofenceId);
+                 const shape = mapShapes.get(selectedGeofenceId);
                 if (shape) {
                     const colorOptions = (selectedGeofenceId === defaultGeofenceId) ? DEFAULT_COLOR : SAVED_COLOR;
                     (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
                     shape.setMap(map);
                 }
             }
-        } else {
-            if (showAllGeofences) {
-                mapShapes.forEach((shape, id) => {
-                    const colorOptions = (id === defaultGeofenceId) ? DEFAULT_COLOR : VIEW_ALL_COLOR;
-                    (shape as any).setOptions({ ...colorOptions, editable: false, draggable: false });
-                    shape.setMap(map);
-                });
-            } else if (defaultGeofenceId) {
-                const shape = mapShapes.get(defaultGeofenceId);
-                if (shape) {
-                    (shape as any).setOptions({ ...DEFAULT_COLOR, editable: false, draggable: false });
-                    shape.setMap(map);
-                }
+        } else if (defaultGeofenceId) {
+             const shape = mapShapes.get(defaultGeofenceId);
+            if (shape) {
+                (shape as any).setOptions({ ...DEFAULT_COLOR, editable: false, draggable: false });
+                shape.setMap(map);
             }
-        }
-    } else { // 'editing' or 'drawing'
-        // Always show the reference shape (the one selected in the list)
-        if (selectedGeofenceId && activeShapeRef.current?.id !== selectedGeofenceId) {
-            const refShape = mapShapes.get(selectedGeofenceId);
-            if (refShape) {
-                const isDefault = selectedGeofenceId === defaultGeofenceId;
-                (refShape as any).setOptions({ ...(isDefault ? DEFAULT_COLOR : SAVED_COLOR), editable: false, draggable: false });
-                refShape.setMap(map);
-            }
-        }
-        
-        if (activeShapeRef.current?.shape) {
-            const activeShape = activeShapeRef.current.shape;
-            (activeShape as any).setOptions({ ...EDIT_COLOR, draggable: true });
-            activeShape.setMap(map);
-            setupListeners(activeShape);
         }
     }
 }, [
