@@ -49,6 +49,7 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>;
+    handleHistoryUpdate: (shape: google.maps.MVCObject | null) => void;
 }
 
 export function GeofenceControls({
@@ -67,6 +68,7 @@ export function GeofenceControls({
     setShowAllGeofences,
     onSettingsClick,
     activeShapeRef,
+    handleHistoryUpdate,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -100,14 +102,13 @@ export function GeofenceControls({
         }
         
         if (drawingManager) {
-            // Ensure drawing mode is turned off
             drawingManager.setDrawingMode(null);
         }
 
-        // Reset UI states
+        handleHistoryUpdate(null);
         setCurrentGeofenceName('');
         setIsShapeDrawn(false);
-    }, [drawingManager, activeShapeRef]);
+    }, [drawingManager, activeShapeRef, handleHistoryUpdate]);
 
 
     const getNextGeofenceName = useCallback(() => {
@@ -131,7 +132,6 @@ export function GeofenceControls({
     const handleStartDraw = () => {
         resetActionStates();
         
-        // Indicate that a drawing action is starting to show the save panel
         activeShapeRef.current = { id: `new-shape-pending-${Date.now()}`, shape: null };
         
         setCurrentGeofenceName(getNextGeofenceName());
@@ -150,9 +150,10 @@ export function GeofenceControls({
         const tempId = `new-shape-${Date.now()}`;
         activeShapeRef.current = { id: tempId, shape: newShape };
         
+        handleHistoryUpdate(newShape);
         setIsShapeDrawn(true);
 
-    }, [drawingManager, activeShapeRef]);
+    }, [drawingManager, activeShapeRef, handleHistoryUpdate]);
 
 
     useEffect(() => {
@@ -187,6 +188,7 @@ export function GeofenceControls({
         
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
         
+        handleHistoryUpdate(shapeToEdit);
         setIsShapeDrawn(true);
         
         setCurrentGeofenceName(geofenceData.name);
