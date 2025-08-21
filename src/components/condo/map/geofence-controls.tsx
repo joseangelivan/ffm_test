@@ -51,7 +51,7 @@ type GeofenceControlsProps = {
     showAllGeofences: boolean;
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
-    activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject, originalGeometry?: any } | null>;
+    activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>;
     historyRef: React.MutableRefObject<any[]>;
     historyIndexRef: React.MutableRefObject<number>;
     updateHistoryButtons: () => void;
@@ -95,9 +95,9 @@ export function GeofenceControls({
     const resetActionStates = useCallback(() => {
         if (activeShapeRef.current) {
             const { shape, id, originalGeometry } = activeShapeRef.current;
-            if (id.startsWith('new-shape-')) {
+            if (shape && id.startsWith('new-shape-')) {
                 shape.setMap(null); // Completely remove new shapes
-            } else if (originalGeometry) {
+            } else if (shape && originalGeometry) {
                 // Restore original geometry and make it non-editable
                 restoreShapeToGeometry(shape, originalGeometry);
                 shape.setOptions({ editable: false, draggable: false });
@@ -134,6 +134,10 @@ export function GeofenceControls({
 
     const handleStartDraw = () => {
         resetActionStates();
+        
+        // Indicate that a drawing action is starting to show the save panel
+        activeShapeRef.current = { id: `new-shape-pending-${Date.now()}`, shape: null };
+        
         setCurrentGeofenceName(getNextGeofenceName());
         setIsShapeDrawn(false);
         
@@ -197,9 +201,6 @@ export function GeofenceControls({
         setIsShapeDrawn(true);
         
         setCurrentGeofenceName(geofenceData.name);
-        
-        // This is the key part: explicitly make the shape editable
-        shapeToEdit.setOptions({ editable: true, draggable: true });
     }
 
 
@@ -223,7 +224,7 @@ export function GeofenceControls({
     }
 
     const handleSaveGeofence = () => {
-        if (!activeShapeRef.current) {
+        if (!activeShapeRef.current || !activeShapeRef.current.shape) {
             toast({ title: "Error", description: "No active shape found to save. Please try again.", variant: "destructive"});
             resetActionStates();
             return;
@@ -325,7 +326,7 @@ export function GeofenceControls({
                             htmlFor="edit-mode"
                             className="text-base font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                         >
-                            {t('condoDashboard.map.geofence.editMode')}
+                            {t('adminDashboard.settingsGroups.catalogs.deviceTypes.editMode')}
                         </label>
                     </div>
 
@@ -429,3 +430,4 @@ export function GeofenceControls({
         </div>
     );
 }
+

@@ -213,6 +213,7 @@
               "title": "Tipos de Dispositivo",
               "description": "Gerencie os diferentes tipos de dispositivos que a plataforma pode rastrear.",
               "noData": "Nenhum tipo de dispositivo encontrado.",
+              "editMode": "Modo visual para Edição",
               "deleteConfirmation": "Isso excluirá permanentemente o tipo de dispositivo \"{name}\". Esta ação não pode ser desfeita."
             },
             "protocols": {
@@ -394,7 +395,6 @@
             "defaultLabel": "Geocerca Padrão",
             "viewAll": "Ver Todas",
             "none": "Nenhuma",
-            "editMode": "Modo visual para Edição",
             "selectPlaceholder": "Selecionar geocerca",
             "setAsDefault": "Definir como Padrão",
             "draw": "Desenhar",
