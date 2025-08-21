@@ -414,16 +414,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
             //--- Determine Style ---
             const behaviorProps = {
-                editable: isBeingEdited,
-                draggable: isBeingEdited
+                editable: false,
+                draggable: false,
             };
 
             if (isBeingEdited) {
                 styleOptions = STYLE_FOCUSED_BLUE;
             } else if (mode === 'editing') {
-                styleOptions = showAllGeofences && !isSelected ? STYLE_BACKGROUND_GREY : STYLE_EDIT_MODE_GREEN;
+                styleOptions = STYLE_EDIT_MODE_GREEN;
             } else { // mode === 'view'
-                styleOptions = showAllGeofences && !isDefault ? STYLE_BACKGROUND_GREY : STYLE_VIEW_MODE_NO_FILL;
+                styleOptions = STYLE_VIEW_MODE_NO_FILL;
             }
             
             shape.setOptions({ ...styleOptions, ...behaviorProps });
@@ -440,7 +440,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 const refShape = mapShapesRef.current.get(selectedGeofenceId!);
                 if(refShape) {
                     refShape.setMap(map);
-                    refShape.setOptions(mode === 'editing' ? STYLE_EDIT_MODE_GREEN : STYLE_VIEW_MODE_NO_FILL);
+                    refShape.setOptions(STYLE_EDIT_MODE_GREEN);
                 }
             }
             setupShapeListeners(shape);
@@ -551,7 +551,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 drawingManagerRef={drawingManagerRef}
                             />
                         </div>
-                         {mode === 'editing' && (canUndo || canRedo) && (
+                         {activeShapeRef.current && (canUndo || canRedo) && (
                             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">
                                 <Button onClick={() => handleHistoryAction('undo')} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
                                     <Undo className="h-4 w-4"/>
