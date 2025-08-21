@@ -215,6 +215,14 @@ export function GeofenceControls({
             
             if (result && result.success) {
                 toast({ title: t('toast.successTitle'), description: t('condoDashboard.map.toast.geofenceDeleted')});
+                
+                // Explicitly remove from map and state before refresh
+                const shapeToRemove = mapShapes.get(idToDelete);
+                if (shapeToRemove) {
+                    shapeToRemove.setMap(null);
+                }
+                mapShapes.delete(idToDelete);
+
                 onDataNeedsRefresh();
 
             } else if (result) {
