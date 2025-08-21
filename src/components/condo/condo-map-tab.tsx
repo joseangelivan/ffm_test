@@ -387,9 +387,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         overlayListeners.current.push(...listeners);
     };
     
+    // Hide all shapes initially
     mapShapes.forEach(shape => (shape as any).setMap(null));
     clearListeners();
 
+    // Logic for what to display based on mode
     if (mode === 'view') {
         mapShapes.forEach((shape, id) => {
             let isVisible = false;
@@ -414,7 +416,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             if(isVisible) shape.setMap(map);
         });
     } else { // 'editing' or 'drawing'
-        // Display the reference shape if editing or drawing
+        // Display the reference shape if it exists
         if (selectedGeofenceId) {
             const refShape = mapShapes.get(selectedGeofenceId);
             if (refShape) {
@@ -436,6 +438,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences,
       mapShapes, clearListeners, isEditingEnabled, isLoading, handleHistoryUpdate
   ]);
+
 
 
   useEffect(() => {
