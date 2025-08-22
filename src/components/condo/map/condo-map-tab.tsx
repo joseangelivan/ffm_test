@@ -197,6 +197,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     setHistoryState(prevState => {
         const newCanUndo = historyIndexRef.current > 0;
         const newCanRedo = historyIndexRef.current < historyRef.current.length - 1;
+        // Only update state if values have actually changed to prevent unnecessary re-renders
         if (prevState.canUndo !== newCanUndo || prevState.canRedo !== newCanRedo) {
             return { canUndo: newCanUndo, canRedo: newCanRedo };
         }
@@ -573,7 +574,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
                                     activeShapeRef={activeShapeRef}
-                                    handleHistoryUpdate={handleHistoryUpdate}
                                 />
                             )}
                             {selectedModule === 'elements' && (
@@ -596,4 +596,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
