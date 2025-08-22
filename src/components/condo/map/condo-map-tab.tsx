@@ -13,7 +13,7 @@ import {
   Undo,
   Redo,
 } from 'lucide-react';
-import { useMapsLibrary } from '@vis.gl/react-google-maps';
+import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { isEqual } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
@@ -100,6 +100,12 @@ const getBoundsOfShape = (shape: google.maps.MVCObject | null): google.maps.LatL
     return null;
 }
 
+const getCenterOfShape = (shape: google.maps.MVCObject | null): google.maps.LatLng | null => {
+    if (!shape) return null;
+    const bounds = getBoundsOfShape(shape);
+    return bounds ? bounds.getCenter() : null;
+}
+
 interface MapInnerProps {
   condo: Condominio;
   initialPosition: { lat: number; lng: number };
@@ -112,7 +118,7 @@ const DrawingManagerComponent = ({
 }: {
   drawingManagerRef: React.MutableRefObject<google.maps.drawing.DrawingManager | null>;
 }) => {
-  const map = useMapsLibrary('map');
+  const map = useMap();
   const drawingLibrary = useMapsLibrary('drawing');
 
   useEffect(() => {
@@ -185,14 +191,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const historyIndexRef = useRef<number>(-1);
   const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>(null);
   
-  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false, trigger: 0 });
+  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
 
   const updateHistoryButtons = useCallback(() => {
-    setHistoryState(prevState => ({
-      canUndo: historyIndexRef.current > 0,
-      canRedo: historyIndexRef.current < historyRef.current.length - 1,
-      trigger: prevState.trigger + 1, // Force re-render
-    }));
+      setHistoryState({
+        canUndo: historyIndexRef.current > 0,
+        canRedo: historyIndexRef.current < historyRef.current.length - 1,
+      });
   }, []);
 
   const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
@@ -202,7 +207,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     } else {
         const newGeometry = getGeometryFromShape(shape);
         const lastGeometry = historyRef.current[historyIndexRef.current];
-        if (isEqual(newGeometry, lastGeometry)) return;
+        
+        if(historyIndexRef.current > -1 && isEqual(newGeometry, lastGeometry)) {
+            return;
+        }
 
         const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
         
@@ -288,7 +296,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     if(geofenceToCenter) {
         const shape = mapShapesRef.current.get(geofenceToCenter.id);
         if(shape) {
-            const center = getBoundsOfShape(shape)?.getCenter();
+            const center = getCenterOfShape(shape);
             if (center) map.setCenter(center);
         }
     }
@@ -356,7 +364,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => {
         google.maps.event.clearInstanceListeners(shape);
     };
-  }, [activeShapeRef.current, mode, handleHistoryUpdate]);
+  }, [activeShapeRef.current, mode, handleHistoryUpdate, updateHistoryButtons]);
     
   useEffect(() => {
     const map = mapRef.current;
@@ -561,7 +569,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
                                     activeShapeRef={activeShapeRef}
-                                    handleHistoryUpdate={handleHistoryUpdate}
+                                    onHistoryChange={handleHistoryUpdate}
                                 />
                             )}
                             {selectedModule === 'elements' && (
