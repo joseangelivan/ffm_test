@@ -194,10 +194,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
 
   const updateHistoryButtons = useCallback(() => {
-      setHistoryState({
-        canUndo: historyIndexRef.current > 0,
-        canRedo: historyIndexRef.current < historyRef.current.length - 1,
-      });
+    setHistoryState(prevState => {
+        const newCanUndo = historyIndexRef.current > 0;
+        const newCanRedo = historyIndexRef.current < historyRef.current.length - 1;
+        if (prevState.canUndo !== newCanUndo || prevState.canRedo !== newCanRedo) {
+            return { canUndo: newCanUndo, canRedo: newCanRedo };
+        }
+        return prevState;
+    });
   }, []);
 
   const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
@@ -569,7 +573,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
                                     activeShapeRef={activeShapeRef}
-                                    onHistoryChange={handleHistoryUpdate}
+                                    handleHistoryUpdate={handleHistoryUpdate}
                                 />
                             )}
                             {selectedModule === 'elements' && (
@@ -592,3 +596,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
