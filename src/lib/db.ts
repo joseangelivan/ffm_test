@@ -3,42 +3,28 @@
 
 import type { Pool } from 'pg';
 
-let pool: Pool | undefined;
-
-async function createPool(): Promise<Pool> {
+/**
+ * Creates and returns a new PostgreSQL connection pool.
+ * This function is designed to be called each time a database connection is needed,
+ * which helps prevent issues with serverless database providers that may close idle
+ * connections.
+ * @returns {Promise<Pool>} A promise that resolves to a new pg Pool instance.
+ */
+export async function getDbPool(): Promise<Pool> {
     const { Pool: PgPool } = await import('pg');
+    
     const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:vxLaQxZOIeZNIIvCvjXEXYEhRAMmiUTT@mainline.proxy.rlwy.net:38539/railway';
+    
     if (!connectionString) {
+        console.error("DATABASE_URL environment variable is not set.");
         throw new Error("DATABASE_URL environment variable is not set. Please provide a database connection string.");
     }
-    return new PgPool({ connectionString });
-}
 
-export async function getDbPool(): Promise<Pool> {
-    if (!pool) {
-        console.log('[getDbPool] Pool not found. Initializing new pool...');
-        pool = await createPool();
-    }
-    try {
-        // Test the connection before returning the pool
-        const client = await pool.connect();
-        await client.query('SELECT NOW()');
-        client.release();
-    } catch (error) {
-        console.error("[getDbPool] Existing pool connection test failed. Re-initializing pool...", error);
-        pool = await createPool();
-        try {
-            // Test the new pool connection
-            const client = await pool.connect();
-            await client.query('SELECT NOW()');
-            client.release();
-            console.log("[getDbPool] New pool initialized and connection verified.");
-        } catch (newPoolError) {
-             console.error("CRITICAL: Failed to connect with new pool.", newPoolError);
-            // Set pool to undefined so the next call will try to re-initialize
-            pool = undefined; 
-            throw newPoolError;
-        }
-    }
-    return pool;
+    return new PgPool({
+      connectionString,
+      // Recommended settings for serverless/ephemeral environments
+      max: 10, // Max number of clients in the pool
+      idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+      connectionTimeoutMillis: 20000, // Return an error after 20 seconds if connection could not be established
+    });
 }
