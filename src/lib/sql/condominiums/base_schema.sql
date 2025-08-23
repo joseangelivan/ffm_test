@@ -1,22 +1,31 @@
--- Tabla para condominios o residenciales
+
+CREATE OR REPLACE FUNCTION trigger_set_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE IF NOT EXISTS condominiums (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    address TEXT,
+    name VARCHAR(255) NOT NULL UNIQUE,
     continent VARCHAR(255),
     country VARCHAR(255),
     state VARCHAR(255),
     city VARCHAR(255),
     street VARCHAR(255),
-    "number" VARCHAR(50),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(name)
+    number VARCHAR(50),
+    latitude DECIMAL(9, 6),
+    longitude DECIMAL(9, 6),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Trigger para actualizar el campo updated_at
-DROP TRIGGER IF EXISTS set_updated_at ON public.condominiums;
-CREATE TRIGGER set_updated_at
+DROP TRIGGER IF EXISTS set_timestamp ON condominiums;
+CREATE TRIGGER set_timestamp
 BEFORE UPDATE ON condominiums
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+EXECUTE FUNCTION trigger_set_timestamp();
+
+    
