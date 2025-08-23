@@ -301,6 +301,8 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
     } catch (error) {
         console.error("Error during first login process:", error);
         return { success: false, message: "toast.adminLogin.serverError" };
+    } finally {
+        if (client) client.release();
     }
 
     redirect('/admin/dashboard');
@@ -753,6 +755,8 @@ export async function verifyTotp(prevState: any, formData: FormData): Promise<Au
     } catch (error) {
         console.error("Error verifying TOTP:", error);
         return { success: false, message: "Error del servidor." };
+    } finally {
+        if(client) client.release();
     }
 
     redirect('/admin/dashboard');

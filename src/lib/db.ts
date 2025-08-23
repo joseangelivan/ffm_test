@@ -20,11 +20,18 @@ export async function getDbPool(): Promise<Pool> {
         throw new Error("DATABASE_URL environment variable is not set. Please provide a database connection string.");
     }
 
-    return new PgPool({
+    const pool = new PgPool({
       connectionString,
       // Recommended settings for serverless/ephemeral environments
       max: 10, // Max number of clients in the pool
       idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
       connectionTimeoutMillis: 20000, // Return an error after 20 seconds if connection could not be established
     });
+
+    // Add a listener for connection errors on the pool
+    pool.on('error', (err, client) => {
+      console.error('Unexpected error on idle client', err);
+    });
+
+    return pool;
 }

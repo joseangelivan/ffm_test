@@ -1,8 +1,10 @@
+
 import { getSession } from '@/lib/auth';
 import { getDevicesByCondoId } from '@/actions/devices';
 import { getCondominioById } from '@/actions/condos';
 import DashboardClient from '@/components/dashboard-client';
 import { redirect } from 'next/navigation';
+import { getDbPool } from '@/lib/db';
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -17,12 +19,8 @@ export default async function DashboardPage() {
   
   let userCondoId: string | undefined;
   
-  // A more robust implementation would fetch the user from the DB to get their condo ID
-  // For now, let's simulate this by fetching the first condo and assigning its devices to the user
-  // This is a placeholder for a more complex user-condo relationship logic.
   let client;
     try {
-        const { getDbPool } = await import('@/lib/db');
         const pool = await getDbPool();
         client = await pool.connect();
         const tableName = session.type === 'resident' ? 'residents' : 'gatekeepers';

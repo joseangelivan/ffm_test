@@ -380,8 +380,6 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         client = await pool.connect();
         const updatedResult = await client.query('SELECT supported_languages FROM translation_services WHERE id = $1', [id]);
         const totalLanguagesResult = await client.query('SELECT COUNT(*) FROM languages');
-        client.release();
-
         const supported = updatedResult.rows[0]?.supported_languages || [];
         const totalLanguages = parseInt(totalLanguagesResult.rows[0].count, 10);
         
@@ -395,6 +393,8 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         }
     } catch (e: any) {
         return { success: false, message: e.message || "Error inesperado durante la prueba de traducción." };
+    } finally {
+        if (client) client.release();
     }
 }
 
@@ -433,5 +433,3 @@ export async function translateTextAction(data: {
     if (client) client.release();
   }
 }
-
-    

@@ -247,6 +247,9 @@ export async function testSmtpConfiguration(id: string): Promise<ActionState> {
             return { success: false, message: "Configuración no encontrada." };
         }
         config = result.rows[0];
+    } catch (dbError) {
+         console.error('Database error in testSmtpConfiguration:', dbError);
+        return { success: false, message: "Error al recuperar la configuración." };
     } finally {
         if (client) client.release();
     }
@@ -295,7 +298,7 @@ export async function testSmtpConfiguration(id: string): Promise<ActionState> {
          // Provide a more specific error message
          const errorMessage = error.code === 'EAUTH' 
             ? 'Error de autenticación. Verifica el usuario y la contraseña.'
-            : error.code === 'ECONNECTION'
+            : error.code === 'ECONNRESET' || error.code === 'ECONNECTION'
             ? 'Error de conexión. Verifica el host y el puerto.'
             : `Error del servidor: ${error.message}`;
 
