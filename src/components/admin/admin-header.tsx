@@ -133,40 +133,44 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogo
                     </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                     <DropdownMenuItem onSelect={() => setIsAccountDialogOpen(true)}>
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>{t('adminDashboard.account.myAccount')}</span>
-                    </DropdownMenuItem>
+                     
+                    <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>
+                            <Settings className="mr-2 h-4 w-4" />
+                            <span>{t('dashboard.settings')}</span>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                            <DropdownMenuSubContent>
+                                <DropdownMenuItem onSelect={() => setIsAccountDialogOpen(true)}>
+                                    <Settings className="mr-2 h-4 w-4" />
+                                    <span>{t('adminDashboard.account.myAccount')}</span>
+                                </DropdownMenuItem>
+                                
+                                {!isCondoView && (
+                                    <>
+                                        <ManageInterfaceDialog />
+                                        <ManageCatalogsDialog />
+                                        <DropdownMenuSub>
+                                            <DropdownMenuSubTrigger>
+                                                <Server className="mr-2 h-4 w-4" />
+                                                <span>{t('adminDashboard.settingsGroups.systemConfiguration')}</span>
+                                            </DropdownMenuSubTrigger>
+                                            <DropdownMenuPortal>
+                                                <DropdownMenuSubContent>
+                                                    <SmtpConfigDialog />
+                                                    <ManageDomainDialog />
+                                                    <ManageTranslatorDialog />
+                                                </DropdownMenuSubContent>
+                                            </DropdownMenuPortal>
+                                        </DropdownMenuSub>
+                                        <DropdownMenuSeparator/>
+                                        {session.canCreateAdmins && <ManageAdminsDialog session={session}/>}
+                                    </>
+                                )}
+                            </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                    </DropdownMenuSub>
 
-                    {!isCondoView && (
-                        <DropdownMenuSub>
-                            <DropdownMenuSubTrigger>
-                                <Settings className="mr-2 h-4 w-4" />
-                                <span>{t('dashboard.settings')}</span>
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuPortal>
-                                <DropdownMenuSubContent>
-                                    <ManageInterfaceDialog />
-                                    <ManageCatalogsDialog />
-                                    <DropdownMenuSub>
-                                        <DropdownMenuSubTrigger>
-                                            <Server className="mr-2 h-4 w-4" />
-                                            <span>{t('adminDashboard.settingsGroups.systemConfiguration')}</span>
-                                        </DropdownMenuSubTrigger>
-                                        <DropdownMenuPortal>
-                                            <DropdownMenuSubContent>
-                                                <SmtpConfigDialog />
-                                                <ManageDomainDialog />
-                                                <ManageTranslatorDialog />
-                                            </DropdownMenuSubContent>
-                                        </DropdownMenuPortal>
-                                    </DropdownMenuSub>
-                                    <DropdownMenuSeparator/>
-                                    {session.canCreateAdmins && <ManageAdminsDialog session={session}/>}
-                                </DropdownMenuSubContent>
-                            </DropdownMenuPortal>
-                        </DropdownMenuSub>
-                    )}
                     <DropdownMenuSeparator />
                     <AlertDialog>
                     <AlertDialogTrigger asChild>
