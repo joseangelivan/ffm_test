@@ -159,6 +159,29 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
         log.push(`ERROR: Seeding languages failed: ${e.message}`);
         throw e;
     }
+    
+    // Protocols
+    try {
+        const protocols = [
+            { name: 'HTTP', features_es: 'Protocolo de Transferencia de Hipertexto', features_pt: 'Protocolo de Transferência de Hipertexto' },
+            { name: 'TCP', features_es: 'Protocolo de Control de Transmisión', features_pt: 'Protocolo de Controle de Transmissão' },
+            { name: 'UDP', features_es: 'Protocolo de Datagramas de Usuario', features_pt: 'Protocolo de Datagramas de Usuário' },
+            { name: 'LwM2M', features_es: 'Lightweight M2M para gestión de dispositivos IoT', features_pt: 'Lightweight M2M para gerenciamento de dispositivos IoT' },
+            { name: 'CoAP', features_es: 'Protocolo de Aplicación Restringida', features_pt: 'Protocolo de Aplicação Restrita' },
+        ];
+
+        for (const proto of protocols) {
+            const features_translations = { es: proto.features_es, 'pt-BR': proto.features_pt };
+            await client.query(
+                'INSERT INTO protocols (name, features_translations) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING',
+                [proto.name, features_translations]
+            );
+        }
+        log.push('SUCCESS: Default protocols data seeded.');
+    } catch (e: any) {
+        log.push(`ERROR: Seeding protocols failed: ${e.message}`);
+        throw e;
+    }
 }
 
 async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
