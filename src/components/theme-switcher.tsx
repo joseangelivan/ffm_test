@@ -35,19 +35,7 @@ export function ThemeSwitcher() {
 
   React.useEffect(() => {
     setMounted(true);
-    // Client-side theme handling for non-context pages (e.g. login)
-    if (!context) {
-        const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-        if (storedTheme) {
-            setLocalTheme(storedTheme);
-            document.documentElement.classList.toggle('dark', storedTheme === 'dark');
-        } else {
-            const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-            setLocalTheme(systemTheme);
-            document.documentElement.classList.toggle('dark', systemTheme === 'dark');
-        }
-    }
-  }, [context]);
+  }, []);
 
   const onThemeChange = (newTheme: 'light' | 'dark') => {
     if (handleSetTheme) {
@@ -55,7 +43,6 @@ export function ThemeSwitcher() {
     } else {
         // Fallback for non-context pages
         setLocalTheme(newTheme);
-        localStorage.setItem('theme', newTheme);
         document.documentElement.classList.toggle('dark', newTheme === 'dark');
     }
   }

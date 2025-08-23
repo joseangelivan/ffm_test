@@ -29,7 +29,7 @@ import { type Condominio } from '@/actions/condos';
 
 import ManageUsersTab from './condo/manage-users-tab';
 import ManageDevicesTab from './condo/manage-devices-tab';
-import CondoMapTab from './condo/condo-map-tab';
+import CondoMapTab from './condo/map/condo-map-tab';
 import { AdminHeader } from './admin/admin-header';
 import { type Device } from '@/actions/devices';
 import { cn } from '@/lib/utils';
@@ -99,6 +99,11 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     await updateSettings({ theme: newThemeId }, session);
     router.refresh();
   }, [applyTheme, initialSettings, session, router]);
+
+  useEffect(() => {
+      // Apply theme on initial client load to ensure consistency
+      handleSetTheme(initialSettings.theme);
+  }, [handleSetTheme, initialSettings.theme]);
 
   const handleSetLocale = async (newLocale: 'es' | 'pt-BR') => {
       setLocale(newLocale);
