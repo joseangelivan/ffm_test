@@ -23,7 +23,12 @@ export function ThemeSwitcher() {
   const condoContext = React.useContext(CondoDashboardContext);
 
   const context = adminContext || condoContext;
-  const theme = context?.theme;
+  
+  // Local state for pages without context (like login)
+  const [localTheme, setLocalTheme] = React.useState<'light' | 'dark'>('light');
+
+  // Determine the current theme
+  const theme = context ? context.theme : localTheme;
   const handleSetTheme = context?.handleSetTheme;
 
   const [mounted, setMounted] = React.useState(false);
@@ -34,16 +39,22 @@ export function ThemeSwitcher() {
     if (!context) {
         const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
         if (storedTheme) {
+            setLocalTheme(storedTheme);
             document.documentElement.classList.toggle('dark', storedTheme === 'dark');
+        } else {
+            const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            setLocalTheme(systemTheme);
+            document.documentElement.classList.toggle('dark', systemTheme === 'dark');
         }
     }
   }, [context]);
 
-  const onThemeChange = (newTheme: string) => {
+  const onThemeChange = (newTheme: 'light' | 'dark') => {
     if (handleSetTheme) {
         handleSetTheme(newTheme);
     } else {
         // Fallback for non-context pages
+        setLocalTheme(newTheme);
         localStorage.setItem('theme', newTheme);
         document.documentElement.classList.toggle('dark', newTheme === 'dark');
     }

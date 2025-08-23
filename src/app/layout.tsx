@@ -47,13 +47,17 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await getSession();
-  const settings = await getSettings(session);
+  
+  // Only fetch from DB if a session exists
+  const settings = session ? await getSettings(session) : null;
   
   const initialLocale = settings?.language || 'pt-BR';
-  const initialThemeId = settings?.theme || 'light';
-  const themeData = await getActiveTheme(settings);
   
-  const bodyClassName = applyThemeToBody(themeData, initialThemeId);
+  // Theme logic for logged-in users
+  const initialThemeId = settings?.theme || 'light';
+  const themeData = session ? await getActiveTheme(settings) : null;
+  
+  const bodyClassName = themeData ? applyThemeToBody(themeData, initialThemeId) : '';
   const bodyStyle = getThemeStyle(themeData);
 
   return (
