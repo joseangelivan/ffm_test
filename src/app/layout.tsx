@@ -21,7 +21,8 @@ export const metadata: Metadata = {
 
 function applyThemeToBody(themeData: Theme | null, newThemeId: string): string {
     const themeClasses: string[] = [];
-    if (newThemeId === 'dark') {
+    // A custom theme is always dark.
+    if (newThemeId === 'dark' || themeData) {
         themeClasses.push('dark');
     }
     return themeClasses.join(' ');
@@ -57,7 +58,7 @@ export default async function RootLayout({
   const initialThemeId = settings?.theme || 'light';
   const themeData = session ? await getActiveTheme(settings) : null;
   
-  const bodyClassName = themeData ? applyThemeToBody(themeData, initialThemeId) : '';
+  const bodyClassName = applyThemeToBody(themeData, initialThemeId);
   const bodyStyle = getThemeStyle(themeData);
 
   return (

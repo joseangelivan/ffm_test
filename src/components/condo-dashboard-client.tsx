@@ -72,23 +72,23 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     const clearCustomTheme = () => {
       defaultThemeVars.forEach(v => root.style.removeProperty(`--${v}`));
     };
-    if (newThemeId === 'dark' || newThemeId === 'light') {
-        clearCustomTheme();
-        root.classList.toggle('dark', newThemeId === 'dark');
-    } else if (themeData) {
-        clearCustomTheme();
+    
+    // A custom theme is always dark.
+    if (newThemeId === 'dark' || themeData) {
+        root.classList.add('dark');
+    } else {
+        root.classList.remove('dark');
+    }
+
+    if (newThemeId !== 'light' && newThemeId !== 'dark' && themeData) {
         Object.entries(themeData).forEach(([key, value]) => {
             if (key.endsWith('_hsl') && value) {
                 const cssVar = `--${key.replace('_hsl', '').replace(/_/g, '-')}`;
                 root.style.setProperty(cssVar, value);
             }
         });
-        if (!root.classList.contains('dark')) {
-            root.classList.add('dark');
-        }
     } else {
-        clearCustomTheme();
-        root.classList.remove('dark');
+      clearCustomTheme();
     }
   }, []);
 
@@ -101,7 +101,6 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   }, [applyTheme, initialSettings, session, router]);
 
   useEffect(() => {
-      // Apply theme on initial client load to ensure consistency
       handleSetTheme(initialSettings.theme);
   }, [handleSetTheme, initialSettings.theme]);
 
