@@ -162,21 +162,14 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
     
     // Protocols
     try {
-        const protocols = [
-            { name: 'HTTP', features_es: 'Protocolo de Transferencia de Hipertexto', features_pt: 'Protocolo de Transferência de Hipertexto' },
-            { name: 'TCP', features_es: 'Protocolo de Control de Transmisión', features_pt: 'Protocolo de Controle de Transmissão' },
-            { name: 'UDP', features_es: 'Protocolo de Datagramas de Usuario', features_pt: 'Protocolo de Datagramas de Usuário' },
-            { name: 'LwM2M', features_es: 'Lightweight M2M para gestión de dispositivos IoT', features_pt: 'Lightweight M2M para gerenciamento de dispositivos IoT' },
-            { name: 'CoAP', features_es: 'Protocolo de Aplicación Restringida', features_pt: 'Protocolo de Aplicação Restrita' },
-        ];
-
-        for (const proto of protocols) {
-            const features_translations = { es: proto.features_es, 'pt-BR': proto.features_pt };
-            await client.query(
-                'INSERT INTO protocols (name, features_translations) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING',
-                [proto.name, features_translations]
-            );
-        }
+        await client.query(`
+            INSERT INTO protocols (name, features_translations) VALUES
+            ('Websocket', '{"es": "Protocolo de comunicación bidireccional y full-duplex sobre un único socket TCP. Ideal para aplicaciones en tiempo real.", "pt-BR": "Protocolo de comunicação bidirecional e full-duplex sobre um único soquete TCP. Ideal para aplicações em tempo real."}'),
+            ('MQTT', '{"es": "Protocolo de mensajería ligero de publicación/suscripción. Diseñado para conexiones con poco ancho de banda y alta latencia, común en IoT.", "pt-BR": "Protocolo de mensagens leve de publicação/assinatura. Projetado para conexões com baixa largura de banda e alta latência, comum em IoT."}'),
+            ('CoAP', '{"es": "Protocolo web especializado para dispositivos y redes con recursos restringidos. Similar a HTTP pero mucho más ligero.", "pt-BR": "Protocolo web especializado para dispositivos e redes com recursos restritos. Semelhante ao HTTP, mas muito mais leve."}'),
+            ('HTTP', '{"es": "Protocolo de transferencia de hipertexto. Un protocolo estándar de solicitud-respuesta para la comunicación cliente-servidor.", "pt-BR": "Protocolo de transferência de hipertexto. Um protocolo padrão de solicitação-resposta para a comunicação cliente-servidor."}')
+            ON CONFLICT (name) DO NOTHING;
+        `);
         log.push('SUCCESS: Default protocols data seeded.');
     } catch (e: any) {
         log.push(`ERROR: Seeding protocols failed: ${e.message}`);
