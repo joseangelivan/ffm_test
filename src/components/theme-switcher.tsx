@@ -17,35 +17,33 @@ import { CondoDashboardContext } from "@/contexts/condo-dashboard-context";
 
 export function ThemeSwitcher() {
   const { t } = useLocale();
+  const [mounted, setMounted] = React.useState(false);
 
   // Attempt to get context from either dashboard.
   const adminContext = React.useContext(AdminDashboardContext);
   const condoContext = React.useContext(CondoDashboardContext);
-
   const context = adminContext || condoContext;
-  
-  // Local state for pages without context (like login)
-  const [localTheme, setLocalTheme] = React.useState<'light' | 'dark'>('light');
-
-  // Determine the current theme
-  const theme = context ? context.theme : localTheme;
-  const handleSetTheme = context?.handleSetTheme;
-
-  const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
 
-  const onThemeChange = (newTheme: 'light' | 'dark') => {
-    if (handleSetTheme) {
-        handleSetTheme(newTheme);
+  const handleThemeChange = (newTheme: string) => {
+    if (context && context.handleSetTheme) {
+      // If we are inside a dashboard, use the context's handler
+      context.handleSetTheme(newTheme);
     } else {
-        // Fallback for non-context pages
-        setLocalTheme(newTheme);
-        document.documentElement.classList.toggle('dark', newTheme === 'dark');
+      // Fallback for pages without context (like login page)
+      // This directly manipulates the DOM, which is acceptable for this simple case.
+      document.documentElement.classList.remove('light', 'dark');
+      if (newTheme !== 'light' && newTheme !== 'dark') {
+         // This assumes custom themes are always dark-based for simplicity on login pages
+         document.documentElement.classList.add('dark');
+      } else {
+         document.documentElement.classList.add(newTheme);
+      }
     }
-  }
+  };
 
   if (!mounted) {
       return (
@@ -65,12 +63,13 @@ export function ThemeSwitcher() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onThemeChange('light')}>
+        <DropdownMenuItem onClick={() => handleThemeChange('light')}>
           {t('dashboard.theme.light')}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onThemeChange('dark')}>
+        <DropdownMenuItem onClick={() => handleThemeChange('dark')}>
           {t('dashboard.theme.dark')}
         </DropdownMenuItem>
+        {/* For simplicity, custom themes are not listed on context-less pages */}
       </DropdownMenuContent>
     </DropdownMenu>
   )
