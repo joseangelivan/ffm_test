@@ -146,28 +146,24 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogo
                             <span>{t('dashboard.settings')}</span>
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
-                            <DropdownMenuSubContent>
-                                {!isCondoView && (
-                                    <>
-                                        <ManageInterfaceDialog />
-                                        <ManageCatalogsDialog />
-                                        <DropdownMenuSub>
-                                            <DropdownMenuSubTrigger>
-                                                <Server className="mr-2 h-4 w-4" />
-                                                <span>{t('adminDashboard.settingsGroups.systemConfiguration')}</span>
-                                            </DropdownMenuSubTrigger>
-                                            <DropdownMenuPortal>
-                                                <DropdownMenuSubContent>
-                                                    <SmtpConfigDialog />
-                                                    <ManageDomainDialog />
-                                                    <ManageTranslatorDialog />
-                                                </DropdownMenuSubContent>
-                                            </DropdownMenuPortal>
-                                        </DropdownMenuSub>
-                                        <DropdownMenuSeparator/>
-                                        {session.canCreateAdmins && <ManageAdminsDialog session={session}/>}
-                                    </>
-                                )}
+                             <DropdownMenuSubContent>
+                                <ManageInterfaceDialog />
+                                <ManageCatalogsDialog />
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>
+                                        <Server className="mr-2 h-4 w-4" />
+                                        <span>{t('adminDashboard.settingsGroups.systemConfiguration')}</span>
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuPortal>
+                                        <DropdownMenuSubContent>
+                                            <SmtpConfigDialog />
+                                            <ManageDomainDialog />
+                                            <ManageTranslatorDialog />
+                                        </DropdownMenuSubContent>
+                                    </DropdownMenuPortal>
+                                </DropdownMenuSub>
+                                <DropdownMenuSeparator/>
+                                {session.canCreateAdmins && <ManageAdminsDialog session={session}/>}
                             </DropdownMenuSubContent>
                         </DropdownMenuPortal>
                     </DropdownMenuSub>
