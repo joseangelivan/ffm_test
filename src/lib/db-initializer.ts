@@ -75,7 +75,7 @@ async function runBaseSchemas(client: PoolClient, log: string[]): Promise<void> 
 
 
 async function seedInitialData(client: PoolClient, log: string[]): Promise<void> {
-    log.push('PHASE 3: Seeding all initial data (backup)...');
+    log.push('PHASE 3: Seeding all initial data...');
 
     // Admin User
     try {
@@ -159,10 +159,19 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
         log.push(`ERROR: Seeding languages failed: ${e.message}`);
         throw e;
     }
+    
+    // Protocols
+    try {
+        await applySqlFile(client, 'protocols/seed.sql', log);
+        log.push('SUCCESS: Default protocols seeded.');
+    } catch(e: any) {
+        log.push(`ERROR: Seeding protocols failed: ${e.message}`);
+        throw e;
+    }
 }
 
 async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
-    log.push('PHASE 4: Seeding test data (backup)...');
+    log.push('PHASE 4: Seeding test data...');
 
     try {
         const testCondoName = 'Condominio Paraíso';
@@ -375,5 +384,3 @@ export async function clearDatabase(
         }
     }
 }
-
-    
