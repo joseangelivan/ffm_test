@@ -1,17 +1,23 @@
--- Tabla para almacenar configuraciones de servicios de traducción externos
 CREATE TABLE IF NOT EXISTS translation_services (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     config_json JSONB NOT NULL,
+    is_default BOOLEAN DEFAULT false,
     supported_languages JSONB,
-    is_default BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Trigger para actualizar el campo updated_at
-DROP TRIGGER IF EXISTS set_updated_at ON public.translation_services;
-CREATE TRIGGER set_updated_at
+CREATE OR REPLACE FUNCTION trigger_set_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS set_timestamp ON translation_services;
+CREATE TRIGGER set_timestamp
 BEFORE UPDATE ON translation_services
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+EXECUTE PROCEDURE trigger_set_timestamp();

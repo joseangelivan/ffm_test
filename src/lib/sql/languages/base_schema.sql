@@ -1,4 +1,3 @@
--- Tabla para el catálogo de idiomas
 CREATE TABLE IF NOT EXISTS languages (
     id VARCHAR(10) PRIMARY KEY,
     name_translations JSONB NOT NULL,
@@ -6,9 +5,16 @@ CREATE TABLE IF NOT EXISTS languages (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Trigger para actualizar el campo updated_at
-DROP TRIGGER IF EXISTS set_updated_at ON public.languages;
-CREATE TRIGGER set_updated_at
+CREATE OR REPLACE FUNCTION trigger_set_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS set_timestamp ON languages;
+CREATE TRIGGER set_timestamp
 BEFORE UPDATE ON languages
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+EXECUTE PROCEDURE trigger_set_timestamp();
