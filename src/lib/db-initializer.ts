@@ -50,7 +50,6 @@ async function applySqlFile(client: PoolClient, filePath: string, log: string[])
 async function ensureSystemObjects(client: PoolClient, log: string[]): Promise<void> {
     log.push('PHASE 1: Ensuring core system objects exist...');
     // This function is now focused on the migrations log table
-    await applySqlFile(client, 'system/update_timestamp_function.sql', log);
     await applySqlFile(client, 'system/migrations_log.sql', log);
     log.push('SUCCESS: Core system objects are in place.');
 }
@@ -59,6 +58,9 @@ async function ensureSystemObjects(client: PoolClient, log: string[]): Promise<v
 async function runBaseSchemas(client: PoolClient, log: string[]): Promise<void> {
     log.push('PHASE 2: Applying base schemas...');
     
+    // Ensure the timestamp function exists before any tables that might use it.
+    await applySqlFile(client, 'system/update_timestamp_function.sql', log);
+
     const executedResult = await client.query('SELECT filename FROM migrations_log');
     const executedFiles = new Set(executedResult.rows.map(r => r.filename));
 
