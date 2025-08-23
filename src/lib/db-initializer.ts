@@ -49,8 +49,8 @@ async function applySqlFile(client: PoolClient, filePath: string, log: string[])
 
 async function ensureSystemObjects(client: PoolClient, log: string[]): Promise<void> {
     log.push('PHASE 1: Ensuring core system objects exist...');
-    // This function is now focused on the migrations log table
     await applySqlFile(client, 'system/migrations_log.sql', log);
+    await applySqlFile(client, 'system/update_timestamp_function.sql', log);
     log.push('SUCCESS: Core system objects are in place.');
 }
 
@@ -375,5 +375,3 @@ export async function clearDatabase(
         }
     }
 }
-
-    

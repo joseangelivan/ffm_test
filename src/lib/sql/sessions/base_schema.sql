@@ -3,21 +3,16 @@ CREATE TABLE IF NOT EXISTS sessions (
     user_id UUID NOT NULL,
     user_type VARCHAR(50) NOT NULL,
     token TEXT NOT NULL,
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, user_type)
 );
 
-CREATE OR REPLACE FUNCTION trigger_set_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at);
 
-DROP TRIGGER IF EXISTS set_timestamp ON sessions;
-CREATE TRIGGER set_timestamp
+DROP TRIGGER IF EXISTS set_timestamp_sessions ON sessions;
+CREATE TRIGGER set_timestamp_sessions
 BEFORE UPDATE ON sessions
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();

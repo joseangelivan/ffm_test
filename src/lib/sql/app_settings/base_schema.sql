@@ -1,20 +1,12 @@
 CREATE TABLE IF NOT EXISTS app_settings (
     id VARCHAR(255) PRIMARY KEY,
     value TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE OR REPLACE FUNCTION trigger_set_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS set_timestamp ON app_settings;
-CREATE TRIGGER set_timestamp
+DROP TRIGGER IF EXISTS set_timestamp_app_settings ON app_settings;
+CREATE TRIGGER set_timestamp_app_settings
 BEFORE UPDATE ON app_settings
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();

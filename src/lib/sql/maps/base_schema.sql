@@ -3,9 +3,9 @@ CREATE TABLE IF NOT EXISTS geofences (
     condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     geometry JSONB NOT NULL,
-    is_default BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    is_default BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS map_element_types (
@@ -13,18 +13,9 @@ CREATE TABLE IF NOT EXISTS map_element_types (
     condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     icon_svg TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(condominium_id, name)
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE OR REPLACE FUNCTION trigger_set_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS set_timestamp_geofences ON geofences;
 CREATE TRIGGER set_timestamp_geofences

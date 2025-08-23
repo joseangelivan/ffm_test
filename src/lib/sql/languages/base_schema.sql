@@ -1,20 +1,12 @@
 CREATE TABLE IF NOT EXISTS languages (
     id VARCHAR(10) PRIMARY KEY,
     name_translations JSONB NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE OR REPLACE FUNCTION trigger_set_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS set_timestamp ON languages;
-CREATE TRIGGER set_timestamp
+DROP TRIGGER IF EXISTS set_timestamp_languages ON languages;
+CREATE TRIGGER set_timestamp_languages
 BEFORE UPDATE ON languages
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();

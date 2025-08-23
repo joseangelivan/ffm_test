@@ -20,20 +20,12 @@ CREATE TABLE IF NOT EXISTS themes (
     border_hsl VARCHAR(50) NOT NULL,
     input_hsl VARCHAR(50) NOT NULL,
     ring_hsl VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE OR REPLACE FUNCTION trigger_set_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS set_timestamp ON themes;
-CREATE TRIGGER set_timestamp
+DROP TRIGGER IF EXISTS set_timestamp_themes ON themes;
+CREATE TRIGGER set_timestamp_themes
 BEFORE UPDATE ON themes
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();
