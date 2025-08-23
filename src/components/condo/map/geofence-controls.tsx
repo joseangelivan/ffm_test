@@ -107,7 +107,7 @@ export function GeofenceControls({
 
         setCurrentGeofenceName('');
         setIsShapeDrawn(false);
-        onHistoryUpdate(null);
+        if (onHistoryUpdate) onHistoryUpdate(null);
     }, [drawingManager, activeShapeRef, onHistoryUpdate]);
 
 
@@ -149,7 +149,7 @@ export function GeofenceControls({
         
         const tempId = `new-shape-${Date.now()}`;
         activeShapeRef.current = { id: tempId, shape: newShape };
-        onHistoryUpdate(newShape);
+        if (onHistoryUpdate) onHistoryUpdate(newShape);
         setIsShapeDrawn(true);
 
     }, [drawingManager, activeShapeRef, onHistoryUpdate]);
@@ -186,7 +186,7 @@ export function GeofenceControls({
         const originalGeometry = getGeometryFromShape(shapeToEdit);
         
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
-        onHistoryUpdate(shapeToEdit);
+        if (onHistoryUpdate) onHistoryUpdate(shapeToEdit);
         setIsShapeDrawn(true);
         
         setCurrentGeofenceName(geofenceData.name);
