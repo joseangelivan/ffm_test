@@ -194,14 +194,26 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
 
-  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
+  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isFirstChange: boolean = false) => {
     const newGeometry = getGeometryFromShape(shape);
+
     setHistory(currentHistory => {
-        const newBranch = currentHistory.slice(0, historyIndex + 1);
-        if (isEqual(newBranch[newBranch.length - 1], newGeometry)) {
-            return currentHistory;
+        let newBranch = [...currentHistory];
+        
+        // If we make a change after undoing, we create a new "branch"
+        if (historyIndex < currentHistory.length - 1) {
+            newBranch = currentHistory.slice(0, historyIndex + 1);
         }
-        newBranch.push(newGeometry);
+
+        if (isFirstChange) {
+            newBranch.push(newGeometry);
+        } else {
+             // To prevent state pollution, only add if geometry is different
+            if (!isEqual(newBranch[newBranch.length - 1], newGeometry)) {
+                newBranch.push(newGeometry);
+            }
+        }
+        
         setHistoryIndex(newBranch.length - 1);
         return newBranch;
     });
@@ -351,7 +363,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         listeners.forEach(l => l.remove());
         google.maps.event.clearInstanceListeners(shape);
     };
-  }, [mode, activeShapeRef.current?.shape, history, historyIndex, handleHistoryUpdate]);
+  }, [mode, handleHistoryUpdate, activeShapeRef.current?.shape]);
     
   useEffect(() => {
     const map = mapRef.current;
@@ -556,10 +568,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
                                     activeShapeRef={activeShapeRef}
-                                    history={history}
-                                    setHistory={setHistory}
-                                    historyIndex={historyIndex}
-                                    setHistoryIndex={setHistoryIndex}
+                                    onHistoryUpdate={handleHistoryUpdate}
                                 />
                             )}
                             {selectedModule === 'elements' && (
