@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -189,36 +190,21 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
   
-  useEffect(() => {
-    setHistoryState({
-        canUndo: historyIndex > 0,
-        canRedo: historyIndex < history.length - 1,
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
+
+  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
+    const newGeometry = getGeometryFromShape(shape);
+    setHistory(currentHistory => {
+        const newBranch = currentHistory.slice(0, historyIndex + 1);
+        if (isEqual(newBranch[newBranch.length - 1], newGeometry)) {
+            return currentHistory;
+        }
+        newBranch.push(newGeometry);
+        setHistoryIndex(newBranch.length - 1);
+        return newBranch;
     });
-  }, [historyIndex, history]);
-
-  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isInitialEdit: boolean = false) => {
-      if (!shape) {
-          setHistory([]);
-          setHistoryIndex(-1);
-      } else {
-          const newGeometry = getGeometryFromShape(shape);
-          if (isInitialEdit) {
-              setHistory([newGeometry]);
-              setHistoryIndex(0);
-          } else {
-              setHistory(prevHistory => {
-                  const lastGeometry = prevHistory[historyIndex];
-                  if (isEqual(newGeometry, lastGeometry)) return prevHistory;
-
-                  const newHistory = prevHistory.slice(0, historyIndex + 1);
-                  newHistory.push(newGeometry);
-                  setHistoryIndex(newHistory.length - 1);
-                  return newHistory;
-              });
-          }
-      }
   }, [historyIndex]);
 
 
@@ -362,9 +348,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
     
     return () => {
+        listeners.forEach(l => l.remove());
         google.maps.event.clearInstanceListeners(shape);
     };
-  }, [activeShapeRef.current?.shape, mode, handleHistoryUpdate]);
+  }, [mode, activeShapeRef.current?.shape, history, historyIndex, handleHistoryUpdate]);
     
   useEffect(() => {
     const map = mapRef.current;
@@ -422,7 +409,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       defaultGeofenceId,
       showAllGeofences,
       isLoading,
-      historyState // Add historyState as dependency to re-run styles
+      history,
+      historyIndex,
   ]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
@@ -461,7 +449,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
     
   const handleHistoryAction = (action: 'undo' | 'redo') => {
-    if ((action === 'undo' && !historyState.canUndo) || (action === 'redo' && !historyState.canRedo)) return;
+    if ((action === 'undo' && !canUndo) || (action === 'redo' && !canRedo)) return;
 
     const newIndex = action === 'undo' ? historyIndex - 1 : historyIndex + 1;
     const geometry = history[newIndex];
@@ -509,13 +497,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 drawingManagerRef={drawingManagerRef}
                             />
                         </div>
-                         {activeShapeRef.current && (historyState.canUndo || historyState.canRedo) && (
+                         {activeShapeRef.current && (canUndo || canRedo) && (
                             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">
-                                <Button onClick={() => handleHistoryAction('undo')} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!historyState.canUndo}>
+                                <Button onClick={() => handleHistoryAction('undo')} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
                                     <Undo className="h-4 w-4"/>
                                     {t('condoDashboard.map.undo')}
                                 </Button>
-                                <Button onClick={() => handleHistoryAction('redo')} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!historyState.canRedo}>
+                                <Button onClick={() => handleHistoryAction('redo')} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canRedo}>
                                     <Redo className="h-4 w-4"/>
                                     {t('condoDashboard.map.redo')}
                                 </Button>
@@ -568,7 +556,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
                                     activeShapeRef={activeShapeRef}
-                                    onHistoryUpdate={handleHistoryUpdate}
+                                    history={history}
+                                    setHistory={setHistory}
+                                    historyIndex={historyIndex}
+                                    setHistoryIndex={setHistoryIndex}
                                 />
                             )}
                             {selectedModule === 'elements' && (
@@ -591,5 +582,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
-    
