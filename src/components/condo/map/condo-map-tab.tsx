@@ -203,19 +203,19 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     });
   }, []);
 
-  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isFirstChange: boolean = false) => {
+  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isInitialEdit: boolean = false) => {
     if (!shape) {
         historyRef.current = [];
         historyIndexRef.current = -1;
     } else {
         const newGeometry = getGeometryFromShape(shape);
-        
-        if (isFirstChange) {
+
+        if (isInitialEdit) {
             // On first change (edit), clear history and set the initial state.
             historyRef.current = [newGeometry];
             historyIndexRef.current = 0;
         } else {
-            // For subsequent changes
+            // For subsequent changes or drawing completion
             const lastGeometry = historyRef.current[historyIndexRef.current];
             if(isEqual(newGeometry, lastGeometry)) return; // Don't add duplicates
             
@@ -352,7 +352,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   useEffect(() => {
     const shape = activeShapeRef.current?.shape;
     if (!shape || mode !== 'editing') {
-        return;
+        return () => {};
     }
     
     const registerChange = () => handleHistoryUpdate(shape);
@@ -371,7 +371,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => {
         google.maps.event.clearInstanceListeners(shape);
     };
-  }, [activeShapeRef.current?.shape, mode, handleHistoryUpdate]);
+  }, [mode, activeShapeRef.current?.shape, handleHistoryUpdate]);
     
   useEffect(() => {
     const map = mapRef.current;
@@ -599,5 +599,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
 
 
