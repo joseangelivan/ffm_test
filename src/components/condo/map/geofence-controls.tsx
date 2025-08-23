@@ -50,8 +50,7 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>;
-    setHistory: React.Dispatch<React.SetStateAction<any[]>>;
-    setHistoryIndex: React.Dispatch<React.SetStateAction<number>>;
+    onHistoryUpdate: (shape: google.maps.MVCObject | null, isFirstChange?: boolean) => void;
 }
 
 export function GeofenceControls({
@@ -70,8 +69,7 @@ export function GeofenceControls({
     setShowAllGeofences,
     onSettingsClick,
     activeShapeRef,
-    setHistory,
-    setHistoryIndex,
+    onHistoryUpdate,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -110,9 +108,8 @@ export function GeofenceControls({
 
         setCurrentGeofenceName('');
         setIsShapeDrawn(false);
-        setHistory([]);
-        setHistoryIndex(-1);
-    }, [drawingManager, activeShapeRef, setHistory, setHistoryIndex]);
+        onHistoryUpdate(null);
+    }, [drawingManager, activeShapeRef, onHistoryUpdate]);
 
 
     const getNextGeofenceName = useCallback(() => {
@@ -153,11 +150,10 @@ export function GeofenceControls({
         
         const tempId = `new-shape-${Date.now()}`;
         activeShapeRef.current = { id: tempId, shape: newShape };
-        setHistory([getGeometryFromShape(newShape)]);
-        setHistoryIndex(0);
+        onHistoryUpdate(newShape, true);
         setIsShapeDrawn(true);
 
-    }, [drawingManager, activeShapeRef, setHistory, setHistoryIndex]);
+    }, [drawingManager, activeShapeRef, onHistoryUpdate]);
 
 
     useEffect(() => {
@@ -191,8 +187,7 @@ export function GeofenceControls({
         const originalGeometry = getGeometryFromShape(shapeToEdit);
         
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
-        setHistory([originalGeometry]);
-        setHistoryIndex(0);
+        onHistoryUpdate(shapeToEdit, true);
         setIsShapeDrawn(true);
         
         setCurrentGeofenceName(geofenceData.name);
