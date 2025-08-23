@@ -369,7 +369,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => {
         google.maps.event.clearInstanceListeners(shape);
     };
-  }, [activeShapeRef.current, mode, handleHistoryUpdate, updateHistoryButtons]);
+  }, [activeShapeRef.current?.shape, mode, handleHistoryUpdate, updateHistoryButtons]);
     
   useEffect(() => {
     const map = mapRef.current;
