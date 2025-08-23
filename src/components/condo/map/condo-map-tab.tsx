@@ -187,17 +187,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [selectedModule, setSelectedModule] = useState('geofence');
 
   // --- History State Management ---
+  const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>(null);
   const historyRef = useRef<any[]>([]);
   const historyIndexRef = useRef<number>(-1);
-  const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>(null);
-  
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
 
   const updateHistoryButtons = useCallback(() => {
     setHistoryState(prevState => {
         const newCanUndo = historyIndexRef.current > 0;
         const newCanRedo = historyIndexRef.current < historyRef.current.length - 1;
-        // Only update state if values have actually changed to prevent unnecessary re-renders
         if (prevState.canUndo !== newCanUndo || prevState.canRedo !== newCanRedo) {
             return { canUndo: newCanUndo, canRedo: newCanRedo };
         }
@@ -212,13 +210,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     } else {
         const newGeometry = getGeometryFromShape(shape);
         const lastGeometry = historyRef.current[historyIndexRef.current];
-        
-        if(historyIndexRef.current > -1 && isEqual(newGeometry, lastGeometry)) {
-            return;
-        }
+        if(historyIndexRef.current > -1 && isEqual(newGeometry, lastGeometry)) return;
 
         const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-        
         newHistory.push(newGeometry);
         historyRef.current = newHistory;
         historyIndexRef.current = newHistory.length - 1;
@@ -369,7 +363,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => {
         google.maps.event.clearInstanceListeners(shape);
     };
-  }, [activeShapeRef.current?.shape, mode, handleHistoryUpdate, updateHistoryButtons]);
+  }, [activeShapeRef.current?.shape, mode, handleHistoryUpdate]);
     
   useEffect(() => {
     const map = mapRef.current;
