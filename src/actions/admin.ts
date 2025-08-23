@@ -800,10 +800,17 @@ export async function disableTotp(): Promise<ActionState> {
 
 export async function getActiveTheme(settings: UserSettings | null) {
     let themeId = settings?.theme;
-
+    
     if (!themeId) {
-        const defaultThemeId = await getAppSetting('default_theme_id');
-        themeId = defaultThemeId || 'light';
+        try {
+            const defaultThemeId = await getAppSetting('default_theme_id');
+            themeId = defaultThemeId || 'light';
+        } catch (error) {
+            // This can happen if the database is not initialized yet.
+            // It's safe to fallback to a default theme.
+            console.warn("Could not fetch default_theme_id, falling back to 'light'. This is expected during initial setup.", error);
+            themeId = 'light';
+        }
     }
     
     // Check built-in themes first
