@@ -209,13 +209,19 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         historyIndexRef.current = -1;
     } else {
         const newGeometry = getGeometryFromShape(shape);
-        const lastGeometry = historyRef.current[historyIndexRef.current];
-        if(historyIndexRef.current > -1 && isEqual(newGeometry, lastGeometry)) return;
-
-        const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-        newHistory.push(newGeometry);
-        historyRef.current = newHistory;
-        historyIndexRef.current = newHistory.length - 1;
+        // On first edit, push the initial state twice to have a "before" and "current" state
+        if(historyRef.current.length === 0) {
+             historyRef.current.push(newGeometry, newGeometry);
+             historyIndexRef.current = 1;
+        } else {
+            const lastGeometry = historyRef.current[historyIndexRef.current];
+            if(isEqual(newGeometry, lastGeometry)) return; // Don't add duplicates
+            
+            const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+            newHistory.push(newGeometry);
+            historyRef.current = newHistory;
+            historyIndexRef.current = newHistory.length - 1;
+        }
     }
     updateHistoryButtons();
   }, [updateHistoryButtons]);
@@ -591,3 +597,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
