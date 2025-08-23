@@ -39,6 +39,7 @@ import {
   MessageSquareQuote,
   Building,
   Server,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -134,6 +135,11 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogo
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                      
+                    <DropdownMenuItem onSelect={() => setIsAccountDialogOpen(true)}>
+                        <User className="mr-2 h-4 w-4" />
+                        <span>{t('adminDashboard.account.myAccount')}</span>
+                    </DropdownMenuItem>
+                    
                     <DropdownMenuSub>
                         <DropdownMenuSubTrigger>
                             <Settings className="mr-2 h-4 w-4" />
@@ -141,11 +147,6 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogo
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
                             <DropdownMenuSubContent>
-                                <DropdownMenuItem onSelect={() => setIsAccountDialogOpen(true)}>
-                                    <Settings className="mr-2 h-4 w-4" />
-                                    <span>{t('adminDashboard.account.myAccount')}</span>
-                                </DropdownMenuItem>
-                                
                                 {!isCondoView && (
                                     <>
                                         <ManageInterfaceDialog />
