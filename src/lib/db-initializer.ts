@@ -99,68 +99,23 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
         throw e;
     }
     
-    // Device Types
+    // Catalogs
     try {
-        const name_translations = { es: 'Teléfono Inteligente', 'pt-BR': 'Smartphone' };
-        await client.query(
-            `INSERT INTO device_types (name_translations) VALUES ($1) 
-             ON CONFLICT ((name_translations->>'es'), (name_translations->>'pt-BR')) DO NOTHING`,
-            [name_translations]
-        );
-        log.push('SUCCESS: Default device type data seeded.');
+        await applySqlFile(client, 'device_types/seed.sql', log);
+        log.push('SUCCESS: Default device types seeded.');
     } catch (e: any) {
         log.push(`ERROR: Seeding device types failed: ${e.message}`);
         throw e;
     }
     
-    // Languages
     try {
-        const languages = [
-            { id: 'en', es: 'Inglés', pt: 'Inglês' },
-            { id: 'es', es: 'Español', pt: 'Espanhol' },
-            { id: 'fr', es: 'Francés', pt: 'Francês' },
-            { id: 'de', es: 'Alemán', pt: 'Alemão' },
-            { id: 'it', es: 'Italiano', pt: 'Italiano' },
-            { id: 'pt', es: 'Portugués', pt: 'Português' },
-            { id: 'pt-BR', es: 'Portugués (Brasil)', pt: 'Português (Brasil)' },
-            { id: 'ru', es: 'Ruso', pt: 'Russo' },
-            { id: 'zh', es: 'Chino', pt: 'Chinês' },
-            { id: 'ja', es: 'Japonés', pt: 'Japonês' },
-            { id: 'ko', es: 'Coreano', pt: 'Coreano' },
-            { id: 'ar', es: 'Árabe', pt: 'Árabe' },
-            { id: 'hi', es: 'Hindi', pt: 'Híndi' },
-            { id: 'bn', es: 'Bengalí', pt: 'Bengali' },
-            { id: 'nl', es: 'Holandés', pt: 'Holandês' },
-            { id: 'sv', es: 'Sueco', pt: 'Sueco' },
-            { id: 'fi', es: 'Finlandés', pt: 'Finlandês' },
-            { id: 'da', es: 'Danés', pt: 'Dinamarquês' },
-            { id: 'pl', es: 'Polaco', pt: 'Polonês' },
-            { id: 'uk', es: 'Ucraniano', pt: 'Ucraniano' },
-            { id: 'tr', es: 'Turco', pt: 'Turco' },
-            { id: 'el', es: 'Griego', pt: 'Grego' },
-            { id: 'he', es: 'Hebreo', pt: 'Hebraico' },
-            { id: 'th', es: 'Tailandés', pt: 'Tailandês' },
-            { id: 'vi', es: 'Vietnamita', pt: 'Vietnamita' },
-            { id: 'cs', es: 'Checo', pt: 'Tcheco' },
-            { id: 'hu', es: 'Húngaro', pt: 'Húngaro' },
-            { id: 'ro', es: 'Rumano', pt: 'Romeno' },
-            { id: 'id', es: 'Indonesio', pt: 'Indonésio' }
-        ];
-
-        for (const lang of languages) {
-            const name_translations = { es: lang.es, 'pt-BR': lang.pt };
-            await client.query(
-                'INSERT INTO languages (id, name_translations) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
-                [lang.id, name_translations]
-            );
-        }
-        log.push('SUCCESS: Default languages data seeded.');
+        await applySqlFile(client, 'languages/seed.sql', log);
+        log.push('SUCCESS: Default languages seeded.');
     } catch (e: any) {
         log.push(`ERROR: Seeding languages failed: ${e.message}`);
         throw e;
     }
     
-    // Protocols
     try {
         await applySqlFile(client, 'protocols/seed.sql', log);
         log.push('SUCCESS: Default protocols seeded.');
