@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -188,45 +187,39 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   // --- History State Management ---
   const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>(null);
-  const historyRef = useRef<any[]>([]);
-  const historyIndexRef = useRef<number>(-1);
+  const [history, setHistory] = useState<any[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
-
-  const updateHistoryButtons = useCallback(() => {
-    setHistoryState(prevState => {
-        const newCanUndo = historyIndexRef.current > 0;
-        const newCanRedo = historyIndexRef.current < historyRef.current.length - 1;
-        if (prevState.canUndo !== newCanUndo || prevState.canRedo !== newCanRedo) {
-            return { canUndo: newCanUndo, canRedo: newCanRedo };
-        }
-        return prevState;
+  
+  useEffect(() => {
+    setHistoryState({
+        canUndo: historyIndex > 0,
+        canRedo: historyIndex < history.length - 1,
     });
-  }, []);
+  }, [historyIndex, history]);
 
   const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isInitialEdit: boolean = false) => {
-    if (!shape) {
-        historyRef.current = [];
-        historyIndexRef.current = -1;
-    } else {
-        const newGeometry = getGeometryFromShape(shape);
+      if (!shape) {
+          setHistory([]);
+          setHistoryIndex(-1);
+      } else {
+          const newGeometry = getGeometryFromShape(shape);
+          if (isInitialEdit) {
+              setHistory([newGeometry]);
+              setHistoryIndex(0);
+          } else {
+              setHistory(prevHistory => {
+                  const lastGeometry = prevHistory[historyIndex];
+                  if (isEqual(newGeometry, lastGeometry)) return prevHistory;
 
-        if (isInitialEdit) {
-            // On first change (edit), clear history and set the initial state.
-            historyRef.current = [newGeometry];
-            historyIndexRef.current = 0;
-        } else {
-            // For subsequent changes or drawing completion
-            const lastGeometry = historyRef.current[historyIndexRef.current];
-            if(isEqual(newGeometry, lastGeometry)) return; // Don't add duplicates
-            
-            const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-            newHistory.push(newGeometry);
-            historyRef.current = newHistory;
-            historyIndexRef.current = newHistory.length - 1;
-        }
-    }
-    updateHistoryButtons();
-  }, [updateHistoryButtons]);
+                  const newHistory = prevHistory.slice(0, historyIndex + 1);
+                  newHistory.push(newGeometry);
+                  setHistoryIndex(newHistory.length - 1);
+                  return newHistory;
+              });
+          }
+      }
+  }, [historyIndex]);
 
 
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
@@ -352,7 +345,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   useEffect(() => {
     const shape = activeShapeRef.current?.shape;
     if (!shape || mode !== 'editing') {
-        return () => {};
+        return;
     }
     
     const registerChange = () => handleHistoryUpdate(shape);
@@ -371,7 +364,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => {
         google.maps.event.clearInstanceListeners(shape);
     };
-  }, [mode, activeShapeRef.current?.shape, handleHistoryUpdate]);
+  }, [activeShapeRef.current?.shape, mode, handleHistoryUpdate]);
     
   useEffect(() => {
     const map = mapRef.current;
@@ -470,15 +463,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const handleHistoryAction = (action: 'undo' | 'redo') => {
     if ((action === 'undo' && !historyState.canUndo) || (action === 'redo' && !historyState.canRedo)) return;
 
-    const newIndex = action === 'undo' ? historyIndexRef.current - 1 : historyIndexRef.current + 1;
-    const geometry = historyRef.current[newIndex];
+    const newIndex = action === 'undo' ? historyIndex - 1 : historyIndex + 1;
+    const geometry = history[newIndex];
     const shapeToUpdate = activeShapeRef.current?.shape;
 
     if (!geometry || !shapeToUpdate) return;
     
     restoreShapeToGeometry(shapeToUpdate, geometry);
-    historyIndexRef.current = newIndex;
-    updateHistoryButtons();
+    setHistoryIndex(newIndex);
   };
   
   return (
@@ -600,5 +592,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   );
 }
 
-
-
+    
