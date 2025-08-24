@@ -156,6 +156,39 @@ export function GeofenceControls({
 
     }, [drawingManager, activeShapeRef, onHistoryUpdate]);
 
+     useEffect(() => {
+        const shape = activeShapeRef.current?.shape;
+        if (!shape || mode !== 'editing') {
+            return;
+        }
+
+        const registerChange = () => onHistoryUpdate(shape);
+
+        const listeners = [
+            google.maps.event.addListener(shape, 'dragend', registerChange),
+        ];
+
+        if ('getRadius' in shape) { // Circle
+            listeners.push(google.maps.event.addListener(shape, 'radius_changed', registerChange));
+            listeners.push(google.maps.event.addListener(shape, 'center_changed', registerChange));
+        }
+
+        if ('getBounds' in shape) { // Rectangle
+             listeners.push(google.maps.event.addListener(shape, 'bounds_changed', registerChange));
+        }
+
+        if ('getPath' in shape) { // Polygon
+            const path = (shape as google.maps.Polygon).getPath();
+            listeners.push(google.maps.event.addListener(path, 'set_at', registerChange));
+            listeners.push(google.maps.event.addListener(path, 'insert_at', registerChange));
+            listeners.push(google.maps.event.addListener(path, 'remove_at', registerChange));
+        }
+
+        return () => {
+            listeners.forEach(listener => listener.remove());
+        };
+    }, [mode, activeShapeRef.current?.shape, onHistoryUpdate]);
+
 
     useEffect(() => {
         if (drawingManager) {
