@@ -10,7 +10,9 @@ import {
   Settings,
   Edit,
   Loader,
-  Copy
+  Copy,
+  PlugZap,
+  RotateCcw
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -61,23 +63,26 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import type { Device } from '@/actions/devices';
 import { getProtocols, getDeviceTypes, type Protocol, type DeviceType } from '@/actions/catalogs';
-import { createOrUpdateDeviceCommunication, createDevice, deleteDevice } from '@/actions/devices';
+import { createOrUpdateDeviceCommunication, createDevice, deleteDevice, updateDevice, removeDeviceCommunication } from '@/actions/devices';
 import { Skeleton } from '../ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { cn } from '@/lib/utils';
 import { LoadingOverlay } from '../admin/admin-header';
 
-function ManageDeviceForm({
+function ManageProtocolForm({
     device,
     protocols,
     onSuccess,
+    onCancel,
 }: {
     device: Device;
     protocols: Protocol[];
     onSuccess: () => void;
+    onCancel: () => void;
 }) {
     const { t } = useLocale();
     const { toast } = useToast();
+    const [isRemoving, startRemovingTransition] = useTransition();
 
     const handleAction = async (prevState: any, formData: FormData) => {
         const result = await createOrUpdateDeviceCommunication(prevState, formData);
@@ -93,11 +98,25 @@ function ManageDeviceForm({
     const [state, formAction] = useActionState(handleAction, null);
     const { pending } = useFormStatus();
 
+    const handleRemoveProtocol = () => {
+        startRemovingTransition(async () => {
+            const result = await removeDeviceCommunication(device.id);
+            if (result.success) {
+                toast({ title: t('toast.successTitle'), description: result.message });
+                onSuccess();
+            } else {
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            }
+        });
+    }
+
+    const isBusy = pending || isRemoving;
+
     return (
         <DialogContent>
              <form action={formAction}>
-                 <div className={cn("relative transition-opacity", pending && "opacity-50")}>
-                    {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.updating')} />}
+                 <div className={cn("relative transition-opacity", isBusy && "opacity-50")}>
+                    {isBusy && <LoadingOverlay text={t('adminDashboard.loadingOverlay.updating')} />}
                     <DialogHeader>
                         <DialogTitle>{t('condoDashboard.devices.manageDialog.title', { name: device.name })}</DialogTitle>
                         <DialogDescription>{t('condoDashboard.devices.manageDialog.description')}</DialogDescription>
@@ -106,7 +125,7 @@ function ManageDeviceForm({
                     <div className="grid gap-6 py-4">
                         <div className="space-y-2">
                             <Label htmlFor="protocol_id">{t('condoDashboard.devices.manageDialog.protocol')}</Label>
-                            <Select name="protocol_id" defaultValue={device.protocol_id || ''} required disabled={pending}>
+                            <Select name="protocol_id" defaultValue={device.protocol_id || ''} disabled={isBusy}>
                                 <SelectTrigger id="protocol_id">
                                     <SelectValue placeholder={t('condoDashboard.devices.manageDialog.selectProtocol')} />
                                 </SelectTrigger>
@@ -119,12 +138,18 @@ function ManageDeviceForm({
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="physical_device_id">{t('condoDashboard.devices.manageDialog.physicalDeviceId')}</Label>
-                            <Input id="physical_device_id" name="physical_device_id" defaultValue={device.physical_device_id || ''} placeholder="ID físico del dispositivo" disabled={pending} />
+                            <Input id="physical_device_id" name="physical_device_id" defaultValue={device.physical_device_id || ''} placeholder="ID físico del dispositivo" disabled={isBusy} />
                         </div>
                     </div>
-                    <DialogFooter>
-                        <DialogClose asChild><Button type="button" variant="outline" disabled={pending}>{t('common.cancel')}</Button></DialogClose>
-                         <Button type="submit" disabled={pending}>{t('common.save')}</Button>
+                    <DialogFooter className="sm:justify-between">
+                         <Button type="button" variant="destructive" onClick={handleRemoveProtocol} disabled={isBusy}>
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                            {t('condoDashboard.devices.manageDialog.removeButton')}
+                        </Button>
+                        <div className="flex gap-2">
+                            <Button type="button" variant="outline" onClick={onCancel} disabled={isBusy}>{t('common.cancel')}</Button>
+                            <Button type="submit" disabled={isBusy}>{t('common.save')}</Button>
+                        </div>
                     </DialogFooter>
                 </div>
             </form>
@@ -132,20 +157,26 @@ function ManageDeviceForm({
     )
 }
 
-function CreateDeviceForm({
+function DeviceForm({
     condoId,
+    device,
     deviceTypes,
     onSuccess,
+    onCancel
 }: {
-    condoId: string;
-    deviceTypes: DeviceType[];
-    onSuccess: () => void;
+    condoId: string,
+    device: Device | null,
+    deviceTypes: DeviceType[],
+    onSuccess: () => void,
+    onCancel: () => void,
 }) {
     const { t, locale } = useLocale();
     const { toast } = useToast();
-    
+    const isEditMode = !!device;
+    const formAction = isEditMode ? updateDevice : createDevice;
+
     const handleAction = async (prevState: any, formData: FormData) => {
-        const result = await createDevice(prevState, formData);
+        const result = await formAction(prevState, formData);
         if (result.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
             onSuccess();
@@ -154,27 +185,27 @@ function CreateDeviceForm({
         }
         return result;
     };
-
-    const [state, formAction] = useActionState(handleAction, null);
+    const [state, dispatch] = useActionState(handleAction, null);
     const { pending } = useFormStatus();
 
-    return (
+     return (
         <DialogContent>
-             <form action={formAction}>
+             <form action={dispatch}>
                  <div className={cn("relative transition-opacity", pending && "opacity-50")}>
-                    {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.creating')} />}
+                    {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating')} />}
                     <DialogHeader>
-                        <DialogTitle>{t('condoDashboard.devices.addDeviceButton')}</DialogTitle>
+                        <DialogTitle>{isEditMode ? t('condoDashboard.devices.editDialog.title') : t('condoDashboard.devices.addDeviceButton')}</DialogTitle>
                     </DialogHeader>
                     <input type="hidden" name="condominium_id" value={condoId} />
+                    <input type="hidden" name="id" value={device?.id || ''} />
                     <div className="grid gap-4 py-4">
                         <div className="space-y-2">
                             <Label htmlFor="name">{t('condoDashboard.devices.table.name')}</Label>
-                            <Input id="name" name="name" required disabled={pending} />
+                            <Input id="name" name="name" defaultValue={device?.name} required disabled={pending} />
                         </div>
                         <div className="space-y-2">
                              <Label htmlFor="device_type_id">{t('condoDashboard.devices.table.type')}</Label>
-                            <Select name="device_type_id" required disabled={pending}>
+                            <Select name="device_type_id" defaultValue={device?.device_type_id} required disabled={pending}>
                                 <SelectTrigger>
                                     <SelectValue placeholder={t('addDeviceDialog.selectTypePlaceholder')} />
                                 </SelectTrigger>
@@ -189,8 +220,8 @@ function CreateDeviceForm({
                         </div>
                     </div>
                     <DialogFooter>
-                        <DialogClose asChild><Button type="button" variant="outline" disabled={pending}>{t('common.cancel')}</Button></DialogClose>
-                        <Button type="submit" disabled={pending}>{t('common.create')}</Button>
+                        <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
+                        <Button type="submit" disabled={pending}>{isEditMode ? t('common.save') : t('common.create')}</Button>
                     </DialogFooter>
                 </div>
             </form>
@@ -217,8 +248,8 @@ export default function ManageDevicesTab({
     const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true);
     const [isSubmitting, startSubmittingTransition] = useTransition();
 
-    const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
-    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+    const [isProtocolDialogOpen, setIsProtocolDialogOpen] = useState(false);
+    const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
 
     const fetchCatalogs = useCallback(async () => {
@@ -258,14 +289,19 @@ export default function ManageDevicesTab({
         });
     }
     
-    const openManageDialog = (device: Device) => {
+    const openProtocolDialog = (device: Device) => {
         setSelectedDevice(device);
-        setIsManageDialogOpen(true);
+        setIsProtocolDialogOpen(true);
     }
     
-    const onFormSuccess = () => {
-        setIsManageDialogOpen(false);
-        setIsCreateDialogOpen(false);
+    const openFormDialog = (device: Device | null) => {
+        setSelectedDevice(device);
+        setIsFormDialogOpen(true);
+    }
+
+    const onDialogSuccess = () => {
+        setIsProtocolDialogOpen(false);
+        setIsFormDialogOpen(false);
         setSelectedDevice(null);
         onDataNeedsRefresh();
     }
@@ -277,7 +313,7 @@ export default function ManageDevicesTab({
                     <CardTitle>{t('condoDashboard.devices.title')}</CardTitle>
                     <CardDescription>{t('condoDashboard.devices.description')}</CardDescription>
                 </div>
-                 <Button size="sm" className="gap-1" onClick={() => setIsCreateDialogOpen(true)} disabled={isLoadingCatalogs}>
+                 <Button size="sm" className="gap-1" onClick={() => openFormDialog(null)} disabled={isLoadingCatalogs}>
                     {isLoadingCatalogs ? <Loader className="h-4 w-4 animate-spin"/> : <PlusCircle className="h-4 w-4" />}
                     {t('condoDashboard.devices.addDeviceButton')}
                 </Button>
@@ -314,10 +350,12 @@ export default function ManageDevicesTab({
                                             <Button size="icon" variant="ghost" disabled={isSubmitting}><MoreVertical className="h-4 w-4"/></Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onSelect={() => openManageDialog(device)}>
-                                                <Settings className="h-4 w-4 mr-2"/>{t('adminDashboard.table.manage')}
+                                             <DropdownMenuItem onSelect={() => openProtocolDialog(device)}>
+                                                <PlugZap className="h-4 w-4 mr-2"/>{t('condoDashboard.devices.manageDialog.menuTitle')}
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem disabled><Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => openFormDialog(device)}>
+                                                <Edit className="h-4 w-4 mr-2"/>{t('adminDashboard.table.edit')}
+                                            </DropdownMenuItem>
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild>
                                                      <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>
@@ -348,21 +386,24 @@ export default function ManageDevicesTab({
                 </Table>
             </CardContent>
 
-             <Dialog open={isManageDialogOpen} onOpenChange={setIsManageDialogOpen}>
+             <Dialog open={isProtocolDialogOpen} onOpenChange={setIsProtocolDialogOpen}>
                 {selectedDevice && (
-                    <ManageDeviceForm 
+                    <ManageProtocolForm 
                         device={selectedDevice} 
                         protocols={protocols}
-                        onSuccess={onFormSuccess}
+                        onSuccess={onDialogSuccess}
+                        onCancel={() => setIsProtocolDialogOpen(false)}
                     />
                 )}
              </Dialog>
 
-             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                <CreateDeviceForm 
+             <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
+                <DeviceForm
                     condoId={condoId}
+                    device={selectedDevice}
                     deviceTypes={deviceTypes}
-                    onSuccess={onFormSuccess}
+                    onSuccess={onDialogSuccess}
+                    onCancel={() => setIsFormDialogOpen(false)}
                 />
              </Dialog>
         </Card>

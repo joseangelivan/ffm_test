@@ -521,6 +521,9 @@
         "description": "Añade o elimina dispositivos de rastreo para este condominio.",
         "addDeviceButton": "Añadir Dispositivo",
         "noDevices": "Aún no hay dispositivos para este condominio.",
+        "editDialog": {
+            "title": "Editar Dispositivo"
+        },
         "table": {
           "name": "Nombre",
           "type": "Tipo",
@@ -530,11 +533,13 @@
           "noProtocol": "No configurado"
         },
         "manageDialog": {
+            "menuTitle": "Gestionar Protocolo",
             "title": "Gerenciar Dispositivo: {name}",
             "description": "Configura los parámetros de comunicación para el dispositivo.",
             "protocol": "Protocolo de Comunicación",
             "selectProtocol": "Seleccionar protocolo",
-            "physicalDeviceId": "ID Físico del Dispositivo"
+            "physicalDeviceId": "ID Físico del Dispositivo",
+            "removeButton": "Remover Configuración"
         },
         "deleteConfirmation": "Esto eliminará permanentemente el dispositivo \"{name}\". Esta acción no puede deshacerse.",
         "toast": {

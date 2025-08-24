@@ -42,7 +42,9 @@ export default async function DashboardPage() {
       return <DashboardClient user={session} devices={[]} />;
   }
 
-  const devices = await getDevicesByCondoId(userCondoId) || [];
+  const allDevices = await getDevicesByCondoId(userCondoId) || [];
+  // Solo muestra los dispositivos que tienen un protocolo de comunicación configurado
+  const devices = allDevices.filter(d => d.protocol_id || d.physical_device_id);
 
   return <DashboardClient user={session} devices={devices} />;
 }

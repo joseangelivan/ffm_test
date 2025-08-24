@@ -22,13 +22,13 @@ export type Device = {
 export type DeviceCommunication = {
     device_id: string;
     physical_device_id: string | null;
-    protocol_id: string;
+    protocol_id: string | null;
 }
 
 const DeviceCommunicationSchema = z.object({
     device_id: z.string().uuid(),
     physical_device_id: z.string().optional().nullable(),
-    protocol_id: z.string().uuid(),
+    protocol_id: z.string().uuid().optional().nullable(),
 });
 
 const CreateDeviceSchema = z.object({
@@ -37,10 +37,17 @@ const CreateDeviceSchema = z.object({
   device_type_id: z.string().uuid("El tipo de dispositivo es obligatorio."),
 });
 
+const UpdateDeviceSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1, "El nombre es obligatorio."),
+  device_type_id: z.string().uuid("El tipo de dispositivo es obligatorio."),
+});
+
 
 type ActionState = {
     success: boolean;
     message: string;
+    errors?: Record<string, string[]>;
 };
 
 
@@ -102,11 +109,12 @@ export async function createOrUpdateDeviceCommunication(prevState: any, formData
     const validatedFields = DeviceCommunicationSchema.safeParse({
         device_id: formData.get('device_id'),
         physical_device_id: formData.get('physical_device_id') || null,
-        protocol_id: formData.get('protocol_id'),
+        protocol_id: formData.get('protocol_id') || null,
     });
-
+    
     if (!validatedFields.success) {
-        return { success: false, message: 'Datos de entrada inválidos.' };
+        const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0]?.[0]
+        return { success: false, message: firstError || 'Datos inválidos.' };
     }
     
     const { device_id, physical_device_id, protocol_id } = validatedFields.data;
@@ -133,6 +141,25 @@ export async function createOrUpdateDeviceCommunication(prevState: any, formData
         if (client) client.release();
     }
 }
+
+export async function removeDeviceCommunication(deviceId: string): Promise<ActionState> {
+    if (!deviceId) {
+        return { success: false, message: 'ID de dispositivo no proporcionado.' };
+    }
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        await client.query('DELETE FROM devices_communication WHERE device_id = $1', [deviceId]);
+        return { success: true, message: 'Configuración de comunicación eliminada con éxito.' };
+    } catch (error) {
+        console.error(`Error eliminando la configuración de comunicación del dispositivo ${deviceId}:`, error);
+        return { success: false, message: 'Error del servidor al eliminar la configuración.' };
+    } finally {
+        if (client) client.release();
+    }
+}
+
 
 export async function createDevice(prevState: any, formData: FormData): Promise<ActionState> {
     const validatedFields = CreateDeviceSchema.safeParse({
@@ -170,6 +197,45 @@ export async function createDevice(prevState: any, formData: FormData): Promise<
     }
 }
 
+export async function updateDevice(prevState: any, formData: FormData): Promise<ActionState> {
+    const validatedFields = UpdateDeviceSchema.safeParse({
+        id: formData.get('id'),
+        name: formData.get('name'),
+        device_type_id: formData.get('device_type_id'),
+    });
+
+    if (!validatedFields.success) {
+        const errors = validatedFields.error.flatten().fieldErrors;
+        return {
+            success: false,
+            message: Object.values(errors).flat()[0] || "Error de validación.",
+            errors,
+        };
+    }
+
+    const { id, name, device_type_id } = validatedFields.data;
+
+    let client;
+    try {
+        const pool = await getDbPool();
+        client = await pool.connect();
+        await client.query(
+            'UPDATE devices SET name = $1, device_type_id = $2, updated_at = NOW() WHERE id = $3',
+            [name, device_type_id, id]
+        );
+        return { success: true, message: 'Dispositivo actualizado con éxito.' };
+    } catch (error: any) {
+        console.error(`Error actualizando el dispositivo ${id}:`, error);
+        if (error.code === '23505') {
+            return { success: false, message: 'Ya existe un dispositivo con ese nombre en el condominio.' };
+        }
+        return { success: false, message: 'Error del servidor al actualizar el dispositivo.' };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+
 export async function deleteDevice(id: string): Promise<ActionState> {
     if (!id) {
         return { success: false, message: "ID no proporcionado." };
@@ -179,7 +245,12 @@ export async function deleteDevice(id: string): Promise<ActionState> {
     try {
         const pool = await getDbPool();
         client = await pool.connect();
+
+        await client.query('BEGIN');
+        // También elimina la configuración de comunicación asociada, si existe.
+        await client.query('DELETE FROM devices_communication WHERE device_id = $1', [id]);
         const result = await client.query('DELETE FROM devices WHERE id = $1', [id]);
+        await client.query('COMMIT');
         
         if (result.rowCount === 0) {
             return { success: false, message: 'No se encontró el dispositivo para eliminar.' };
@@ -187,6 +258,7 @@ export async function deleteDevice(id: string): Promise<ActionState> {
         
         return { success: true, message: 'Dispositivo eliminado con éxito.' };
     } catch (error) {
+        if (client) await client.query('ROLLBACK');
         console.error(`Error deleting device ${id}:`, error);
         return { success: false, message: 'Error del servidor.' };
     } finally {
