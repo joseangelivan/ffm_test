@@ -191,13 +191,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
-  
-  useEffect(() => {
-    setHistoryState({
-        canUndo: historyIndex >= 1,
-        canRedo: historyIndex < history.length - 1,
-    });
-  }, [historyIndex, history]);
 
   const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isFirstChange: boolean = false) => {
     const newGeometry = getGeometryFromShape(shape);
@@ -220,6 +213,20 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     setHistory(newBranch);
     setHistoryIndex(newBranch.length - 1);
   }, [history, historyIndex]);
+
+  // Create a ref to hold the latest version of the history update callback.
+  // This helps avoid stale closures in Google Maps event listeners.
+  const historyUpdateCallbackRef = useRef(handleHistoryUpdate);
+  useEffect(() => {
+    historyUpdateCallbackRef.current = handleHistoryUpdate;
+  }, [handleHistoryUpdate]);
+
+  useEffect(() => {
+    setHistoryState({
+        canUndo: historyIndex >= 1,
+        canRedo: historyIndex < history.length - 1,
+    });
+  }, [historyIndex, history]);
 
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -348,7 +355,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
 
     const registerChange = () => {
-      handleHistoryUpdate(shape);
+      // Use the ref to ensure we always call the latest version of the callback
+      historyUpdateCallbackRef.current(shape);
     };
 
     const listeners = [
@@ -358,6 +366,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     if ('getRadius' in shape) { // Circle
       listeners.push(google.maps.event.addListener(shape, 'radius_changed', registerChange));
       listeners.push(google.maps.event.addListener(shape, 'center_changed', registerChange));
+    }
+
+    if ('getBounds' in shape) { // Rectangle
+        // dragend is sufficient for rectangles
     }
 
     if ('getPath' in shape) { // Polygon
@@ -370,7 +382,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => {
       listeners.forEach(listener => listener.remove());
     };
-  }, [mode, activeShapeRef.current?.shape, handleHistoryUpdate]);
+  }, [mode, activeShapeRef.current?.shape]);
     
   useEffect(() => {
     const map = mapRef.current;
@@ -603,3 +615,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
