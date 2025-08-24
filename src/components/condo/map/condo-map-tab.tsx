@@ -201,25 +201,18 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         return;
     }
     
-    if (historyIndex < 0) return;
+    setHistory(prevHistory => {
+        const currentBranch = prevHistory.slice(0, historyIndex + 1);
+        const lastGeometry = currentBranch[currentBranch.length - 1];
+        if (isEqual(lastGeometry, newGeometry)) {
+            return prevHistory;
+        }
+        currentBranch.push(newGeometry);
+        setHistoryIndex(currentBranch.length - 1);
+        return currentBranch;
+    });
 
-    const lastGeometry = history[historyIndex];
-    if (isEqual(lastGeometry, newGeometry)) {
-        return;
-    }
-
-    const newBranch = history.slice(0, historyIndex + 1);
-    newBranch.push(newGeometry);
-    setHistory(newBranch);
-    setHistoryIndex(newBranch.length - 1);
-  }, [history, historyIndex]);
-
-  // Create a ref to hold the latest version of the history update callback.
-  // This helps avoid stale closures in Google Maps event listeners.
-  const historyUpdateCallbackRef = useRef(handleHistoryUpdate);
-  useEffect(() => {
-    historyUpdateCallbackRef.current = handleHistoryUpdate;
-  }, [handleHistoryUpdate]);
+  }, [historyIndex]);
 
   useEffect(() => {
     setHistoryState({
@@ -355,8 +348,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
 
     const registerChange = () => {
-      // Use the ref to ensure we always call the latest version of the callback
-      historyUpdateCallbackRef.current(shape);
+        handleHistoryUpdate(shape);
     };
 
     const listeners = [
@@ -382,7 +374,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => {
       listeners.forEach(listener => listener.remove());
     };
-  }, [mode, activeShapeRef.current?.shape]);
+  }, [mode, activeShapeRef, handleHistoryUpdate]);
     
   useEffect(() => {
     const map = mapRef.current;
@@ -615,4 +607,5 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
 
