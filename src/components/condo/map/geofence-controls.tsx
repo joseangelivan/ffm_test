@@ -203,7 +203,13 @@ export function GeofenceControls({
             const result = await deleteGeofence(idToDelete);
             
             if (result?.success) {
-                mapShapesRef.current.delete(idToDelete);
+                // Remove shape from the map and the ref
+                const shapeToRemove = mapShapesRef.current.get(idToDelete);
+                if (shapeToRemove) {
+                    shapeToRemove.setMap(null);
+                    mapShapesRef.current.delete(idToDelete);
+                }
+
                 toast({ title: t('toast.successTitle'), description: t('condoDashboard.map.toast.geofenceDeleted')});
                 await onDataNeedsRefresh();
             } else if (result) {
