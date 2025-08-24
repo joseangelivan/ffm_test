@@ -1,8 +1,7 @@
 
-
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
+import React, { useState, useEffect, useCallback, useTransition } from 'react';
 import {
   PencilRuler,
   ChevronDown,
@@ -19,7 +18,6 @@ import {
 import { restoreShapeToGeometry, getGeometryFromShape } from './condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-import { isEqual } from 'lodash';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -51,7 +49,7 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>;
-    onHistoryUpdate: (shape: google.maps.MVCObject | null, isFirstChange?: boolean) => void;
+    onHistoryUpdate: (shape: google.maps.MVCObject | null) => void;
 }
 
 export function GeofenceControls({
@@ -74,7 +72,7 @@ export function GeofenceControls({
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
-    const drawingCompleteListener = useRef<google.maps.MapsEventListener | null>(null);
+    const drawingCompleteListener = React.useRef<google.maps.MapsEventListener | null>(null);
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
     const [isSaving, startSavingTransition] = useTransition();
     const [isDeleting, startDeletingTransition] = useTransition();
@@ -151,41 +149,42 @@ export function GeofenceControls({
         
         const tempId = `new-shape-${Date.now()}`;
         activeShapeRef.current = { id: tempId, shape: newShape };
-        onHistoryUpdate(newShape, true);
+        onHistoryUpdate(newShape);
         setIsShapeDrawn(true);
 
     }, [drawingManager, activeShapeRef, onHistoryUpdate]);
 
-     useEffect(() => {
+    const handleEditListeners = useCallback(() => {
         const shape = activeShapeRef.current?.shape;
         if (!shape || mode !== 'editing') {
             return;
         }
 
-        const listeners: google.maps.MapsEventListener[] = [];
-        const registerChange = () => onHistoryUpdate(shape);
-
-        // For all shapes, dragend signifies a complete move action
-        listeners.push(google.maps.event.addListener(shape, 'dragend', registerChange));
-
-        // For circles, we care about radius changes
-        if ('getRadius' in shape) {
-            listeners.push(google.maps.event.addListener(shape, 'radius_changed', registerChange));
-        }
-
-        // For polygons, we care about vertex changes
-        if ('getPath' in shape) {
-            const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(google.maps.event.addListener(path, 'set_at', registerChange));
-            listeners.push(google.maps.event.addListener(path, 'insert_at', registerChange));
-            listeners.push(google.maps.event.addListener(path, 'remove_at', registerChange));
-        }
-
-        // Cleanup function to remove all listeners
-        return () => {
-            listeners.forEach(listener => listener.remove());
+        const handleChange = () => {
+            onHistoryUpdate(shape);
         };
-    }, [mode, activeShapeRef.current?.shape, onHistoryUpdate]);
+    
+        const listeners = [
+            google.maps.event.addListener(shape, 'dragend', handleChange),
+            google.maps.event.addListener(shape, 'radius_changed', handleChange),
+            google.maps.event.addListener(shape, 'bounds_changed', handleChange),
+        ];
+
+        if ('getPath' in shape && typeof (shape as any).getPath === 'function') {
+            const path = (shape as google.maps.Polygon).getPath();
+            listeners.push(google.maps.event.addListener(path, 'set_at', handleChange));
+            listeners.push(google.maps.event.addListener(path, 'insert_at', handleChange));
+            listeners.push(google.maps.event.addListener(path, 'remove_at', handleChange));
+        }
+
+        return () => {
+            listeners.forEach(l => l.remove());
+        };
+    }, [activeShapeRef, mode, onHistoryUpdate]);
+    
+    useEffect(() => {
+        return handleEditListeners();
+    }, [handleEditListeners]);
 
 
     useEffect(() => {
@@ -219,7 +218,7 @@ export function GeofenceControls({
         const originalGeometry = getGeometryFromShape(shapeToEdit);
         
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
-        onHistoryUpdate(shapeToEdit, true);
+        onHistoryUpdate(shapeToEdit);
         setIsShapeDrawn(true);
         
         setCurrentGeofenceName(geofenceData.name);
