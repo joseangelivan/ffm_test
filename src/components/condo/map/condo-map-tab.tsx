@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
 import {
   Locate,
   ZoomIn,
@@ -204,28 +204,58 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       });
   }, [history, historyIndex]);
 
-  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
-    if (!shape) {
-        setHistory([]);
-        setHistoryIndex(-1);
-        return;
-    }
-    const newGeometry = getGeometryFromShape(shape);
-
-    setHistory(prevHistory => {
-        const newHistoryIndex = historyIndexRef.current + 1;
-        const newHistory = prevHistory.slice(0, newHistoryIndex);
-
-        if (isEqual(newHistory[newHistory.length - 1], newGeometry)) {
-            return prevHistory;
+    const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isFirstChange: boolean = false) => {
+        if (!shape) {
+            setHistory([]);
+            setHistoryIndex(-1);
+            return;
         }
 
-        newHistory.push(newGeometry);
-        setHistoryIndex(newHistory.length - 1);
-        return newHistory;
-    });
+        const newGeometry = getGeometryFromShape(shape);
+        
+        if (isFirstChange) {
+            setHistory([newGeometry]);
+            setHistoryIndex(0);
+        } else {
+            setHistory(prevHistory => {
+                const newHistoryIndex = historyIndexRef.current + 1;
+                const newHistory = prevHistory.slice(0, newHistoryIndex);
 
-  }, []);
+                if (isEqual(newHistory[newHistory.length - 1], newGeometry)) {
+                    return prevHistory;
+                }
+
+                newHistory.push(newGeometry);
+                setHistoryIndex(newHistory.length - 1);
+                return newHistory;
+            });
+        }
+    }, []);
+
+    useEffect(() => {
+        const shape = activeShapeRef.current?.shape;
+        if (!shape || mode !== 'editing') {
+            return;
+        }
+
+        const handleChange = () => handleHistoryUpdate(shape);
+        
+        const listeners: google.maps.MapsEventListener[] = [
+            google.maps.event.addListener(shape, 'dragend', handleChange),
+            google.maps.event.addListener(shape, 'radius_changed', handleChange),
+        ];
+
+        if ('getPath' in shape) {
+            const path = (shape as google.maps.Polygon).getPath();
+            listeners.push(google.maps.event.addListener(path, 'set_at', handleChange));
+            listeners.push(google.maps.event.addListener(path, 'insert_at', handleChange));
+            listeners.push(google.maps.event.addListener(path, 'remove_at', handleChange));
+        }
+
+        return () => {
+            listeners.forEach(l => l.remove());
+        };
+    }, [activeShapeRef.current, mode, handleHistoryUpdate]);
 
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);

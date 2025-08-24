@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition } from 'react';
@@ -49,7 +50,7 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>;
-    onHistoryUpdate: (shape: google.maps.MVCObject | null) => void;
+    onHistoryUpdate: (shape: google.maps.MVCObject | null, isFirstChange?: boolean) => void;
 }
 
 export function GeofenceControls({
@@ -149,44 +150,11 @@ export function GeofenceControls({
         
         const tempId = `new-shape-${Date.now()}`;
         activeShapeRef.current = { id: tempId, shape: newShape };
-        onHistoryUpdate(newShape);
+        onHistoryUpdate(newShape, true);
         setIsShapeDrawn(true);
 
     }, [drawingManager, activeShapeRef, onHistoryUpdate]);
-
-    const handleEditListeners = useCallback(() => {
-        const shape = activeShapeRef.current?.shape;
-        if (!shape || mode !== 'editing') {
-            return;
-        }
-
-        const handleChange = () => {
-            onHistoryUpdate(shape);
-        };
     
-        const listeners = [
-            google.maps.event.addListener(shape, 'dragend', handleChange),
-            google.maps.event.addListener(shape, 'radius_changed', handleChange),
-            google.maps.event.addListener(shape, 'bounds_changed', handleChange),
-        ];
-
-        if ('getPath' in shape && typeof (shape as any).getPath === 'function') {
-            const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(google.maps.event.addListener(path, 'set_at', handleChange));
-            listeners.push(google.maps.event.addListener(path, 'insert_at', handleChange));
-            listeners.push(google.maps.event.addListener(path, 'remove_at', handleChange));
-        }
-
-        return () => {
-            listeners.forEach(l => l.remove());
-        };
-    }, [activeShapeRef, mode, onHistoryUpdate]);
-    
-    useEffect(() => {
-        return handleEditListeners();
-    }, [handleEditListeners]);
-
-
     useEffect(() => {
         if (drawingManager) {
              if (drawingCompleteListener.current) {
@@ -218,7 +186,7 @@ export function GeofenceControls({
         const originalGeometry = getGeometryFromShape(shapeToEdit);
         
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
-        onHistoryUpdate(shapeToEdit);
+        onHistoryUpdate(shapeToEdit, true);
         setIsShapeDrawn(true);
         
         setCurrentGeofenceName(geofenceData.name);
