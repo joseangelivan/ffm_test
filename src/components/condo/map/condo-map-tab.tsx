@@ -192,33 +192,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
   
-  useEffect(() => {
-    setHistoryState({
-        canUndo: historyIndex > 0,
-        canRedo: historyIndex < history.length - 1,
-    });
-  }, [historyIndex, history]);
-
-  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isFirstChange: boolean = false) => {
-    const newGeometry = getGeometryFromShape(shape);
-    if (!newGeometry) return;
-
-    if (isFirstChange) {
-        setHistory([newGeometry]);
-        setHistoryIndex(0);
-    } else {
-        const currentGeometry = history[historyIndex];
-        if (isEqual(newGeometry, currentGeometry)) {
-            return;
-        }
-
-        const newHistory = history.slice(0, historyIndex + 1);
-        newHistory.push(newGeometry);
-        setHistory(newHistory);
-        setHistoryIndex(newHistory.length - 1);
-    }
-  }, [history, historyIndex]);
-
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
     try {
@@ -244,6 +217,59 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         setIsLoading(false);
     }
   }, [condo.id, selectedGeofenceId, toast, t]);
+
+  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isFirstChange: boolean = false) => {
+    if (!shape) return;
+    const newGeometry = getGeometryFromShape(shape);
+    if (!newGeometry) return;
+    
+    if (isFirstChange) {
+        setHistory([newGeometry]);
+        setHistoryIndex(0);
+        return;
+    }
+
+    const currentGeometry = history[historyIndex];
+    if (isEqual(newGeometry, currentGeometry)) {
+        return;
+    }
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newGeometry);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  }, [history, historyIndex]);
+
+  useEffect(() => {
+    setHistoryState({
+        canUndo: historyIndex > 0,
+        canRedo: historyIndex < history.length - 1,
+    });
+  }, [historyIndex, history]);
+
+  useEffect(() => {
+    const shape = activeShapeRef.current?.shape;
+    if (!shape || mode !== 'editing') {
+        return;
+    }
+
+    const onShapeChange = () => handleHistoryUpdate(shape);
+    
+    const listeners = [
+        google.maps.event.addListener(shape, 'dragend', onShapeChange),
+        google.maps.event.addListener(shape, 'radius_changed', onShapeChange),
+    ];
+  
+    if ('getPath' in shape) {
+        const path = (shape as google.maps.Polygon).getPath();
+        listeners.push(google.maps.event.addListener(path, 'set_at', onShapeChange));
+        listeners.push(google.maps.event.addListener(path, 'insert_at', onShapeChange));
+        listeners.push(google.maps.event.addListener(path, 'remove_at', onShapeChange));
+    }
+    
+    return () => {
+        listeners.forEach(l => l.remove());
+    };
+  }, [activeShapeRef.current, mode, handleHistoryUpdate]);
 
 
   const centerMapOnAddress = useCallback(() => {
@@ -338,31 +364,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     });
     return () => { zoomListener.remove(); };
   }, []);
-    
-  useEffect(() => {
-    const shape = activeShapeRef.current?.shape;
-    if (!shape || mode !== 'editing') {
-        return;
-    }
-    
-    const onShapeChange = () => handleHistoryUpdate(shape);
-    
-    const listeners = [
-        google.maps.event.addListener(shape, 'dragend', onShapeChange),
-        google.maps.event.addListener(shape, 'radius_changed', onShapeChange),
-    ];
-  
-    if ('getPath' in shape) {
-        const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(google.maps.event.addListener(path, 'set_at', onShapeChange));
-        listeners.push(google.maps.event.addListener(path, 'insert_at', onShapeChange));
-        listeners.push(google.maps.event.addListener(path, 'remove_at', onShapeChange));
-    }
-    
-    return () => {
-        listeners.forEach(l => l.remove());
-    };
-  }, [activeShapeRef.current, mode, handleHistoryUpdate]);
     
   useEffect(() => {
     const map = mapRef.current;
@@ -553,7 +554,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 <GeofenceControls
                                     condoId={condo.id}
                                     geofences={dbGeofences}
-                                    mapShapesRef={mapShapesRef}
                                     onDataNeedsRefresh={onDataNeedsRefresh}
                                     selectedGeofenceId={selectedGeofenceId}
                                     setSelectedGeofenceId={setSelectedGeofenceId}

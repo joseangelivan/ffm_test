@@ -37,7 +37,6 @@ export type DrawingMode = 'polygon' | 'rectangle' | 'circle';
 type GeofenceControlsProps = {
     condoId: string;
     geofences: DbGeofence[];
-    mapShapesRef: React.MutableRefObject<Map<string, google.maps.MVCObject>>;
     onDataNeedsRefresh: (newSelectedId?: string) => void;
     selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -56,7 +55,6 @@ type GeofenceControlsProps = {
 export function GeofenceControls({
     condoId,
     geofences,
-    mapShapesRef,
     onDataNeedsRefresh,
     selectedGeofenceId,
     setSelectedGeofenceId,
@@ -176,11 +174,12 @@ export function GeofenceControls({
     const handleStartEdit = () => {
         if (!selectedGeofenceId) return;
         
-        const shapeToEdit = mapShapesRef.current.get(selectedGeofenceId);
-        const geofenceData = geofences.find(g => g.id === selectedGeofenceId);
+        const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
+        if (!selectedGeofence) return;
 
-        if (!shapeToEdit || !geofenceData) return;
-        
+        const shapeToEdit = createShapeFromGeometry(selectedGeofence.geometry);
+        if (!shapeToEdit) return;
+
         resetActionStates();
         const originalGeometry = getGeometryFromShape(shapeToEdit);
         
@@ -188,7 +187,7 @@ export function GeofenceControls({
         onHistoryUpdate(shapeToEdit, true);
         setIsShapeDrawn(true);
         
-        setCurrentGeofenceName(geofenceData.name);
+        setCurrentGeofenceName(selectedGeofence.name);
     }
 
 
@@ -200,13 +199,6 @@ export function GeofenceControls({
             const result = await deleteGeofence(idToDelete);
             
             if (result?.success) {
-                // Remove shape from the map and the ref
-                const shapeToRemove = mapShapesRef.current.get(idToDelete);
-                if (shapeToRemove) {
-                    shapeToRemove.setMap(null);
-                    mapShapesRef.current.delete(idToDelete);
-                }
-
                 toast({ title: t('toast.successTitle'), description: t('condoDashboard.map.toast.geofenceDeleted')});
                 await onDataNeedsRefresh();
             } else if (result) {
@@ -324,9 +316,9 @@ export function GeofenceControls({
                         </label>
                     </div>
 
-                    <fieldset disabled={isBusy} className="space-y-4 disabled:opacity-50">
+                    <fieldset disabled={isBusy || mode === 'view'} className="space-y-4 disabled:opacity-50">
                             <div className="flex items-center gap-2">
-                                <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive || isBusy || mode === 'view'}>
+                                <Select value={selectedGeofenceId || ''} onValueChange={id => { if(!isActionActive) setSelectedGeofenceId(id) }} disabled={isActionActive || isBusy}>
                                     <SelectTrigger className={cn("flex-1", selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-') && "text-blue-600 border-blue-400 font-bold")}>
                                         <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
                                     </SelectTrigger>
@@ -353,7 +345,7 @@ export function GeofenceControls({
                                         </Tooltip>
                                         <Tooltip>
                                              <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={handleStartEdit} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-') || isBusy || mode === 'view'}>
+                                                <Button variant="ghost" size="icon" onClick={handleStartEdit} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-') || isBusy}>
                                                     <Edit className="h-4 w-4"/>
                                                 </Button>
                                             </TooltipTrigger>
@@ -361,7 +353,7 @@ export function GeofenceControls({
                                         </Tooltip>
                                          <Tooltip>
                                              <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-') || isBusy || mode === 'view'}>
+                                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isActionActive || !selectedGeofenceId || selectedGeofenceId.startsWith('new-shape-') || isBusy}>
                                                     {isDeleting ? <Loader className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4 text-destructive"/>}
                                                 </Button>
                                             </TooltipTrigger>
@@ -396,13 +388,13 @@ export function GeofenceControls({
                                 </div>
                             ) : (
                                  <div className="flex items-center gap-2">
-                                    <Button onClick={handleStartDraw} variant="outline" className="flex-1" disabled={isActionActive || isBusy || mode === 'view'}>
+                                    <Button onClick={handleStartDraw} variant="outline" className="flex-1" disabled={isActionActive || isBusy}>
                                         <PencilRuler className="mr-2 h-4 w-4"/>
                                         {t('condoDashboard.map.geofence.draw')}
                                     </Button>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="outline" className="w-40 justify-between" disabled={isActionActive || isBusy || mode === 'view'}>
+                                            <Button variant="outline" className="w-40 justify-between" disabled={isActionActive || isBusy}>
                                                 <span>
                                                     {drawingMode === 'polygon' && t('condoDashboard.map.shapes.polygon')}
                                                     {drawingMode === 'rectangle' && t('condoDashboard.map.shapes.rectangle')}
