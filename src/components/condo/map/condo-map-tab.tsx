@@ -194,7 +194,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   useEffect(() => {
     setHistoryState({
-        canUndo: historyIndex > 0,
+        canUndo: historyIndex >= 1,
         canRedo: historyIndex < history.length - 1,
     });
   }, [historyIndex, history]);
@@ -203,27 +203,23 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const newGeometry = getGeometryFromShape(shape);
 
     if (isFirstChange) {
-        if (!newGeometry || (history.length === 1 && isEqual(history[0], newGeometry))) {
-            return;
-        }
         setHistory([newGeometry]);
         setHistoryIndex(0);
         return;
     }
 
     setHistory(currentHistory => {
-        let newBranch = [...currentHistory];
-        if (historyIndex < currentHistory.length - 1) {
-            newBranch = currentHistory.slice(0, historyIndex + 1);
+        const lastGeometry = currentHistory[historyIndex];
+        if (isEqual(lastGeometry, newGeometry)) {
+            return currentHistory;
         }
-        if (isEqual(newBranch[newBranch.length - 1], newGeometry)) {
-            return newBranch;
-        }
+
+        const newBranch = currentHistory.slice(0, historyIndex + 1);
         newBranch.push(newGeometry);
         setHistoryIndex(newBranch.length - 1);
         return newBranch;
     });
-}, [history, historyIndex]);
+}, [historyIndex]);
 
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
