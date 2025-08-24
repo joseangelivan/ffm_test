@@ -203,6 +203,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const newGeometry = getGeometryFromShape(shape);
 
     if (isFirstChange) {
+        if (!newGeometry || (history.length === 1 && isEqual(history[0], newGeometry))) {
+            return;
+        }
         setHistory([newGeometry]);
         setHistoryIndex(0);
         return;
@@ -210,11 +213,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
     setHistory(currentHistory => {
         let newBranch = [...currentHistory];
-        // If we have undone actions, truncate the future history
         if (historyIndex < currentHistory.length - 1) {
             newBranch = currentHistory.slice(0, historyIndex + 1);
         }
-        // Avoid adding duplicate states
         if (isEqual(newBranch[newBranch.length - 1], newGeometry)) {
             return newBranch;
         }
@@ -222,7 +223,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         setHistoryIndex(newBranch.length - 1);
         return newBranch;
     });
-}, [historyIndex]);
+}, [history, historyIndex]);
 
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -474,9 +475,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
     
   const handleHistoryAction = (action: 'undo' | 'redo') => {
-    if ((action === 'undo' && !historyState.canUndo) || (action === 'redo' && !historyState.canRedo)) return;
+    let newIndex;
+    if (action === 'undo') {
+        if (!historyState.canUndo) return;
+        newIndex = historyIndex - 1;
+    } else { // redo
+        if (!historyState.canRedo) return;
+        newIndex = historyIndex + 1;
+    }
 
-    const newIndex = action === 'undo' ? historyIndex - 1 : historyIndex + 1;
     const geometry = history[newIndex];
     const shapeToUpdate = activeShapeRef.current?.shape;
 
