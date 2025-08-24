@@ -170,7 +170,7 @@ export function GeofenceControls({
 
         if ('getRadius' in shape) { // Circle
             listeners.push(google.maps.event.addListener(shape, 'radius_changed', registerChange));
-            listeners.push(google.maps.event.addListener(shape, 'center_changed', registerChange));
+            // center_changed is covered by dragend
         }
         
         if ('getPath' in shape) { // Polygon
