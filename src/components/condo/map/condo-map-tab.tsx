@@ -192,6 +192,18 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
 
+  const historyRef = useRef(history);
+  const historyIndexRef = useRef(historyIndex);
+
+  useEffect(() => {
+      historyRef.current = history;
+      historyIndexRef.current = historyIndex;
+      setHistoryState({
+          canUndo: historyIndex > 0,
+          canRedo: historyIndex < history.length - 1
+      });
+  }, [history, historyIndex]);
+
   const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isFirstChange: boolean = false) => {
     const newGeometry = getGeometryFromShape(shape);
 
@@ -201,25 +213,21 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         return;
     }
     
-    setHistory(prevHistory => {
-        const currentBranch = prevHistory.slice(0, historyIndex + 1);
-        const lastGeometry = currentBranch[currentBranch.length - 1];
-        if (isEqual(lastGeometry, newGeometry)) {
-            return prevHistory;
-        }
-        currentBranch.push(newGeometry);
-        setHistoryIndex(currentBranch.length - 1);
-        return currentBranch;
-    });
+    const currentHistory = historyRef.current;
+    const currentIndex = historyIndexRef.current;
 
-  }, [historyIndex]);
+    const currentBranch = currentHistory.slice(0, currentIndex + 1);
+    const lastGeometry = currentBranch[currentBranch.length - 1];
 
-  useEffect(() => {
-    setHistoryState({
-        canUndo: historyIndex >= 1,
-        canRedo: historyIndex < history.length - 1,
-    });
-  }, [historyIndex, history]);
+    if (isEqual(lastGeometry, newGeometry)) {
+        return;
+    }
+
+    currentBranch.push(newGeometry);
+    setHistory(currentBranch);
+    setHistoryIndex(currentBranch.length - 1);
+
+  }, []);
 
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -374,7 +382,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => {
       listeners.forEach(listener => listener.remove());
     };
-  }, [mode, activeShapeRef, handleHistoryUpdate]);
+  }, [mode, activeShapeRef.current?.shape, handleHistoryUpdate]);
     
   useEffect(() => {
     const map = mapRef.current;
@@ -607,5 +615,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
 
 
