@@ -194,15 +194,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   useEffect(() => {
     setHistoryState({
-        canUndo: historyIndex > 0,
+        canUndo: historyIndex >= 1,
         canRedo: historyIndex < history.length - 1,
     });
   }, [historyIndex, history]);
 
-   const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isFirstChange = false) => {
+   const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
         const newGeometry = getGeometryFromShape(shape);
 
-        if (isFirstChange) {
+        if (historyIndex === -1) {
             setHistory([newGeometry]);
             setHistoryIndex(0);
             return;
@@ -352,11 +352,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const listeners = [
         google.maps.event.addListener(shape, 'dragend', registerChange),
     ];
-
-    if ('getBounds' in shape) { // Rectangle
-        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', registerChange));
-    }
-
+    
     if ('getRadius' in shape) { // Circle
         listeners.push(google.maps.event.addListener(shape, 'radius_changed', registerChange));
         listeners.push(google.maps.event.addListener(shape, 'center_changed', registerChange));
@@ -372,7 +368,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => {
         listeners.forEach(listener => listener.remove());
     };
-}, [mode, activeShapeRef.current?.shape, handleHistoryUpdate]);
+}, [mode, activeShapeRef.current, handleHistoryUpdate]);
     
   useEffect(() => {
     const map = mapRef.current;
