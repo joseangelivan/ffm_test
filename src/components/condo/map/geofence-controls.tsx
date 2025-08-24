@@ -172,11 +172,7 @@ export function GeofenceControls({
             listeners.push(google.maps.event.addListener(shape, 'radius_changed', registerChange));
             listeners.push(google.maps.event.addListener(shape, 'center_changed', registerChange));
         }
-
-        if ('getBounds' in shape) { // Rectangle
-             listeners.push(google.maps.event.addListener(shape, 'bounds_changed', registerChange));
-        }
-
+        
         if ('getPath' in shape) { // Polygon
             const path = (shape as google.maps.Polygon).getPath();
             listeners.push(google.maps.event.addListener(path, 'set_at', registerChange));
