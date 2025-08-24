@@ -199,25 +199,27 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     });
   }, [historyIndex, history]);
 
-   const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
-        const newGeometry = getGeometryFromShape(shape);
+  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isFirstChange: boolean = false) => {
+    const newGeometry = getGeometryFromShape(shape);
 
-        if (historyIndex === -1) {
-            setHistory([newGeometry]);
-            setHistoryIndex(0);
-            return;
-        }
+    if (isFirstChange) {
+        setHistory([newGeometry]);
+        setHistoryIndex(0);
+        return;
+    }
+    
+    if (historyIndex < 0) return;
 
-        const lastGeometry = history[historyIndex];
-        if (isEqual(lastGeometry, newGeometry)) {
-            return;
-        }
+    const lastGeometry = history[historyIndex];
+    if (isEqual(lastGeometry, newGeometry)) {
+        return;
+    }
 
-        const newBranch = history.slice(0, historyIndex + 1);
-        newBranch.push(newGeometry);
-        setHistory(newBranch);
-        setHistoryIndex(newBranch.length - 1);
-    }, [history, historyIndex]);
+    const newBranch = history.slice(0, historyIndex + 1);
+    newBranch.push(newGeometry);
+    setHistory(newBranch);
+    setHistoryIndex(newBranch.length - 1);
+  }, [history, historyIndex]);
 
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -601,3 +603,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
