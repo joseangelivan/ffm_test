@@ -50,9 +50,7 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>;
-    onHistoryUpdate: (shape: google.maps.MVCObject | null, isFirstChange?: boolean) => void;
-    onUndo: () => void;
-    onRedo: () => void;
+    onHistoryUpdate: (shape: google.maps.MVCObject | null) => void;
 }
 
 export function GeofenceControls({
@@ -72,8 +70,6 @@ export function GeofenceControls({
     onSettingsClick,
     activeShapeRef,
     onHistoryUpdate,
-    onUndo,
-    onRedo,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -154,7 +150,7 @@ export function GeofenceControls({
         
         const tempId = `new-shape-${Date.now()}`;
         activeShapeRef.current = { id: tempId, shape: newShape };
-        onHistoryUpdate(newShape, true);
+        onHistoryUpdate(newShape);
         setIsShapeDrawn(true);
 
     }, [drawingManager, activeShapeRef, onHistoryUpdate]);
@@ -190,7 +186,7 @@ export function GeofenceControls({
         const originalGeometry = getGeometryFromShape(shapeToEdit);
         
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
-        onHistoryUpdate(shapeToEdit, true);
+        onHistoryUpdate(shapeToEdit);
         setIsShapeDrawn(true);
         
         setCurrentGeofenceName(geofenceData.name);
