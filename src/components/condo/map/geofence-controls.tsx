@@ -31,6 +31,7 @@ import { useLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { LoadingOverlay } from '@/components/admin/admin-header';
 
 export type DrawingMode = 'polygon' | 'rectangle' | 'circle';
 
@@ -369,7 +370,8 @@ export function GeofenceControls({
                         
                         
                             {isActionActive ? (
-                                <div className='space-y-4 p-4 border border-blue-300 rounded-md bg-blue-50/30 dark:border-blue-700 dark:bg-blue-900/20'>
+                                <div className='relative space-y-4 p-4 border border-blue-300 rounded-md bg-blue-50/30 dark:border-blue-700 dark:bg-blue-900/20'>
+                                     {isSaving && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
                                     <div className="space-y-2">
                                         <Input 
                                             id="geofence-name" 
