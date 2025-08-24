@@ -194,32 +194,30 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   useEffect(() => {
     setHistoryState({
-        canUndo: historyIndex >= 1,
+        canUndo: historyIndex > 0,
         canRedo: historyIndex < history.length - 1,
     });
   }, [historyIndex, history]);
 
    const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isFirstChange = false) => {
-    const newGeometry = getGeometryFromShape(shape);
+        const newGeometry = getGeometryFromShape(shape);
 
-    if (isFirstChange) {
-        setHistory([newGeometry]);
-        setHistoryIndex(0);
-        return;
-    }
-
-    setHistory(currentHistory => {
-        const lastGeometry = currentHistory[historyIndex];
-        if (isEqual(lastGeometry, newGeometry)) {
-            return currentHistory;
+        if (isFirstChange) {
+            setHistory([newGeometry]);
+            setHistoryIndex(0);
+            return;
         }
 
-        const newBranch = currentHistory.slice(0, historyIndex + 1);
+        const lastGeometry = history[historyIndex];
+        if (isEqual(lastGeometry, newGeometry)) {
+            return;
+        }
+
+        const newBranch = history.slice(0, historyIndex + 1);
         newBranch.push(newGeometry);
+        setHistory(newBranch);
         setHistoryIndex(newBranch.length - 1);
-        return newBranch;
-    });
-}, [historyIndex]);
+    }, [history, historyIndex]);
 
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
