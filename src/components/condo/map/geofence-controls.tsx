@@ -162,24 +162,26 @@ export function GeofenceControls({
             return;
         }
 
+        const listeners: google.maps.MapsEventListener[] = [];
         const registerChange = () => onHistoryUpdate(shape);
 
-        const listeners = [
-            google.maps.event.addListener(shape, 'dragend', registerChange),
-        ];
+        // For all shapes, dragend signifies a complete move action
+        listeners.push(google.maps.event.addListener(shape, 'dragend', registerChange));
 
-        if ('getRadius' in shape) { // Circle
+        // For circles, we care about radius changes
+        if ('getRadius' in shape) {
             listeners.push(google.maps.event.addListener(shape, 'radius_changed', registerChange));
-            // center_changed is covered by dragend
         }
-        
-        if ('getPath' in shape) { // Polygon
+
+        // For polygons, we care about vertex changes
+        if ('getPath' in shape) {
             const path = (shape as google.maps.Polygon).getPath();
             listeners.push(google.maps.event.addListener(path, 'set_at', registerChange));
             listeners.push(google.maps.event.addListener(path, 'insert_at', registerChange));
             listeners.push(google.maps.event.addListener(path, 'remove_at', registerChange));
         }
 
+        // Cleanup function to remove all listeners
         return () => {
             listeners.forEach(listener => listener.remove());
         };
