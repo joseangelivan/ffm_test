@@ -199,7 +199,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       historyRef.current = history;
       historyIndexRef.current = historyIndex;
       setHistoryState({
-          canUndo: historyIndex > 0,
+          canUndo: historyIndex >= 1,
           canRedo: historyIndex < history.length - 1
       });
   }, [history, historyIndex]);
@@ -615,6 +615,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
 
 
 
