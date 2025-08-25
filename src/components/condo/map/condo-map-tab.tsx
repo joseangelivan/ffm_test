@@ -227,85 +227,63 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [condoAddressPosition]);
 
 
-  const recalculateZoomLevels = useCallback(() => {
-      const map = mapRef.current;
-      const geofenceToCenter = dbGeofences.find(g => g.id === defaultGeofenceId);
-      if (!map || !geofenceToCenter || !mapShapesRef.current) return;
+  const getZoomForBounds = (bounds: google.maps.LatLngBounds, mapDim: { width: number, height: number }) => {
+    const WORLD_DIM = { height: 256, width: 256 };
+    const ZOOM_MAX = 21;
 
-      const shape = mapShapesRef.current.get(geofenceToCenter.id);
-      if (!shape) return;
+    function latRad(lat: number) {
+        const sin = Math.sin(lat * Math.PI / 180);
+        const radX2 = Math.log((1 + sin) / (1 - sin)) / 2;
+        return Math.max(Math.min(radX2, Math.PI), -Math.PI) / 2;
+    }
 
-      const bounds = getBoundsOfShape(shape);
-      if (bounds) {
-          map.fitBounds(bounds, 0);
-          const maxZoom = map.getZoom();
+    function zoom(mapPx: number, worldPx: number, fraction: number) {
+        return Math.floor(Math.log(mapPx / worldPx / fraction) / Math.LN2);
+    }
 
-          if (maxZoom !== undefined) {
-              const newLevels = {
-                  tight: maxZoom,
-                  normal: maxZoom > 1 ? maxZoom - 1 : maxZoom,
-                  wide: maxZoom > 2 ? maxZoom - 2 : maxZoom,
-              };
-              setCalculatedZoomLevels(newLevels);
-              
-              let zoomToSet = newLevels.normal;
-              if (fitLevel === '1') zoomToSet = newLevels.tight;
-              if (fitLevel === '3') zoomToSet = newLevels.wide;
-              
-              map.setZoom(zoomToSet);
-          }
-      }
-  }, [dbGeofences, defaultGeofenceId, fitLevel]);
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
 
+    const latFraction = (latRad(ne.lat()) - latRad(sw.lat())) / Math.PI;
+    const lngDiff = ne.lng() - sw.lng();
+    const lngFraction = ((lngDiff < 0) ? (lngDiff + 360) : lngDiff) / 360;
 
+    const latZoom = zoom(mapDim.height, WORLD_DIM.height, latFraction);
+    const lngZoom = zoom(mapDim.width, WORLD_DIM.width, lngFraction);
+
+    return Math.min(latZoom, lngZoom, ZOOM_MAX);
+  }
+  
   const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
     const map = mapRef.current;
     if (!map || !defaultGeofenceId) return;
 
     const geofenceShape = mapShapesRef.current.get(defaultGeofenceId);
     if (!geofenceShape) return;
-
+    
     const bounds = getBoundsOfShape(geofenceShape);
-    if (!bounds) return;
+    const mapDiv = map.getDiv();
+    if (!bounds || !mapDiv) return;
 
-    let paddingValue = 0; // 'tight'
-    if (level === '2') paddingValue = 50; // 'normal'
-    if (level === '3') paddingValue = 100; // 'wide'
-    
-    // Use an object for padding to handle different aspect ratios correctly
-    const padding = {
-        top: paddingValue,
-        bottom: paddingValue,
-        left: paddingValue,
-        right: paddingValue,
+    const mapDim = {
+        width: mapDiv.offsetWidth,
+        height: mapDiv.offsetHeight
     };
-
-    map.fitBounds(bounds, padding);
     
+    const calculatedZoom = getZoomForBounds(bounds, mapDim);
+
+    let finalZoom = calculatedZoom;
+    if (level === '2') finalZoom = calculatedZoom > 0 ? calculatedZoom - 1 : 0;
+    if (level === '3') finalZoom = calculatedZoom > 1 ? calculatedZoom - 2 : 1;
+
+    map.setCenter(bounds.getCenter());
+    map.setZoom(finalZoom);
     setFitLevel(level);
+
   }, [defaultGeofenceId]);
 
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const mapContainer = mapContainerRef.current;
-    if (!mapContainer) return;
-
-    const observer = new ResizeObserver(() => {
-        setTimeout(() => {
-            if (!mapRef.current) return;
-            recalculateZoomLevels();
-        }, 0);
-    });
-    
-    observer.observe(mapContainer);
-
-    return () => {
-        observer.disconnect();
-    };
-  }, [recalculateZoomLevels]);
-
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -340,10 +318,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
     const listeners: google.maps.MapsEventListener[] = [];
     
-    const handleDragStart = () => {
-      isDraggingRef.current = true;
-    };
-    
+    const handleDragStart = () => { isDraggingRef.current = true; };
     const handleDragEnd = () => {
         isDraggingRef.current = false;
         updateHistory(getGeometryFromShape(shape));
@@ -442,7 +417,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             const bounds = getBoundsOfShape(shape);
             if (bounds) {
                 google.maps.event.addListenerOnce(mapRef.current, 'idle', () => {
-                    recalculateZoomLevels();
+                    applyZoomLevel('2');
                 });
                 mapRef.current.fitBounds(bounds, 0);
             } else {
@@ -454,7 +429,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     } else {
         centerMapOnAddress();
     }
-  }, [isLoading, dbGeofences, centerMapOnAddress, recalculateZoomLevels]);
+  }, [isLoading, dbGeofences, centerMapOnAddress, applyZoomLevel]);
     
     
   const handleHistoryAction = (action: 'undo' | 'redo') => {
@@ -587,7 +562,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             zoomLevel={zoomLevel}
             initialFitLevel={fitLevel}
             onApplyFit={applyZoomLevel}
-            isGeofenceAvailable={!!calculatedZoomLevels}
+            isGeofenceAvailable={!!defaultGeofenceId}
             onCenterAddress={centerMapOnAddress}
         />
     </>
