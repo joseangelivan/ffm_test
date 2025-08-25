@@ -50,6 +50,7 @@ type GeofenceControlsProps = {
     onSettingsClick: () => void;
     activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>;
     onHistoryUpdate: (shape: google.maps.MVCObject, isFirstChange?: boolean) => void;
+    onActionEnd: () => void;
 }
 
 export function GeofenceControls({
@@ -68,6 +69,7 @@ export function GeofenceControls({
     onSettingsClick,
     activeShapeRef,
     onHistoryUpdate,
+    onActionEnd,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
