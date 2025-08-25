@@ -29,52 +29,38 @@ export async function middleware(request: NextRequest) {
 
   const publicPages = ['/', '/login', '/admin/login', '/admin/first-login', '/admin/enter-password', '/admin/verify-2fa'];
   
-  const protectedAdminRoutes = [
-    /^\/admin\/dashboard$/,
-    /^\/admin\/condominio(\/.*)?$/,
-  ];
-  const protectedUserRoutes = [
-    /^\/dashboard(\/.*)?$/,
-    /^\/gatekeeper(\/.*)?$/,
-  ];
+  const isPublicPage = publicPages.includes(pathname);
 
-  const isPublicPage = publicPages.some(page => pathname.startsWith(page));
-  const isAdminRoute = protectedAdminRoutes.some(route => route.test(pathname));
-  const isUserRoute = protectedUserRoutes.some(route => route.test(pathname));
+  // 1. Verify session
+  const session = sessionToken ? await verifySession(sessionToken) : null;
 
-  // 1. If no session token exists
-  if (!sessionToken) {
-    // If trying to access a protected route, redirect to the appropriate login page
-    if (isAdminRoute) return NextResponse.redirect(new URL('/admin/login', request.url));
-    if (isUserRoute) return NextResponse.redirect(new URL('/login', request.url));
-    // Otherwise, allow access to public pages
-    return NextResponse.next();
+  // 2. Redirect logged-in users from public pages
+  if (session && isPublicPage) {
+    const dashboardUrl = session.type === 'admin' ? '/admin/dashboard' : '/dashboard';
+    return NextResponse.redirect(new URL(dashboardUrl, request.url));
   }
 
-  // 2. If a session token exists, verify it
-  const session = await verifySession(sessionToken);
+  // 3. Protect routes for non-logged-in users
+  if (!session && !isPublicPage) {
+     const isAdminRoute = pathname.startsWith('/admin');
+     const loginUrl = isAdminRoute ? '/admin/login' : '/login';
+     return NextResponse.redirect(new URL(loginUrl, request.url));
+  }
 
-  if (!session) {
-    const redirectTo = isAdminRoute ? '/admin/login' : '/login';
-    return handleInvalidSession(request, redirectTo);
-  }
-  
-  // 3. Handle routing for valid sessions
-  const isAdmin = session.type === 'admin';
+  // 4. Prevent cross-access for logged-in users
+  if (session) {
+      const isAdmin = session.type === 'admin';
+      const isTryingAdminRoute = pathname.startsWith('/admin');
+      const isTryingUserRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/gatekeeper');
 
-  // If user with a valid session tries to access a login page, redirect them to their dashboard
-  if (isPublicPage) {
-    return NextResponse.redirect(new URL(isAdmin ? '/admin/dashboard' : '/dashboard', request.url));
+      if (isAdmin && isTryingUserRoute) {
+          return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+      }
+      if (!isAdmin && isTryingAdminRoute) {
+          return NextResponse.redirect(new URL('/dashboard', request.url));
+      }
   }
-  
-  // Prevent cross-access to protected routes
-  if (isAdmin && isUserRoute) {
-    return NextResponse.redirect(new URL('/admin/dashboard', request.url));
-  }
-  if (!isAdmin && isAdminRoute) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
-  
-  // 4. If everything is correct, allow the request to proceed
+
+  // 5. If everything is correct, allow the request to proceed
   return NextResponse.next();
 }
