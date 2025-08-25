@@ -320,23 +320,23 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       });
   }, [historyIndex, history]);
   
-  useEffect(() => {
+   useEffect(() => {
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing') return;
 
     const handleVertexChange = () => {
-        if (!isDraggingRef.current) {
-            updateHistory(getGeometryFromShape(shape));
-        }
+      if (!isDraggingRef.current) {
+        updateHistory(getGeometryFromShape(shape));
+      }
+    };
+    
+    const handleDragStart = () => {
+        isDraggingRef.current = true;
     };
     
     const handleDragEnd = () => {
         isDraggingRef.current = false;
         updateHistory(getGeometryFromShape(shape));
-    };
-    
-    const handleDragStart = () => {
-        isDraggingRef.current = true;
     };
 
     const listeners: google.maps.MapsEventListener[] = [
@@ -559,3 +559,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
