@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
-import { Loader } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
 
@@ -14,9 +13,7 @@ type GoogleMapsProviderProps = {
 
 const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => {
     const { t } = useLocale();
-    const { toast } = useToast();
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    const [isApiLoaded, setIsApiLoaded] = useState(false);
     const [loadError, setLoadError] = useState(false);
 
     useEffect(() => {
@@ -29,24 +26,14 @@ const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => 
             setLoadError(true);
         };
         
+        const originalAuthFailure = (window as any).gm_authFailure;
         (window as any).gm_authFailure = handleAuthError;
 
-        // Set a timer to detect if the API fails to load for other reasons.
-        const timer = setTimeout(() => {
-            if (!isApiLoaded && !loadError) {
-                 // Check if google.maps is available
-                if (typeof window.google === 'undefined' || typeof window.google.maps === 'undefined') {
-                    setLoadError(true);
-                }
-            }
-        }, 5000); // 5-second timeout
-
         return () => {
-            clearTimeout(timer);
-            // Cleanup the global callback
-            (window as any).gm_authFailure = undefined;
+            // Restore original auth failure handler if it existed
+            (window as any).gm_authFailure = originalAuthFailure;
         };
-    }, [apiKey, isApiLoaded, t, toast, loadError]);
+    }, [apiKey]);
     
     if (!apiKey) {
         return (
@@ -80,7 +67,6 @@ const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => 
         <APIProvider 
             apiKey={apiKey} 
             libraries={['drawing', 'geocoding']} 
-            onLoad={() => setIsApiLoaded(true)}
         >
             {children}
         </APIProvider>
