@@ -40,6 +40,7 @@ import type { UserSettings } from '@/actions/admin';
 import { getActiveTheme, updateSettings } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
+import { useToast } from '@/hooks/use-toast';
 
 
 type CondoDashboardClientProps = {
@@ -54,13 +55,13 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   const { t, setLocale } = useLocale();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const router = useRouter();
+  const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState('map');
   const [theme, setTheme] = useState(initialSettings.theme);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   
   const [isApiLoaded, setIsApiLoaded] = useState(false);
-  const [isApiLoading, setIsApiLoading] = useState(true);
 
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
     const root = document.documentElement;
@@ -133,17 +134,21 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
 
 
   useEffect(() => {
-    if(!apiKey) {
-      setIsApiLoading(false);
-      return;
-    };
-    // Give the API 3 seconds to load. If it doesn't, assume billing error.
+    if (!apiKey || isApiLoaded) return;
+    
     const timer = setTimeout(() => {
-        setIsApiLoading(false);
+        if (!isApiLoaded) {
+            toast({
+                title: t('adminDashboard.settingsGroups.catalogs.maps.billingErrorTitle'),
+                description: t('adminDashboard.settingsGroups.catalogs.maps.billingErrorDescription'),
+                variant: 'destructive',
+                duration: Infinity,
+            });
+        }
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [apiKey]);
+  }, [apiKey, isApiLoaded, t, toast]);
 
 
   const handleConfirmLogout = async () => {
@@ -174,43 +179,8 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
         );
     }
 
-    if (isApiLoading) {
-      return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="aspect-video w-full bg-muted rounded-lg flex flex-col items-center justify-center text-center p-4">
-                  <Loader className="h-12 w-12 text-muted-foreground animate-spin mb-4"/>
-                  <h3 className="text-lg font-bold text-muted-foreground">{t('condoDashboard.map.loadingMap')}</h3>
-                </div>
-            </CardContent>
-        </Card>
-      );
-    }
-
-    if (!isApiLoaded) {
-      return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="aspect-video w-full bg-destructive/10 border-2 border-dashed border-destructive/50 rounded-lg flex flex-col items-center justify-center text-center p-4">
-                  <AlertTriangle className="h-12 w-12 text-destructive mb-4"/>
-                  <h3 className="text-lg font-bold text-destructive">{t('adminDashboard.settingsGroups.catalogs.maps.billingErrorTitle')}</h3>
-                  <p className="text-sm text-destructive/80 mt-2">
-                    {t('adminDashboard.settingsGroups.catalogs.maps.billingErrorDescription')}
-                  </p>
-                </div>
-            </CardContent>
-        </Card>
-      );
-    }
-
     return (
-        <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']} onLoad={() => { setIsApiLoaded(true); setIsApiLoading(false); }}>
+        <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']} onLoad={() => setIsApiLoaded(true)}>
             <CondoMapTab condo={initialCondo} initialPosition={initialPosition} />
         </APIProvider>
     );
