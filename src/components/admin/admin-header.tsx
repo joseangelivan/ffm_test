@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useLocale } from '@/lib/i18n';
+import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,6 +46,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import type { SessionPayload } from '@/lib/session';
+import { handleLogoutAction } from '@/lib/session';
 import { ManageAdminsDialog } from './manage-admins-dialog';
 import { SmtpConfigDialog } from './smtp-config-dialog';
 import { ManageAccountDialog } from './manage-account-dialog';
@@ -67,11 +69,13 @@ export function LoadingOverlay({ text }: { text: string }) {
 
 function LogoutDialogForm({ onLogout }: { onLogout: () => Promise<void> }) {
     const { t } = useLocale();
+    const router = useRouter();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     
     const handleConfirmLogout = async () => {
         setIsLoggingOut(true);
         await onLogout();
+        router.push('/admin/login');
     };
 
     return (
@@ -98,10 +102,9 @@ interface AdminHeaderProps {
     session: SessionPayload;
     condoName?: string;
     onAccountUpdateSuccess: (data: any) => void;
-    onLogout: () => Promise<void>;
 }
 
-export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogout }: AdminHeaderProps) {
+export function AdminHeader({ session, condoName, onAccountUpdateSuccess }: AdminHeaderProps) {
     const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
     const { t } = useLocale();
     const isCondoView = !!condoName;
@@ -177,7 +180,7 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess, onLogo
                         </DropdownMenuItem>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                        <LogoutDialogForm onLogout={onLogout} />
+                        <LogoutDialogForm onLogout={handleLogoutAction} />
                     </AlertDialogContent>
                     </AlertDialog>
                 </DropdownMenuContent>

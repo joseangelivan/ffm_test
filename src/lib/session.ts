@@ -116,7 +116,4 @@ export async function handleLogoutAction() {
         }
     }
     (await cookies()).delete('session');
-    
-    // Explicitly redirect to the admin login page
-    redirect('/admin/login');
 }

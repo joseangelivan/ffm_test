@@ -86,6 +86,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import MapComponent, { type Marker } from '@/components/map';
 import type { SessionPayload } from '@/lib/session';
 import type { Device } from '@/actions/devices';
+import { handleLogoutAction } from '@/lib/session';
 
 const deviceIcons: { [key: string]: React.ReactNode } = {
   'Teléfono Inteligente': <Smartphone className="h-5 w-5 text-muted-foreground" />,
@@ -323,7 +324,8 @@ export default function DashboardClient({
     });
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await handleLogoutAction();
     router.push('/');
   }
   
