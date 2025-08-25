@@ -415,7 +415,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     if (!isLoading && mapRef.current) {
         applyZoomLevel();
     }
-  }, [isLoading, fitLevel, applyZoomLevel]);
+  }, [isLoading, fitLevel, applyZoomLevel, selectedGeofenceId]);
     
     
   const handleHistoryAction = (action: 'undo' | 'redo') => {
