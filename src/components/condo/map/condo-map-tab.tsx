@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -267,9 +268,17 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const bounds = getBoundsOfShape(geofenceShape);
     if (!bounds) return;
 
-    let padding = 0; // 'tight'
-    if (level === '2') padding = 50; // 'normal'
-    if (level === '3') padding = 100; // 'wide'
+    let paddingValue = 0; // 'tight'
+    if (level === '2') paddingValue = 50; // 'normal'
+    if (level === '3') paddingValue = 100; // 'wide'
+    
+    // Use an object for padding to handle different aspect ratios correctly
+    const padding = {
+        top: paddingValue,
+        bottom: paddingValue,
+        left: paddingValue,
+        right: paddingValue,
+    };
 
     map.fitBounds(bounds, padding);
     
