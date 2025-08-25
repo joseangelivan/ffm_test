@@ -61,7 +61,8 @@ const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
 const addToRemoveQueue = (toastId: string) => {
   if (toastTimeouts.has(toastId)) {
-    return
+    clearTimeout(toastTimeouts.get(toastId))
+    toastTimeouts.delete(toastId)
   }
 
   const timeout = setTimeout(() => {
@@ -70,7 +71,7 @@ const addToRemoveQueue = (toastId: string) => {
       type: "REMOVE_TOAST",
       toastId: toastId,
     })
-  }, TOAST_REMOVE_DELAY)
+  }, 1000) // 1 second after dismiss animation
 
   toastTimeouts.set(toastId, timeout)
 }
@@ -170,11 +171,9 @@ function toast({ ...props }: Toast) {
   if (duration !== Infinity) {
      const timeout = setTimeout(() => {
         dismiss();
-        if (toastTimeouts.has(id)) {
-            clearTimeout(toastTimeouts.get(id));
-            toastTimeouts.delete(id);
-        }
      }, duration);
+     
+     // Store the timeout so we can clear it if the toast is dismissed manually
      toastTimeouts.set(id, timeout);
   }
 
@@ -202,7 +201,14 @@ function useToast() {
   return {
     ...state,
     toast,
-    dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+    dismiss: (toastId?: string) => {
+      // Clear timeout if it exists
+      if(toastId && toastTimeouts.has(toastId)) {
+        clearTimeout(toastTimeouts.get(toastId));
+        toastTimeouts.delete(toastId);
+      }
+      dispatch({ type: "DISMISS_TOAST", toastId })
+    },
   }
 }
 
