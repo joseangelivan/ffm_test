@@ -335,8 +335,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     };
     
     const handleDragEnd = () => {
-        isDraggingRef.current = false;
         updateHistory(getGeometryFromShape(shape));
+        isDraggingRef.current = false;
     };
 
     const listeners: google.maps.MapsEventListener[] = [
