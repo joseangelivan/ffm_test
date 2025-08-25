@@ -295,6 +295,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
   const updateHistory = useCallback((newGeometry: any) => {
     const newHistory = history.slice(0, historyIndex + 1);
+    
+    // To prevent spamming history, check if new geometry is same as last
+    if (isEqual(newHistory[historyIndex], newGeometry)) {
+        return;
+    }
+
     newHistory.push(newGeometry);
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
