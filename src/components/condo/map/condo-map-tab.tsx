@@ -323,30 +323,23 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const shape = activeShapeState?.shape;
     if (!shape) return;
 
-    let preDragGeometry: any | null = null;
     const listeners: google.maps.MapsEventListener[] = [];
 
     const updateHistory = () => {
-      const newGeometry = getGeometryFromShape(shape);
-      const lastHistoryGeometry = history[historyIndex];
+        const newGeometry = getGeometryFromShape(shape);
+        const lastHistoryGeometry = history[historyIndex];
 
-      if (newGeometry && !isEqual(newGeometry, lastHistoryGeometry)) {
-        setHistory(prevHistory => {
-          const newHistory = prevHistory.slice(0, historyIndex + 1);
-          newHistory.push(newGeometry);
-          setHistoryIndex(newHistory.length - 1);
-          return newHistory;
-        });
-      }
+        if (newGeometry && !isEqual(newGeometry, lastHistoryGeometry)) {
+            setHistory(prevHistory => {
+                const newHistory = prevHistory.slice(0, historyIndex + 1);
+                newHistory.push(newGeometry);
+                setHistoryIndex(newHistory.length - 1);
+                return newHistory;
+            });
+        }
     };
     
-    listeners.push(google.maps.event.addListener(shape, 'dragstart', () => {
-        preDragGeometry = getGeometryFromShape(shape);
-    }));
-
-    listeners.push(google.maps.event.addListener(shape, 'dragend', () => {
-        updateHistory();
-    }));
+    listeners.push(google.maps.event.addListener(shape, 'dragend', updateHistory));
 
     if ('getPath' in shape) {
       const path = (shape as google.maps.Polygon).getPath();
@@ -355,11 +348,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       listeners.push(google.maps.event.addListener(path, 'remove_at', updateHistory));
     }
     
-    if ('radius' in shape) { // Circle
+    if ('getRadius' in shape) { // Circle
       listeners.push(google.maps.event.addListener(shape, 'radius_changed', updateHistory));
+      listeners.push(google.maps.event.addListener(shape, 'center_changed', updateHistory));
     }
     
-    if ('bounds' in shape) { // Rectangle
+    if ('getBounds' in shape && !('getRadius' in shape)) { // Rectangle
        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', updateHistory));
     }
 
