@@ -190,7 +190,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
-
+  
   const handleHistoryUpdate = useCallback(() => {
     if (!activeShapeState?.shape) return;
     const newGeometry = getGeometryFromShape(activeShapeState.shape);
@@ -336,7 +336,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     if (!shape || mode !== 'editing') {
       return;
     }
-    // Clean up previous listeners before adding new ones
     google.maps.event.clearInstanceListeners(shape);
   
     const listeners: google.maps.MapsEventListener[] = [];
@@ -360,29 +359,31 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [activeShapeState, mode, handleHistoryUpdate]);
   
 
-  const onOverlayComplete = useCallback((event: google.maps.drawing.OverlayCompleteEvent) => {
-    if (drawingManagerRef.current) {
-        drawingManagerRef.current.setDrawingMode(null);
-    }
-    const newShape = event.overlay;
-    if (!newShape) return;
-
-    setActiveShapeState({ id: `new-shape-${Date.now()}`, shape: newShape, originalGeometry: null });
-
-    const newGeometry = getGeometryFromShape(newShape);
-    setHistory([newGeometry]);
-    setHistoryIndex(0);
-  }, [setActiveShapeState, setHistory, setHistoryIndex]);
-
   useEffect(() => {
     if (!drawingManagerRef.current) return;
+
+    const onOverlayComplete = (event: google.maps.drawing.OverlayCompleteEvent) => {
+        if (drawingManagerRef.current) {
+            drawingManagerRef.current.setDrawingMode(null);
+        }
+        const newShape = event.overlay;
+        if (!newShape) return;
+    
+        setActiveShapeState({ id: `new-shape-${Date.now()}`, shape: newShape, originalGeometry: null });
+    
+        const newGeometry = getGeometryFromShape(newShape);
+        setHistory([newGeometry]);
+        setHistoryIndex(0);
+    }
+
     const listener = google.maps.event.addListener(
         drawingManagerRef.current, 'overlaycomplete', onOverlayComplete
     );
+
     return () => {
         google.maps.event.removeListener(listener);
     };
-  }, [onOverlayComplete]);
+  }, [drawingManagerRef.current]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -614,6 +615,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
 
 
 
