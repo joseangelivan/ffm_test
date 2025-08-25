@@ -178,8 +178,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [zoomLevel, setZoomLevel] = useState(15);
   const [fitLevel, setFitLevel] = useState<'1' | '2' | '3'>('2');
   const [isLoading, setIsLoading] = useState(true);
-
-  const [calculatedZoomLevels, setCalculatedZoomLevels] = useState<{ tight: number, normal: number, wide: number } | null>(null);
   
   const [condoAddressPosition] = useState(initialPosition);
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
@@ -227,7 +225,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [condoAddressPosition]);
 
 
-  const getZoomForBounds = (bounds: google.maps.LatLngBounds, mapDim: { width: number, height: number }) => {
+  const getZoomForBounds = useCallback((bounds: google.maps.LatLngBounds, mapDim: { width: number, height: number }) => {
     const WORLD_DIM = { height: 256, width: 256 };
     const ZOOM_MAX = 21;
 
@@ -252,7 +250,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const lngZoom = zoom(mapDim.width, WORLD_DIM.width, lngFraction);
 
     return Math.min(latZoom, lngZoom, ZOOM_MAX);
-  }
+  }, []);
   
   const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
     const map = mapRef.current;
@@ -281,7 +279,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     map.setZoom(finalZoom);
     setFitLevel(level);
 
-  }, [defaultGeofenceId, selectedGeofenceId]);
+  }, [defaultGeofenceId, selectedGeofenceId, getZoomForBounds]);
 
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -296,10 +294,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
     
   const updateHistory = useCallback((newGeometry: any) => {
-    const lastGeometry = history[historyIndex];
-    if (isEqual(newGeometry, lastGeometry)) {
-        return;
-    }
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push(newGeometry);
     setHistory(newHistory);
@@ -315,10 +309,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   useEffect(() => {
     const shape = activeShapeState?.shape;
-    if (!shape) return;
+    if (!shape || mode !== 'editing') return;
 
-    const listeners: google.maps.MapsEventListener[] = [];
-    
     const handleDragStart = () => { isDraggingRef.current = true; };
     const handleDragEnd = () => {
         isDraggingRef.current = false;
@@ -330,22 +322,22 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         updateHistory(getGeometryFromShape(shape));
     };
 
-    listeners.push(google.maps.event.addListener(shape, 'dragstart', handleDragStart));
-    listeners.push(google.maps.event.addListener(shape, 'dragend', handleDragEnd));
-
+    const listeners: google.maps.MapsEventListener[] = [
+        google.maps.event.addListener(shape, 'dragstart', handleDragStart),
+        google.maps.event.addListener(shape, 'dragend', handleDragEnd),
+    ];
+  
     if ('getPath' in shape) {
         const path = (shape as google.maps.Polygon).getPath();
         listeners.push(google.maps.event.addListener(path, 'set_at', handleVertexChange));
         listeners.push(google.maps.event.addListener(path, 'insert_at', handleVertexChange));
         listeners.push(google.maps.event.addListener(path, 'remove_at', handleVertexChange));
-    } else if ('getBounds' in shape) { // For circles and rectangles
-        // We already handle this with dragend, no need for bounds_changed which fires too often.
     }
-
+    
     return () => {
         listeners.forEach(listener => listener.remove());
     };
-  }, [activeShapeState, updateHistory]);
+  }, [activeShapeState, mode, updateHistory]);
   
   useEffect(() => {
     const map = mapRef.current;
@@ -417,10 +409,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
          if(shape) {
             const bounds = getBoundsOfShape(shape);
             if (bounds) {
-                google.maps.event.addListenerOnce(mapRef.current, 'idle', () => {
-                    applyZoomLevel('2');
-                });
-                mapRef.current.fitBounds(bounds, 0);
+                mapRef.current.fitBounds(bounds, 50); // 50px padding
             } else {
                 centerMapOnAddress();
             }
@@ -430,7 +419,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     } else {
         centerMapOnAddress();
     }
-  }, [isLoading, dbGeofences, centerMapOnAddress, applyZoomLevel]);
+  }, [isLoading, dbGeofences, centerMapOnAddress]);
     
     
   const handleHistoryAction = (action: 'undo' | 'redo') => {
@@ -569,3 +558,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
