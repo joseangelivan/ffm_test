@@ -311,56 +311,61 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => { zoomListener.remove(); };
   }, []);
     
+  // --- History Management ---
+
+  const updateHistory = useCallback((newGeometry: any) => {
+    setHistory(prev => {
+        const newHistory = prev.slice(0, historyIndex + 1);
+        newHistory.push(newGeometry);
+        return newHistory;
+    });
+    setHistoryIndex(prev => prev + 1);
+  }, [historyIndex]);
 
   useEffect(() => {
-    setHistoryState({
-        canUndo: historyIndex > 0,
-        canRedo: historyIndex < history.length - 1,
-    });
+      setHistoryState({
+          canUndo: historyIndex > 0,
+          canRedo: historyIndex < history.length - 1,
+      });
   }, [historyIndex, history]);
 
   useEffect(() => {
-    const shape = activeShapeState?.shape;
-    if (!shape) return;
+      const shape = activeShapeState?.shape;
+      if (!shape) return;
 
-    const listeners: google.maps.MapsEventListener[] = [];
+      const listeners: google.maps.MapsEventListener[] = [];
+      let dragStartGeometry: any = null;
 
-    const updateHistory = () => {
+      const addChange = () => {
         const newGeometry = getGeometryFromShape(shape);
-        const lastHistoryGeometry = history[historyIndex];
+        updateHistory(newGeometry);
+      };
 
-        if (newGeometry && !isEqual(newGeometry, lastHistoryGeometry)) {
-            setHistory(prevHistory => {
-                const newHistory = prevHistory.slice(0, historyIndex + 1);
-                newHistory.push(newGeometry);
-                setHistoryIndex(newHistory.length - 1);
-                return newHistory;
-            });
-        }
-    };
-    
-    listeners.push(google.maps.event.addListener(shape, 'dragend', updateHistory));
+      listeners.push(google.maps.event.addListener(shape, 'dragstart', () => {
+          dragStartGeometry = getGeometryFromShape(shape);
+      }));
 
-    if ('getPath' in shape) {
-      const path = (shape as google.maps.Polygon).getPath();
-      listeners.push(google.maps.event.addListener(path, 'set_at', updateHistory));
-      listeners.push(google.maps.event.addListener(path, 'insert_at', updateHistory));
-      listeners.push(google.maps.event.addListener(path, 'remove_at', updateHistory));
-    }
-    
-    if ('getRadius' in shape) { // Circle
-      listeners.push(google.maps.event.addListener(shape, 'radius_changed', updateHistory));
-      listeners.push(google.maps.event.addListener(shape, 'center_changed', updateHistory));
-    }
-    
-    if ('getBounds' in shape && !('getRadius' in shape)) { // Rectangle
-       listeners.push(google.maps.event.addListener(shape, 'bounds_changed', updateHistory));
-    }
+      listeners.push(google.maps.event.addListener(shape, 'dragend', () => {
+          const endGeometry = getGeometryFromShape(shape);
+          if (dragStartGeometry && !isEqual(dragStartGeometry, endGeometry)) {
+              updateHistory(endGeometry);
+          }
+          dragStartGeometry = null;
+      }));
 
-    return () => {
-      listeners.forEach(listener => listener.remove());
-    };
-}, [activeShapeState, history, historyIndex]);
+      if ('getPath' in shape) {
+          const path = (shape as google.maps.Polygon).getPath();
+          listeners.push(google.maps.event.addListener(path, 'set_at', addChange));
+          listeners.push(google.maps.event.addListener(path, 'insert_at', addChange));
+          listeners.push(google.maps.event.addListener(path, 'remove_at', addChange));
+      } else if ('getBounds' in shape) { // Rectangle or Circle
+          listeners.push(google.maps.event.addListener(shape, 'bounds_changed', addChange));
+      }
+
+      return () => {
+          listeners.forEach(listener => listener.remove());
+      };
+  }, [activeShapeState, updateHistory]);
 
   
   useEffect(() => {
@@ -450,16 +455,17 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
     
   const handleHistoryAction = (action: 'undo' | 'redo') => {
-    if ((action === 'undo' && !historyState.canUndo) || (action === 'redo' && !historyState.canRedo)) return;
+    const isUndo = action === 'undo';
+    if ((isUndo && !historyState.canUndo) || (!isUndo && !historyState.canRedo)) return;
 
-    const newIndex = action === 'undo' ? historyIndex - 1 : historyIndex + 1;
+    const newIndex = isUndo ? historyIndex - 1 : historyIndex + 1;
     const geometry = history[newIndex];
     const shapeToUpdate = activeShapeState?.shape;
 
-    if (!geometry || !shapeToUpdate) return;
-    
-    restoreShapeToGeometry(shapeToUpdate, geometry);
-    setHistoryIndex(newIndex);
+    if (geometry && shapeToUpdate) {
+        restoreShapeToGeometry(shapeToUpdate, geometry);
+        setHistoryIndex(newIndex);
+    }
   };
   
   return (
