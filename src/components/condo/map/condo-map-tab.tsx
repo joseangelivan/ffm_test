@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
 import {
   Locate,
   ZoomIn,
@@ -317,14 +317,17 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     });
     return () => { zoomListener.remove(); };
   }, []);
-
+    
   const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
     if (!shape) {
         setHistory([]);
         setHistoryIndex(-1);
         return;
     }
+
     const newGeometry = getGeometryFromShape(shape);
+    const lastGeometry = history[historyIndex];
+
     const newHistory = history.slice(0, historyIndex + 1);
     
     newHistory.push(newGeometry);
@@ -332,7 +335,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     setHistoryIndex(newHistory.length - 1);
   }, [history, historyIndex]);
 
-    
   useEffect(() => {
     const shape = activeShapeRef.current?.shape;
     if (!shape || mode !== 'editing') {
