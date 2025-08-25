@@ -87,6 +87,7 @@ export function GeofenceControls({
     const [isSaving, startSavingTransition] = useTransition();
     const [isDeleting, startDeletingTransition] = useTransition();
     const [isSettingDefault, startSettingDefaultTransition] = useTransition();
+    const [isDrawing, setIsDrawing] = useState(false);
 
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
@@ -117,18 +118,21 @@ export function GeofenceControls({
         drawingManager.setDrawingMode(null);
     
         const newShape = event.overlay;
-        if (!newShape) return;
+        if (!newShape) {
+            setIsDrawing(false);
+            return;
+        }
         
-        // The new shape should be managed by activeShapeState, not directly on the map
         event.overlay.setMap(null);
 
         setMode('editing');
-        setCurrentGeofenceName(getNextGeofenceName());
+        setCurrentGeofenceName(currentGeofenceName || getNextGeofenceName());
         setActiveShapeState({ id: `new-shape-${Date.now()}`, shape: newShape, originalGeometry: null });
         const newGeometry = getGeometryFromShape(newShape);
         setHistory([newGeometry]);
         setHistoryIndex(0);
-    }, [drawingManager, getNextGeofenceName, setActiveShapeState, setHistory, setHistoryIndex, setMode]);
+        setIsDrawing(false);
+    }, [drawingManager, getNextGeofenceName, setActiveShapeState, setHistory, setHistoryIndex, setMode, currentGeofenceName]);
 
     useEffect(() => {
         if (!drawingManager) return;
@@ -147,7 +151,6 @@ export function GeofenceControls({
         if (activeShapeState) {
             const { shape } = activeShapeState;
             if (shape) {
-                 // Deactivates the shape, which will be hidden by the main useEffect in parent
                 shape.setMap(null);
             }
         }
@@ -160,6 +163,7 @@ export function GeofenceControls({
         setCurrentGeofenceName('');
         setHistory([]);
         setHistoryIndex(-1);
+        setIsDrawing(false);
     }, [activeShapeState, drawingManager, setHistory, setHistoryIndex, setActiveShapeState]);
       
     const startEditingSelected = useCallback(() => {
@@ -249,6 +253,15 @@ export function GeofenceControls({
         });
     }
     
+    const handleStartDrawing = () => {
+        if (drawingManager && mapRef.current) {
+            drawingManager.setMap(mapRef.current);
+            drawingManager.setDrawingMode(drawingMode as any);
+            setIsDrawing(true);
+            setCurrentGeofenceName(getNextGeofenceName());
+        }
+    };
+    
     const isBusy = isSaving || isDeleting || isSettingDefault;
 
     return (
@@ -308,7 +321,7 @@ export function GeofenceControls({
 
                     <fieldset disabled={isBusy || mode === 'view'} className="space-y-4 disabled:opacity-50">
                             <div className="flex items-center gap-2">
-                                <Select value={selectedGeofenceId || ''} onValueChange={setSelectedGeofenceId} disabled={!!activeShapeState || isBusy}>
+                                <Select value={selectedGeofenceId || ''} onValueChange={setSelectedGeofenceId} disabled={!!activeShapeState || isDrawing || isBusy}>
                                     <SelectTrigger className={cn("flex-1", selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-') && "text-blue-600 border-blue-400 font-bold")}>
                                         <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
                                     </SelectTrigger>
@@ -354,7 +367,7 @@ export function GeofenceControls({
                             </div>
                         
                         
-                            {activeShapeState ? (
+                            {activeShapeState || isDrawing ? (
                                 <div className='relative space-y-4 p-4 border border-blue-300 rounded-md bg-blue-50/30 dark:border-blue-700 dark:bg-blue-900/20'>
                                      {isSaving && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
                                     <div className="space-y-2">
@@ -370,7 +383,7 @@ export function GeofenceControls({
                                         <Button onClick={cancelCurrentAction} variant="ghost" disabled={isSaving}>
                                             <X className="mr-2 h-4 w-4" /> {t('common.cancel')}
                                         </Button>
-                                        <Button onClick={handleSaveGeofence} disabled={isSaving || !activeShapeState.shape}>
+                                        <Button onClick={handleSaveGeofence} disabled={isSaving || !activeShapeState?.shape}>
                                             {isSaving ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                             {activeShapeState?.id.startsWith('new-shape-') ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
                                         </Button>
@@ -378,12 +391,7 @@ export function GeofenceControls({
                                 </div>
                             ) : (
                                  <div className="flex items-center gap-2">
-                                    <Button onClick={() => {
-                                        if (drawingManager) {
-                                            drawingManager.setMap(mapRef.current);
-                                            drawingManager.setDrawingMode(drawingMode as any);
-                                        }
-                                    }} variant="outline" className="flex-1" disabled={!!activeShapeState || isBusy}>
+                                    <Button onClick={handleStartDrawing} variant="outline" className="flex-1" disabled={!!activeShapeState || isBusy}>
                                         <PencilRuler className="mr-2 h-4 w-4"/>
                                         {t('condoDashboard.map.geofence.draw')}
                                     </Button>

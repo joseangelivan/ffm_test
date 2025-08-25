@@ -31,9 +31,6 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { 
     STYLE_FOCUSED_BLUE,
-    STYLE_REFERENCE_GREEN,
-    STYLE_BACKGROUND_GREY,
-    STYLE_VIEW_MODE,
     createShapeFromGeometry,
     getBoundsOfShape,
     getCenterOfShape,
@@ -281,7 +278,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         listeners.push(google.maps.event.addListener(path, 'set_at', handleVertexChange));
         listeners.push(google.maps.event.addListener(path, 'insert_at', handleVertexChange));
         listeners.push(google.maps.event.addListener(path, 'remove_at', handleVertexChange));
-    } else if ('getBounds' in shape) { // For rectangle and circle
+    } else if ('getBounds' in shape) {
         listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleVertexChange));
     }
     
