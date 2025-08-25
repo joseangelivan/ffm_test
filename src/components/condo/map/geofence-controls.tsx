@@ -88,21 +88,11 @@ export function GeofenceControls({
     const [isDeleting, startDeletingTransition] = useTransition();
     const [isSettingDefault, startSettingDefaultTransition] = useTransition();
 
-    const [isShapeDrawn, setIsShapeDrawn] = useState(false);
-
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
 
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
-    useEffect(() => {
-        if (activeShapeState) {
-            setIsShapeDrawn(true);
-        } else {
-            setIsShapeDrawn(false);
-        }
-    }, [activeShapeState]);
-
     const getNextGeofenceName = useCallback(() => {
         const baseName = t('condoDashboard.map.geofence.defaultName');
         const existingNumbers = geofences.map(g => {
@@ -349,7 +339,7 @@ export function GeofenceControls({
                                         <Button onClick={cancelCurrentAction} variant="ghost" disabled={isSaving}>
                                             <X className="mr-2 h-4 w-4" /> {t('common.cancel')}
                                         </Button>
-                                        <Button onClick={handleSaveGeofence} disabled={isSaving || !isShapeDrawn}>
+                                        <Button onClick={handleSaveGeofence} disabled={isSaving || !activeShapeState.shape}>
                                             {isSaving ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                             {activeShapeState?.id.startsWith('new-shape-') ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
                                         </Button>

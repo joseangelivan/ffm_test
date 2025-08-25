@@ -362,7 +362,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const onOverlayComplete = useCallback((event: google.maps.drawing.OverlayCompleteEvent) => {
     if (drawingManagerRef.current) {
+        // Immediately disable drawing mode.
         drawingManagerRef.current.setDrawingMode(null);
+        // The DrawingManager API automatically adds the overlay to the map.
+        // We will hide it and let React manage its state and visibility.
+        event.overlay.setMap(null);
     }
     
     const newShape = event.overlay;
@@ -374,7 +378,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const newGeometry = getGeometryFromShape(newShape);
     setHistory([newGeometry]);
     setHistoryIndex(0);
-}, [setActiveShapeState, setHistory, setHistoryIndex, setMode]);
+}, []);
 
   useEffect(() => {
     if (!drawingManagerRef.current) return;
@@ -392,6 +396,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const map = mapRef.current;
     if (!map || isLoading) return;
 
+    // First, manage the shapes that are tied to DB geofences
     dbGeofences.forEach(dbGf => {
         if (!mapShapesRef.current.has(dbGf.id)) {
             const newShape = createShapeFromGeometry(dbGf.geometry);
@@ -400,53 +405,48 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     });
 
     const activeActionId = activeShapeState?.id;
-    const isActionActive = !!activeActionId;
 
+    // Now, apply styles and visibility to all shapes managed in the ref
     mapShapesRef.current.forEach((shape, id) => {
         const isBeingEdited = activeActionId === id;
-        shape.setOptions({ editable: isBeingEdited, draggable: isBeingEdited });
+        shape.setOptions({ editable: false, draggable: false }); // Default to non-editable
         
         let isVisible = false;
         let styleOptions: any = {};
         const isSelected = id === selectedGeofenceId;
         const isDefault = id === defaultGeofenceId;
         
-        if(mode === 'view') {
-            isVisible = (isDefault && !showAllGeofences) || (showAllGeofences);
+        if (mode === 'view') {
+            isVisible = (isDefault && !showAllGeofences) || showAllGeofences;
             styleOptions = isDefault ? { ...STYLE_VIEW_MODE } : { ...STYLE_BACKGROUND_GREY };
             if (isSelected && !isDefault) styleOptions = { ...STYLE_VIEW_MODE };
-
         } else { // mode === 'editing'
             if (isBeingEdited) {
-                isVisible = true;
-                styleOptions = { ...STYLE_FOCUSED_BLUE };
-            } else if (isActionActive) { // Another action is active (e.g. drawing new)
-                isVisible = id === selectedGeofenceId;
-                styleOptions = { ...STYLE_REFERENCE_GREEN };
+                // This shape is not on the map yet, it's handled by activeShapeState
             } else {
-                 if(showAllGeofences) {
-                    isVisible = true;
-                    styleOptions = isSelected ? { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3 } : { ...STYLE_BACKGROUND_GREY };
-                } else {
-                    isVisible = isSelected;
-                    styleOptions = isSelected ? { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3 } : { ...STYLE_BACKGROUND_GREY };
-                }
+                isVisible = showAllGeofences || isSelected;
+                styleOptions = isSelected ? { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3 } : { ...STYLE_BACKGROUND_GREY };
             }
         }
         shape.setOptions(styleOptions);
         shape.setMap(isVisible ? map : null);
     });
 
-  }, [
-      mode,
-      dbGeofences,
-      selectedGeofenceId,
-      defaultGeofenceId,
-      showAllGeofences,
-      isLoading,
-      historyState,
-      activeShapeState
-  ]);
+    // Handle the active editing shape separately
+    if (activeShapeState?.shape) {
+        const activeShape = activeShapeState.shape;
+        activeShape.setOptions({ ...STYLE_FOCUSED_BLUE, editable: true, draggable: true });
+        activeShape.setMap(map);
+    }
+}, [
+    mode,
+    dbGeofences,
+    selectedGeofenceId,
+    defaultGeofenceId,
+    showAllGeofences,
+    isLoading,
+    activeShapeState
+]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
   const handleZoomOut = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! - 1);
@@ -618,6 +618,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
 
 
 
