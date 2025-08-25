@@ -409,7 +409,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
          if(shape) {
             const bounds = getBoundsOfShape(shape);
             if (bounds) {
-                mapRef.current.fitBounds(bounds, 50); // 50px padding
+                mapRef.current.fitBounds(bounds, {top: 50, bottom: 50, left: 50, right: 50}); 
             } else {
                 centerMapOnAddress();
             }
@@ -558,4 +558,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
