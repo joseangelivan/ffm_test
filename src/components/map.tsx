@@ -30,7 +30,11 @@ const MapComponent: React.FC<MapProps> = ({ children, center, markers, onMapLoad
             disableDefaultUI={true}
             mapId="follow-for-me-map"
             style={{ width: '100%', height: '100%' }}
-            onCameraChanged={ev => onMapLoad && onMapLoad(ev.map)}
+            onCameraChanged={ev => {
+                if (ev) {
+                    onMapLoad?.(ev.map);
+                }
+            }}
         >
             {markers.map(marker => (
                 <GoogleAdvancedMarker
