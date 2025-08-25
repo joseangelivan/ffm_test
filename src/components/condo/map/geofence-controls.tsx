@@ -119,6 +119,7 @@ export function GeofenceControls({
         const newShape = event.overlay;
         if (!newShape) return;
         
+        // The new shape should be managed by activeShapeState, not directly on the map
         event.overlay.setMap(null);
 
         setMode('editing');
@@ -144,14 +145,10 @@ export function GeofenceControls({
 
     const cancelCurrentAction = useCallback(() => {
         if (activeShapeState) {
-            const { shape, id, originalGeometry } = activeShapeState;
+            const { shape } = activeShapeState;
             if (shape) {
-                if (id.startsWith('new-shape-')) {
-                    shape.setMap(null);
-                } else if (originalGeometry) {
-                    restoreShapeToGeometry(shape, originalGeometry);
-                    shape.setOptions({ editable: false, draggable: false });
-                }
+                 // Deactivates the shape, which will be hidden by the main useEffect in parent
+                shape.setMap(null);
             }
         }
         setActiveShapeState(null);
@@ -168,11 +165,11 @@ export function GeofenceControls({
     const startEditingSelected = useCallback(() => {
         if (!selectedGeofenceId) return;
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
-        const shapeToEdit = createShapeFromGeometry(selectedGeofence?.geometry);
-
-        if (!selectedGeofence || !shapeToEdit) return;
+        
+        if (!selectedGeofence) return;
     
         cancelCurrentAction();
+        const shapeToEdit = createShapeFromGeometry(selectedGeofence.geometry);
         const originalGeometry = getGeometryFromShape(shapeToEdit);
         
         setMode('editing');

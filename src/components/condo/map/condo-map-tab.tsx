@@ -14,6 +14,7 @@ import {
   Redo,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
+import { isEqual } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
@@ -313,6 +314,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const handleHistoryUpdate = useCallback(() => {
     if (!activeShapeState?.shape) return;
     const newGeometry = getGeometryFromShape(activeShapeState.shape);
+    const lastGeometry = history[historyIndex];
+
+    if (isEqual(newGeometry, lastGeometry)) {
+        return;
+    }
 
     setHistory(prevHistory => {
         const newHistory = prevHistory.slice(0, historyIndex + 1);
@@ -320,7 +326,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         setHistoryIndex(newHistory.length - 1);
         return newHistory;
     });
-  }, [activeShapeState?.shape, historyIndex]);
+  }, [activeShapeState?.shape, history, historyIndex]);
 
   useEffect(() => {
     setHistoryState({
