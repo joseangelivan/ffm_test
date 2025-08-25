@@ -11,6 +11,7 @@ import {
   Users,
   Map,
   Loader,
+  AlertTriangle,
 } from 'lucide-react';
 import { APIProvider } from '@vis.gl/react-google-maps';
 
@@ -58,6 +59,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   const [activeTab, setActiveTab] = useState('map');
   const [theme, setTheme] = useState(initialSettings.theme);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
     const root = document.documentElement;
@@ -126,6 +128,19 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   useEffect(() => {
     setLocale(initialSettings.language);
     setTheme(initialSettings.theme);
+
+    const originalConsoleError = console.error;
+    const handleMapError = (...args: any[]) => {
+      const errorMsg = args.join(' ');
+      if (errorMsg.includes('BillingNotEnabledMapError')) {
+        setMapError('BillingNotEnabledMapError');
+      }
+      originalConsoleError.apply(console, args);
+    };
+    console.error = handleMapError;
+    return () => {
+      console.error = originalConsoleError;
+    };
   }, [initialSettings, setLocale]);
 
 
@@ -139,6 +154,48 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     handleSetTheme,
     theme,
     condo: initialCondo,
+  };
+
+  const renderMapContent = () => {
+    if (mapError === 'BillingNotEnabledMapError') {
+      return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="aspect-video w-full bg-destructive/10 border-2 border-dashed border-destructive/50 rounded-lg flex flex-col items-center justify-center text-center p-4">
+                  <AlertTriangle className="h-12 w-12 text-destructive mb-4"/>
+                  <h3 className="text-lg font-bold text-destructive">{t('adminDashboard.settingsGroups.catalogs.maps.billingErrorTitle')}</h3>
+                  <p className="text-sm text-destructive/80 mt-2">
+                    {t('adminDashboard.settingsGroups.catalogs.maps.billingErrorDescription')}
+                  </p>
+                </div>
+            </CardContent>
+        </Card>
+      );
+    }
+
+    if (apiKey) {
+      return (
+        <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']}>
+          <CondoMapTab condo={initialCondo} initialPosition={initialPosition} />
+        </APIProvider>
+      );
+    }
+
+    return (
+      <Card>
+          <CardHeader>
+              <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+               <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground text-center p-4">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
+              </div>
+          </CardContent>
+      </Card>
+    );
   };
 
   return (
@@ -172,22 +229,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                       <ManageDevicesTab condoId={initialCondo.id} devices={initialDevices} onDataNeedsRefresh={onDataNeedsRefresh} />
                   </TabsContent>
                   <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
-                      {apiKey ? (
-                          <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']}>
-                            <CondoMapTab condo={initialCondo} initialPosition={initialPosition} />
-                          </APIProvider>
-                      ) : (
-                      <Card>
-                          <CardHeader>
-                              <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                               <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
-                                  <p className="text-sm text-muted-foreground text-center p-4">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
-                              </div>
-                          </CardContent>
-                      </Card>
-                      )}
+                      {renderMapContent()}
                   </TabsContent>
               </div>
             </Tabs>

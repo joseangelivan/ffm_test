@@ -206,7 +206,9 @@
               "tab": "Mapas",
               "title": "Configuração de Mapas",
               "apiKeyMissing": "A chave de API para o Google Maps não está configurada.",
-              "apiKeyInstructions": "Por favor, defina a variável de ambiente NEXT_PUBLIC_GOOGLE_MAPS_API_KEY em seu projeto."
+              "apiKeyInstructions": "Por favor, defina a variável de ambiente NEXT_PUBLIC_GOOGLE_MAPS_API_KEY em seu projeto.",
+              "billingErrorTitle": "Faturamento do Google Maps não Habilitado",
+              "billingErrorDescription": "O mapa não pode ser exibido porque o faturamento não está habilitado para o projeto do Google Cloud associado a esta chave de API. Por favor, habilite o faturamento no Console do Google Cloud para continuar."
             },
             "deviceTypes": {
               "tab": "Dispositivos",
