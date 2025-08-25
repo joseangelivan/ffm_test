@@ -217,49 +217,28 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
   }, [condo.id, selectedGeofenceId, toast, t]);
 
-  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isFirstChange: boolean = false) => {
-    if (!shape) {
-      setHistory([]);
-      setHistoryIndex(-1);
-      return;
-    }
-    
-    const newGeometry = getGeometryFromShape(shape);
-    if (!newGeometry) return;
-  
+  const handleHistoryUpdate = (shape: google.maps.MVCObject | null) => {
     setHistory(prevHistory => {
-      const newHistorySlice = prevHistory.slice(0, historyIndex + 1);
-      newHistorySlice.push(newGeometry);
-      return newHistorySlice;
+        const newGeometry = getGeometryFromShape(shape);
+        if (!newGeometry) {
+            setHistoryIndex(-1);
+            return [];
+        }
+        
+        // Truncate history if we are undoing and then making a new change
+        const newHistorySlice = prevHistory.slice(0, historyIndex + 1);
+        newHistorySlice.push(newGeometry);
+        setHistoryIndex(newHistorySlice.length - 1);
+        return newHistorySlice;
     });
-    setHistoryIndex(prevIndex => prevIndex + 1);
+  };
 
-  }, [historyIndex]);
-
+  // Create a ref to hold the latest history update function to avoid stale closures.
+  const historyUpdateRef = useRef(handleHistoryUpdate);
   useEffect(() => {
-    const shape = activeShapeRef.current?.shape;
-    if (!shape || mode !== 'editing') {
-      return;
-    }
-  
-    const registerChange = () => handleHistoryUpdate(shape);
-  
-    const listeners = [
-      google.maps.event.addListener(shape, 'dragend', registerChange),
-      google.maps.event.addListener(shape, 'radius_changed', registerChange),
-    ];
-  
-    if ('getPath' in shape) {
-      const path = (shape as google.maps.Polygon).getPath();
-      listeners.push(google.maps.event.addListener(path, 'set_at', registerChange));
-      listeners.push(google.maps.event.addListener(path, 'insert_at', registerChange));
-      listeners.push(google.maps.event.addListener(path, 'remove_at', registerChange));
-    }
-  
-    return () => {
-      listeners.forEach(l => l.remove());
-    };
-  }, [activeShapeRef.current?.shape, mode, handleHistoryUpdate]);
+    historyUpdateRef.current = handleHistoryUpdate;
+  }, [handleHistoryUpdate]);
+
 
   useEffect(() => {
     setHistoryState({
@@ -361,6 +340,32 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => { zoomListener.remove(); };
   }, []);
     
+  // Effect to manage event listeners for the active shape
+  useEffect(() => {
+    const shape = activeShapeRef.current?.shape;
+    if (!shape || mode !== 'editing') {
+        return;
+    }
+  
+    const registerChange = () => historyUpdateRef.current(shape);
+  
+    const listeners = [
+        google.maps.event.addListener(shape, 'dragend', registerChange),
+        google.maps.event.addListener(shape, 'radius_changed', registerChange),
+    ];
+  
+    if ('getPath' in shape) {
+        const path = (shape as google.maps.Polygon).getPath();
+        listeners.push(google.maps.event.addListener(path, 'set_at', registerChange));
+        listeners.push(google.maps.event.addListener(path, 'insert_at', registerChange));
+        listeners.push(google.maps.event.addListener(path, 'remove_at', registerChange));
+    }
+  
+    return () => {
+      listeners.forEach(l => l.remove());
+    };
+  }, [activeShapeRef.current?.shape, mode]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || isLoading) return;
