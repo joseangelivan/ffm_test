@@ -312,13 +312,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
     
   const updateHistory = useCallback((newGeometry: any) => {
-      setHistory(prevHistory => {
-          const nextHistory = prevHistory.slice(0, historyIndex + 1);
-          nextHistory.push(newGeometry);
-          return nextHistory;
-      });
-      setHistoryIndex(prevIndex => prevIndex + 1);
-  }, [historyIndex]);
+    const lastGeometry = history[historyIndex];
+    if (isEqual(newGeometry, lastGeometry)) {
+        return;
+    }
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newGeometry);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  }, [history, historyIndex]);
 
   useEffect(() => {
       setHistoryState({
@@ -328,38 +330,40 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [historyIndex, history]);
   
   useEffect(() => {
-      const shape = activeShapeState?.shape;
-      if (!shape) return;
-  
-      const listeners: google.maps.MapsEventListener[] = [];
-  
-      const handleVertexChange = () => {
-          const newGeometry = getGeometryFromShape(shape);
-          updateHistory(newGeometry);
-      };
-      
-      const handleDragEnd = () => {
-          const newGeometry = getGeometryFromShape(shape);
-          updateHistory(newGeometry);
-      };
+    const shape = activeShapeState?.shape;
+    if (!shape) return;
 
-      listeners.push(google.maps.event.addListener(shape, 'dragend', handleDragEnd));
-  
-      if ('getPath' in shape) {
-          const path = (shape as google.maps.Polygon).getPath();
-          listeners.push(google.maps.event.addListener(path, 'set_at', handleVertexChange));
-          listeners.push(google.maps.event.addListener(path, 'insert_at', handleVertexChange));
-          listeners.push(google.maps.event.addListener(path, 'remove_at', handleVertexChange));
-      } else if ('getBounds' in shape && 'getRadius' in shape) { // Circle
-          listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleVertexChange));
-          listeners.push(google.maps.event.addListener(shape, 'center_changed', handleVertexChange));
-      } else if ('getBounds' in shape) { // Rectangle
-          listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleVertexChange));
-      }
-  
-      return () => {
-          listeners.forEach(listener => listener.remove());
-      };
+    const listeners: google.maps.MapsEventListener[] = [];
+    
+    const handleDragStart = () => {
+      isDraggingRef.current = true;
+    };
+    
+    const handleDragEnd = () => {
+        isDraggingRef.current = false;
+        updateHistory(getGeometryFromShape(shape));
+    };
+    
+    const handleVertexChange = () => {
+        if (isDraggingRef.current) return;
+        updateHistory(getGeometryFromShape(shape));
+    };
+
+    listeners.push(google.maps.event.addListener(shape, 'dragstart', handleDragStart));
+    listeners.push(google.maps.event.addListener(shape, 'dragend', handleDragEnd));
+
+    if ('getPath' in shape) {
+        const path = (shape as google.maps.Polygon).getPath();
+        listeners.push(google.maps.event.addListener(path, 'set_at', handleVertexChange));
+        listeners.push(google.maps.event.addListener(path, 'insert_at', handleVertexChange));
+        listeners.push(google.maps.event.addListener(path, 'remove_at', handleVertexChange));
+    } else if ('getBounds' in shape) { // Covers both Rectangle and Circle
+        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleVertexChange));
+    }
+
+    return () => {
+        listeners.forEach(listener => listener.remove());
+    };
   }, [activeShapeState, updateHistory]);
   
   useEffect(() => {
@@ -584,3 +588,5 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
+    
