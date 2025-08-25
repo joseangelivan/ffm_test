@@ -33,7 +33,7 @@ const MapInner: React.FC<Pick<MapProps, 'onMapLoad'>> = ({ onMapLoad }) => {
 const MapComponent: React.FC<MapProps> = ({ children, center, markers, mapId, onMapLoad }) => {
     return (
         <Map
-            center={center}
+            defaultCenter={center}
             defaultZoom={15}
             gestureHandling={'greedy'}
             disableDefaultUI={true}
