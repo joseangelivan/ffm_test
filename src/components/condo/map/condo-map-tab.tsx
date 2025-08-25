@@ -14,6 +14,8 @@ import {
   Redo,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
+import { isEqualWith } from 'lodash';
+
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -190,19 +192,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
   
-  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
-      if (!shape) {
-        setHistory([]);
-        setHistoryIndex(-1);
-        return;
-      }
-      const newGeometry = getGeometryFromShape(shape);
-      const newHistory = history.slice(0, historyIndex + 1);
-      newHistory.push(newGeometry);
-      setHistory(newHistory);
-      setHistoryIndex(newHistory.length - 1);
-  }, [history, historyIndex]);
-
   useEffect(() => {
     setHistoryState({
         canUndo: historyIndex > 0,
@@ -235,6 +224,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         setIsLoading(false);
     }
   }, [condo.id, selectedGeofenceId, toast, t]);
+
 
   const centerMapOnAddress = useCallback(() => {
     const map = mapRef.current;
@@ -328,6 +318,23 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     });
     return () => { zoomListener.remove(); };
   }, []);
+
+  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
+    if (!shape) {
+      setHistory([]);
+      setHistoryIndex(-1);
+      return;
+    }
+    
+    const newGeometry = getGeometryFromShape(shape);
+
+    setHistory(prevHistory => {
+        const newHistory = prevHistory.slice(0, historyIndex + 1);
+        newHistory.push(newGeometry);
+        setHistoryIndex(newHistory.length - 1);
+        return newHistory;
+    });
+  }, [historyIndex]);
     
   useEffect(() => {
     const shape = activeShapeRef.current?.shape;
@@ -335,6 +342,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         return;
     }
     
+    // Use an arrow function to ensure the latest handleHistoryUpdate is called
     const registerChange = () => handleHistoryUpdate(shape);
 
     const listeners = [
@@ -353,7 +361,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         listeners.forEach(l => l.remove());
     };
   }, [activeShapeRef.current?.shape, mode, handleHistoryUpdate]);
-  
+    
   useEffect(() => {
     const map = mapRef.current;
     if (!map || isLoading) return;
@@ -410,7 +418,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       defaultGeofenceId,
       showAllGeofences,
       isLoading,
-      historyState
+      historyState // Add historyState as dependency to re-run styles
   ]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
@@ -555,7 +563,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
                                     activeShapeRef={activeShapeRef}
-                                    onHistoryUpdate={handleHistoryUpdate}
+                                    history={history}
+                                    setHistory={setHistory}
+                                    historyIndex={historyIndex}
+                                    setHistoryIndex={setHistoryIndex}
                                 />
                             )}
                             {selectedModule === 'elements' && (
