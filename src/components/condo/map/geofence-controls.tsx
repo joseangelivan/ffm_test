@@ -37,6 +37,7 @@ export type DrawingMode = 'polygon' | 'rectangle' | 'circle';
 type GeofenceControlsProps = {
     condoId: string;
     geofences: DbGeofence[];
+    mapShapesRef: React.MutableRefObject<Map<string, google.maps.MVCObject>>;
     onDataNeedsRefresh: (newSelectedId?: string) => void;
     selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -49,19 +50,16 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>;
-    startNewDrawing: (mode: DrawingMode) => void;
-    startEditingSelected: () => void;
-    cancelCurrentAction: () => void;
-    saveCurrentAction: () => Promise<void>;
-    isActionActive: boolean;
-    isShapeDrawn: boolean;
-    currentGeofenceName: string;
-    setCurrentGeofenceName: (name: string) => void;
+    history: any[];
+    setHistory: React.Dispatch<React.SetStateAction<any[]>>;
+    historyIndex: number;
+    setHistoryIndex: React.Dispatch<React.SetStateAction<number>>;
 }
 
 export function GeofenceControls({
     condoId,
     geofences,
+    mapShapesRef,
     onDataNeedsRefresh,
     selectedGeofenceId,
     setSelectedGeofenceId,
@@ -74,14 +72,10 @@ export function GeofenceControls({
     setShowAllGeofences,
     onSettingsClick,
     activeShapeRef,
-    startNewDrawing,
-    startEditingSelected,
-    cancelCurrentAction,
-    saveCurrentAction,
-    isActionActive,
-    isShapeDrawn,
-    currentGeofenceName,
-    setCurrentGeofenceName,
+    history,
+    setHistory,
+    historyIndex,
+    setHistoryIndex,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -90,9 +84,144 @@ export function GeofenceControls({
     const [isDeleting, startDeletingTransition] = useTransition();
     const [isSettingDefault, startSettingDefaultTransition] = useTransition();
 
+    const [isActionActive, setIsActionActive] = useState(false);
+    const [isShapeDrawn, setIsShapeDrawn] = useState(false);
+
+    const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
+    const [currentGeofenceName, setCurrentGeofenceName] = useState('');
+
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
-    const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
+    const getNextGeofenceName = useCallback(() => {
+        const baseName = t('condoDashboard.map.geofence.defaultName');
+        const existingNumbers = geofences.map(g => {
+            const match = g.name.match(new RegExp(`^${baseName}_(\\d+)$`));
+            return match ? parseInt(match[1], 10) : 0;
+        }).filter(n => n > 0).sort((a,b) => a-b);
+        
+        let nextNumber = 1;
+        for (const num of existingNumbers) {
+            if (num === nextNumber) {
+                nextNumber++;
+            } else {
+                break;
+            }
+        }
+        return `${baseName}_${String(nextNumber).padStart(2, '0')}`;
+    }, [geofences, t]);
+
+    const cancelCurrentAction = useCallback(() => {
+        if (activeShapeRef.current) {
+            const { shape, id, originalGeometry } = activeShapeRef.current;
+            if (shape) {
+                if (id.startsWith('new-shape-')) {
+                    shape.setMap(null);
+                } else if (originalGeometry) {
+                    restoreShapeToGeometry(shape, originalGeometry);
+                    shape.setOptions({ editable: false, draggable: false });
+                }
+            }
+            activeShapeRef.current = null;
+        }
+        
+        if (drawingManager) {
+            drawingManager.setDrawingMode(null);
+        }
+        
+        setIsActionActive(false);
+        setIsShapeDrawn(false);
+        setCurrentGeofenceName('');
+        setHistory([]);
+        setHistoryIndex(-1);
+    }, [activeShapeRef, drawingManager, setHistory, setHistoryIndex]);
+
+    const onOverlayComplete = useCallback((event: google.maps.drawing.OverlayCompleteEvent) => {
+        if (drawingManager) {
+          drawingManager.setDrawingMode(null);
+        }
+        const newShape = event.overlay;
+        if (!newShape) return;
+    
+        const tempId = `new-shape-${Date.now()}`;
+        activeShapeRef.current = { id: tempId, shape: newShape, originalGeometry: null };
+    
+        const newGeometry = getGeometryFromShape(newShape);
+        setHistory([newGeometry]);
+        setHistoryIndex(0);
+    
+        setIsShapeDrawn(true);
+    }, [activeShapeRef, drawingManager, setHistory, setHistoryIndex]);
+
+    useEffect(() => {
+        if (!drawingManager) return;
+    
+        const listener = google.maps.event.addListener(
+          drawingManager, 'overlaycomplete', onOverlayComplete
+        );
+    
+        return () => {
+          google.maps.event.removeListener(listener);
+        };
+      }, [drawingManager, onOverlayComplete]);
+
+    const startNewDrawing = useCallback((drawMode: DrawingMode) => {
+        cancelCurrentAction();
+        setIsActionActive(true);
+        setCurrentGeofenceName(getNextGeofenceName());
+        if (drawingManager) {
+            drawingManager.setDrawingMode(drawMode as any);
+        }
+    }, [cancelCurrentAction, getNextGeofenceName, drawingManager]);
+      
+    const startEditingSelected = useCallback(() => {
+        if (!selectedGeofenceId) return;
+        const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
+        const shapeToEdit = mapShapesRef.current.get(selectedGeofenceId);
+        if (!selectedGeofence || !shapeToEdit) return;
+    
+        cancelCurrentAction();
+        const originalGeometry = getGeometryFromShape(shapeToEdit);
+        
+        activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
+        
+        setHistory([originalGeometry]);
+        setHistoryIndex(0);
+    
+        setIsActionActive(true);
+        setIsShapeDrawn(true);
+        setCurrentGeofenceName(selectedGeofence.name);
+    }, [selectedGeofenceId, geofences, mapShapesRef, cancelCurrentAction, setHistory, setHistoryIndex]);
+      
+    const saveCurrentAction = useCallback(async () => {
+        if (!activeShapeRef.current?.shape) return;
+        const { id, shape } = activeShapeRef.current;
+    
+        const geometryToSave = getGeometryFromShape(shape);
+        if (!currentGeofenceName) {
+            toast({ title: t('toast.errorTitle'), description: "El nombre de la geocerca es obligatorio.", variant: "destructive" });
+            return;
+        }
+        
+        let result: { success: boolean; message: string; data?: any; } | null = null;
+        const isNewShape = id.startsWith('new-shape-');
+    
+        if (isNewShape) { 
+            result = await createGeofence({
+                condoId: condoId, name: currentGeofenceName, geometry: geometryToSave, isDefault: geofences.length === 0,
+            });
+        } else {
+            result = await updateGeofence(id, { name: currentGeofenceName, geometry: geometryToSave });
+        }
+    
+        if (result?.success) {
+            toast({ title: t('toast.successTitle'), description: result.message });
+            const newSelectedId = isNewShape ? result.data?.id : id;
+            cancelCurrentAction();
+            await onDataNeedsRefresh(newSelectedId);
+        } else if (result) {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+        }
+    }, [condoId, currentGeofenceName, activeShapeRef, geofences.length, onDataNeedsRefresh, cancelCurrentAction, t, toast]);
 
     const handleSaveGeofence = () => {
         startSavingTransition(async () => {
