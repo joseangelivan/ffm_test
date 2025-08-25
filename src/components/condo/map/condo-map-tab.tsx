@@ -253,32 +253,39 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
   
     const applyZoomLevel = useCallback(() => {
-    const map = mapRef.current;
-    const geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
-    if (!map || !geofenceIdToFit) return;
+        const map = mapRef.current;
+        let geofenceIdToFit: string | null;
 
-    const geofenceShape = mapShapesRef.current.get(geofenceIdToFit);
-    if (!geofenceShape) return;
-    
-    const bounds = getBoundsOfShape(geofenceShape);
-    const mapDiv = map.getDiv();
-    if (!bounds || !mapDiv) return;
+        if (mode === 'view') {
+            geofenceIdToFit = defaultGeofenceId;
+        } else {
+            geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
+        }
+        
+        if (!map || !geofenceIdToFit) return;
 
-    const mapDim = {
-        width: mapDiv.offsetWidth,
-        height: mapDiv.offsetHeight
-    };
-    
-    const calculatedZoom = getZoomForBounds(bounds, mapDim);
+        const geofenceShape = mapShapesRef.current.get(geofenceIdToFit);
+        if (!geofenceShape) return;
+        
+        const bounds = getBoundsOfShape(geofenceShape);
+        const mapDiv = map.getDiv();
+        if (!bounds || !mapDiv) return;
 
-    let finalZoom = calculatedZoom;
-    if (fitLevel === '2') finalZoom = calculatedZoom > 0 ? calculatedZoom - 1 : 0;
-    if (fitLevel === '3') finalZoom = calculatedZoom > 1 ? calculatedZoom - 2 : 1;
+        const mapDim = {
+            width: mapDiv.offsetWidth,
+            height: mapDiv.offsetHeight
+        };
+        
+        const calculatedZoom = getZoomForBounds(bounds, mapDim);
 
-    map.setCenter(bounds.getCenter());
-    map.setZoom(finalZoom);
+        let finalZoom = calculatedZoom;
+        if (fitLevel === '2') finalZoom = calculatedZoom > 0 ? calculatedZoom - 1 : 0;
+        if (fitLevel === '3') finalZoom = calculatedZoom > 1 ? calculatedZoom - 2 : 1;
 
-  }, [defaultGeofenceId, selectedGeofenceId, getZoomForBounds, fitLevel]);
+        map.setCenter(bounds.getCenter());
+        map.setZoom(finalZoom);
+
+  }, [mode, defaultGeofenceId, selectedGeofenceId, getZoomForBounds, fitLevel]);
 
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -405,26 +412,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [onDataNeedsRefresh]);
 
   useEffect(() => {
-    if (isLoading || !mapRef.current) return;
-
-    const geofenceToCenter = dbGeofences.find(g => g.is_default);
-    
-    if (geofenceToCenter) {
-         const shape = mapShapesRef.current.get(geofenceToCenter.id);
-         if(shape) {
-            const bounds = getBoundsOfShape(shape);
-            if (bounds) {
-                mapRef.current.fitBounds(bounds, {top: 50, bottom: 50, left: 50, right: 50}); 
-            } else {
-                centerMapOnAddress();
-            }
-         } else {
-             centerMapOnAddress();
-         }
-    } else {
-        centerMapOnAddress();
+    if (!isLoading && mapRef.current) {
+        applyZoomLevel();
     }
-  }, [isLoading, dbGeofences, centerMapOnAddress]);
+  }, [isLoading, fitLevel, applyZoomLevel]);
     
     
   const handleHistoryAction = (action: 'undo' | 'redo') => {
@@ -497,7 +488,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
                                 <ZoomOut className="h-5 w-5" />
                             </Button>
-                            <Button onClick={applyZoomLevel} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')} disabled={!selectedGeofenceId && !defaultGeofenceId}>
+                            <Button onClick={applyZoomLevel} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')} disabled={(mode === 'editing' && !selectedGeofenceId && !defaultGeofenceId) || (mode === 'view' && !defaultGeofenceId)}>
                                 <Frame className="h-5 w-5" />
                             </Button>
                         </div>
@@ -563,3 +554,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
