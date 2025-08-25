@@ -15,5 +15,3 @@ declare module 'otplib';
 //     myProperty: string;
 //   }
 // }
-
-    

@@ -50,11 +50,8 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>;
-    history: any[];
     setHistory: React.Dispatch<React.SetStateAction<any[]>>;
-    historyIndex: number;
     setHistoryIndex: React.Dispatch<React.SetStateAction<number>>;
-    onHistoryUpdate: (shape: google.maps.MVCObject | null) => void;
 }
 
 export function GeofenceControls({
@@ -75,7 +72,6 @@ export function GeofenceControls({
     activeShapeRef,
     setHistory,
     setHistoryIndex,
-    onHistoryUpdate,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
