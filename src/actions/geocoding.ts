@@ -42,10 +42,11 @@ export async function geocodeAddress(
   }
 
   const { street, city, state, country } = validation.data;
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  // Use the server-specific key if available, otherwise fall back to the public key.
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
-    console.error('Google Maps API Key (GOOGLE_MAPS_API_KEY) is not configured for server-side use.');
+    console.warn('Google Maps API Key (GOOGLE_MAPS_API_KEY or NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) is not configured for server-side use.');
     return { success: false, message: 'Server configuration error.' };
   }
 
