@@ -196,6 +196,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const newGeometry = getGeometryFromShape(activeShapeState.shape);
 
     setHistory(prevHistory => {
+        // When adding a new state, cut off any "redo" states
         const newHistory = prevHistory.slice(0, historyIndex + 1);
         newHistory.push(newGeometry);
         setHistoryIndex(newHistory.length - 1);
@@ -336,6 +337,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     if (!shape || mode !== 'editing') {
       return;
     }
+    // Clean up previous listeners before adding new ones
     google.maps.event.clearInstanceListeners(shape);
   
     const listeners: google.maps.MapsEventListener[] = [];
@@ -348,10 +350,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       listeners.push(google.maps.event.addListener(path, 'insert_at', handleHistoryUpdate));
       listeners.push(google.maps.event.addListener(path, 'remove_at', handleHistoryUpdate));
     } else if ('getBounds' in shape && !('getRadius' in shape)) { // Rectangle
-        // For rectangles, bounds_changed is better for resizing, dragend for moving
         listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleHistoryUpdate));
     } else if ('getRadius' in shape) { // Circle
-        // For circles, radius_changed for resizing, dragend for moving
         listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleHistoryUpdate));
     }
   
@@ -615,6 +615,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
 
 
 
