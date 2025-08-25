@@ -197,18 +197,17 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
   const historyUpdaterRef = useRef<() => void>();
 
-  useEffect(() => {
-    historyUpdaterRef.current = () => {
-      if (!activeShapeRef.current?.shape) return;
-      const newGeometry = getGeometryFromShape(activeShapeRef.current.shape);
-      setHistory(prev => {
+  historyUpdaterRef.current = () => {
+    if (!activeShapeRef.current?.shape) return;
+    const newGeometry = getGeometryFromShape(activeShapeRef.current.shape);
+    
+    setHistory(prev => {
         const newHistory = prev.slice(0, historyIndex + 1);
         newHistory.push(newGeometry);
         setHistoryIndex(newHistory.length - 1);
         return newHistory;
-      });
-    };
-  });
+    });
+  };
   
   useEffect(() => {
     setHistoryState({
@@ -509,7 +508,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     setCurrentGeofenceName('');
     setHistory([]);
     setHistoryIndex(-1);
-  }, [activeShapeRef]);
+  }, []);
   
   const onOverlayComplete = useCallback((event: google.maps.drawing.OverlayCompleteEvent) => {
     if(drawingManagerRef.current) drawingManagerRef.current.setDrawingMode(null);
@@ -586,7 +585,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
     if (isNewShape) { 
         result = await createGeofence({
-            condoId, name: currentGeofenceName, geometry: geometryToSave, isDefault: dbGeofences.length === 0,
+            condoId: condo.id, name: currentGeofenceName, geometry: geometryToSave, isDefault: dbGeofences.length === 0,
         });
     } else {
         result = await updateGeofence(id, { name: currentGeofenceName, geometry: geometryToSave });
@@ -600,7 +599,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     } else if (result) {
         toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
     }
-  }, [currentGeofenceName, condoId, dbGeofences, onDataNeedsRefresh, cancelCurrentAction, t, toast]);
+  }, [currentGeofenceName, condo.id, dbGeofences, onDataNeedsRefresh, cancelCurrentAction, t, toast]);
   
   return (
     <>
@@ -726,3 +725,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
