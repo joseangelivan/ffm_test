@@ -325,11 +325,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     if (!shape || mode !== 'editing') return;
 
     const handleVertexChange = () => {
-      if (!isDraggingRef.current) {
-        updateHistory(getGeometryFromShape(shape));
-      }
+        if (!isDraggingRef.current) {
+            updateHistory(getGeometryFromShape(shape));
+        }
     };
-    
+
     const handleDragStart = () => {
         isDraggingRef.current = true;
     };
@@ -417,9 +417,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [onDataNeedsRefresh]);
 
   useEffect(() => {
-    if (!isLoading && mapRef.current) {
-        applyZoomLevel();
-    }
+    if (isLoading) return;
+    const timeoutId = setTimeout(() => {
+        if (mapRef.current) applyZoomLevel();
+    }, 100);
+    return () => clearTimeout(timeoutId);
   }, [isLoading, applyZoomLevel]);
     
     
@@ -552,7 +554,28 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             onOpenChange={setIsMapSettingsOpen}
             zoomLevel={zoomLevel}
             initialFitLevel={fitLevel}
-            onApplyFit={(level) => setFitLevel(level)}
+            onApplyFit={(level) => {
+                setFitLevel(level);
+                // Apply immediately when changed in dialog
+                const map = mapRef.current;
+                const geofenceIdToFit = mode === 'view' ? defaultGeofenceId : (selectedGeofenceId || defaultGeofenceId);
+                if (map && geofenceIdToFit) {
+                    const geofenceShape = mapShapesRef.current.get(geofenceIdToFit);
+                    if (geofenceShape) {
+                        const bounds = getBoundsOfShape(geofenceShape);
+                        const mapDiv = map.getDiv();
+                        if (bounds && mapDiv) {
+                            const mapDim = { width: mapDiv.offsetWidth, height: mapDiv.offsetHeight };
+                            const calculatedZoom = getZoomForBounds(bounds, mapDim);
+                            let finalZoom = calculatedZoom;
+                            if (level === '2') finalZoom = calculatedZoom > 0 ? calculatedZoom - 1 : 0;
+                            if (level === '3') finalZoom = calculatedZoom > 1 ? calculatedZoom - 2 : 1;
+                            map.setZoom(finalZoom);
+                            map.setCenter(bounds.getCenter());
+                        }
+                    }
+                }
+            }}
             isGeofenceAvailable={!!defaultGeofenceId}
             onCenterAddress={centerMapOnAddress}
         />
@@ -560,3 +583,5 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   );
 }
 
+
+    
