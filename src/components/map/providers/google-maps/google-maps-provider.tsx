@@ -25,15 +25,28 @@ const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => 
             return;
         }
 
-        // Set a timer to detect if the API fails to load.
-        const timer = setTimeout(() => {
-            if (!isApiLoaded) {
-                setLoadError(true);
-            }
-        }, 5000); // 5-second timeout, a bit longer to be safe.
+        const handleAuthError = () => {
+            setLoadError(true);
+        };
+        
+        window.gm_authFailure = handleAuthError;
 
-        return () => clearTimeout(timer);
-    }, [apiKey, isApiLoaded, t, toast]);
+        // Set a timer to detect if the API fails to load for other reasons.
+        const timer = setTimeout(() => {
+            if (!isApiLoaded && !loadError) {
+                 // Check if google.maps is available
+                if (typeof window.google === 'undefined' || typeof window.google.maps === 'undefined') {
+                    setLoadError(true);
+                }
+            }
+        }, 5000); // 5-second timeout
+
+        return () => {
+            clearTimeout(timer);
+            // Cleanup the global callback
+            (window as any).gm_authFailure = undefined;
+        };
+    }, [apiKey, isApiLoaded, t, toast, loadError]);
     
     if (!apiKey) {
         return (
@@ -65,7 +78,11 @@ const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => 
     }
 
     return (
-        <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']} onLoad={() => setIsApiLoaded(true)}>
+        <APIProvider 
+            apiKey={apiKey} 
+            libraries={['drawing', 'geocoding']} 
+            onLoad={() => setIsApiLoaded(true)}
+        >
             {children}
         </APIProvider>
     );
