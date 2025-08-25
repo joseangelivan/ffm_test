@@ -86,3 +86,8 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide the default Google Maps billing error dialog */
+.gm-err-container {
+  display: none !important;
+}
