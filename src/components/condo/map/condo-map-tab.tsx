@@ -252,7 +252,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return Math.min(latZoom, lngZoom, ZOOM_MAX);
   }, []);
   
-  const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
+  const applyZoomLevel = useCallback(() => {
     const map = mapRef.current;
     const geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
     if (!map || !geofenceIdToFit) return;
@@ -272,14 +272,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const calculatedZoom = getZoomForBounds(bounds, mapDim);
 
     let finalZoom = calculatedZoom;
-    if (level === '2') finalZoom = calculatedZoom > 0 ? calculatedZoom - 1 : 0;
-    if (level === '3') finalZoom = calculatedZoom > 1 ? calculatedZoom - 2 : 1;
+    if (fitLevel === '2') finalZoom = calculatedZoom > 0 ? calculatedZoom - 1 : 0;
+    if (fitLevel === '3') finalZoom = calculatedZoom > 1 ? calculatedZoom - 1 : 1;
 
     map.setCenter(bounds.getCenter());
     map.setZoom(finalZoom);
-    setFitLevel(level);
 
-  }, [defaultGeofenceId, selectedGeofenceId, getZoomForBounds]);
+  }, [defaultGeofenceId, selectedGeofenceId, getZoomForBounds, fitLevel]);
 
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -296,7 +295,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const updateHistory = useCallback((newGeometry: any) => {
     const newHistory = history.slice(0, historyIndex + 1);
     
-    // To prevent spamming history, check if new geometry is same as last
     if (isEqual(newHistory[historyIndex], newGeometry)) {
         return;
     }
@@ -498,7 +496,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
                                 <ZoomOut className="h-5 w-5" />
                             </Button>
-                            <Button onClick={() => applyZoomLevel(fitLevel)} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')} disabled={!selectedGeofenceId && !defaultGeofenceId}>
+                            <Button onClick={applyZoomLevel} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')} disabled={!selectedGeofenceId && !defaultGeofenceId}>
                                 <Frame className="h-5 w-5" />
                             </Button>
                         </div>
@@ -557,7 +555,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             onOpenChange={setIsMapSettingsOpen}
             zoomLevel={zoomLevel}
             initialFitLevel={fitLevel}
-            onApplyFit={applyZoomLevel}
+            onApplyFit={(level) => setFitLevel(level)}
             isGeofenceAvailable={!!defaultGeofenceId}
             onCenterAddress={centerMapOnAddress}
         />
