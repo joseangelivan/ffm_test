@@ -14,7 +14,6 @@ import {
   Redo,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-import { isEqual } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
@@ -191,6 +190,20 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
+  const historyUpdaterRef = useRef<() => void>();
+
+  useEffect(() => {
+    historyUpdaterRef.current = () => {
+        if (!activeShapeRef.current?.shape) {
+            return;
+        }
+        const newGeometry = getGeometryFromShape(activeShapeRef.current.shape);
+        const newHistory = history.slice(0, historyIndex + 1);
+        newHistory.push(newGeometry);
+        setHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+    };
+  }, [history, historyIndex]);
   
   useEffect(() => {
     setHistoryState({
@@ -325,28 +338,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         return;
     }
     
-    const handleHistoryUpdate = (shape: google.maps.MVCObject | null) => {
-        if (!shape) {
-            setHistory([]);
-            setHistoryIndex(-1);
-        } else {
-            const newGeometry = getGeometryFromShape(shape);
-            const lastGeometry = history[historyIndex];
-            
-            if(historyIndex > -1 && isEqual(newGeometry, lastGeometry)) {
-                return;
-            }
-    
-            const newHistory = history.slice(0, historyIndex + 1);
-            
-            newHistory.push(newGeometry);
-            setHistory(newHistory);
-            setHistoryIndex(newHistory.length - 1);
+    const registerChange = () => {
+        if(historyUpdaterRef.current) {
+            historyUpdaterRef.current();
         }
     };
     
-    const registerChange = () => handleHistoryUpdate(shape);
-
     const listeners = [
         google.maps.event.addListener(shape, 'dragend', registerChange),
     ];
@@ -357,11 +354,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         listeners.push(google.maps.event.addListener(path, 'insert_at', registerChange));
         listeners.push(google.maps.event.addListener(path, 'remove_at', registerChange));
     }
+
+    if('getRadius' in shape) {
+      listeners.push(google.maps.event.addListener(shape, 'radius_changed', registerChange));
+    }
     
     return () => {
-        google.maps.event.clearInstanceListeners(shape);
+        listeners.forEach(l => l.remove());
     };
-  }, [activeShapeRef.current, mode, history, historyIndex]);
+  }, [activeShapeRef.current, mode]);
     
   useEffect(() => {
     const map = mapRef.current;
