@@ -52,11 +52,10 @@ type GeofenceControlsProps = {
     onSettingsClick: () => void;
     activeShapeState: ActiveShapeState;
     setActiveShapeState: React.Dispatch<React.SetStateAction<ActiveShapeState>>;
-    history: any[];
-    setHistory: React.Dispatch<React.SetStateAction<any[]>>;
-    historyIndex: number;
-    setHistoryIndex: React.Dispatch<React.SetStateAction<number>>;
+    setUndoStack: React.Dispatch<React.SetStateAction<any[]>>;
+    setRedoStack: React.Dispatch<React.SetStateAction<any[]>>;
     mapRef: React.RefObject<google.maps.Map | null>;
+    updateHistory: (newChange: any) => void;
 }
 
 export function GeofenceControls({
@@ -75,11 +74,10 @@ export function GeofenceControls({
     onSettingsClick,
     activeShapeState,
     setActiveShapeState,
-    history,
-    setHistory,
-    historyIndex,
-    setHistoryIndex,
+    setUndoStack,
+    setRedoStack,
     mapRef,
+    updateHistory,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -128,11 +126,13 @@ export function GeofenceControls({
         setMode('editing');
         setCurrentGeofenceName(currentGeofenceName || getNextGeofenceName());
         setActiveShapeState({ id: `new-shape-${Date.now()}`, shape: newShape, originalGeometry: null });
+        
         const newGeometry = getGeometryFromShape(newShape);
-        setHistory([newGeometry]);
-        setHistoryIndex(0);
+        setUndoStack([newGeometry]);
+        setRedoStack([]);
+        
         setIsDrawing(false);
-    }, [drawingManager, getNextGeofenceName, setActiveShapeState, setHistory, setHistoryIndex, setMode, currentGeofenceName]);
+    }, [drawingManager, getNextGeofenceName, setActiveShapeState, setUndoStack, setRedoStack, setMode, currentGeofenceName]);
 
     useEffect(() => {
         if (!drawingManager) return;
@@ -161,10 +161,10 @@ export function GeofenceControls({
         }
         
         setCurrentGeofenceName('');
-        setHistory([]);
-        setHistoryIndex(-1);
+        setUndoStack([]);
+        setRedoStack([]);
         setIsDrawing(false);
-    }, [activeShapeState, drawingManager, setHistory, setHistoryIndex, setActiveShapeState]);
+    }, [activeShapeState, drawingManager, setUndoStack, setRedoStack, setActiveShapeState]);
       
     const startEditingSelected = useCallback(() => {
         if (!selectedGeofenceId) return;
@@ -179,11 +179,11 @@ export function GeofenceControls({
         setMode('editing');
         setActiveShapeState({ id: selectedGeofenceId, shape: shapeToEdit, originalGeometry });
         
-        setHistory([originalGeometry]);
-        setHistoryIndex(0);
+        setUndoStack([originalGeometry]);
+        setRedoStack([]);
     
         setCurrentGeofenceName(selectedGeofence.name);
-    }, [selectedGeofenceId, geofences, cancelCurrentAction, setHistory, setHistoryIndex, setActiveShapeState, setMode]);
+    }, [selectedGeofenceId, geofences, cancelCurrentAction, setUndoStack, setRedoStack, setActiveShapeState, setMode]);
       
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.shape) return;

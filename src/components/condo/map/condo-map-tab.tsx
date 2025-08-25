@@ -13,7 +13,7 @@ import {
   Undo,
   Redo,
 } from 'lucide-react';
-import { useMap, useMapsLibrary, APIProvider } from '@vis.gl/react-google-maps';
+import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { isEqual } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
@@ -130,9 +130,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   // --- History State Management ---
   const [activeShapeState, setActiveShapeState] = useState<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>(null);
-  const [history, setHistory] = useState<any[]>([]);
-  const [historyIndex, setHistoryIndex] = useState<number>(-1);
-  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
+  const [undoStack, setUndoStack] = useState<any[]>([]);
+  const [redoStack, setRedoStack] = useState<any[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const isDraggingRef = useRef(false);
   
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
@@ -249,60 +250,51 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => { zoomListener.remove(); };
   }, []);
     
-  const updateHistory = useCallback((newGeometry: any) => {
-      // If we make a new change after undoing, we clear the 'redo' history.
-      const newHistory = history.slice(0, historyIndex + 1);
-  
-      // Avoid adding duplicate states to the history.
-      if (isEqual(newHistory[historyIndex], newGeometry)) {
-          return;
-      }
-  
-      newHistory.push(newGeometry);
-      setHistory(newHistory);
-      setHistoryIndex(newHistory.length - 1);
-  }, [history, historyIndex]);
+  const updateHistory = useCallback((newChange: any) => {
+    setUndoStack(prev => [...prev, newChange]);
+    setRedoStack([]); // Clear redo stack on new action
+  }, []);
 
   useEffect(() => {
-      setHistoryState({
-          canUndo: historyIndex > 0,
-          canRedo: historyIndex < history.length - 1,
-      });
-  }, [historyIndex, history]);
+    setCanUndo(undoStack.length > 1);
+    setCanRedo(redoStack.length > 0);
+  }, [undoStack, redoStack]);
   
   useEffect(() => {
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing') return;
 
-    const handleVertexChange = () => {
+    const recordChange = () => {
         if (!isDraggingRef.current) {
-            updateHistory(getGeometryFromShape(shape));
+            const newGeometry = getGeometryFromShape(shape);
+            // Avoid adding duplicate states
+            if (!isEqual(undoStack[undoStack.length - 1], newGeometry)) {
+                updateHistory(newGeometry);
+            }
         }
     };
     
     const listeners: google.maps.MapsEventListener[] = [
-      google.maps.event.addListener(shape, 'dragstart', () => {
-        isDraggingRef.current = true;
-      }),
+      google.maps.event.addListener(shape, 'dragstart', () => { isDraggingRef.current = true; }),
       google.maps.event.addListener(shape, 'dragend', () => {
-        updateHistory(getGeometryFromShape(shape));
         isDraggingRef.current = false;
+        recordChange();
       }),
     ];
   
     if ('getPath' in shape) {
         const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(google.maps.event.addListener(path, 'set_at', handleVertexChange));
-        listeners.push(google.maps.event.addListener(path, 'insert_at', handleVertexChange));
-        listeners.push(google.maps.event.addListener(path, 'remove_at', handleVertexChange));
+        listeners.push(google.maps.event.addListener(path, 'set_at', recordChange));
+        listeners.push(google.maps.event.addListener(path, 'insert_at', recordChange));
+        listeners.push(google.maps.event.addListener(path, 'remove_at', recordChange));
     } else if ('getBounds' in shape) {
-        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleVertexChange));
+        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', recordChange));
     }
     
     return () => {
         listeners.forEach(listener => listener.remove());
     };
-  }, [activeShapeState, mode, updateHistory]);
+  }, [activeShapeState, mode, undoStack, updateHistory]);
   
   useEffect(() => {
     const map = mapRef.current;
@@ -372,19 +364,31 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
     }, [isLoading, applyZoomLevel]);
     
-  const handleHistoryAction = (action: 'undo' | 'redo') => {
-    const isUndo = action === 'undo';
-    if ((isUndo && !historyState.canUndo) || (!isUndo && !historyState.canRedo)) return;
-
-    const newIndex = isUndo ? historyIndex - 1 : historyIndex + 1;
-    const geometry = history[newIndex];
-    const shapeToUpdate = activeShapeState?.shape;
-
-    if (geometry && shapeToUpdate) {
-        restoreShapeToGeometry(shapeToUpdate, geometry);
-        setHistoryIndex(newIndex);
-    }
-  };
+    const handleUndo = () => {
+        if (undoStack.length <= 1) return;
+    
+        const lastState = undoStack[undoStack.length - 1];
+        const prevState = undoStack[undoStack.length - 2];
+    
+        setRedoStack(prev => [...prev, lastState]);
+        setUndoStack(prev => prev.slice(0, -1));
+    
+        if (activeShapeState?.shape) {
+          restoreShapeToGeometry(activeShapeState.shape, prevState);
+        }
+    };
+    
+    const handleRedo = () => {
+        if (redoStack.length === 0) return;
+    
+        const nextState = redoStack[redoStack.length - 1];
+        setUndoStack(prev => [...prev, nextState]);
+        setRedoStack(prev => prev.slice(0, -1));
+    
+        if (activeShapeState?.shape) {
+            restoreShapeToGeometry(activeShapeState.shape, nextState);
+        }
+    };
   
   return (
     <>
@@ -426,13 +430,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 </MapComponent>
                             </MapContainer>
                         </div>
-                         {activeShapeState && (historyState.canUndo || historyState.canRedo) && (
+                         {activeShapeState && (canUndo || canRedo) && (
                             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">
-                                <Button onClick={() => handleHistoryAction('undo')} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!historyState.canUndo}>
+                                <Button onClick={handleUndo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
                                     <Undo className="h-4 w-4"/>
                                     {t('condoDashboard.map.undo')}
                                 </Button>
-                                <Button onClick={() => handleHistoryAction('redo')} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!historyState.canRedo}>
+                                <Button onClick={handleRedo} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canRedo}>
                                     <Redo className="h-4 w-4"/>
                                     {t('condoDashboard.map.redo')}
                                 </Button>
@@ -485,11 +489,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
                                     activeShapeState={activeShapeState}
                                     setActiveShapeState={setActiveShapeState}
-                                    history={history}
-                                    setHistory={setHistory}
-                                    historyIndex={historyIndex}
-                                    setHistoryIndex={setHistoryIndex}
+                                    setUndoStack={setUndoStack}
+                                    setRedoStack={setRedoStack}
                                     mapRef={mapRef}
+                                    updateHistory={updateHistory}
                                 />
                             )}
                             {selectedModule === 'elements' && (
