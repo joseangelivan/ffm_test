@@ -13,7 +13,7 @@ import {
   Undo,
   Redo,
 } from 'lucide-react';
-import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
+import { useMap, useMapsLibrary, APIProvider } from '@vis.gl/react-google-maps';
 import { isEqual } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
@@ -250,15 +250,17 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
     
   const updateHistory = useCallback((newGeometry: any) => {
-    const newHistory = history.slice(0, historyIndex + 1);
-    
-    if (isEqual(newHistory[historyIndex], newGeometry)) {
-        return;
-    }
-
-    newHistory.push(newGeometry);
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
+      // If we make a new change after undoing, we clear the 'redo' history.
+      const newHistory = history.slice(0, historyIndex + 1);
+  
+      // Avoid adding duplicate states to the history.
+      if (isEqual(newHistory[historyIndex], newGeometry)) {
+          return;
+      }
+  
+      newHistory.push(newGeometry);
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
   }, [history, historyIndex]);
 
   useEffect(() => {
