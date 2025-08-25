@@ -1,8 +1,8 @@
 
 "use client";
 
-import React from 'react';
-import { APIProvider, Map as GoogleMap, AdvancedMarker as GoogleAdvancedMarker } from '@vis.gl/react-google-maps';
+import React, { useEffect } from 'react';
+import { APIProvider, Map as GoogleMap, AdvancedMarker as GoogleAdvancedMarker, useMap } from '@vis.gl/react-google-maps';
 import { useLocale } from '@/lib/i18n';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
@@ -21,6 +21,30 @@ interface MapProps {
     onMapLoad?: (map: google.maps.Map) => void;
 }
 
+const MapInner: React.FC<MapProps> = ({ children, markers, onMapLoad }) => {
+    const map = useMap();
+
+    useEffect(() => {
+        if (map && onMapLoad) {
+            onMapLoad(map);
+        }
+    }, [map, onMapLoad]);
+
+    return (
+        <>
+            {markers.map(marker => (
+                <GoogleAdvancedMarker
+                    key={marker.id}
+                    position={marker.position}
+                    title={marker.label}
+                />
+            ))}
+            {children}
+        </>
+    );
+};
+
+
 const MapComponent: React.FC<MapProps> = ({ children, center, markers, onMapLoad }) => {
     return (
         <GoogleMap
@@ -30,20 +54,10 @@ const MapComponent: React.FC<MapProps> = ({ children, center, markers, onMapLoad
             disableDefaultUI={true}
             mapId="follow-for-me-map"
             style={{ width: '100%', height: '100%' }}
-            onCameraChanged={ev => {
-                if (ev) {
-                    onMapLoad?.(ev.map);
-                }
-            }}
         >
-            {markers.map(marker => (
-                <GoogleAdvancedMarker
-                    key={marker.id}
-                    position={marker.position}
-                    title={marker.label}
-                />
-            ))}
-            {children}
+           <MapInner onMapLoad={onMapLoad} markers={markers}>
+             {children}
+           </MapInner>
         </GoogleMap>
     );
 };
