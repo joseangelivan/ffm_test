@@ -271,9 +271,18 @@ export function GeofenceControls({
                             )}
                             <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled className="pl-8 text-xs h-8"/>
                         </div>
-                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={onSettingsClick}>
-                            <Settings className="h-4 w-4" />
-                        </Button>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={onSettingsClick}>
+                                        <Settings className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Configuración de Vista del Mapa</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
                  </div>
             </div>
