@@ -42,11 +42,11 @@ export async function geocodeAddress(
   }
 
   const { street, city, state, country } = validation.data;
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_GEOCODING_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
-    console.warn('Google Maps API Key (NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) is not configured.');
-    return { success: false, message: 'Server configuration error: Google Maps API Key is missing.' };
+    console.warn('Geocoding API Key (NEXT_PUBLIC_GEOCODING_GOOGLE_MAPS_API_KEY) is not configured.');
+    return { success: false, message: 'Server configuration error: Geocoding API Key is missing.' };
   }
 
   const addressComponents = [
