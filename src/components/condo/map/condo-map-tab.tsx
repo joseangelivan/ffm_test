@@ -329,13 +329,19 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             updateHistory(getGeometryFromShape(shape));
         }
     };
+    
+    const handleDragEnd = () => {
+        isDraggingRef.current = false;
+        updateHistory(getGeometryFromShape(shape));
+    };
+    
+    const handleDragStart = () => {
+        isDraggingRef.current = true;
+    };
 
     const listeners: google.maps.MapsEventListener[] = [
-        google.maps.event.addListener(shape, 'dragstart', () => { isDraggingRef.current = true; }),
-        google.maps.event.addListener(shape, 'dragend', () => {
-            updateHistory(getGeometryFromShape(shape));
-            isDraggingRef.current = false;
-        }),
+        google.maps.event.addListener(shape, 'dragstart', handleDragStart),
+        google.maps.event.addListener(shape, 'dragend', handleDragEnd),
     ];
   
     if ('getPath' in shape) {
@@ -414,7 +420,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     if (!isLoading && mapRef.current) {
         applyZoomLevel();
     }
-  }, [isLoading, fitLevel, applyZoomLevel, selectedGeofenceId]);
+  }, [isLoading, applyZoomLevel]);
     
     
   const handleHistoryAction = (action: 'undo' | 'redo') => {
