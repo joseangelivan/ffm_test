@@ -391,6 +391,14 @@
               "wide": "Amplio"
             }
         },
+        "apiKeyMissing": {
+            "title": "Falta la Clave de API de Google Maps",
+            "description": "La clave de API no está configurada. Por favor, defina la variable de entorno NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en su proyecto."
+        },
+        "billingError": {
+            "title": "Error de Facturación de Google Maps",
+            "description": "La facturación no está habilitada para este proyecto en Google Cloud. Por favor, habilite la facturación para ver el mapa."
+        },
         "geofence": {
           "defaultLabel": "Geocerca Predeterminada",
           "viewAll": "Ver todas",

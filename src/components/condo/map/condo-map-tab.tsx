@@ -35,7 +35,10 @@ import {
     getBoundsOfShape,
     getCenterOfShape,
     getGeometryFromShape,
-    restoreShapeToGeometry
+    restoreShapeToGeometry,
+    STYLE_VIEW_MODE,
+    STYLE_BACKGROUND_GREY,
+    STYLE_REFERENCE_GREEN,
 } from './geofence-helpers';
 
 
@@ -79,7 +82,7 @@ const DrawingManagerComponent = ({
 
 function MapInner({ condo, initialPosition, onMapLoad, drawingManagerRef }: MapInnerProps) {
   return (
-    <MapComponent onMapLoad={onMapLoad}>
+    <MapComponent center={initialPosition} markers={[]}>
         <DrawingManagerComponent drawingManagerRef={drawingManagerRef} />
         {initialPosition && (
             <AdvancedMarker position={initialPosition} title={condo.name}>

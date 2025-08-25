@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useEffect, useRef } from 'react';
-import { Map, AdvancedMarker as GoogleAdvancedMarker, useMap, APIProvider } from '@vis.gl/react-google-maps';
+import React from 'react';
+import { Map, AdvancedMarker as GoogleAdvancedMarker } from '@vis.gl/react-google-maps';
 
 export interface Marker {
     id: string;
@@ -13,29 +13,29 @@ export interface Marker {
 
 interface MapProps {
     children?: React.ReactNode;
+    center: { lat: number; lng: number; };
+    markers: Marker[];
     onMapLoad?: (map: google.maps.Map) => void;
 }
 
-const MapComponent: React.FC<MapProps> = ({ children, onMapLoad }) => {
-    const mapRef = useRef<google.maps.Map | null>(null);
-
-    const handleCameraChanged = (ev: { map: google.maps.Map; }) => {
-        if (onMapLoad && mapRef.current === null) {
-            mapRef.current = ev.map;
-            onMapLoad(ev.map);
-        }
-    };
-
+const MapComponent: React.FC<MapProps> = ({ children, center, markers, onMapLoad }) => {
     return (
         <Map
-            defaultCenter={{ lat: -23.5505, lng: -46.6333 }}
-            defaultZoom={4}
+            defaultCenter={center}
+            defaultZoom={15}
             gestureHandling={'greedy'}
             disableDefaultUI={true}
             mapId="follow-for-me-map"
             style={{ width: '100%', height: '100%' }}
-            onCameraChanged={handleCameraChanged}
+            onCameraChanged={ev => onMapLoad && onMapLoad(ev.map)}
         >
+            {markers.map(marker => (
+                <GoogleAdvancedMarker
+                    key={marker.id}
+                    position={marker.position}
+                    title={marker.label}
+                />
+            ))}
             {children}
         </Map>
     );
