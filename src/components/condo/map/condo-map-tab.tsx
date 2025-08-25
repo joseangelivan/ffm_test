@@ -345,6 +345,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         listeners.push(google.maps.event.addListener(path, 'set_at', handleVertexChange));
         listeners.push(google.maps.event.addListener(path, 'insert_at', handleVertexChange));
         listeners.push(google.maps.event.addListener(path, 'remove_at', handleVertexChange));
+    } else if ('getBounds' in shape) { // For rectangle and circle
+        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleVertexChange));
     }
     
     return () => {
@@ -578,6 +580,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
-
-    
