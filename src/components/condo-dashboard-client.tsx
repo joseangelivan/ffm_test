@@ -12,7 +12,6 @@ import {
   Loader,
   AlertTriangle,
 } from 'lucide-react';
-import { APIProvider } from '@vis.gl/react-google-maps';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,6 +40,7 @@ import { getActiveTheme, updateSettings } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 import { useToast } from '@/hooks/use-toast';
+import MapContainer from './map/map-container';
 
 
 type CondoDashboardClientProps = {
@@ -53,15 +53,12 @@ type CondoDashboardClientProps = {
 
 export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, initialPosition }: CondoDashboardClientProps) { 
   const { t, setLocale } = useLocale();
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const router = useRouter();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState('map');
   const [theme, setTheme] = useState(initialSettings.theme);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  
-  const [isApiLoaded, setIsApiLoaded] = useState(false);
 
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
     const root = document.documentElement;
@@ -133,24 +130,6 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   }, [initialSettings, setLocale]);
 
 
-  useEffect(() => {
-    if (!apiKey || isApiLoaded) return;
-    
-    const timer = setTimeout(() => {
-        if (!isApiLoaded) {
-            toast({
-                title: t('adminDashboard.settingsGroups.catalogs.maps.billingErrorTitle'),
-                description: t('adminDashboard.settingsGroups.catalogs.maps.billingErrorDescription'),
-                variant: 'destructive',
-                duration: Infinity,
-            });
-        }
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [apiKey, isApiLoaded, t, toast]);
-
-
   const handleConfirmLogout = async () => {
     await handleLogoutAction();
     router.push('/admin/login');
@@ -161,29 +140,6 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     handleSetTheme,
     theme,
     condo: initialCondo,
-  };
-
-  const renderMapContent = () => {
-    if (!apiKey) {
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
-                        <p className="text-sm text-muted-foreground text-center p-4">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
-                    </div>
-                </CardContent>
-            </Card>
-        );
-    }
-
-    return (
-        <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']} onLoad={() => setIsApiLoaded(true)}>
-            <CondoMapTab condo={initialCondo} initialPosition={initialPosition} />
-        </APIProvider>
-    );
   };
 
   return (
@@ -217,7 +173,9 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                       <ManageDevicesTab condoId={initialCondo.id} devices={initialDevices} onDataNeedsRefresh={onDataNeedsRefresh} />
                   </TabsContent>
                   <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
-                      {renderMapContent()}
+                    <MapContainer>
+                      <CondoMapTab condo={initialCondo} initialPosition={initialPosition} />
+                    </MapContainer>
                   </TabsContent>
               </div>
             </Tabs>

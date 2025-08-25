@@ -83,10 +83,11 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import MapComponent, { type Marker } from '@/components/map';
+import MapComponent, { type Marker } from '@/components/map/providers/google-maps/map';
 import type { SessionPayload } from '@/lib/session';
 import type { Device } from '@/actions/devices';
 import { handleLogoutAction } from '@/lib/session';
+import MapContainer from './map/map-container';
 
 const deviceIcons: { [key: string]: React.ReactNode } = {
   'Teléfono Inteligente': <Smartphone className="h-5 w-5 text-muted-foreground" />,
@@ -262,7 +263,6 @@ export default function DashboardClient({
   const router = useRouter();
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   useEffect(() => {
     // This effect can be simplified as we now receive props directly
@@ -468,15 +468,9 @@ export default function DashboardClient({
             </CardHeader>
             <CardContent>
               <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden relative shadow-inner">
-                 {!apiKey ? (
-                    <div className="flex items-center justify-center h-full">
-                        <p>API Key for Google Maps is missing.</p>
-                    </div>
-                 ) : (
-                    <APIProvider apiKey={apiKey}>
-                        <MapComponent center={mapCenter} markers={mapMarkers} />
-                    </APIProvider>
-                 )}
+                <MapContainer>
+                  <MapComponent center={mapCenter} markers={mapMarkers} />
+                </MapContainer>
               </div>
             </CardContent>
           </Card>
