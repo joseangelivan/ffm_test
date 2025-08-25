@@ -196,7 +196,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const newGeometry = getGeometryFromShape(activeShapeState.shape);
 
     setHistory(prevHistory => {
-        // When adding a new state, cut off any "redo" states
         const newHistory = prevHistory.slice(0, historyIndex + 1);
         newHistory.push(newGeometry);
         setHistoryIndex(newHistory.length - 1);
@@ -615,6 +614,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
 
 
 
