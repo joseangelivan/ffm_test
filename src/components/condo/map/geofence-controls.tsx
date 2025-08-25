@@ -56,6 +56,7 @@ type GeofenceControlsProps = {
     setHistory: React.Dispatch<React.SetStateAction<any[]>>;
     historyIndex: number;
     setHistoryIndex: React.Dispatch<React.SetStateAction<number>>;
+    mapRef: React.RefObject<google.maps.Map | null>;
 }
 
 export function GeofenceControls({
@@ -78,6 +79,7 @@ export function GeofenceControls({
     setHistory,
     historyIndex,
     setHistoryIndex,
+    mapRef,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -110,13 +112,14 @@ export function GeofenceControls({
     }, [geofences, t]);
 
     const onOverlayComplete = useCallback((event: google.maps.drawing.OverlayCompleteEvent) => {
-        if (drawingManager) {
-            drawingManager.setDrawingMode(null);
-        }
+        if (!drawingManager) return;
+        
+        drawingManager.setDrawingMode(null);
     
         const newShape = event.overlay;
         if (!newShape) return;
-        event.overlay.setMap(null); // Hide manager's shape
+        
+        event.overlay.setMap(null);
 
         setMode('editing');
         setCurrentGeofenceName(getNextGeofenceName());
@@ -128,9 +131,11 @@ export function GeofenceControls({
 
     useEffect(() => {
         if (!drawingManager) return;
+
         const listener = google.maps.event.addListener(
             drawingManager, 'overlaycomplete', onOverlayComplete
         );
+
         return () => {
             google.maps.event.removeListener(listener);
         };
