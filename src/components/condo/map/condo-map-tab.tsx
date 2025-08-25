@@ -2,7 +2,8 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { isEqual } from 'lodash';
 import {
   Locate,
   ZoomIn,
@@ -326,14 +327,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
 
     const newGeometry = getGeometryFromShape(shape);
-    const lastGeometry = history[historyIndex];
-
-    const newHistory = history.slice(0, historyIndex + 1);
     
-    newHistory.push(newGeometry);
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  }, [history, historyIndex]);
+    setHistory(prevHistory => {
+        const newHistory = prevHistory.slice(0, historyIndex + 1);
+        newHistory.push(newGeometry);
+        return newHistory;
+    });
+    setHistoryIndex(prevIndex => prevIndex + 1);
+  }, [historyIndex]);
 
   useEffect(() => {
     const shape = activeShapeRef.current?.shape;
@@ -549,6 +550,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 <GeofenceControls
                                     condoId={condo.id}
                                     geofences={dbGeofences}
+                                    mapShapesRef={mapShapesRef}
                                     onDataNeedsRefresh={onDataNeedsRefresh}
                                     selectedGeofenceId={selectedGeofenceId}
                                     setSelectedGeofenceId={setSelectedGeofenceId}
@@ -565,6 +567,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     setHistory={setHistory}
                                     historyIndex={historyIndex}
                                     setHistoryIndex={setHistoryIndex}
+                                    onHistoryUpdate={handleHistoryUpdate}
                                 />
                             )}
                             {selectedModule === 'elements' && (

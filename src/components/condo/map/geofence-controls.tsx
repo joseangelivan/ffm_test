@@ -37,6 +37,7 @@ export type DrawingMode = 'polygon' | 'rectangle' | 'circle';
 type GeofenceControlsProps = {
     condoId: string;
     geofences: DbGeofence[];
+    mapShapesRef: React.MutableRefObject<Map<string, google.maps.MVCObject>>;
     onDataNeedsRefresh: (newSelectedId?: string) => void;
     selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -49,15 +50,15 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>;
-    history: any[];
     setHistory: React.Dispatch<React.SetStateAction<any[]>>;
-    historyIndex: number;
     setHistoryIndex: React.Dispatch<React.SetStateAction<number>>;
+    onHistoryUpdate: (shape: google.maps.MVCObject | null) => void;
 }
 
 export function GeofenceControls({
     condoId,
     geofences,
+    mapShapesRef,
     onDataNeedsRefresh,
     selectedGeofenceId,
     setSelectedGeofenceId,
@@ -70,10 +71,9 @@ export function GeofenceControls({
     setShowAllGeofences,
     onSettingsClick,
     activeShapeRef,
-    history,
     setHistory,
-    historyIndex,
-    setHistoryIndex
+    setHistoryIndex,
+    onHistoryUpdate,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -99,8 +99,11 @@ export function GeofenceControls({
                     shape.setMap(null); // Completely remove new shapes from the map
                 } else if (originalGeometry) {
                     // Restore original geometry from before editing
-                    restoreShapeToGeometry(shape, originalGeometry);
-                    shape.setOptions({ editable: false, draggable: false });
+                    const originalShape = mapShapesRef.current.get(id);
+                    if (originalShape) {
+                        restoreShapeToGeometry(originalShape, originalGeometry);
+                        originalShape.setOptions({ editable: false, draggable: false });
+                    }
                 }
             }
              activeShapeRef.current = null;
@@ -114,7 +117,7 @@ export function GeofenceControls({
         setIsShapeDrawn(false);
         setHistory([]);
         setHistoryIndex(-1);
-    }, [drawingManager, activeShapeRef, setHistory, setHistoryIndex]);
+    }, [drawingManager, activeShapeRef, setHistory, setHistoryIndex, mapShapesRef]);
 
 
     const getNextGeofenceName = useCallback(() => {
@@ -155,11 +158,10 @@ export function GeofenceControls({
         
         const tempId = `new-shape-${Date.now()}`;
         activeShapeRef.current = { id: tempId, shape: newShape };
-        setHistory([getGeometryFromShape(newShape)]);
-        setHistoryIndex(0);
+        onHistoryUpdate(newShape);
         setIsShapeDrawn(true);
 
-    }, [drawingManager, activeShapeRef, setHistory, setHistoryIndex]);
+    }, [drawingManager, activeShapeRef, onHistoryUpdate]);
     
     useEffect(() => {
         if (drawingManager) {
@@ -184,17 +186,15 @@ export function GeofenceControls({
         if (!selectedGeofenceId) return;
         
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
-        if (!selectedGeofence) return;
+        const shapeToEdit = mapShapesRef.current.get(selectedGeofenceId);
         
-        const shapeToEdit = createShapeFromGeometry(selectedGeofence.geometry);
-        if (!shapeToEdit) return;
+        if (!selectedGeofence || !shapeToEdit) return;
 
         resetActionStates();
         const originalGeometry = getGeometryFromShape(shapeToEdit);
         
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
-        setHistory([getGeometryFromShape(shapeToEdit)]);
-        setHistoryIndex(0);
+        onHistoryUpdate(shapeToEdit);
         setIsShapeDrawn(true);
         
         setCurrentGeofenceName(selectedGeofence.name);
@@ -209,6 +209,7 @@ export function GeofenceControls({
             const result = await deleteGeofence(idToDelete);
             
             if (result?.success) {
+                mapShapesRef.current.delete(idToDelete);
                 toast({ title: t('toast.successTitle'), description: t('condoDashboard.map.toast.geofenceDeleted')});
                 await onDataNeedsRefresh();
             } else if (result) {
