@@ -134,7 +134,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [redoStack, setRedoStack] = useState<any[]>([]);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
-  const isDraggingRef = useRef(false);
+  const isRecordingChange = useRef(false);
   
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -265,21 +265,20 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     if (!shape || mode !== 'editing') return;
 
     const recordChange = () => {
-        if (!isDraggingRef.current) {
+        if (isRecordingChange.current) return;
+        isRecordingChange.current = true;
+        
+        requestAnimationFrame(() => {
             const newGeometry = getGeometryFromShape(shape);
-            // Avoid adding duplicate states
             if (!isEqual(undoStack[undoStack.length - 1], newGeometry)) {
                 updateHistory(newGeometry);
             }
-        }
+            isRecordingChange.current = false;
+        });
     };
     
     const listeners: google.maps.MapsEventListener[] = [
-      google.maps.event.addListener(shape, 'dragstart', () => { isDraggingRef.current = true; }),
-      google.maps.event.addListener(shape, 'dragend', () => {
-        isDraggingRef.current = false;
-        recordChange();
-      }),
+      google.maps.event.addListener(shape, 'dragend', recordChange),
     ];
   
     if ('getPath' in shape) {
@@ -288,12 +287,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         listeners.push(google.maps.event.addListener(path, 'insert_at', recordChange));
         listeners.push(google.maps.event.addListener(path, 'remove_at', recordChange));
     } else if ('getBounds' in shape) {
-        // bounds_changed fires continuously while dragging. We use dragend for that.
-        // This is mainly for resizing handles on rectangles.
-        const debouncedRecordChange = () => {
-            if (!isDraggingRef.current) recordChange();
-        };
-        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', debouncedRecordChange));
+        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', recordChange));
     }
     
     return () => {
@@ -541,4 +535,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-

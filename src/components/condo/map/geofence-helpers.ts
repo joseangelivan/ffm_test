@@ -1,4 +1,5 @@
 
+
 // --- Style Definitions ---
 export const STYLE_FOCUSED_BLUE = { fillColor: 'hsl(210 80% 50%)', strokeColor: 'hsl(210 80% 50%)', fillOpacity: 0.2, strokeWeight: 2, editable: true, draggable: true };
 export const STYLE_REFERENCE_GREEN = { fillColor: 'hsl(142 71% 45%)', strokeColor: 'hsl(142 71% 45%)', fillOpacity: 0.2, strokeWeight: 2, editable: false, draggable: false };
