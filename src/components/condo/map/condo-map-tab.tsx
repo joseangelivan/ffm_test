@@ -320,7 +320,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       });
   }, [historyIndex, history]);
   
-   useEffect(() => {
+  useEffect(() => {
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing') return;
 
@@ -329,19 +329,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             updateHistory(getGeometryFromShape(shape));
         }
     };
-
-    const handleDragStart = () => {
-        isDraggingRef.current = true;
-    };
     
-    const handleDragEnd = () => {
+    const listeners: google.maps.MapsEventListener[] = [
+      google.maps.event.addListener(shape, 'dragstart', () => {
+        isDraggingRef.current = true;
+      }),
+      google.maps.event.addListener(shape, 'dragend', () => {
         updateHistory(getGeometryFromShape(shape));
         isDraggingRef.current = false;
-    };
-
-    const listeners: google.maps.MapsEventListener[] = [
-        google.maps.event.addListener(shape, 'dragstart', handleDragStart),
-        google.maps.event.addListener(shape, 'dragend', handleDragEnd),
+      }),
     ];
   
     if ('getPath' in shape) {
