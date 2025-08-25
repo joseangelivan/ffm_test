@@ -192,12 +192,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
-  
+
   const handleHistoryUpdate = useCallback(() => {
     if (!activeShapeRef.current?.shape) return;
-    const newGeometry = getGeometryFromShape(activeShapeRef.current.shape);
     
     setHistory(prevHistory => {
+        const newGeometry = getGeometryFromShape(activeShapeRef.current!.shape);
         const newHistory = prevHistory.slice(0, historyIndex + 1);
         newHistory.push(newGeometry);
         setHistoryIndex(newHistory.length - 1);
@@ -335,29 +335,31 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   // This effect manages the event listeners for an actively edited shape.
   useEffect(() => {
-      const shape = activeShapeRef.current?.shape;
-      if (!shape || mode !== 'editing') {
-          return;
-      }
-      
-      let listeners: google.maps.MapsEventListener[] = [];
+    const shape = activeShapeRef.current?.shape;
+    if (!shape || mode !== 'editing') return;
   
-      if ('getPath' in shape) { // Polygon
-          const path = (shape as google.maps.Polygon).getPath();
-          listeners.push(google.maps.event.addListener(path, 'set_at', handleHistoryUpdate));
-          listeners.push(google.maps.event.addListener(path, 'insert_at', handleHistoryUpdate));
-          listeners.push(google.maps.event.addListener(path, 'remove_at', handleHistoryUpdate));
-          listeners.push(google.maps.event.addListener(shape, 'dragend', handleHistoryUpdate));
-      } else if ('getBounds' in shape && !('getRadius' in shape)) { // Rectangle
-          listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleHistoryUpdate));
-      } else if ('getRadius' in shape) { // Circle
-          listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleHistoryUpdate));
-          listeners.push(google.maps.event.addListener(shape, 'center_changed', handleHistoryUpdate));
-      }
+    const listeners: google.maps.MapsEventListener[] = [];
   
-      return () => {
-          listeners.forEach(listener => google.maps.event.removeListener(listener));
-      };
+    // Listen for dragend for all shapes to capture final position
+    listeners.push(google.maps.event.addListener(shape, 'dragend', handleHistoryUpdate));
+  
+    if ('getPath' in shape) { // Polygon
+      const path = (shape as google.maps.Polygon).getPath();
+      listeners.push(google.maps.event.addListener(path, 'set_at', handleHistoryUpdate));
+      listeners.push(google.maps.event.addListener(path, 'insert_at', handleHistoryUpdate));
+      listeners.push(google.maps.event.addListener(path, 'remove_at', handleHistoryUpdate));
+    } else if ('getBounds' in shape && !('getRadius' in shape)) { // Rectangle
+      // bounds_changed fires on resize end
+      listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleHistoryUpdate));
+    } else if ('getRadius' in shape) { // Circle
+      // radius_changed fires on resize end
+      listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleHistoryUpdate));
+    }
+  
+    // Cleanup function to remove all listeners
+    return () => {
+      listeners.forEach(listener => listener.remove());
+    };
   }, [activeShapeRef.current, mode, handleHistoryUpdate]);
   
 
@@ -368,8 +370,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const newShape = event.overlay;
     if (!newShape) return;
 
-    const tempId = `new-shape-${Date.now()}`;
-    activeShapeRef.current = { id: tempId, shape: newShape, originalGeometry: null };
+    activeShapeRef.current = { id: `new-shape-${Date.now()}`, shape: newShape, originalGeometry: null };
 
     const newGeometry = getGeometryFromShape(newShape);
     setHistory([newGeometry]);
@@ -384,7 +385,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => {
         google.maps.event.removeListener(listener);
     };
-  }, [onOverlayComplete]);
+  }, [drawingManagerRef.current, onOverlayComplete]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -614,4 +615,5 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
 
