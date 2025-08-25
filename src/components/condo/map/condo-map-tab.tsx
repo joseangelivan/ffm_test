@@ -42,8 +42,11 @@ import {
 } from './geofence-helpers';
 
 
-interface MapRendererProps {
+interface MapInnerProps {
+  condo: Condominio;
+  initialPosition: { lat: number; lng: number };
   onMapLoad: (map: google.maps.Map) => void;
+  drawingManagerRef: React.MutableRefObject<google.maps.drawing.DrawingManager | null>;
 }
 
 const DrawingManagerComponent = ({
@@ -77,14 +80,17 @@ const DrawingManagerComponent = ({
   return null;
 };
 
-const MapRenderer = ({ onMapLoad }: { onMapLoad: (map: google.maps.Map) => void }) => {
-    const map = useMap();
-    useEffect(() => {
-        if(map) {
-            onMapLoad(map);
-        }
-    }, [map, onMapLoad]);
-    return null;
+function MapInner({ condo, initialPosition, onMapLoad, drawingManagerRef }: MapInnerProps) {
+  return (
+    <MapComponent center={initialPosition} onMapLoad={onMapLoad} mapId="follow-for-me-map">
+        <DrawingManagerComponent drawingManagerRef={drawingManagerRef} />
+        {initialPosition && (
+            <AdvancedMarker position={initialPosition} title={condo.name}>
+                <Building className="h-8 w-8 text-slate-700 drop-shadow-lg" />
+            </AdvancedMarker>
+        )}
+    </MapComponent>
+  );
 }
 
 
@@ -399,18 +405,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     </div>
                                 </div>
                             )}
-                             <MapComponent
-                                center={initialPosition}
-                                mapId="follow-for-me-map"
-                                >
-                                <MapRenderer onMapLoad={handleMapLoad} />
-                                <DrawingManagerComponent drawingManagerRef={drawingManagerRef} />
-                                {initialPosition && (
-                                    <AdvancedMarker position={initialPosition} title={condo.name}>
-                                        <Building className="h-8 w-8 text-slate-700 drop-shadow-lg" />
-                                    </AdvancedMarker>
-                                )}
-                            </MapComponent>
+                            <MapInner 
+                                condo={condo}
+                                initialPosition={initialPosition}
+                                onMapLoad={handleMapLoad}
+                                drawingManagerRef={drawingManagerRef}
+                            />
                         </div>
                          {activeShapeState && (historyState.canUndo || historyState.canRedo) && (
                             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">
@@ -519,3 +519,5 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
+    
