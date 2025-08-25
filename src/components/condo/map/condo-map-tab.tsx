@@ -344,12 +344,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
     const handleVertexChange = () => {
         const newGeometry = getGeometryFromShape(shape);
-        setHistory(prevHistory => {
-            const newHistory = prevHistory.slice(0, historyIndex + 1);
-            newHistory.push(newGeometry);
-            setHistoryIndex(newHistory.length - 1);
-            return newHistory;
-        });
+        const lastHistoryGeometry = history[historyIndex];
+        if (newGeometry && !isEqual(newGeometry, lastHistoryGeometry)) {
+            setHistory(prevHistory => {
+                const newHistory = prevHistory.slice(0, historyIndex + 1);
+                newHistory.push(newGeometry);
+                setHistoryIndex(newHistory.length - 1);
+                return newHistory;
+            });
+        }
     }
 
     const listeners: google.maps.MapsEventListener[] = [];
@@ -363,15 +366,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       listeners.push(google.maps.event.addListener(path, 'insert_at', handleVertexChange));
       listeners.push(google.maps.event.addListener(path, 'remove_at', handleVertexChange));
     }
-    
-    if ('getBounds' in shape) {
-        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleVertexChange));
-    }
   
     return () => {
       listeners.forEach(listener => listener.remove());
     };
-  }, [activeShapeState, historyIndex]);
+  }, [activeShapeState, historyIndex, history]);
   
   useEffect(() => {
     const map = mapRef.current;
