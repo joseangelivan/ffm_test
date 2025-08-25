@@ -39,7 +39,6 @@ type ActiveShapeState = { id: string, shape: google.maps.MVCObject | null, origi
 type GeofenceControlsProps = {
     condoId: string;
     geofences: DbGeofence[];
-    mapShapesRef: React.MutableRefObject<Map<string, google.maps.MVCObject>>;
     onDataNeedsRefresh: (newSelectedId?: string) => void;
     selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -62,7 +61,6 @@ type GeofenceControlsProps = {
 export function GeofenceControls({
     condoId,
     geofences,
-    mapShapesRef,
     onDataNeedsRefresh,
     selectedGeofenceId,
     setSelectedGeofenceId,
@@ -115,6 +113,8 @@ export function GeofenceControls({
         if (activeShapeState) {
             const { shape, id, originalGeometry } = activeShapeState;
             if (shape) {
+                // If it was a new shape, just remove it from the map.
+                // Otherwise, restore its original geometry.
                 if (id.startsWith('new-shape-')) {
                     shape.setMap(null);
                 } else if (originalGeometry) {
@@ -134,18 +134,45 @@ export function GeofenceControls({
         setHistoryIndex(-1);
     }, [activeShapeState, drawingManager, setHistory, setHistoryIndex, setActiveShapeState]);
 
-    const startNewDrawing = useCallback((drawMode: DrawingMode) => {
-        cancelCurrentAction();
-        setCurrentGeofenceName(getNextGeofenceName());
-        if (drawingManager) {
-            drawingManager.setDrawingMode(drawMode as any);
-        }
-    }, [cancelCurrentAction, getNextGeofenceName, drawingManager]);
+    useEffect(() => {
+        if (!drawingManager) return;
+    
+        const handleOverlayComplete = (event: google.maps.drawing.OverlayCompleteEvent) => {
+            // CRITICAL: Disable drawing mode immediately to prevent multiple shapes.
+            drawingManager.setDrawingMode(null);
+    
+            // Hide the shape drawn by the manager, as we'll manage it via React state
+            event.overlay.setMap(null);
+            
+            const newShape = event.overlay;
+            if (!newShape) return;
+    
+            // Switch to editing mode and set up the new shape for editing.
+            setMode('editing');
+            setCurrentGeofenceName(getNextGeofenceName());
+            setActiveShapeState({ id: `new-shape-${Date.now()}`, shape: newShape, originalGeometry: null });
+            const newGeometry = getGeometryFromShape(newShape);
+            setHistory([newGeometry]);
+            setHistoryIndex(0);
+        };
+    
+        // Register the event listener.
+        const listener = google.maps.event.addListener(
+            drawingManager, 'overlaycomplete', handleOverlayComplete
+        );
+    
+        // Cleanup function to remove the listener when the component unmounts or drawingManager changes.
+        return () => {
+            google.maps.event.removeListener(listener);
+        };
+    }, [drawingManager, setActiveShapeState, setHistory, setHistoryIndex, setMode, getNextGeofenceName]);
       
     const startEditingSelected = useCallback(() => {
         if (!selectedGeofenceId) return;
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
-        const shapeToEdit = mapShapesRef.current.get(selectedGeofenceId);
+        // This shape should be on the map, managed by the parent's mapShapesRef
+        const shapeToEdit = createShapeFromGeometry(selectedGeofence?.geometry);
+
         if (!selectedGeofence || !shapeToEdit) return;
     
         cancelCurrentAction();
@@ -157,7 +184,7 @@ export function GeofenceControls({
         setHistoryIndex(0);
     
         setCurrentGeofenceName(selectedGeofence.name);
-    }, [selectedGeofenceId, geofences, mapShapesRef, cancelCurrentAction, setHistory, setHistoryIndex, setActiveShapeState]);
+    }, [selectedGeofenceId, geofences, cancelCurrentAction, setHistory, setHistoryIndex, setActiveShapeState]);
       
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.shape) return;
@@ -347,7 +374,11 @@ export function GeofenceControls({
                                 </div>
                             ) : (
                                  <div className="flex items-center gap-2">
-                                    <Button onClick={() => startNewDrawing(drawingMode)} variant="outline" className="flex-1" disabled={!!activeShapeState || isBusy}>
+                                    <Button onClick={() => {
+                                        if (drawingManager) {
+                                            drawingManager.setDrawingMode(drawingMode as any);
+                                        }
+                                    }} variant="outline" className="flex-1" disabled={!!activeShapeState || isBusy}>
                                         <PencilRuler className="mr-2 h-4 w-4"/>
                                         {t('condoDashboard.map.geofence.draw')}
                                     </Button>

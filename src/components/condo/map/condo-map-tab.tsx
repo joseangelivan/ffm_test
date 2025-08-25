@@ -191,25 +191,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
   
-  const handleHistoryUpdate = useCallback(() => {
-    if (!activeShapeState?.shape) return;
-    const newGeometry = getGeometryFromShape(activeShapeState.shape);
-
-    setHistory(prevHistory => {
-        const newHistory = prevHistory.slice(0, historyIndex + 1);
-        newHistory.push(newGeometry);
-        setHistoryIndex(newHistory.length - 1);
-        return newHistory;
-    });
-  }, [activeShapeState?.shape, historyIndex]);
-
-  useEffect(() => {
-    setHistoryState({
-        canUndo: historyIndex > 0,
-        canRedo: historyIndex < history.length - 1,
-    });
-  }, [historyIndex, history]);
-
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
     try {
@@ -330,78 +311,58 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => { zoomListener.remove(); };
   }, []);
     
-  // Effect to manage editing listeners
+  const handleHistoryUpdate = useCallback(() => {
+    if (!activeShapeState?.shape) return;
+    const newGeometry = getGeometryFromShape(activeShapeState.shape);
+
+    setHistory(prevHistory => {
+        const newHistory = prevHistory.slice(0, historyIndex + 1);
+        newHistory.push(newGeometry);
+        setHistoryIndex(newHistory.length - 1);
+        return newHistory;
+    });
+  }, [activeShapeState?.shape, historyIndex]);
+
+  useEffect(() => {
+    setHistoryState({
+        canUndo: historyIndex > 0,
+        canRedo: historyIndex < history.length - 1,
+    });
+  }, [historyIndex, history]);
+
   useEffect(() => {
     const shape = activeShapeState?.shape;
-    if (!shape || mode !== 'editing') {
-      return;
-    }
-  
-    // This function will be called when any edit event occurs
-    const updateHistory = () => handleHistoryUpdate();
-  
+    if (!shape) return;
+
     const listeners: google.maps.MapsEventListener[] = [];
+    
+    const registerChange = () => handleHistoryUpdate();
+
+    listeners.push(google.maps.event.addListener(shape, 'dragend', registerChange));
   
-    // Listen for drag events on all shapes
-    listeners.push(google.maps.event.addListener(shape, 'dragend', updateHistory));
-  
-    // Listen for vertex modifications on polygons
     if ('getPath' in shape) {
       const path = (shape as google.maps.Polygon).getPath();
-      listeners.push(google.maps.event.addListener(path, 'set_at', updateHistory));
-      listeners.push(google.maps.event.addListener(path, 'insert_at', updateHistory));
-      listeners.push(google.maps.event.addListener(path, 'remove_at', updateHistory));
+      listeners.push(google.maps.event.addListener(path, 'set_at', registerChange));
+      listeners.push(google.maps.event.addListener(path, 'insert_at', registerChange));
+      listeners.push(google.maps.event.addListener(path, 'remove_at', registerChange));
+    }
+    
+    if ('getRadius' in shape) { // Circle
+        listeners.push(google.maps.event.addListener(shape, 'radius_changed', registerChange));
+    }
+    if ('getBounds' in shape) { // Rectangle
+        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', registerChange));
     }
   
-    // Listen for resize events on rectangles and circles
-    if ('getBounds' in shape && !('getRadius' in shape)) { // Rectangle
-        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', updateHistory));
-    } else if ('getRadius' in shape) { // Circle
-        listeners.push(google.maps.event.addListener(shape, 'radius_changed', updateHistory));
-    }
-  
-    // Cleanup function to remove all listeners for the current shape
     return () => {
-      google.maps.event.clearInstanceListeners(shape);
+      listeners.forEach(listener => listener.remove());
     };
-  }, [activeShapeState, mode, handleHistoryUpdate]);
+  }, [activeShapeState, handleHistoryUpdate]);
   
-
-  // Effect for handling the drawing manager
-  useEffect(() => {
-    if (!drawingManagerRef.current) return;
-
-    const onOverlayComplete = (event: google.maps.drawing.OverlayCompleteEvent) => {
-        if (drawingManagerRef.current) {
-            drawingManagerRef.current.setDrawingMode(null);
-        }
-        
-        const newShape = event.overlay;
-        if (!newShape) return;
-        
-        event.overlay.setMap(null); // Hide the default drawing, let React handle it
-
-        setMode('editing');
-        setActiveShapeState({ id: `new-shape-${Date.now()}`, shape: newShape, originalGeometry: null });
-        const newGeometry = getGeometryFromShape(newShape);
-        setHistory([newGeometry]);
-        setHistoryIndex(0);
-    };
-
-    const listener = google.maps.event.addListener(
-        drawingManagerRef.current, 'overlaycomplete', onOverlayComplete
-    );
-
-    return () => {
-        google.maps.event.removeListener(listener);
-    };
-  }, [drawingManagerRef, setMode, setActiveShapeState, setHistory, setHistoryIndex]);
-
   useEffect(() => {
     const map = mapRef.current;
     if (!map || isLoading) return;
 
-    // First, manage the shapes that are tied to DB geofences
     dbGeofences.forEach(dbGf => {
         if (!mapShapesRef.current.has(dbGf.id)) {
             const newShape = createShapeFromGeometry(dbGf.geometry);
@@ -411,38 +372,29 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
     const activeActionId = activeShapeState?.id;
 
-    // Now, apply styles and visibility to all shapes managed in the ref
     mapShapesRef.current.forEach((shape, id) => {
         const isBeingEdited = activeActionId === id;
-        shape.setOptions({ editable: false, draggable: false }); // Default to non-editable
         
         let isVisible = false;
         let styleOptions: any = {};
         const isSelected = id === selectedGeofenceId;
         const isDefault = id === defaultGeofenceId;
         
-        if (mode === 'view') {
-            isVisible = (isDefault && !showAllGeofences) || showAllGeofences;
+        if (isBeingEdited) {
+            isVisible = true;
+            styleOptions = STYLE_FOCUSED_BLUE;
+        } else if(mode === 'view') {
+            isVisible = (isDefault && !showAllGeofences) || (showAllGeofences);
             styleOptions = isDefault ? { ...STYLE_VIEW_MODE } : { ...STYLE_BACKGROUND_GREY };
             if (isSelected && !isDefault) styleOptions = { ...STYLE_VIEW_MODE };
+
         } else { // mode === 'editing'
-            if (isBeingEdited) {
-                // This shape is not on the map yet, it's handled by activeShapeState
-            } else {
-                isVisible = showAllGeofences || isSelected;
-                styleOptions = isSelected ? { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3 } : { ...STYLE_BACKGROUND_GREY };
-            }
+            isVisible = showAllGeofences || isSelected;
+            styleOptions = isSelected ? { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3 } : { ...STYLE_BACKGROUND_GREY };
         }
         shape.setOptions(styleOptions);
         shape.setMap(isVisible ? map : null);
     });
-
-    // Handle the active editing shape separately
-    if (activeShapeState?.shape) {
-        const activeShape = activeShapeState.shape;
-        activeShape.setOptions({ ...STYLE_FOCUSED_BLUE, editable: true, draggable: true });
-        activeShape.setMap(map);
-    }
 }, [
     mode,
     dbGeofences,
@@ -583,7 +535,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 <GeofenceControls
                                     condoId={condo.id}
                                     geofences={dbGeofences}
-                                    mapShapesRef={mapShapesRef}
                                     onDataNeedsRefresh={onDataNeedsRefresh}
                                     selectedGeofenceId={selectedGeofenceId}
                                     setSelectedGeofenceId={setSelectedGeofenceId}
