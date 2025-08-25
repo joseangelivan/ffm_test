@@ -61,6 +61,15 @@ async function ensureAdminSettingsExist(adminId: string) {
     try {
         const pool = await getDbPool();
         client = await pool.connect();
+        
+        // First, check if the admin actually exists in the admins table
+        const adminExists = await client.query('SELECT 1 FROM admins WHERE id = $1', [adminId]);
+        if (adminExists.rows.length === 0) {
+            // Admin doesn't exist, so don't try to insert a setting for them.
+            return; 
+        }
+
+        // Admin exists, so we can safely insert/update their settings.
         await client.query(
             'INSERT INTO admin_settings (admin_id) VALUES ($1) ON CONFLICT (admin_id) DO NOTHING',
             [adminId]
@@ -88,6 +97,14 @@ export async function getSettings(session: SessionPayload | null): Promise<UserS
         
         if (result.rows.length > 0) {
             return result.rows[0] as UserSettings;
+        }
+
+        // Ensure the admin row exists before trying to insert settings
+        const adminExists = await client.query(`SELECT 1 FROM admins WHERE id = $1`, [session.id]);
+        if (adminExists.rows.length === 0) {
+            // This case should ideally not happen for an active session, but as a safeguard:
+            console.warn(`Attempted to create settings for a non-existent admin ID: ${session.id}.`);
+            return { theme: 'light', language: 'pt-BR' }; // Return default without inserting
         }
 
         const defaultSettings: UserSettings = { theme: 'light', language: 'pt-BR' };
@@ -741,6 +758,8 @@ export async function verifyTotp(prevState: any, formData: FormData): Promise<Au
         if (!isValid) {
             return { success: false, message: 'Código 2FA inválido.' };
         }
+        
+        await ensureAdminSettingsExist(admin.id);
 
         const sessionResult = await createSession(admin.id, 'admin', {
             email: admin.email,
