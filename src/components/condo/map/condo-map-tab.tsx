@@ -218,25 +218,28 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
   }, [condo.id, selectedGeofenceId, toast, t]);
 
-  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null, isFirstChange: boolean = false) => {
-    if (!shape) return;
-    const newGeometry = getGeometryFromShape(shape);
-    if (!newGeometry) return;
-    
-    if (isFirstChange) {
-        setHistory([newGeometry]);
-        setHistoryIndex(0);
-        return;
-    }
+  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject, isFirstChange: boolean = false) => {
+      if (!shape) return;
+      const newGeometry = getGeometryFromShape(shape);
+      if (!newGeometry) return;
 
-    const currentGeometry = history[historyIndex];
-    if (isEqual(newGeometry, currentGeometry)) {
-        return;
-    }
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(newGeometry);
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
+      if (isFirstChange) {
+          setHistory([newGeometry]);
+          setHistoryIndex(0);
+          return;
+      }
+      
+      const currentGeometry = history[historyIndex];
+      if(isEqual(newGeometry, currentGeometry)) {
+          return;
+      }
+
+      setHistory(prevHistory => {
+          const newHistory = prevHistory.slice(0, historyIndex + 1);
+          newHistory.push(newGeometry);
+          return newHistory;
+      });
+      setHistoryIndex(prevIndex => prevIndex + 1);
   }, [history, historyIndex]);
 
   useEffect(() => {
@@ -249,27 +252,26 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   useEffect(() => {
     const shape = activeShapeRef.current?.shape;
     if (!shape || mode !== 'editing') {
-        return;
+      return;
     }
 
-    const onShapeChange = () => handleHistoryUpdate(shape);
-    
-    const listeners = [
-        google.maps.event.addListener(shape, 'dragend', onShapeChange),
-        google.maps.event.addListener(shape, 'radius_changed', onShapeChange),
-    ];
-  
+    const onShapeChanged = () => handleHistoryUpdate(shape);
+    const listeners: google.maps.MapsEventListener[] = [];
+
+    listeners.push(google.maps.event.addListener(shape, 'dragend', onShapeChanged));
+    listeners.push(google.maps.event.addListener(shape, 'radius_changed', onShapeChanged));
+
     if ('getPath' in shape) {
-        const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(google.maps.event.addListener(path, 'set_at', onShapeChange));
-        listeners.push(google.maps.event.addListener(path, 'insert_at', onShapeChange));
-        listeners.push(google.maps.event.addListener(path, 'remove_at', onShapeChange));
+      const path = (shape as google.maps.Polygon).getPath();
+      listeners.push(google.maps.event.addListener(path, 'set_at', onShapeChanged));
+      listeners.push(google.maps.event.addListener(path, 'insert_at', onShapeChanged));
+      listeners.push(google.maps.event.addListener(path, 'remove_at', onShapeChanged));
     }
-    
+
     return () => {
-        listeners.forEach(l => l.remove());
+      listeners.forEach(l => l.remove());
     };
-  }, [activeShapeRef.current, mode, handleHistoryUpdate]);
+  }, [mode, handleHistoryUpdate]);
 
 
   const centerMapOnAddress = useCallback(() => {
@@ -589,3 +591,5 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
+    
