@@ -78,6 +78,10 @@
             "title": "Copiado",
             "description": "Mensaje de error copiado al portapapeles."
         },
+        "mapsBillingError": {
+          "title": "Error de Facturación de Google Maps",
+          "description": "La facturación no está habilitada. El mapa se muestra en modo de desarrollo."
+        },
         "adminLogin": {
           "invalidCredentials": "Credenciales inválidas.",
           "missingCredentials": "El correo y la contraseña son obligatorios.",
@@ -397,7 +401,7 @@
         },
         "billingError": {
             "title": "Error de Facturación de Google Maps",
-            "description": "La facturación no está habilitada para este proyecto en Google Cloud. Por favor, habilite la facturación para ver el mapa."
+            "description": "La facturación no está habilitada para este proyecto en Google Cloud. El mapa puede no funcionar correctamente. Por favor, habilite la facturación para obtener la funcionalidad completa."
         },
         "geofence": {
           "defaultLabel": "Geocerca Predeterminada",
@@ -543,10 +547,10 @@
         "manageDialog": {
             "menuTitle": "Gestionar Protocolo",
             "title": "Gerenciar Dispositivo: {name}",
-            "description": "Configura los parámetros de comunicación para el dispositivo.",
-            "protocol": "Protocolo de Comunicación",
-            "selectProtocol": "Seleccionar protocolo",
-            "physicalDeviceId": "ID Físico del Dispositivo",
+            "description": "Configura los parâmetros de comunicação para o dispositivo.",
+            "protocol": "Protocolo de Comunicação",
+            "selectProtocol": "Selecionar protocolo",
+            "physicalDeviceId": "ID Físico do Dispositivo",
             "removeButton": "Remover Configuração"
         },
         "deleteConfirmation": "Esto eliminará permanentemente el dispositivo \"{name}\". Esta acción no puede deshacerse.",
@@ -612,7 +616,7 @@
         "confirmPasswordLabel": "Confirmar Nova Senha",
         "activateButton": "Ativar Conta",
         "activating": "Ativando...",
-        "backToLogin": "Volver al inicio de sesión"
+        "backToLogin": "Voltar para o login"
     },
     "dbInitializer": {
         "title": "Inicialización de la Base de Datos",
@@ -624,7 +628,7 @@
         "button": "Inicializar Base de Datos",
         "clearButton": "Limpar Tabelas e Dados",
         "goBack": "Volver al Login de Administrador",
-        "confirmationDescription": "Esto intentará ejecutar de nuevo todas las migraciones de la base de datos. Esta acción generalmente es segura, pero solo debe realizarse si se sospecha un problema con el esquema de la base de datos. ¿Estás seguro de que quieres continuar?",
+        "confirmationDescription": "Esto intentará ejecutar de nuevo todas las migraicones de la base de datos. Esta acción generalmente es segura, pero solo debe realizarse si se sospecha un problema con el esquema de la base de datos. ¿Estás seguro de que quieres continuar?",
         "clearConfirmationDescription": "Esta acción eliminará permanentemente TODAS las tablas y datos de la base de datos. Esta acción no se puede deshacer. ¿Estás absolutamente seguro?",
         "confirmButton": "Sí, inicializar",
         "clearConfirmButton": "Sí, eliminar todo",

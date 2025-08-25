@@ -78,6 +78,10 @@
             "title": "Copiado",
             "description": "Mensagem de erro copiada para a área de transferência."
         },
+        "mapsBillingError": {
+          "title": "Erro de Faturamento do Google Maps",
+          "description": "O faturamento não está habilitado. O mapa está sendo exibido em modo de desenvolvimento."
+        },
         "adminLogin": {
           "invalidCredentials": "Credenciais inválidas.",
           "missingCredentials": "E-mail e senha são obrigatórios.",
@@ -397,7 +401,7 @@
         },
         "billingError": {
             "title": "Erro de Faturamento do Google Maps",
-            "description": "O faturamento não está habilitado para este projeto no Google Cloud. Por favor, habilite o faturamento para visualizar o mapa."
+            "description": "O faturamento não está habilitado para este projeto no Google Cloud. O mapa pode não funcionar corretamente. Por favor, habilite o faturamento para obter a funcionalidade completa."
         },
         "geofence": {
             "defaultLabel": "Geocerca Padrão",
