@@ -511,13 +511,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
   
   const onOverlayComplete = useCallback((event: google.maps.drawing.OverlayCompleteEvent) => {
-    if(drawingManagerRef.current) drawingManagerRef.current.setDrawingMode(null);
+    if (drawingManagerRef.current) {
+      drawingManagerRef.current.setDrawingMode(null);
+    }
     const newShape = event.overlay;
-    if(!newShape) return;
-    
+    if (!newShape) return;
+
     const tempId = `new-shape-${Date.now()}`;
     activeShapeRef.current = { id: tempId, shape: newShape, originalGeometry: null };
-    
+
     const newGeometry = getGeometryFromShape(newShape);
     setHistory([newGeometry]);
     setHistoryIndex(0);
@@ -534,21 +536,25 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
   }, [cancelCurrentAction, getNextGeofenceName]);
 
-  useEffect(() => {
+   useEffect(() => {
     const drawingManager = drawingManagerRef.current;
-    if (drawingManager) {
-         if (drawingCompleteListener.current) {
-            drawingCompleteListener.current.remove();
-         }
-        drawingCompleteListener.current = google.maps.event.addListener(
-            drawingManager, 'overlaycomplete', onOverlayComplete
-        );
+    if (!drawingManager) return;
+
+    // Clean up the previous listener before adding a new one
+    if (drawingCompleteListener.current) {
+      drawingCompleteListener.current.remove();
     }
+
+    drawingCompleteListener.current = google.maps.event.addListener(
+      drawingManager, 'overlaycomplete', onOverlayComplete
+    );
+
+    // Cleanup function to remove the listener when the component unmounts or dependencies change
     return () => {
-         if (drawingCompleteListener.current) {
-            google.maps.event.removeListener(drawingCompleteListener.current);
-         }
-    }
+      if (drawingCompleteListener.current) {
+        google.maps.event.removeListener(drawingCompleteListener.current);
+      }
+    };
   }, [onOverlayComplete]);
   
   const startEditingSelected = useCallback(() => {
@@ -725,4 +731,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
