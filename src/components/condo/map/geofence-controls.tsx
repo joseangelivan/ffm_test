@@ -16,7 +16,7 @@ import {
   Loader,
 } from 'lucide-react';
 
-import { restoreShapeToGeometry, getGeometryFromShape, createShapeFromGeometry } from './condo-map-tab';
+import { restoreShapeToGeometry, getGeometryFromShape } from './condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 
@@ -50,7 +50,9 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>;
+    history: any[];
     setHistory: React.Dispatch<React.SetStateAction<any[]>>;
+    historyIndex: number;
     setHistoryIndex: React.Dispatch<React.SetStateAction<number>>;
     onHistoryUpdate: (shape: google.maps.MVCObject | null) => void;
 }
@@ -158,10 +160,14 @@ export function GeofenceControls({
         
         const tempId = `new-shape-${Date.now()}`;
         activeShapeRef.current = { id: tempId, shape: newShape };
-        onHistoryUpdate(newShape);
+        
+        // Correct way to initialize history for a new shape
+        setHistory([getGeometryFromShape(newShape)]);
+        setHistoryIndex(0);
+
         setIsShapeDrawn(true);
 
-    }, [drawingManager, activeShapeRef, onHistoryUpdate]);
+    }, [drawingManager, activeShapeRef, setHistory, setHistoryIndex]);
     
     useEffect(() => {
         if (drawingManager) {
@@ -194,7 +200,10 @@ export function GeofenceControls({
         const originalGeometry = getGeometryFromShape(shapeToEdit);
         
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
-        onHistoryUpdate(shapeToEdit);
+        
+        setHistory([originalGeometry]);
+        setHistoryIndex(0);
+
         setIsShapeDrawn(true);
         
         setCurrentGeofenceName(selectedGeofence.name);

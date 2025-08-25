@@ -3,7 +3,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { isEqual } from 'lodash';
 import {
   Locate,
   ZoomIn,
@@ -327,18 +326,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       }
       
       const newGeometry = getGeometryFromShape(shape);
-
+      
       setHistory(prevHistory => {
           const newHistory = prevHistory.slice(0, historyIndex + 1);
           newHistory.push(newGeometry);
-          setHistoryIndex(newHistory.length);
+          setHistoryIndex(newHistory.length - 1);
           return newHistory;
       });
-      setHistoryIndex(prevIndex => prevIndex + 1);
-
-  }, [history, historyIndex]);
+  }, [historyIndex]);
   
-  useEffect(() => {
+    useEffect(() => {
       const shape = activeShapeRef.current?.shape;
       if (!shape || mode !== 'editing') {
           return;
