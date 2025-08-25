@@ -82,7 +82,7 @@ const DrawingManagerComponent = ({
 
 function MapInner({ condo, initialPosition, onMapLoad, drawingManagerRef }: MapInnerProps) {
   return (
-    <MapComponent center={initialPosition} markers={[]}>
+    <MapComponent center={initialPosition} markers={[]} onMapLoad={onMapLoad}>
         <DrawingManagerComponent drawingManagerRef={drawingManagerRef} />
         {initialPosition && (
             <AdvancedMarker position={initialPosition} title={condo.name}>
@@ -198,7 +198,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
     }
     
-    if (!map || !geofenceIdToFit) return;
+    if (!map || !geofenceIdToFit) {
+        if(!map) centerMapOnAddress();
+        return;
+    }
 
     const geofenceShape = mapShapesRef.current.get(geofenceIdToFit);
     if (!geofenceShape) return;
@@ -223,7 +226,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
     map.setCenter(bounds.getCenter());
 
-}, [mode, defaultGeofenceId, selectedGeofenceId, getZoomForBounds, fitLevel]);
+}, [mode, defaultGeofenceId, selectedGeofenceId, getZoomForBounds, fitLevel, centerMapOnAddress]);
 
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -350,14 +353,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     await onDataNeedsRefresh();
   }, [onDataNeedsRefresh]);
 
-  useEffect(() => {
-    if (isLoading) return;
-    const timeoutId = setTimeout(() => {
-        if (mapRef.current) applyZoomLevel();
-    }, 100);
-    return () => clearTimeout(timeoutId);
-  }, [isLoading, applyZoomLevel]);
-    
+    useEffect(() => {
+        if (!isLoading && mapRef.current) {
+            const timeoutId = setTimeout(() => {
+                applyZoomLevel();
+            }, 100);
+            return () => clearTimeout(timeoutId);
+        }
+    }, [isLoading, applyZoomLevel]);
     
   const handleHistoryAction = (action: 'undo' | 'redo') => {
     const isUndo = action === 'undo';
