@@ -470,7 +470,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const getNextGeofenceName = useCallback(() => {
         const baseName = t('condoDashboard.map.geofence.defaultName');
-        const existingNumbers = geofences.map(g => {
+        const existingNumbers = dbGeofences.map(g => {
             const match = g.name.match(new RegExp(`^${baseName}_(\\d+)$`));
             return match ? parseInt(match[1], 10) : 0;
         }).filter(n => n > 0).sort((a,b) => a-b);
@@ -484,7 +484,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
         }
         return `${baseName}_${String(nextNumber).padStart(2, '0')}`;
-  }, [geofences, t]);
+  }, [dbGeofences, t]);
   
   const cancelCurrentAction = useCallback(() => {
     if (activeShapeRef.current) {
@@ -554,7 +554,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   const startEditingSelected = useCallback(() => {
     if (!selectedGeofenceId) return;
-    const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
+    const selectedGeofence = dbGeofences.find(g => g.id === selectedGeofenceId);
     const shapeToEdit = mapShapesRef.current.get(selectedGeofenceId);
     if (!selectedGeofence || !shapeToEdit) return;
 
@@ -569,7 +569,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     setIsActionActive(true);
     setIsShapeDrawn(true);
     setCurrentGeofenceName(selectedGeofence.name);
-  }, [selectedGeofenceId, geofences, cancelCurrentAction]);
+  }, [selectedGeofenceId, dbGeofences, cancelCurrentAction]);
   
   const saveCurrentAction = useCallback(async () => {
     if (!activeShapeRef.current?.shape) return;
@@ -586,7 +586,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
     if (isNewShape) { 
         result = await createGeofence({
-            condoId, name: currentGeofenceName, geometry: geometryToSave, isDefault: geofences.length === 0,
+            condoId, name: currentGeofenceName, geometry: geometryToSave, isDefault: dbGeofences.length === 0,
         });
     } else {
         result = await updateGeofence(id, { name: currentGeofenceName, geometry: geometryToSave });
@@ -600,7 +600,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     } else if (result) {
         toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
     }
-  }, [currentGeofenceName, condoId, geofences, onDataNeedsRefresh, cancelCurrentAction, t, toast]);
+  }, [currentGeofenceName, condoId, dbGeofences, onDataNeedsRefresh, cancelCurrentAction, t, toast]);
   
   return (
     <>
