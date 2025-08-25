@@ -29,7 +29,6 @@ export async function middleware(request: NextRequest) {
 
   const publicPages = ['/', '/login', '/admin/login', '/admin/first-login', '/admin/enter-password', '/admin/verify-2fa'];
   
-  // Use regex for dynamic routes
   const protectedAdminRoutes = [
     /^\/admin\/dashboard$/,
     /^\/admin\/condominio(\/.*)?$/,
@@ -63,6 +62,11 @@ export async function middleware(request: NextRequest) {
   // 3. Handle routing for valid sessions
   const isAdmin = session.type === 'admin';
 
+  // If user with a valid session tries to access a login page, redirect them to their dashboard
+  if (isPublicPage) {
+    return NextResponse.redirect(new URL(isAdmin ? '/admin/dashboard' : '/dashboard', request.url));
+  }
+  
   // Prevent cross-access to protected routes
   if (isAdmin && isUserRoute) {
     return NextResponse.redirect(new URL('/admin/dashboard', request.url));
