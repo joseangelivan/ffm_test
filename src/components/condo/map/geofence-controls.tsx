@@ -16,7 +16,7 @@ import {
   Loader,
 } from 'lucide-react';
 
-import { restoreShapeToGeometry, getGeometryFromShape } from './condo-map-tab';
+import { restoreShapeToGeometry, getGeometryFromShape, createShapeFromGeometry } from './condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 
@@ -49,8 +49,7 @@ type GeofenceControlsProps = {
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     activeShapeRef: React.MutableRefObject<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>;
-    onHistoryUpdate: (shape: google.maps.MVCObject, isFirstChange?: boolean) => void;
-    onActionEnd: () => void;
+    onHistoryUpdate: (shape: google.maps.MVCObject | null, isFirstChange?: boolean) => void;
 }
 
 export function GeofenceControls({
@@ -69,7 +68,6 @@ export function GeofenceControls({
     onSettingsClick,
     activeShapeRef,
     onHistoryUpdate,
-    onActionEnd,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -108,7 +106,8 @@ export function GeofenceControls({
 
         setCurrentGeofenceName('');
         setIsShapeDrawn(false);
-    }, [drawingManager, activeShapeRef]);
+        onHistoryUpdate(null); // Clear history
+    }, [drawingManager, activeShapeRef, onHistoryUpdate]);
 
 
     const getNextGeofenceName = useCallback(() => {
@@ -178,7 +177,9 @@ export function GeofenceControls({
         
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
         if (!selectedGeofence) return;
-
+        
+        // This is a temporary fix. The shape should ideally be reused from the mapShapesRef
+        // to avoid re-creating it. However, the reference might be stale.
         const shapeToEdit = createShapeFromGeometry(selectedGeofence.geometry);
         if (!shapeToEdit) return;
 
@@ -186,7 +187,7 @@ export function GeofenceControls({
         const originalGeometry = getGeometryFromShape(shapeToEdit);
         
         activeShapeRef.current = { id: selectedGeofenceId, shape: shapeToEdit, originalGeometry };
-        onHistoryUpdate(shapeToEdit, true);
+        onHistoryUpdate(shapeToEdit, true); // Initialize history with the first state
         setIsShapeDrawn(true);
         
         setCurrentGeofenceName(selectedGeofence.name);
