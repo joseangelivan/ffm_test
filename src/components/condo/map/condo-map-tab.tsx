@@ -132,9 +132,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [activeShapeState, setActiveShapeState] = useState<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>(null);
   const [undoStack, setUndoStack] = useState<any[]>([]);
   const [redoStack, setRedoStack] = useState<any[]>([]);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
-  const isRecordingChange = useRef(false);
+
+  const canUndo = undoStack.length > 1;
+  const canRedo = redoStack.length > 0;
   
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -250,50 +250,40 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => { zoomListener.remove(); };
   }, []);
     
-  const updateHistory = useCallback((newChange: any) => {
-    setUndoStack(prev => [...prev, newChange]);
-    setRedoStack([]); // Clear redo stack on new action
+  const updateHistory = useCallback((shape: google.maps.MVCObject | null) => {
+    if (!shape) return;
+    const newGeometry = getGeometryFromShape(shape);
+    
+    setUndoStack(prev => {
+        if (isEqual(prev[prev.length - 1], newGeometry)) {
+            return prev;
+        }
+        return [...prev, newGeometry];
+    });
+    setRedoStack([]);
   }, []);
-
-  useEffect(() => {
-    setCanUndo(undoStack.length > 1);
-    setCanRedo(redoStack.length > 0);
-  }, [undoStack, redoStack]);
   
   useEffect(() => {
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing') return;
-
-    const recordChange = () => {
-        if (isRecordingChange.current) return;
-        isRecordingChange.current = true;
-        
-        requestAnimationFrame(() => {
-            const newGeometry = getGeometryFromShape(shape);
-            if (!isEqual(undoStack[undoStack.length - 1], newGeometry)) {
-                updateHistory(newGeometry);
-            }
-            isRecordingChange.current = false;
-        });
-    };
     
     const listeners: google.maps.MapsEventListener[] = [
-      google.maps.event.addListener(shape, 'dragend', recordChange),
+      google.maps.event.addListener(shape, 'dragend', () => updateHistory(shape)),
     ];
   
     if ('getPath' in shape) {
         const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(google.maps.event.addListener(path, 'set_at', recordChange));
-        listeners.push(google.maps.event.addListener(path, 'insert_at', recordChange));
-        listeners.push(google.maps.event.addListener(path, 'remove_at', recordChange));
+        listeners.push(google.maps.event.addListener(path, 'set_at', () => updateHistory(shape)));
+        listeners.push(google.maps.event.addListener(path, 'insert_at', () => updateHistory(shape)));
+        listeners.push(google.maps.event.addListener(path, 'remove_at', () => updateHistory(shape)));
     } else if ('getBounds' in shape) {
-        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', recordChange));
+        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', () => updateHistory(shape)));
     }
     
     return () => {
         listeners.forEach(listener => listener.remove());
     };
-  }, [activeShapeState, mode, undoStack, updateHistory]);
+  }, [activeShapeState, mode, updateHistory]);
   
   useEffect(() => {
     const map = mapRef.current;
@@ -367,9 +357,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         if (undoStack.length <= 1) return;
     
         const lastState = undoStack[undoStack.length - 1];
+        setRedoStack(prev => [lastState, ...prev]);
+        
         const prevState = undoStack[undoStack.length - 2];
-    
-        setRedoStack(prev => [...prev, lastState]);
         setUndoStack(prev => prev.slice(0, -1));
     
         if (activeShapeState?.shape) {
@@ -380,9 +370,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const handleRedo = () => {
         if (redoStack.length === 0) return;
     
-        const nextState = redoStack[redoStack.length - 1];
+        const nextState = redoStack[0];
         setUndoStack(prev => [...prev, nextState]);
-        setRedoStack(prev => prev.slice(0, -1));
+        setRedoStack(prev => prev.slice(1));
     
         if (activeShapeState?.shape) {
             restoreShapeToGeometry(activeShapeState.shape, nextState);
@@ -491,7 +481,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     setUndoStack={setUndoStack}
                                     setRedoStack={setRedoStack}
                                     mapRef={mapRef}
-                                    updateHistory={updateHistory}
                                 />
                             )}
                             {selectedModule === 'elements' && (
@@ -509,7 +498,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             initialFitLevel={fitLevel}
             onApplyFit={(level) => {
                 setFitLevel(level);
-                // Apply immediately when changed in dialog
                 const map = mapRef.current;
                 const geofenceIdToFit = mode === 'view' ? defaultGeofenceId : (selectedGeofenceId || defaultGeofenceId);
                 if (map && geofenceIdToFit) {

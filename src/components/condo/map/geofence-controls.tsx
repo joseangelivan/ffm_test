@@ -55,7 +55,6 @@ type GeofenceControlsProps = {
     setUndoStack: React.Dispatch<React.SetStateAction<any[]>>;
     setRedoStack: React.Dispatch<React.SetStateAction<any[]>>;
     mapRef: React.RefObject<google.maps.Map | null>;
-    updateHistory: (newChange: any) => void;
 }
 
 export function GeofenceControls({
@@ -77,7 +76,6 @@ export function GeofenceControls({
     setUndoStack,
     setRedoStack,
     mapRef,
-    updateHistory,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
