@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -18,7 +19,7 @@ const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => 
     
     useEffect(() => {
         const originalError = console.error;
-        const newError = (...args: any) => {
+        const newError = (...args: any[]) => {
             if (typeof args[0] === 'string' && args[0].includes('BillingNotEnabledMapError')) {
                 toast({
                     title: t('toast.mapsBillingError.title'),

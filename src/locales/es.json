@@ -399,10 +399,6 @@
             "title": "Falta la Clave de API de Google Maps",
             "description": "La clave de API no está configurada. Por favor, defina la variable de entorno NEXT_PUBLIC_GOOGLE_MAPS_API_KEY en su proyecto."
         },
-        "billingError": {
-            "title": "Error de Facturación de Google Maps",
-            "description": "La facturación no está habilitada para este proyecto en Google Cloud. El mapa puede no funcionar correctamente. Por favor, habilite la facturación para obtener la funcionalidad completa."
-        },
         "geofence": {
           "defaultLabel": "Geocerca Predeterminada",
           "viewAll": "Ver todas",
@@ -561,7 +557,7 @@
       }
     },
     "addressVerification": {
-        "checkButton": "Comprobar",
+        "checkButton": "Verificar",
         "title": "Resultados de la Verificación de Dirección",
         "description": "Hemos encontrado las siguientes direcciones. Selecciona la correcta para autocompletar.",
         "loading": "Buscando direcciones...",
@@ -593,7 +589,7 @@
             "title": "Activa tu Cuenta de Administrador",
             "hello": "Hola",
             "intro": "Se ha creado una cuenta de administrador para ti. Para activar tu cuenta, navega a la siguiente URL.",
-            "pinInfo": "Por favor, usa el PIN que te fue proporcionado personalmente para activar tu cuenta.",
+            "pinInfo": "Por favor, usa el PIN que te fue proporcionado personally para activar tu cuenta.",
             "thanks": "Gracias,",
             "teamName": "El Equipo de Follow For Me"
         },

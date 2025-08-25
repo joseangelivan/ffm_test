@@ -399,10 +399,6 @@
             "title": "Chave de API do Google Maps ausente",
             "description": "A chave de API não está configurada. Por favor, defina a variável de ambiente NEXT_PUBLIC_GOOGLE_MAPS_API_KEY em seu projeto."
         },
-        "billingError": {
-            "title": "Erro de Faturamento do Google Maps",
-            "description": "O faturamento não está habilitado para este projeto no Google Cloud. O mapa pode não funcionar corretamente. Por favor, habilite o faturamento para obter a funcionalidade completa."
-        },
         "geofence": {
             "defaultLabel": "Geocerca Padrão",
             "viewAll": "Ver Todas",
