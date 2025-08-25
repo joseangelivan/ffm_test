@@ -2,8 +2,8 @@
 
 "use client";
 
-import React, { useEffect } from 'react';
-import { Map, AdvancedMarker as GoogleAdvancedMarker, useMap } from '@vis.gl/react-google-maps';
+import React from 'react';
+import { Map, AdvancedMarker as GoogleAdvancedMarker } from '@vis.gl/react-google-maps';
 
 export interface Marker {
     id: string;
@@ -14,26 +14,15 @@ export interface Marker {
 
 interface MapProps {
     children?: React.ReactNode;
-    center: { lat: number; lng: number; };
+    defaultCenter: { lat: number; lng: number; };
     markers?: Marker[];
     mapId?: string;
-    onMapLoad?: (map: google.maps.Map) => void;
 }
 
-const MapInner: React.FC<Pick<MapProps, 'onMapLoad'>> = ({ onMapLoad }) => {
-    const map = useMap();
-    useEffect(() => {
-        if (map && onMapLoad) {
-            onMapLoad(map);
-        }
-    }, [map, onMapLoad]);
-    return null;
-};
-
-const MapComponent: React.FC<MapProps> = ({ children, center, markers, mapId, onMapLoad }) => {
+const MapComponent: React.FC<MapProps> = ({ children, defaultCenter, markers, mapId }) => {
     return (
         <Map
-            defaultCenter={center}
+            defaultCenter={defaultCenter}
             defaultZoom={15}
             gestureHandling={'greedy'}
             disableDefaultUI={true}
@@ -47,7 +36,6 @@ const MapComponent: React.FC<MapProps> = ({ children, center, markers, mapId, on
                     title={marker.label}
                 />
             ))}
-            {onMapLoad && <MapInner onMapLoad={onMapLoad} />}
             {children}
         </Map>
     );
@@ -55,5 +43,3 @@ const MapComponent: React.FC<MapProps> = ({ children, center, markers, mapId, on
 
 export default MapComponent;
 export const AdvancedMarker = GoogleAdvancedMarker;
-
-    
