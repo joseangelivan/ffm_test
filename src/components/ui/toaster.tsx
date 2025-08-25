@@ -24,7 +24,6 @@ export function Toaster() {
     toastFn({
       title: t('toast.copied.title'),
       description: t('toast.copied.description'),
-      duration: 3000,
     });
   };
 

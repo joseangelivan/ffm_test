@@ -23,7 +23,6 @@ const GoogleMapsProvider: React.FC<MapContainerProps> = ({ children }) => {
                 title: t('toast.mapsBillingError.title'),
                 description: t('toast.mapsBillingError.description'),
                 variant: 'destructive',
-                duration: 10000 // Keep it visible a bit longer
             });
             // We don't re-throw or console.error here to prevent other error handlers
             // from picking it up and to allow the map to render in development mode.

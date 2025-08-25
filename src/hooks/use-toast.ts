@@ -170,7 +170,10 @@ function toast({ ...props }: Toast) {
   if (duration !== Infinity) {
      const timeout = setTimeout(() => {
         dismiss();
-        toastTimeouts.delete(id);
+        if (toastTimeouts.has(id)) {
+            clearTimeout(toastTimeouts.get(id));
+            toastTimeouts.delete(id);
+        }
      }, duration);
      toastTimeouts.set(id, timeout);
   }
