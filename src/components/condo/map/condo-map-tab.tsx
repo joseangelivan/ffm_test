@@ -252,7 +252,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return Math.min(latZoom, lngZoom, ZOOM_MAX);
   }, []);
   
-  const applyZoomLevel = useCallback(() => {
+    const applyZoomLevel = useCallback(() => {
     const map = mapRef.current;
     const geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
     if (!map || !geofenceIdToFit) return;
@@ -273,7 +273,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
     let finalZoom = calculatedZoom;
     if (fitLevel === '2') finalZoom = calculatedZoom > 0 ? calculatedZoom - 1 : 0;
-    if (fitLevel === '3') finalZoom = calculatedZoom > 1 ? calculatedZoom - 1 : 1;
+    if (fitLevel === '3') finalZoom = calculatedZoom > 1 ? calculatedZoom - 2 : 1;
 
     map.setCenter(bounds.getCenter());
     map.setZoom(finalZoom);
@@ -322,8 +322,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     };
     
     const handleVertexChange = () => {
-        if (isDraggingRef.current) return;
-        updateHistory(getGeometryFromShape(shape));
+        if (!isDraggingRef.current) {
+            updateHistory(getGeometryFromShape(shape));
+        }
     };
 
     const listeners: google.maps.MapsEventListener[] = [
