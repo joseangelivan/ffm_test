@@ -16,7 +16,6 @@ import {
   Loader,
 } from 'lucide-react';
 
-import { createShapeFromGeometry, restoreShapeToGeometry, getGeometryFromShape } from './condo-map-tab';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 
@@ -31,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { LoadingOverlay } from '@/components/admin/admin-header';
+import { createShapeFromGeometry, getGeometryFromShape } from './geofence-helpers';
 
 export type DrawingMode = 'polygon' | 'rectangle' | 'circle';
 
