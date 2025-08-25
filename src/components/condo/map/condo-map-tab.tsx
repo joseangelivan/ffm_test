@@ -311,22 +311,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => { zoomListener.remove(); };
   }, []);
     
-  const handleHistoryUpdate = useCallback(() => {
-    if (!activeShapeState?.shape) return;
-    const newGeometry = getGeometryFromShape(activeShapeState.shape);
-    const lastGeometry = history[historyIndex];
-
-    if (isEqual(newGeometry, lastGeometry)) {
-        return;
-    }
-
-    setHistory(prevHistory => {
-        const newHistory = prevHistory.slice(0, historyIndex + 1);
-        newHistory.push(newGeometry);
-        setHistoryIndex(newHistory.length - 1);
-        return newHistory;
-    });
-  }, [activeShapeState?.shape, history, historyIndex]);
 
   useEffect(() => {
     setHistoryState({
@@ -339,31 +323,55 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const shape = activeShapeState?.shape;
     if (!shape) return;
 
+    let dragStartGeometry: any = null;
+
+    const handleDragStart = () => {
+        dragStartGeometry = getGeometryFromShape(shape);
+    };
+
+    const handleDragEnd = () => {
+        const newGeometry = getGeometryFromShape(shape);
+        if (dragStartGeometry && !isEqual(newGeometry, dragStartGeometry)) {
+             setHistory(prevHistory => {
+                const newHistory = prevHistory.slice(0, historyIndex + 1);
+                newHistory.push(newGeometry);
+                setHistoryIndex(newHistory.length - 1);
+                return newHistory;
+            });
+        }
+        dragStartGeometry = null;
+    };
+    
+    const handleVertexChange = () => {
+        const newGeometry = getGeometryFromShape(shape);
+        setHistory(prevHistory => {
+            const newHistory = prevHistory.slice(0, historyIndex + 1);
+            newHistory.push(newGeometry);
+            setHistoryIndex(newHistory.length - 1);
+            return newHistory;
+        });
+    }
+
     const listeners: google.maps.MapsEventListener[] = [];
     
-    const registerChange = () => handleHistoryUpdate();
-
-    listeners.push(google.maps.event.addListener(shape, 'dragend', registerChange));
+    listeners.push(google.maps.event.addListener(shape, 'dragstart', handleDragStart));
+    listeners.push(google.maps.event.addListener(shape, 'dragend', handleDragEnd));
   
     if ('getPath' in shape) {
       const path = (shape as google.maps.Polygon).getPath();
-      listeners.push(google.maps.event.addListener(path, 'set_at', registerChange));
-      listeners.push(google.maps.event.addListener(path, 'insert_at', registerChange));
-      listeners.push(google.maps.event.addListener(path, 'remove_at', registerChange));
-    }
-    
-    if ('getRadius' in shape) {
-        listeners.push(google.maps.event.addListener(shape, 'radius_changed', registerChange));
+      listeners.push(google.maps.event.addListener(path, 'set_at', handleVertexChange));
+      listeners.push(google.maps.event.addListener(path, 'insert_at', handleVertexChange));
+      listeners.push(google.maps.event.addListener(path, 'remove_at', handleVertexChange));
     }
     
     if ('getBounds' in shape) {
-        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', registerChange));
+        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleVertexChange));
     }
   
     return () => {
       listeners.forEach(listener => listener.remove());
     };
-  }, [activeShapeState, handleHistoryUpdate]);
+  }, [activeShapeState, historyIndex]);
   
   useEffect(() => {
     const map = mapRef.current;

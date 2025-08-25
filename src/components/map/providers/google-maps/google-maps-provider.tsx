@@ -20,8 +20,13 @@ const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => 
     const [loadError, setLoadError] = useState(false);
 
     useEffect(() => {
-        if (!apiKey) return;
-        
+        if (!apiKey) {
+            console.error("Google Maps API Key (NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) is not defined.");
+            setIsLoading(false);
+            setLoadError(true);
+            return;
+        }
+
         const timer = setTimeout(() => {
             if (!isApiLoaded) {
                 setLoadError(true);
@@ -54,24 +59,30 @@ const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => 
         );
     }
     
+    if (isLoading) {
+        return (
+             <div className="flex items-center justify-center h-full bg-muted">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader className="h-5 w-5 animate-spin" />
+                    <span>{t('condoDashboard.map.loadingMap')}</span>
+                </div>
+            </div>
+        );
+    }
+
+    if (loadError) {
+         return (
+            <div className="flex items-center justify-center h-full bg-muted">
+                <p className="text-destructive text-center p-4">
+                    {t('adminDashboard.settingsGroups.catalogs.maps.billingErrorTitle')}
+                </p>
+            </div>
+        );
+    }
+
     return (
         <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']} onLoad={handleApiLoad}>
-            {isLoading ? (
-                 <div className="flex items-center justify-center h-full bg-muted">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                        <Loader className="h-5 w-5 animate-spin" />
-                        <span>{t('condoDashboard.map.loadingMap')}</span>
-                    </div>
-                </div>
-            ) : loadError ? (
-                <div className="flex items-center justify-center h-full bg-muted">
-                    <p className="text-destructive text-center p-4">
-                        {t('adminDashboard.settingsGroups.catalogs.maps.billingErrorTitle')}
-                    </p>
-                </div>
-            ) : (
-                children
-            )}
+            {isApiLoaded ? children : null}
         </APIProvider>
     );
 };
