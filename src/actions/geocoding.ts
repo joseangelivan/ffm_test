@@ -42,10 +42,10 @@ export async function geocodeAddress(
   }
 
   const { street, city, state, country } = validation.data;
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
-    console.error('Google Maps API Key is not configured.');
+    console.error('Google Maps API Key (GOOGLE_MAPS_API_KEY) is not configured for server-side use.');
     return { success: false, message: 'Server configuration error.' };
   }
 
@@ -98,5 +98,3 @@ export async function geocodeAddress(
     return { success: false, message: 'Failed to connect to geocoding service.' };
   }
 }
-
-    
