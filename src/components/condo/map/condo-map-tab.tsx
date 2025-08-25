@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
 import {
   Locate,
   ZoomIn,
@@ -40,9 +40,10 @@ import {
     STYLE_BACKGROUND_GREY,
     STYLE_REFERENCE_GREEN,
 } from './geofence-helpers';
+import MapContainer from '@/components/map/map-container';
 
 
-interface MapInnerProps {
+interface MapRendererProps {
   condo: Condominio;
   initialPosition: { lat: number; lng: number };
   onMapLoad: (map: google.maps.Map) => void;
@@ -80,7 +81,7 @@ const DrawingManagerComponent = ({
   return null;
 };
 
-function MapInner({ condo, initialPosition, onMapLoad, drawingManagerRef }: MapInnerProps) {
+function MapRenderer({ condo, initialPosition, onMapLoad, drawingManagerRef }: MapRendererProps) {
   const map = useMap();
   useEffect(() => {
     if (map && onMapLoad) {
@@ -412,14 +413,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     </div>
                                 </div>
                             )}
-                            <MapComponent>
-                                <MapInner 
-                                    condo={condo}
-                                    initialPosition={initialPosition}
-                                    onMapLoad={handleMapLoad}
-                                    drawingManagerRef={drawingManagerRef}
-                                />
-                            </MapComponent>
+                            <MapContainer>
+                                <MapComponent mapId="follow-for-me-map">
+                                    <MapRenderer 
+                                        condo={condo}
+                                        initialPosition={initialPosition}
+                                        onMapLoad={handleMapLoad}
+                                        drawingManagerRef={drawingManagerRef}
+                                    />
+                                </MapComponent>
+                            </MapContainer>
                         </div>
                          {activeShapeState && (historyState.canUndo || historyState.canRedo) && (
                             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">

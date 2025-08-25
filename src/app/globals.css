@@ -86,3 +86,8 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide the Google Maps error dialog button */
+.dismissButton {
+    display: none !important;
+}

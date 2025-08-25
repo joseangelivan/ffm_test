@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from 'react';
@@ -24,7 +25,6 @@ import {
   Watch,
   Loader
 } from 'lucide-react';
-import { APIProvider } from '@vis.gl/react-google-maps';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -329,9 +329,7 @@ export default function DashboardClient({
     router.push('/');
   }
   
-  const mapCenter = selectedDevice 
-    ? { lat: 40.7128, lng: -74.0060 } // Placeholder
-    : { lat: 40.7128, lng: -74.0060 }; // Default center if no device selected
+  const mapCenter = { lat: 40.7128, lng: -74.0060 }; // Default center if no device selected
 
   const mapMarkers: Marker[] = devices
     .map(device => {
@@ -469,7 +467,7 @@ export default function DashboardClient({
             <CardContent>
               <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden relative shadow-inner">
                 <MapContainer>
-                  <MapComponent center={mapCenter} markers={mapMarkers} mapId="follow-for-me-map" />
+                  <MapComponent mapId="follow-for-me-map" defaultCenter={mapCenter} markers={mapMarkers} />
                 </MapContainer>
               </div>
             </CardContent>

@@ -2,8 +2,8 @@
 
 "use client";
 
-import React from 'react';
-import { Map, AdvancedMarker as GoogleAdvancedMarker } from '@vis.gl/react-google-maps';
+import React, { useEffect } from 'react';
+import { Map, AdvancedMarker as GoogleAdvancedMarker, useMap } from '@vis.gl/react-google-maps';
 
 export interface Marker {
     id: string;
@@ -14,7 +14,7 @@ export interface Marker {
 
 interface MapProps {
     children?: React.ReactNode;
-    defaultCenter: { lat: number; lng: number; };
+    defaultCenter?: { lat: number; lng: number; };
     markers?: Marker[];
     mapId?: string;
 }
