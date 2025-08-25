@@ -131,8 +131,7 @@ const DrawingManagerComponent = ({
     });
 
     drawingManagerRef.current = newDrawingManager;
-    newDrawingManager.setMap(map);
-
+    
     return () => {
       if (drawingManagerRef.current) {
         drawingManagerRef.current.setMap(null);
@@ -372,6 +371,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
     const activeActionId = activeShapeState?.id;
 
+    // First, set all stored shapes (from DB)
     mapShapesRef.current.forEach((shape, id) => {
         const isBeingEdited = activeActionId === id;
         
@@ -381,8 +381,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const isDefault = id === defaultGeofenceId;
         
         if (isBeingEdited) {
-            isVisible = true;
-            styleOptions = STYLE_FOCUSED_BLUE;
+            // Never show the stored version if it's being edited (the active one will be shown)
+            isVisible = false;
         } else if(mode === 'view') {
             isVisible = (isDefault && !showAllGeofences) || (showAllGeofences);
             styleOptions = isDefault ? { ...STYLE_VIEW_MODE } : { ...STYLE_BACKGROUND_GREY };
@@ -395,6 +395,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         shape.setOptions(styleOptions);
         shape.setMap(isVisible ? map : null);
     });
+    
+    // Now handle the active shape separately to ensure it's on top and styled correctly
+    if (activeShapeState?.shape) {
+        activeShapeState.shape.setMap(map);
+        activeShapeState.shape.setOptions(STYLE_FOCUSED_BLUE);
+    }
+    
 }, [
     mode,
     dbGeofences,
