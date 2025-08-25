@@ -49,8 +49,6 @@ export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any |
         return { type: 'polygon', paths: path.getArray().map((latLng: google.maps.LatLng) => latLng.toJSON()) };
     }
     if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
-        // This is tricky because Circle also has getBounds. We prioritize the more specific types first.
-        // This will now correctly be identified as a Rectangle if it's not a Circle.
         const rectangle = shape as google.maps.Rectangle;
         return { type: 'rectangle', bounds: rectangle.getBounds()?.toJSON() };
     }
@@ -75,13 +73,15 @@ export const createShapeFromGeometry = (geometry: any): google.maps.MVCObject | 
 
 export const restoreShapeToGeometry = (shape: google.maps.MVCObject, geometry: any) => {
     if (!geometry || !shape) return;
-    if ('setPath' in shape && geometry.type === 'polygon') {
+
+    if (geometry.type === 'polygon' && 'setPath' in shape) {
         (shape as google.maps.Polygon).setPath(geometry.paths);
-    } else if ('setBounds' in shape && geometry.type === 'rectangle') {
-        (shape as google.maps.Rectangle).setBounds(geometry.bounds);
-    } else if ('setCenter' in shape && 'setRadius' in shape && geometry.type === 'circle') {
-        (shape as google.maps.Circle).setCenter(geometry.center);
-        (shape as google.maps.Circle).setRadius(geometry.radius);
+    } else if (geometry.type === 'rectangle' && 'setBounds' in shape) {
+        // Use setOptions to ensure the map re-renders the shape correctly
+        (shape as google.maps.Rectangle).setOptions({ bounds: geometry.bounds });
+    } else if (geometry.type === 'circle' && 'setCenter' in shape && 'setRadius' in shape) {
+        // Use setOptions to ensure the map re-renders the shape correctly
+        (shape as google.maps.Circle).setOptions({ center: geometry.center, radius: geometry.radius });
     }
 };
 
@@ -194,12 +194,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
 
   const handleHistoryUpdate = useCallback(() => {
-    if (!activeShapeRef.current?.shape) return;
-    
     setHistory(prevHistory => {
-        const newGeometry = getGeometryFromShape(activeShapeRef.current!.shape);
+        const shape = activeShapeRef.current?.shape;
+        if (!shape) return prevHistory;
+
+        const newGeometry = getGeometryFromShape(shape);
         const newHistory = prevHistory.slice(0, historyIndex + 1);
         newHistory.push(newGeometry);
+        
         setHistoryIndex(newHistory.length - 1);
         return newHistory;
     });
@@ -333,14 +335,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, []);
     
 
-  // This effect manages the event listeners for an actively edited shape.
   useEffect(() => {
     const shape = activeShapeRef.current?.shape;
     if (!shape || mode !== 'editing') return;
+
+    google.maps.event.clearInstanceListeners(shape);
   
     const listeners: google.maps.MapsEventListener[] = [];
   
-    // Listen for dragend for all shapes to capture final position
     listeners.push(google.maps.event.addListener(shape, 'dragend', handleHistoryUpdate));
   
     if ('getPath' in shape) { // Polygon
@@ -349,14 +351,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       listeners.push(google.maps.event.addListener(path, 'insert_at', handleHistoryUpdate));
       listeners.push(google.maps.event.addListener(path, 'remove_at', handleHistoryUpdate));
     } else if ('getBounds' in shape && !('getRadius' in shape)) { // Rectangle
-      // bounds_changed fires on resize end
       listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleHistoryUpdate));
     } else if ('getRadius' in shape) { // Circle
-      // radius_changed fires on resize end
       listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleHistoryUpdate));
     }
   
-    // Cleanup function to remove all listeners
     return () => {
       listeners.forEach(listener => listener.remove());
     };
@@ -375,7 +374,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const newGeometry = getGeometryFromShape(newShape);
     setHistory([newGeometry]);
     setHistoryIndex(0);
-}, [setHistory, setHistoryIndex]);
+  }, []);
 
   useEffect(() => {
     if (!drawingManagerRef.current) return;
@@ -385,7 +384,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => {
         google.maps.event.removeListener(listener);
     };
-  }, [drawingManagerRef.current, onOverlayComplete]);
+  }, [onOverlayComplete]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -615,5 +614,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
 
 
