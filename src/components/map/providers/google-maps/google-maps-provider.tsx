@@ -29,7 +29,7 @@ const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => 
             setLoadError(true);
         };
         
-        window.gm_authFailure = handleAuthError;
+        (window as any).gm_authFailure = handleAuthError;
 
         // Set a timer to detect if the API fails to load for other reasons.
         const timer = setTimeout(() => {
@@ -70,7 +70,6 @@ const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => 
                     <AlertTitle>{t('adminDashboard.settingsGroups.catalogs.maps.billingErrorTitle')}</AlertTitle>
                     <AlertDescription>
                         <p>{t('adminDashboard.settingsGroups.catalogs.maps.billingErrorDescription')}</p>
-                        <p className="mt-2 text-xs font-mono">Error: BillingNotEnabledMapError</p>
                     </AlertDescription>
                 </Alert>
             </div>
