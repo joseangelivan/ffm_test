@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Locate,
   ZoomIn,
@@ -320,20 +320,18 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
     if (!shape) {
-      setHistory([]);
-      setHistoryIndex(-1);
-      return;
+        setHistory([]);
+        setHistoryIndex(-1);
+        return;
     }
-    
     const newGeometry = getGeometryFromShape(shape);
+    const newHistory = history.slice(0, historyIndex + 1);
+    
+    newHistory.push(newGeometry);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  }, [history, historyIndex]);
 
-    setHistory(prevHistory => {
-        const newHistory = prevHistory.slice(0, historyIndex + 1);
-        newHistory.push(newGeometry);
-        setHistoryIndex(newHistory.length - 1);
-        return newHistory;
-    });
-  }, [historyIndex]);
     
   useEffect(() => {
     const shape = activeShapeRef.current?.shape;
@@ -341,7 +339,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         return;
     }
     
-    // Use an arrow function to ensure the latest handleHistoryUpdate is called
     const registerChange = () => handleHistoryUpdate(shape);
 
     const listeners = [

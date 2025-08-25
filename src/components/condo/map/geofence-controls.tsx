@@ -186,8 +186,6 @@ export function GeofenceControls({
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
         if (!selectedGeofence) return;
         
-        // This is a temporary fix. The shape should ideally be reused from the mapShapesRef
-        // to avoid re-creating it. However, the reference might be stale.
         const shapeToEdit = createShapeFromGeometry(selectedGeofence.geometry);
         if (!shapeToEdit) return;
 
