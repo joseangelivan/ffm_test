@@ -288,7 +288,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         listeners.push(google.maps.event.addListener(path, 'insert_at', recordChange));
         listeners.push(google.maps.event.addListener(path, 'remove_at', recordChange));
     } else if ('getBounds' in shape) {
-        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', recordChange));
+        // bounds_changed fires continuously while dragging. We use dragend for that.
+        // This is mainly for resizing handles on rectangles.
+        const debouncedRecordChange = () => {
+            if (!isDraggingRef.current) recordChange();
+        };
+        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', debouncedRecordChange));
     }
     
     return () => {
@@ -536,3 +541,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
