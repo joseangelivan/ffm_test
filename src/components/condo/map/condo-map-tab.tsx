@@ -49,6 +49,8 @@ export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any |
         return { type: 'polygon', paths: path.getArray().map((latLng: google.maps.LatLng) => latLng.toJSON()) };
     }
     if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
+        // This is tricky because Circle also has getBounds. We prioritize the more specific types first.
+        // This will now correctly be identified as a Rectangle if it's not a Circle.
         const rectangle = shape as google.maps.Rectangle;
         return { type: 'rectangle', bounds: rectangle.getBounds()?.toJSON() };
     }
@@ -190,7 +192,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
-
+  
   const handleHistoryUpdate = useCallback(() => {
     if (!activeShapeRef.current?.shape) return;
     const newGeometry = getGeometryFromShape(activeShapeRef.current.shape);
@@ -337,22 +339,20 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       if (!shape || mode !== 'editing') {
           return;
       }
+      
+      let listeners: google.maps.MapsEventListener[] = [];
   
-      const listeners = [
-          google.maps.event.addListener(shape, 'dragend', handleHistoryUpdate),
-      ];
-  
-      if ('getPath' in shape) {
+      if ('getPath' in shape) { // Polygon
           const path = (shape as google.maps.Polygon).getPath();
           listeners.push(google.maps.event.addListener(path, 'set_at', handleHistoryUpdate));
           listeners.push(google.maps.event.addListener(path, 'insert_at', handleHistoryUpdate));
           listeners.push(google.maps.event.addListener(path, 'remove_at', handleHistoryUpdate));
-      }
-      if ('getBounds' in shape) {
+          listeners.push(google.maps.event.addListener(shape, 'dragend', handleHistoryUpdate));
+      } else if ('getBounds' in shape && !('getRadius' in shape)) { // Rectangle
           listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleHistoryUpdate));
-      }
-      if ('getRadius' in shape) {
+      } else if ('getRadius' in shape) { // Circle
           listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleHistoryUpdate));
+          listeners.push(google.maps.event.addListener(shape, 'center_changed', handleHistoryUpdate));
       }
   
       return () => {
@@ -614,3 +614,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
