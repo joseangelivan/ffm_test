@@ -14,7 +14,6 @@ import {
   Redo,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -193,19 +192,20 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   
   const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
     if (!shape) {
-        setHistory([]);
-        setHistoryIndex(-1);
-        return;
+      setHistory([]);
+      setHistoryIndex(-1);
+      return;
     }
     const newGeometry = getGeometryFromShape(shape);
-    
-    // The key fix: Do not compare, just add to history. The events themselves are the gatekeeper.
-    const newHistory = history.slice(0, historyIndex + 1);
-    
-    newHistory.push(newGeometry);
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  }, [history, historyIndex]);
+
+    setHistory(prevHistory => {
+        const newHistorySlice = prevHistory.slice(0, historyIndex + 1);
+        newHistorySlice.push(newGeometry);
+        setHistoryIndex(newHistorySlice.length - 1);
+        return newHistorySlice;
+    });
+
+  }, [historyIndex]);
 
   useEffect(() => {
     setHistoryState({
