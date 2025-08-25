@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
 import {
   Locate,
   ZoomIn,
@@ -190,20 +190,20 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
-  const historyUpdaterRef = useRef<() => void>();
+  
+  const handleHistoryUpdate = useCallback(() => {
+    setHistory(prevHistory => {
+        if (!activeShapeRef.current?.shape) return prevHistory;
 
-  useEffect(() => {
-    historyUpdaterRef.current = () => {
-        if (!activeShapeRef.current?.shape) {
-            return;
-        }
         const newGeometry = getGeometryFromShape(activeShapeRef.current.shape);
-        const newHistory = history.slice(0, historyIndex + 1);
+        const newHistory = prevHistory.slice(0, historyIndex + 1);
         newHistory.push(newGeometry);
-        setHistory(newHistory);
+        
         setHistoryIndex(newHistory.length - 1);
-    };
-  }, [history, historyIndex]);
+        return newHistory;
+    });
+}, [historyIndex]);
+
   
   useEffect(() => {
     setHistoryState({
@@ -338,32 +338,51 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         return;
     }
     
-    const registerChange = () => {
-        if(historyUpdaterRef.current) {
-            historyUpdaterRef.current();
-        }
-    };
-    
     const listeners = [
-        google.maps.event.addListener(shape, 'dragend', registerChange),
+        google.maps.event.addListener(shape, 'dragend', handleHistoryUpdate),
     ];
   
     if ('getPath' in shape) {
         const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(google.maps.event.addListener(path, 'set_at', registerChange));
-        listeners.push(google.maps.event.addListener(path, 'insert_at', registerChange));
-        listeners.push(google.maps.event.addListener(path, 'remove_at', registerChange));
+        listeners.push(google.maps.event.addListener(path, 'set_at', handleHistoryUpdate));
+        listeners.push(google.maps.event.addListener(path, 'insert_at', handleHistoryUpdate));
+        listeners.push(google.maps.event.addListener(path, 'remove_at', handleHistoryUpdate));
     }
 
     if('getRadius' in shape) {
-      listeners.push(google.maps.event.addListener(shape, 'radius_changed', registerChange));
+      listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleHistoryUpdate));
     }
     
     return () => {
-        listeners.forEach(l => l.remove());
+        google.maps.event.clearInstanceListeners(shape);
     };
-  }, [activeShapeRef.current, mode]);
+  }, [activeShapeRef.current, mode, handleHistoryUpdate]);
     
+  const onOverlayComplete = useCallback((event: google.maps.drawing.OverlayCompleteEvent) => {
+    if (drawingManagerRef.current) {
+        drawingManagerRef.current.setDrawingMode(null);
+    }
+    const newShape = event.overlay;
+    if (!newShape) return;
+
+    const tempId = `new-shape-${Date.now()}`;
+    activeShapeRef.current = { id: tempId, shape: newShape, originalGeometry: null };
+
+    const newGeometry = getGeometryFromShape(newShape);
+    setHistory([newGeometry]);
+    setHistoryIndex(0);
+}, [setHistory, setHistoryIndex]);
+
+  useEffect(() => {
+    if (!drawingManagerRef.current) return;
+    const listener = google.maps.event.addListener(
+        drawingManagerRef.current, 'overlaycomplete', onOverlayComplete
+    );
+    return () => {
+        google.maps.event.removeListener(listener);
+    };
+  }, [onOverlayComplete]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || isLoading) return;
@@ -420,7 +439,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       defaultGeofenceId,
       showAllGeofences,
       isLoading,
-      historyState // Add historyState as dependency to re-run styles
+      historyState
   ]);
   
   const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
