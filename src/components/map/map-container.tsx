@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useContext } from 'react';
+import React from 'react';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
@@ -46,7 +46,8 @@ const GoogleMapsProvider: React.FC<MapContainerProps> = ({ children }) => {
         <APIProvider 
             apiKey={apiKey} 
             libraries={['drawing', 'geocoding']}
-            onLoadApiError={handleApiError}
+            onLoad={() => console.log('Maps API loaded.')}
+            onError={(e) => handleApiError(e)}
         >
             {children}
         </APIProvider>
