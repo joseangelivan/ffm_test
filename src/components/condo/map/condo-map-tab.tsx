@@ -82,7 +82,7 @@ const DrawingManagerComponent = ({
 
 function MapInner({ condo, initialPosition, onMapLoad, drawingManagerRef }: MapInnerProps) {
   return (
-    <MapComponent center={initialPosition} markers={[]} onMapLoad={onMapLoad}>
+    <MapComponent onMapLoad={onMapLoad}>
         <DrawingManagerComponent drawingManagerRef={drawingManagerRef} />
         {initialPosition && (
             <AdvancedMarker position={initialPosition} title={condo.name}>
@@ -99,6 +99,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const { toast } = useToast();
   const mapRef = useRef<google.maps.Map | null>(null);
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
+  const mapInitialized = useRef(false);
   
   const mapShapesRef = useRef<Map<string, google.maps.MVCObject>>(new Map());
   
@@ -199,7 +200,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
     
     if (!map || !geofenceIdToFit) {
-        if(!map) centerMapOnAddress();
+        if(map) centerMapOnAddress();
         return;
     }
 
@@ -349,16 +350,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
 
   const handleMapLoad = useCallback(async (map: google.maps.Map) => {
+    if (mapInitialized.current) return;
+    mapInitialized.current = true;
     mapRef.current = map;
     await onDataNeedsRefresh();
   }, [onDataNeedsRefresh]);
 
     useEffect(() => {
         if (!isLoading && mapRef.current) {
-            const timeoutId = setTimeout(() => {
-                applyZoomLevel();
-            }, 100);
-            return () => clearTimeout(timeoutId);
+            applyZoomLevel();
         }
     }, [isLoading, applyZoomLevel]);
     
