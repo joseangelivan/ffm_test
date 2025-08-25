@@ -90,7 +90,7 @@ export async function geocodeAddress(
     } else if (data.status === 'ZERO_RESULTS') {
         return { success: true, message: 'No results found.', data: [] };
     } else {
-      console.error('Geocoding API Error:', data.status, data.error_message);
+      console.warn('Geocoding API Error:', data.status, data.error_message);
       return { success: false, message: `Geocoding API Error: ${data.status}` };
     }
   } catch (error) {
