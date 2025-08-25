@@ -16,21 +16,16 @@ const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => 
     const { toast } = useToast();
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     const [isApiLoaded, setIsApiLoaded] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    const [loadError, setLoadError] = useState(false);
 
     useEffect(() => {
         if (!apiKey) {
             console.error("Google Maps API Key (NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) is not defined.");
-            setIsLoading(false);
-            setLoadError(true);
             return;
         }
 
+        // Set a timer to detect if the API fails to load, which is a symptom of the billing error.
         const timer = setTimeout(() => {
             if (!isApiLoaded) {
-                setLoadError(true);
-                setIsLoading(false);
                 toast({
                     title: t('adminDashboard.settingsGroups.catalogs.maps.billingErrorTitle'),
                     description: t('adminDashboard.settingsGroups.catalogs.maps.billingErrorDescription'),
@@ -38,16 +33,10 @@ const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => 
                     duration: 15000,
                 });
             }
-        }, 3000);
+        }, 3000); // 3-second timeout
 
         return () => clearTimeout(timer);
     }, [apiKey, isApiLoaded, t, toast]);
-
-    const handleApiLoad = () => {
-        setIsApiLoaded(true);
-        setIsLoading(false);
-        setLoadError(false);
-    }
     
     if (!apiKey) {
         return (
@@ -58,31 +47,10 @@ const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => 
             </div>
         );
     }
-    
-    if (isLoading) {
-        return (
-             <div className="flex items-center justify-center h-full bg-muted">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader className="h-5 w-5 animate-spin" />
-                    <span>{t('condoDashboard.map.loadingMap')}</span>
-                </div>
-            </div>
-        );
-    }
-
-    if (loadError) {
-         return (
-            <div className="flex items-center justify-center h-full bg-muted">
-                <p className="text-destructive text-center p-4">
-                    {t('adminDashboard.settingsGroups.catalogs.maps.billingErrorTitle')}
-                </p>
-            </div>
-        );
-    }
 
     return (
-        <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']} onLoad={handleApiLoad}>
-            {isApiLoaded ? children : null}
+        <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']} onLoad={() => setIsApiLoaded(true)}>
+            {children}
         </APIProvider>
     );
 };
