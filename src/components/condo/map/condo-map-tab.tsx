@@ -191,21 +191,17 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
   
   const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
-    if (!shape) {
-      setHistory([]);
-      setHistoryIndex(-1);
-      return;
-    }
-    const newGeometry = getGeometryFromShape(shape);
-
-    setHistory(prevHistory => {
-        const newHistorySlice = prevHistory.slice(0, historyIndex + 1);
-        newHistorySlice.push(newGeometry);
-        setHistoryIndex(newHistorySlice.length - 1);
-        return newHistorySlice;
-    });
-
-  }, [historyIndex]);
+      if (!shape) {
+        setHistory([]);
+        setHistoryIndex(-1);
+        return;
+      }
+      const newGeometry = getGeometryFromShape(shape);
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(newGeometry);
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+  }, [history, historyIndex]);
 
   useEffect(() => {
     setHistoryState({
@@ -336,28 +332,28 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   useEffect(() => {
     const shape = activeShapeRef.current?.shape;
     if (!shape || mode !== 'editing') {
-      return;
+        return;
     }
-  
+    
     const registerChange = () => handleHistoryUpdate(shape);
-  
+
     const listeners = [
-      google.maps.event.addListener(shape, 'dragend', registerChange),
-      google.maps.event.addListener(shape, 'radius_changed', registerChange),
+        google.maps.event.addListener(shape, 'dragend', registerChange),
+        google.maps.event.addListener(shape, 'radius_changed', registerChange),
     ];
   
     if ('getPath' in shape) {
-      const path = (shape as google.maps.Polygon).getPath();
-      listeners.push(google.maps.event.addListener(path, 'set_at', registerChange));
-      listeners.push(google.maps.event.addListener(path, 'insert_at', registerChange));
-      listeners.push(google.maps.event.addListener(path, 'remove_at', registerChange));
+        const path = (shape as google.maps.Polygon).getPath();
+        listeners.push(google.maps.event.addListener(path, 'set_at', registerChange));
+        listeners.push(google.maps.event.addListener(path, 'insert_at', registerChange));
+        listeners.push(google.maps.event.addListener(path, 'remove_at', registerChange));
     }
-  
+    
     return () => {
-      listeners.forEach(l => l.remove());
+        listeners.forEach(l => l.remove());
     };
   }, [activeShapeRef.current?.shape, mode, handleHistoryUpdate]);
-
+  
   useEffect(() => {
     const map = mapRef.current;
     if (!map || isLoading) return;
