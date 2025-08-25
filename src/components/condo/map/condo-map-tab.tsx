@@ -43,10 +43,7 @@ import {
 
 
 interface MapRendererProps {
-  condo: Condominio;
-  initialPosition: { lat: number; lng: number };
   onMapLoad: (map: google.maps.Map) => void;
-  drawingManagerRef: React.MutableRefObject<google.maps.drawing.DrawingManager | null>;
 }
 
 const DrawingManagerComponent = ({
@@ -404,6 +401,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             )}
                              <MapComponent
                                 center={initialPosition}
+                                mapId="follow-for-me-map"
                                 >
                                 <MapRenderer onMapLoad={handleMapLoad} />
                                 <DrawingManagerComponent drawingManagerRef={drawingManagerRef} />

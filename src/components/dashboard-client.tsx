@@ -83,7 +83,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import MapComponent, { type Marker } from '@/components/map/providers/google-maps/map';
+import MapComponent, { type Marker } from '@/components/map';
 import type { SessionPayload } from '@/lib/session';
 import type { Device } from '@/actions/devices';
 import { handleLogoutAction } from '@/lib/session';
@@ -469,7 +469,7 @@ export default function DashboardClient({
             <CardContent>
               <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden relative shadow-inner">
                 <MapContainer>
-                  <MapComponent center={mapCenter} markers={mapMarkers} />
+                  <MapComponent center={mapCenter} markers={mapMarkers} mapId="follow-for-me-map" />
                 </MapContainer>
               </div>
             </CardContent>
