@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -59,7 +58,9 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   const [activeTab, setActiveTab] = useState('map');
   const [theme, setTheme] = useState(initialSettings.theme);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [mapError, setMapError] = useState<string | null>(null);
+  
+  const [isApiLoaded, setIsApiLoaded] = useState(false);
+  const [isApiLoading, setIsApiLoading] = useState(true);
 
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
     const root = document.documentElement;
@@ -128,20 +129,21 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   useEffect(() => {
     setLocale(initialSettings.language);
     setTheme(initialSettings.theme);
-
-    const originalConsoleError = console.error;
-    const handleMapError = (...args: any[]) => {
-      const errorMsg = args.join(' ');
-      if (errorMsg.includes('BillingNotEnabledMapError')) {
-        setMapError('BillingNotEnabledMapError');
-      }
-      originalConsoleError.apply(console, args);
-    };
-    console.error = handleMapError;
-    return () => {
-      console.error = originalConsoleError;
-    };
   }, [initialSettings, setLocale]);
+
+
+  useEffect(() => {
+    if(!apiKey) {
+      setIsApiLoading(false);
+      return;
+    };
+    // Give the API 3 seconds to load. If it doesn't, assume billing error.
+    const timer = setTimeout(() => {
+        setIsApiLoading(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [apiKey]);
 
 
   const handleConfirmLogout = async () => {
@@ -157,7 +159,38 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   };
 
   const renderMapContent = () => {
-    if (mapError === 'BillingNotEnabledMapError') {
+    if (!apiKey) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
+                        <p className="text-sm text-muted-foreground text-center p-4">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    if (isApiLoading) {
+      return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="aspect-video w-full bg-muted rounded-lg flex flex-col items-center justify-center text-center p-4">
+                  <Loader className="h-12 w-12 text-muted-foreground animate-spin mb-4"/>
+                  <h3 className="text-lg font-bold text-muted-foreground">{t('condoDashboard.map.loadingMap')}</h3>
+                </div>
+            </CardContent>
+        </Card>
+      );
+    }
+
+    if (!isApiLoaded) {
       return (
         <Card>
             <CardHeader>
@@ -176,25 +209,10 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
       );
     }
 
-    if (apiKey) {
-      return (
-        <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']}>
-          <CondoMapTab condo={initialCondo} initialPosition={initialPosition} />
-        </APIProvider>
-      );
-    }
-
     return (
-      <Card>
-          <CardHeader>
-              <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-               <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
-                  <p className="text-sm text-muted-foreground text-center p-4">{t('adminDashboard.settingsGroups.catalogs.maps.apiKeyInstructions')}</p>
-              </div>
-          </CardContent>
-      </Card>
+        <APIProvider apiKey={apiKey} libraries={['drawing', 'geocoding']} onLoad={() => { setIsApiLoaded(true); setIsApiLoading(false); }}>
+            <CondoMapTab condo={initialCondo} initialPosition={initialPosition} />
+        </APIProvider>
     );
   };
 
