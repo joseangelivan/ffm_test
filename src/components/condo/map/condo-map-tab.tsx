@@ -190,6 +190,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
+  const isDraggingRef = useRef(false);
   
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -311,11 +312,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => { zoomListener.remove(); };
   }, []);
     
-  // --- History Management ---
-
   const updateHistory = useCallback((newGeometry: any) => {
     setHistory(prev => {
         const newHistory = prev.slice(0, historyIndex + 1);
+        if (isEqual(newHistory[historyIndex], newGeometry)) {
+            return prev;
+        }
         newHistory.push(newGeometry);
         return newHistory;
     });
@@ -328,45 +330,45 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
           canRedo: historyIndex < history.length - 1,
       });
   }, [historyIndex, history]);
-
+  
   useEffect(() => {
       const shape = activeShapeState?.shape;
       if (!shape) return;
-
+  
       const listeners: google.maps.MapsEventListener[] = [];
-      let dragStartGeometry: any = null;
-
+  
       const addChange = () => {
-        const newGeometry = getGeometryFromShape(shape);
-        updateHistory(newGeometry);
+          if (isDraggingRef.current) return;
+          const newGeometry = getGeometryFromShape(shape);
+          updateHistory(newGeometry);
+      };
+      
+      const handleDragStart = () => {
+        isDraggingRef.current = true;
       };
 
-      listeners.push(google.maps.event.addListener(shape, 'dragstart', () => {
-          dragStartGeometry = getGeometryFromShape(shape);
-      }));
-
-      listeners.push(google.maps.event.addListener(shape, 'dragend', () => {
-          const endGeometry = getGeometryFromShape(shape);
-          if (dragStartGeometry && !isEqual(dragStartGeometry, endGeometry)) {
-              updateHistory(endGeometry);
-          }
-          dragStartGeometry = null;
-      }));
-
+      const handleDragEnd = () => {
+          isDraggingRef.current = false;
+          addChange();
+      };
+      
+      listeners.push(google.maps.event.addListener(shape, 'dragstart', handleDragStart));
+      listeners.push(google.maps.event.addListener(shape, 'dragend', handleDragEnd));
+  
       if ('getPath' in shape) {
           const path = (shape as google.maps.Polygon).getPath();
           listeners.push(google.maps.event.addListener(path, 'set_at', addChange));
           listeners.push(google.maps.event.addListener(path, 'insert_at', addChange));
           listeners.push(google.maps.event.addListener(path, 'remove_at', addChange));
-      } else if ('getBounds' in shape) { // Rectangle or Circle
-          listeners.push(google.maps.event.addListener(shape, 'bounds_changed', addChange));
+      } else if ('getBounds' in shape && 'getRadius' in shape) { // Circle
+          listeners.push(google.maps.event.addListener(shape, 'radius_changed', addChange));
+          listeners.push(google.maps.event.addListener(shape, 'center_changed', addChange));
       }
-
+  
       return () => {
           listeners.forEach(listener => listener.remove());
       };
   }, [activeShapeState, updateHistory]);
-
   
   useEffect(() => {
     const map = mapRef.current;
@@ -590,3 +592,4 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
+
