@@ -257,29 +257,34 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [dbGeofences, defaultGeofenceId, fitLevel]);
 
 
-  const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
+ const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
     const map = mapRef.current;
-    if (!map || !calculatedZoomLevels || !mapShapesRef.current) return;
-    
-    const geofenceToCenter = dbGeofences.find(g => g.id === defaultGeofenceId);
-    if(geofenceToCenter) {
-        const shape = mapShapesRef.current.get(geofenceToCenter.id);
-        if(shape) {
-            const center = getCenterOfShape(shape);
-            if (center) map.setCenter(center);
+    if (!map || !defaultGeofenceId) return;
+
+    const geofenceShape = mapShapesRef.current.get(defaultGeofenceId);
+    if (!geofenceShape) return;
+
+    const bounds = getBoundsOfShape(geofenceShape);
+    if (!bounds) return;
+
+    map.fitBounds(bounds, 0);
+    // Use a timeout to allow the map to settle after fitBounds before setting a new zoom
+    setTimeout(() => {
+        const maxZoom = map.getZoom();
+        if (maxZoom !== undefined) {
+            let newZoom = maxZoom;
+            if (level === '2') {
+                newZoom = maxZoom > 1 ? maxZoom - 1 : maxZoom;
+            } else if (level === '3') {
+                newZoom = maxZoom > 2 ? maxZoom - 2 : maxZoom;
+            }
+            map.setZoom(newZoom);
         }
-    }
-    
-    let zoomToSet = calculatedZoomLevels.normal;
-    if (level === '1') zoomToSet = calculatedZoomLevels.tight;
-    if (level === '3') zoomToSet = calculatedZoomLevels.wide;
-    
-    if (map.getZoom() !== zoomToSet) {
-      map.setZoom(zoomToSet);
-    }
+    }, 100);
     
     setFitLevel(level);
-  }, [calculatedZoomLevels, dbGeofences, defaultGeofenceId]);
+}, [defaultGeofenceId]);
+
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
 
@@ -357,7 +362,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         listeners.push(google.maps.event.addListener(path, 'set_at', handleVertexChange));
         listeners.push(google.maps.event.addListener(path, 'insert_at', handleVertexChange));
         listeners.push(google.maps.event.addListener(path, 'remove_at', handleVertexChange));
-    } else if ('getBounds' in shape) { // Covers both Rectangle and Circle
+    } else if ('getBounds' in shape) {
         listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleVertexChange));
     }
 
@@ -588,5 +593,3 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     </>
   );
 }
-
-    
