@@ -162,7 +162,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const { toast } = useToast();
   const mapRef = useRef<google.maps.Map | null>(null);
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
-  const drawingCompleteListener = React.useRef<google.maps.MapsEventListener | null>(null);
   
   const mapShapesRef = useRef<Map<string, google.maps.MVCObject>>(new Map());
   
@@ -527,6 +526,19 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     setIsShapeDrawn(true);
   }, []);
 
+   useEffect(() => {
+    const drawingManager = drawingManagerRef.current;
+    if (!drawingManager) return;
+
+    const listener = google.maps.event.addListener(
+      drawingManager, 'overlaycomplete', onOverlayComplete
+    );
+
+    return () => {
+      google.maps.event.removeListener(listener);
+    };
+  }, [onOverlayComplete]);
+  
   const startNewDrawing = useCallback((drawMode: DrawingMode) => {
     cancelCurrentAction();
     setIsActionActive(true);
@@ -535,27 +547,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         drawingManagerRef.current.setDrawingMode(drawMode as any);
     }
   }, [cancelCurrentAction, getNextGeofenceName]);
-
-   useEffect(() => {
-    const drawingManager = drawingManagerRef.current;
-    if (!drawingManager) return;
-
-    // Clean up the previous listener before adding a new one
-    if (drawingCompleteListener.current) {
-      drawingCompleteListener.current.remove();
-    }
-
-    drawingCompleteListener.current = google.maps.event.addListener(
-      drawingManager, 'overlaycomplete', onOverlayComplete
-    );
-
-    // Cleanup function to remove the listener when the component unmounts or dependencies change
-    return () => {
-      if (drawingCompleteListener.current) {
-        google.maps.event.removeListener(drawingCompleteListener.current);
-      }
-    };
-  }, [onOverlayComplete]);
   
   const startEditingSelected = useCallback(() => {
     if (!selectedGeofenceId) return;
