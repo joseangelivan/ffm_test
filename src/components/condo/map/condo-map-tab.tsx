@@ -191,6 +191,29 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
   
+  const handleHistoryUpdate = useCallback((shape: google.maps.MVCObject | null) => {
+    if (!shape) {
+        setHistory([]);
+        setHistoryIndex(-1);
+        return;
+    }
+    const newGeometry = getGeometryFromShape(shape);
+    
+    // The key fix: Do not compare, just add to history. The events themselves are the gatekeeper.
+    const newHistory = history.slice(0, historyIndex + 1);
+    
+    newHistory.push(newGeometry);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  }, [history, historyIndex]);
+
+  useEffect(() => {
+    setHistoryState({
+        canUndo: historyIndex > 0,
+        canRedo: historyIndex < history.length - 1,
+    });
+  }, [historyIndex, history]);
+
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
     try {
@@ -216,36 +239,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         setIsLoading(false);
     }
   }, [condo.id, selectedGeofenceId, toast, t]);
-
-  const handleHistoryUpdate = (shape: google.maps.MVCObject | null) => {
-    setHistory(prevHistory => {
-        const newGeometry = getGeometryFromShape(shape);
-        if (!newGeometry) {
-            setHistoryIndex(-1);
-            return [];
-        }
-        
-        // Truncate history if we are undoing and then making a new change
-        const newHistorySlice = prevHistory.slice(0, historyIndex + 1);
-        newHistorySlice.push(newGeometry);
-        setHistoryIndex(newHistorySlice.length - 1);
-        return newHistorySlice;
-    });
-  };
-
-  // Create a ref to hold the latest history update function to avoid stale closures.
-  const historyUpdateRef = useRef(handleHistoryUpdate);
-  useEffect(() => {
-    historyUpdateRef.current = handleHistoryUpdate;
-  }, [handleHistoryUpdate]);
-
-
-  useEffect(() => {
-    setHistoryState({
-        canUndo: historyIndex > 0,
-        canRedo: historyIndex < history.length - 1,
-    });
-  }, [historyIndex, history]);
 
   const centerMapOnAddress = useCallback(() => {
     const map = mapRef.current;
@@ -340,31 +333,30 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     return () => { zoomListener.remove(); };
   }, []);
     
-  // Effect to manage event listeners for the active shape
   useEffect(() => {
     const shape = activeShapeRef.current?.shape;
     if (!shape || mode !== 'editing') {
-        return;
+      return;
     }
   
-    const registerChange = () => historyUpdateRef.current(shape);
+    const registerChange = () => handleHistoryUpdate(shape);
   
     const listeners = [
-        google.maps.event.addListener(shape, 'dragend', registerChange),
-        google.maps.event.addListener(shape, 'radius_changed', registerChange),
+      google.maps.event.addListener(shape, 'dragend', registerChange),
+      google.maps.event.addListener(shape, 'radius_changed', registerChange),
     ];
   
     if ('getPath' in shape) {
-        const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(google.maps.event.addListener(path, 'set_at', registerChange));
-        listeners.push(google.maps.event.addListener(path, 'insert_at', registerChange));
-        listeners.push(google.maps.event.addListener(path, 'remove_at', registerChange));
+      const path = (shape as google.maps.Polygon).getPath();
+      listeners.push(google.maps.event.addListener(path, 'set_at', registerChange));
+      listeners.push(google.maps.event.addListener(path, 'insert_at', registerChange));
+      listeners.push(google.maps.event.addListener(path, 'remove_at', registerChange));
     }
   
     return () => {
       listeners.forEach(l => l.remove());
     };
-  }, [activeShapeRef.current?.shape, mode]);
+  }, [activeShapeRef.current?.shape, mode, handleHistoryUpdate]);
 
   useEffect(() => {
     const map = mapRef.current;
