@@ -282,16 +282,22 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         google.maps.event.addListener(shape, 'dragend', handleDragEnd),
     ];
     
+    const handleVertexChange = () => {
+        if (!isDraggingRef.current) {
+            updateHistory(shape);
+        }
+    };
+
     if ('getPath' in shape) {
         const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(google.maps.event.addListener(path, 'set_at', () => { if (!isDraggingRef.current) updateHistory(shape); }));
-        listeners.push(google.maps.event.addListener(path, 'insert_at', () => { if (!isDraggingRef.current) updateHistory(shape); }));
-        listeners.push(google.maps.event.addListener(path, 'remove_at', () => { if (!isDraggingRef.current) updateHistory(shape); }));
+        listeners.push(google.maps.event.addListener(path, 'set_at', handleVertexChange));
+        listeners.push(google.maps.event.addListener(path, 'insert_at', handleVertexChange));
+        listeners.push(google.maps.event.addListener(path, 'remove_at', handleVertexChange));
     } else if ('getBounds' in shape) {
-        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', () => { if (!isDraggingRef.current) updateHistory(shape); }));
+        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleVertexChange));
     } else if ('getRadius' in shape) {
-        listeners.push(google.maps.event.addListener(shape, 'radius_changed', () => { if (!isDraggingRef.current) updateHistory(shape); }));
-        listeners.push(google.maps.event.addListener(shape, 'center_changed', () => { if (!isDraggingRef.current) updateHistory(shape); }));
+        listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleVertexChange));
+        listeners.push(google.maps.event.addListener(shape, 'center_changed', handleVertexChange));
     }
     
     return () => {
@@ -322,18 +328,19 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             styleOptions = isDefault ? { ...STYLE_VIEW_MODE } : { ...STYLE_BACKGROUND_GREY };
             if (isSelected && !isDefault) styleOptions = { ...STYLE_VIEW_MODE };
         } else { // mode === 'editing'
-            isVisible = showAllGeofences || isSelected;
-            styleOptions = isSelected ? { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3, editable: false, draggable: false } : { ...STYLE_BACKGROUND_GREY, editable: false, draggable: false };
+             if (activeShapeState && shape === activeShapeState.shape) {
+                // This is the shape being actively edited.
+                isVisible = true;
+                styleOptions = STYLE_FOCUSED_BLUE;
+            } else {
+                isVisible = showAllGeofences || isSelected;
+                styleOptions = isSelected ? { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3, editable: false, draggable: false } : { ...STYLE_BACKGROUND_GREY, editable: false, draggable: false };
+            }
         }
-
+        
         shape.setOptions(styleOptions);
         shape.setMap(isVisible ? map : null);
     });
-    
-    if (activeShapeState?.shape) {
-        activeShapeState.shape.setMap(map);
-        activeShapeState.shape.setOptions(STYLE_FOCUSED_BLUE);
-    }
     
 }, [
     mode,
