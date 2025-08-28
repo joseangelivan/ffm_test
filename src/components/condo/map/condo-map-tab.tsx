@@ -137,6 +137,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const canRedo = redoStack.length > 0;
   
   const isDraggingRef = useRef(false);
+  const isEditingRef = useRef(false);
   
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -269,10 +270,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing') return;
 
-    const handleDragStart = () => { isDraggingRef.current = true; };
+    const handleDragStart = () => {
+        isDraggingRef.current = true;
+    };
     const handleDragEnd = () => {
+        if (isDraggingRef.current) {
+            updateHistory(shape);
+        }
         isDraggingRef.current = false;
-        updateHistory(shape);
     };
 
     const listeners: google.maps.MapsEventListener[] = [
@@ -297,16 +302,19 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }
         }));
     } else if ('getRadius' in shape) { // Circle
-        listeners.push(google.maps.event.addListener(shape, 'radius_changed', () => {
-            if (!isDraggingRef.current) {
+        const handleEditStart = () => { isEditingRef.current = true; };
+        const handleEditEnd = () => {
+            if (isEditingRef.current) {
                 updateHistory(shape);
             }
-        }));
-        listeners.push(google.maps.event.addListener(shape, 'center_changed', () => {
-             if (!isDraggingRef.current) {
-                updateHistory(shape);
-            }
-        }));
+            isEditingRef.current = false;
+        };
+
+        listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleEditStart));
+        listeners.push(google.maps.event.addListener(shape, 'center_changed', handleEditStart));
+
+        listeners.push(google.maps.event.addListener(shape, 'dragend', handleEditEnd));
+        listeners.push(google.maps.event.addListener(shape, 'mouseup', handleEditEnd));
     }
     
     return () => {
