@@ -1,12 +1,14 @@
+-- src/lib/sql/app_settings/base_schema.sql
+
 CREATE TABLE IF NOT EXISTS app_settings (
     id VARCHAR(255) PRIMARY KEY,
     value TEXT,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-DROP TRIGGER IF EXISTS set_timestamp_app_settings ON app_settings;
-CREATE TRIGGER set_timestamp_app_settings
+-- Trigger para actualizar 'updated_at' en cada update
+CREATE TRIGGER set_updated_at_timestamp
 BEFORE UPDATE ON app_settings
 FOR EACH ROW
-EXECUTE PROCEDURE trigger_set_timestamp();
+EXECUTE FUNCTION trigger_set_timestamp();

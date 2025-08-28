@@ -1,30 +1,34 @@
+-- src/lib/sql/devices/base_schema.sql
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS devices (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     condominium_id UUID NOT NULL REFERENCES condominiums(id) ON DELETE CASCADE,
     device_type_id UUID NOT NULL REFERENCES device_types(id) ON DELETE RESTRICT,
     name VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(condominium_id, name)
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (condominium_id, name)
 );
+
+-- Trigger for devices table
+CREATE TRIGGER set_updated_at_timestamp
+BEFORE UPDATE ON devices
+FOR EACH ROW
+EXECUTE FUNCTION trigger_set_timestamp();
+
 
 CREATE TABLE IF NOT EXISTS devices_communication (
     device_id UUID PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
-    physical_device_id VARCHAR(255),
     protocol_id UUID REFERENCES protocols(id) ON DELETE SET NULL,
-    last_communication TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    physical_device_id VARCHAR(255) UNIQUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-DROP TRIGGER IF EXISTS set_timestamp_devices ON devices;
-CREATE TRIGGER set_timestamp_devices
-BEFORE UPDATE ON devices
-FOR EACH ROW
-EXECUTE PROCEDURE trigger_set_timestamp();
-
-DROP TRIGGER IF EXISTS set_timestamp_devices_communication ON devices_communication;
-CREATE TRIGGER set_timestamp_devices_communication
+-- Trigger for devices_communication table
+CREATE TRIGGER set_updated_at_timestamp
 BEFORE UPDATE ON devices_communication
 FOR EACH ROW
-EXECUTE PROCEDURE trigger_set_timestamp();
+EXECUTE FUNCTION trigger_set_timestamp();

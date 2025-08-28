@@ -1,14 +1,17 @@
 -- src/lib/sql/protocols/base_schema.sql
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS protocols (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL UNIQUE,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL UNIQUE,
     features_translations JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Trigger to update 'updated_at' timestamp on any column change
-CREATE TRIGGER protocols_update_updated_at_task
+-- Trigger to update 'updated_at' on each update
+CREATE TRIGGER set_updated_at_timestamp
 BEFORE UPDATE ON protocols
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+EXECUTE FUNCTION trigger_set_timestamp();

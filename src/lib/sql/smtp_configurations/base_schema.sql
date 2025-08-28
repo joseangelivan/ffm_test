@@ -1,18 +1,22 @@
+-- src/lib/sql/smtp_configurations/base_schema.sql
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS smtp_configurations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     host VARCHAR(255) NOT NULL,
     port INTEGER NOT NULL,
-    secure BOOLEAN NOT NULL,
+    secure BOOLEAN NOT NULL DEFAULT TRUE,
     auth_user VARCHAR(255) NOT NULL,
     auth_pass TEXT NOT NULL,
-    priority INTEGER NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    priority INTEGER NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-DROP TRIGGER IF EXISTS set_timestamp_smtp_configurations ON smtp_configurations;
-CREATE TRIGGER set_timestamp_smtp_configurations
+-- Trigger para actualizar 'updated_at' en cada update
+CREATE TRIGGER set_updated_at_timestamp
 BEFORE UPDATE ON smtp_configurations
 FOR EACH ROW
-EXECUTE PROCEDURE trigger_set_timestamp();
+EXECUTE FUNCTION trigger_set_timestamp();

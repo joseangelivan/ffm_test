@@ -1,5 +1,9 @@
+-- src/lib/sql/themes/base_schema.sql
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS themes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL UNIQUE,
     background_hsl VARCHAR(50) NOT NULL,
     foreground_hsl VARCHAR(50) NOT NULL,
@@ -20,12 +24,12 @@ CREATE TABLE IF NOT EXISTS themes (
     border_hsl VARCHAR(50) NOT NULL,
     input_hsl VARCHAR(50) NOT NULL,
     ring_hsl VARCHAR(50) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-DROP TRIGGER IF EXISTS set_timestamp_themes ON themes;
-CREATE TRIGGER set_timestamp_themes
+-- Trigger para actualizar 'updated_at' en cada update
+CREATE TRIGGER set_updated_at_timestamp
 BEFORE UPDATE ON themes
 FOR EACH ROW
-EXECUTE PROCEDURE trigger_set_timestamp();
+EXECUTE FUNCTION trigger_set_timestamp();

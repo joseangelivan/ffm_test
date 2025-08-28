@@ -1,20 +1,25 @@
+-- src/lib/sql/condominiums/base_schema.sql
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS condominiums (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL UNIQUE,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) UNIQUE NOT NULL,
     continent VARCHAR(255),
     country VARCHAR(255),
     state VARCHAR(255),
     city VARCHAR(255),
     street VARCHAR(255),
-    number VARCHAR(50),
-    latitude DECIMAL(9,6),
-    longitude DECIMAL(9,6),
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    number VARCHAR(255),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-DROP TRIGGER IF EXISTS set_timestamp_condominiums ON condominiums;
-CREATE TRIGGER set_timestamp_condominiums
+-- Indexes for condominiums table
+CREATE INDEX IF NOT EXISTS idx_condominiums_name ON condominiums(name);
+
+-- Trigger for condominiums table
+CREATE TRIGGER set_updated_at_timestamp
 BEFORE UPDATE ON condominiums
 FOR EACH ROW
-EXECUTE PROCEDURE trigger_set_timestamp();
+EXECUTE FUNCTION trigger_set_timestamp();

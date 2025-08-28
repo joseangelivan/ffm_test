@@ -1,15 +1,19 @@
+-- src/lib/sql/translation_services/base_schema.sql
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS translation_services (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL UNIQUE,
     config_json JSONB NOT NULL,
-    is_default BOOLEAN DEFAULT FALSE,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
     supported_languages JSONB,
-    created_at TIMESTAMptZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-DROP TRIGGER IF EXISTS set_timestamp_translation_services ON translation_services;
-CREATE TRIGGER set_timestamp_translation_services
+-- Trigger to update 'updated_at' on each update
+CREATE TRIGGER set_updated_at_timestamp
 BEFORE UPDATE ON translation_services
 FOR EACH ROW
-EXECUTE PROCEDURE trigger_set_timestamp();
+EXECUTE FUNCTION trigger_set_timestamp();

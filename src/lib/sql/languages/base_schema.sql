@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS languages (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Trigger for updated_at
-CREATE TRIGGER set_languages_updated_at
+-- Trigger to update 'updated_at' on each update
+CREATE TRIGGER set_updated_at_timestamp
 BEFORE UPDATE ON languages
 FOR EACH ROW
-EXECUTE FUNCTION trigger_set_updated_at();
+EXECUTE FUNCTION trigger_set_timestamp();
