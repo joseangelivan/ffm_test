@@ -136,6 +136,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const canUndo = undoStack.length > 1;
   const canRedo = redoStack.length > 0;
   
+  const isDraggingRef = useRef(false);
+  
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
     try {
@@ -266,18 +268,30 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   useEffect(() => {
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing') return;
-    
+
+    const handleDragStart = () => {
+        isDraggingRef.current = true;
+    };
+    const handleDragEnd = () => {
+        updateHistory(shape);
+        isDraggingRef.current = false;
+    };
+
     const listeners: google.maps.MapsEventListener[] = [
-      google.maps.event.addListener(shape, 'dragend', () => updateHistory(shape)),
+        google.maps.event.addListener(shape, 'dragstart', handleDragStart),
+        google.maps.event.addListener(shape, 'dragend', handleDragEnd),
     ];
-  
+    
     if ('getPath' in shape) {
         const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(google.maps.event.addListener(path, 'set_at', () => updateHistory(shape)));
-        listeners.push(google.maps.event.addListener(path, 'insert_at', () => updateHistory(shape)));
-        listeners.push(google.maps.event.addListener(path, 'remove_at', () => updateHistory(shape)));
+        listeners.push(google.maps.event.addListener(path, 'set_at', () => { if (!isDraggingRef.current) updateHistory(shape); }));
+        listeners.push(google.maps.event.addListener(path, 'insert_at', () => { if (!isDraggingRef.current) updateHistory(shape); }));
+        listeners.push(google.maps.event.addListener(path, 'remove_at', () => { if (!isDraggingRef.current) updateHistory(shape); }));
     } else if ('getBounds' in shape) {
-        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', () => updateHistory(shape)));
+        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', () => { if (!isDraggingRef.current) updateHistory(shape); }));
+    } else if ('getRadius' in shape) {
+        listeners.push(google.maps.event.addListener(shape, 'radius_changed', () => { if (!isDraggingRef.current) updateHistory(shape); }));
+        listeners.push(google.maps.event.addListener(shape, 'center_changed', () => { if (!isDraggingRef.current) updateHistory(shape); }));
     }
     
     return () => {
@@ -296,27 +310,22 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
     });
 
-    const activeActionId = activeShapeState?.id;
-
     mapShapesRef.current.forEach((shape, id) => {
-        const isBeingEdited = activeActionId === id;
-        
-        let isVisible = false;
-        let styleOptions: any = {};
         const isSelected = id === selectedGeofenceId;
         const isDefault = id === defaultGeofenceId;
         
-        if (isBeingEdited) {
-            isVisible = false;
-        } else if(mode === 'view') {
+        let styleOptions: any = {};
+        let isVisible = false;
+
+        if (mode === 'view') {
             isVisible = (isDefault && !showAllGeofences) || (showAllGeofences);
             styleOptions = isDefault ? { ...STYLE_VIEW_MODE } : { ...STYLE_BACKGROUND_GREY };
             if (isSelected && !isDefault) styleOptions = { ...STYLE_VIEW_MODE };
-
-        } else {
+        } else { // mode === 'editing'
             isVisible = showAllGeofences || isSelected;
-            styleOptions = isSelected ? { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3 } : { ...STYLE_BACKGROUND_GREY };
+            styleOptions = isSelected ? { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3, editable: false, draggable: false } : { ...STYLE_BACKGROUND_GREY, editable: false, draggable: false };
         }
+
         shape.setOptions(styleOptions);
         shape.setMap(isVisible ? map : null);
     });
