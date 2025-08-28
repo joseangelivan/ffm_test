@@ -282,8 +282,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
     if ('getPath' in shape) { // Polygon
         const path = (shape as google.maps.Polygon).getPath();
-        const vertexListeners = ['set_at', 'insert_at', 'remove_at'];
-        vertexListeners.forEach(eventName => {
+        const vertexEvents = ['set_at', 'insert_at', 'remove_at'];
+        vertexEvents.forEach(eventName => {
             listeners.push(google.maps.event.addListener(path, eventName, () => {
                  if (!isDraggingRef.current) {
                     updateHistory(shape);
