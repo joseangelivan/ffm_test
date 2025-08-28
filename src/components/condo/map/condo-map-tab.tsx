@@ -282,22 +282,33 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         google.maps.event.addListener(shape, 'dragend', handleDragEnd),
     ];
     
-    const handleVertexChange = () => {
-        if (!isDraggingRef.current) {
-            updateHistory(shape);
-        }
-    };
-    
-    if ('getPath' in shape) {
+    if ('getPath' in shape) { // Polygon
         const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(google.maps.event.addListener(path, 'set_at', handleVertexChange));
-        listeners.push(google.maps.event.addListener(path, 'insert_at', handleVertexChange));
-        listeners.push(google.maps.event.addListener(path, 'remove_at', handleVertexChange));
-    } else if ('getBounds' in shape) {
-        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleVertexChange));
-    } else if ('getRadius' in shape) {
-        listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleVertexChange));
-        listeners.push(google.maps.event.addListener(shape, 'center_changed', handleVertexChange));
+        const vertexListeners = ['set_at', 'insert_at', 'remove_at'];
+        vertexListeners.forEach(eventName => {
+            listeners.push(google.maps.event.addListener(path, eventName, () => {
+                 if (!isDraggingRef.current) {
+                    updateHistory(shape);
+                }
+            }));
+        });
+    } else if ('getBounds' in shape && !('getRadius' in shape)) { // Rectangle
+        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', () => {
+            if (!isDraggingRef.current) {
+                updateHistory(shape);
+            }
+        }));
+    } else if ('getRadius' in shape) { // Circle
+        listeners.push(google.maps.event.addListener(shape, 'radius_changed', () => {
+            if (!isDraggingRef.current) {
+                updateHistory(shape);
+            }
+        }));
+        listeners.push(google.maps.event.addListener(shape, 'center_changed', () => {
+             if (!isDraggingRef.current) {
+                updateHistory(shape);
+            }
+        }));
     }
     
     return () => {
