@@ -269,12 +269,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing') return;
 
-    const handleDragStart = () => {
-        isDraggingRef.current = true;
-    };
+    const handleDragStart = () => { isDraggingRef.current = true; };
     const handleDragEnd = () => {
-        updateHistory(shape);
         isDraggingRef.current = false;
+        updateHistory(shape);
     };
 
     const listeners: google.maps.MapsEventListener[] = [
