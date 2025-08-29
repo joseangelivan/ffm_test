@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -108,6 +109,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
   const mapInitialized = useRef(false);
   const isDraggingRef = useRef(false);
+  const isRestoringRef = useRef(false);
   
   const mapShapesRef = useRef<Map<string, google.maps.MVCObject>>(new Map());
   
@@ -271,19 +273,29 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     if (!shape || mode !== 'editing' || !mapRef.current) return;
     
     const handleDragEnd = () => {
-        const newGeometry = getGeometryFromShape(shape);
-        handleHistoryUpdate(newGeometry);
+        if (!isRestoringRef.current) {
+            const newGeometry = getGeometryFromShape(shape);
+            handleHistoryUpdate(newGeometry);
+        }
         isDraggingRef.current = false;
     };
     const handleDragStart = () => {
-        isDraggingRef.current = true;
+        if (!isRestoringRef.current) {
+            isDraggingRef.current = true;
+        }
     };
     
     const handleChange = () => {
-        if (isDraggingRef.current) return;
+        if (isDraggingRef.current || isRestoringRef.current) return;
         const newGeometry = getGeometryFromShape(shape);
         debouncedHistoryUpdate(newGeometry);
     };
+
+    const handleRadiusChange = debounce(() => {
+      if (isDraggingRef.current || isRestoringRef.current) return;
+      const newGeometry = getGeometryFromShape(shape);
+      handleHistoryUpdate(newGeometry);
+    }, 100);
     
     const listeners = [
       shape.addListener('dragstart', handleDragStart),
@@ -302,7 +314,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }
     
     if ('getRadius' in shape) {
-        listeners.push(shape.addListener('radius_changed', handleChange));
+        listeners.push(shape.addListener('radius_changed', handleRadiusChange));
     }
     
     return () => {
@@ -372,32 +384,42 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }, [isLoading, applyZoomLevel]);
     
     const handleUndo = () => {
-        if (!canUndo) return;
+      if (!canUndo) return;
 
-        const currentStack = [...undoStack];
-        const lastState = currentStack.pop();
-        const prevState = currentStack[currentStack.length - 1];
-        
+      const newUndoStack = [...undoStack];
+      const lastState = newUndoStack.pop();
+      const prevState = newUndoStack[newUndoStack.length - 1];
+
+      if (lastState) {
         setRedoStack(prev => [lastState, ...prev]);
-        setUndoStack(currentStack);
-        
-        if (activeShapeState?.shape && prevState) {
-          restoreShapeToGeometry(activeShapeState.shape, prevState);
-        }
-    };
-    
-    const handleRedo = () => {
-        if (!canRedo) return;
-        const currentStack = [...redoStack];
-        const nextState = currentStack.shift();
-        
+      }
+      
+      setUndoStack(newUndoStack);
+
+      if (activeShapeState?.shape && prevState) {
+        isRestoringRef.current = true;
+        restoreShapeToGeometry(activeShapeState.shape, prevState);
+        setTimeout(() => { isRestoringRef.current = false; }, 50);
+      }
+  };
+
+  const handleRedo = () => {
+      if (!canRedo) return;
+      
+      const newRedoStack = [...redoStack];
+      const nextState = newRedoStack.shift();
+
+      if (nextState) {
         setUndoStack(prev => [...prev, nextState]);
-        setRedoStack(currentStack);
-    
-        if (activeShapeState?.shape && nextState) {
-            restoreShapeToGeometry(activeShapeState.shape, nextState);
+        setRedoStack(newRedoStack);
+
+        if (activeShapeState?.shape) {
+          isRestoringRef.current = true;
+          restoreShapeToGeometry(activeShapeState.shape, nextState);
+          setTimeout(() => { isRestoringRef.current = false; }, 50);
         }
-    };
+      }
+  };
   
   const handleShapeDrawn = (shape: google.maps.MVCObject | null) => {
     if(!shape) return;
@@ -411,9 +433,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     setUndoStack([getGeometryFromShape(shape)]);
     setRedoStack([]);
   };
-
-  const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
-  const handleZoomOut = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! - 1);
   
   return (
     <>
@@ -468,11 +487,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             </div>
                          )}
                         <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
-                            <Button onClick={handleZoomIn} variant="ghost" size="icon" title="Zoom In">
+                            <Button onClick={() => mapRef.current?.setZoom(mapRef.current.getZoom()! + 1)} variant="ghost" size="icon" title="Zoom In">
                                 <ZoomIn className="h-5 w-5" />
                             </Button>
                             <span className="text-xs font-bold w-6 text-center select-none">{zoomLevel}</span>
-                            <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
+                            <Button onClick={() => mapRef.current?.setZoom(mapRef.current.getZoom()! - 1)} variant="ghost" size="icon" title="Zoom Out">
                                 <ZoomOut className="h-5 w-5" />
                             </Button>
                             <Button onClick={applyZoomLevel} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')} disabled={(mode === 'editing' && !selectedGeofenceId && !defaultGeofenceId) || (mode === 'view' && !defaultGeofenceId)}>
