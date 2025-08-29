@@ -260,8 +260,26 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       const currentZoom = mapRef.current?.getZoom();
       if (currentZoom) setZoomLevel(currentZoom);
     });
-    return () => { zoomListener.remove(); };
-  }, []);
+    
+    const handleMouseDown = () => {
+        isResizingRef.current = true;
+    };
+    const handleMouseUp = () => {
+        if (isResizingRef.current) {
+            if (activeShapeState?.shape) {
+                updateHistory(activeShapeState.shape);
+            }
+            isResizingRef.current = false;
+        }
+    };
+    mapRef.current.addListener('mousedown', handleMouseDown);
+    mapRef.current.addListener('mouseup', handleMouseUp);
+    
+    return () => { 
+        zoomListener.remove(); 
+        google.maps.event.clearInstanceListeners(mapRef.current!);
+    };
+  }, [activeShapeState?.shape, updateHistory]);
     
   
     useEffect(() => {
@@ -284,20 +302,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
         if ('getBounds' in shape) { // Rectangle
              listeners.push(shape.addListener('bounds_changed', () => {
-                if (!isDraggingRef.current) updateHistory(shape);
+                if (!isDraggingRef.current && isResizingRef.current) {
+                    updateHistory(shape);
+                }
             }));
         }
         if ('getRadius' in shape) { // Circle
-            // For circles, radius and center changes often fire together.
-            // We use a mouseup listener to capture the final state after a resize.
-            listeners.push(shape.addListener('mousedown', () => {
-                isResizingRef.current = true;
-            }));
-            listeners.push(shape.addListener('mouseup', () => {
-                if (isResizingRef.current) {
+            listeners.push(shape.addListener('radius_changed', () => {
+                if (!isDraggingRef.current && isResizingRef.current) {
                     updateHistory(shape);
                 }
-                isResizingRef.current = false;
             }));
         }
         
