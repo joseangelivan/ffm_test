@@ -394,30 +394,30 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const handleUndo = () => {
       if (!canUndo) return;
 
+      isRestoringRef.current = true;
       const newUndoStack = [...undoStack];
       const lastState = newUndoStack.pop();
       const prevState = newUndoStack[newUndoStack.length - 1];
 
       if (lastState && activeShapeState?.shape && prevState) {
-          isRestoringRef.current = true;
           restoreShapeToGeometry(activeShapeState.shape, prevState);
           setHistoryStacks(newUndoStack, [lastState, ...redoStack]);
-          setTimeout(() => { isRestoringRef.current = false; }, 50);
       }
+      setTimeout(() => { isRestoringRef.current = false; }, 50);
   };
 
   const handleRedo = () => {
       if (!canRedo) return;
+      isRestoringRef.current = true;
 
       const newRedoStack = [...redoStack];
       const nextState = newRedoStack.shift();
       
       if (nextState && activeShapeState?.shape) {
-          isRestoringRef.current = true;
           restoreShapeToGeometry(activeShapeState.shape, nextState);
           setHistoryStacks([...undoStack, nextState], newRedoStack);
-          setTimeout(() => { isRestoringRef.current = false; }, 50);
       }
+      setTimeout(() => { isRestoringRef.current = false; }, 50);
   };
   
   const handleShapeDrawn = (shape: google.maps.MVCObject | null) => {
