@@ -167,7 +167,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
   }, [condo.id, selectedGeofenceId, toast, t]);
 
 
-  const centerMapOnAddress = useCallback(async () => {
+ const centerMapOnAddress = useCallback(async () => {
     const map = mapRef.current;
     if (!map) return;
   
@@ -181,7 +181,12 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
         map.setCenter(location);
         map.setZoom(17);
     } else {
-        toast({ title: t('toast.errorTitle'), description: geoResult.message, variant: 'destructive' });
+        // Show a non-blocking toast, but don't prevent the map from loading.
+        toast({
+            title: t('toast.errorTitle'),
+            description: geoResult.message || 'Geocoding failed.',
+            variant: 'destructive'
+        });
     }
   }, [condo, toast, t]);
 
@@ -308,6 +313,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
         }
 
         if ('getPath' in shape) {
+            const path = (shape as google.maps.Polygon).getPath()
             const handleChange = () => {
                 if (isDraggingRef.current || isRestoringRef.current) return;
                 const newGeometry = getGeometryFromShape(shape);
@@ -409,15 +415,18 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     if (mapInitialized.current) return;
     mapInitialized.current = true;
     mapRef.current = map;
+    // Decouple data loading from geocoding. Always load the map.
     await onDataNeedsRefresh();
-    await centerMapOnAddress();
-  }, [onDataNeedsRefresh, centerMapOnAddress]);
+    setIsLoading(false);
+  }, [onDataNeedsRefresh]);
 
     useEffect(() => {
         if (!isLoading && mapRef.current) {
+             // Attempt to center map once data is loaded and map is ready
+            centerMapOnAddress();
             applyZoomLevel();
         }
-    }, [isLoading, applyZoomLevel]);
+    }, [isLoading, applyZoomLevel, centerMapOnAddress]);
     
   const setHistoryStacks = (undo: any[], redo: any[]) => {
       setUndoStack(undo);
