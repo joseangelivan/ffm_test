@@ -167,7 +167,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
   }, [condo.id, selectedGeofenceId, toast, t]);
 
 
- const centerMapOnAddress = useCallback(async () => {
+  const centerMapOnAddress = useCallback(async () => {
     const map = mapRef.current;
     if (!map) return;
   
@@ -187,7 +187,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
             variant: 'destructive'
         });
     }
-  }, [condo.street, condo.number, condo.city, condo.state, condo.country, setCondoPosition]);
+ }, [condo.street, condo.number, condo.city, condo.state, condo.country, setCondoPosition]);
 
 
   const getZoomForBounds = useCallback((bounds: google.maps.LatLngBounds, mapDim: { width: number, height: number }) => {
@@ -414,15 +414,12 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     mapInitialized.current = true;
     mapRef.current = map;
     await onDataNeedsRefresh();
-    setIsLoading(false);
   }, [onDataNeedsRefresh]);
 
-    useEffect(() => {
-        if (!isLoading && mapRef.current) {
-            centerMapOnAddress();
-            applyZoomLevel();
-        }
-    }, [isLoading, applyZoomLevel, centerMapOnAddress]);
+  useEffect(() => {
+    if (isLoading) return;
+    centerMapOnAddress();
+  }, [isLoading, centerMapOnAddress]);
     
   const setHistoryStacks = (undo: any[], redo: any[]) => {
       setUndoStack(undo);
@@ -497,7 +494,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                 <div className="grid grid-cols-1 md:grid-cols-3 h-[70vh]">
                     <div ref={mapContainerRef} className="col-span-1 md:col-span-2 relative p-1">
                         <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
-                            {(isLoading || !condoPosition) && (
+                            {isLoading && (
                                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
                                     <div className="flex items-center gap-2 text-muted-foreground">
                                         <Loader className="h-5 w-5 animate-spin" />
