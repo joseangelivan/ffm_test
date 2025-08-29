@@ -265,47 +265,54 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     });
     setRedoStack([]);
   }, []);
-
+  
   const debouncedHistoryUpdate = useCallback(debounce(handleHistoryUpdate, 100), [handleHistoryUpdate]);
   
   useEffect(() => {
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing' || !mapRef.current) return;
 
-    const setupListeners = () => {
-        const handleDragStart = () => { isDraggingRef.current = true; };
-        const handleDragEnd = () => {
-            if (!isRestoringRef.current) {
-                const newGeometry = getGeometryFromShape(shape);
-                handleHistoryUpdate(newGeometry);
-            }
-            isDraggingRef.current = false;
-        };
-
-        const handleChange = () => {
-            if (isDraggingRef.current || isRestoringRef.current) return;
+    const handleDragStart = () => { isDraggingRef.current = true; };
+    const handleDragEnd = () => {
+        if (!isRestoringRef.current) {
             const newGeometry = getGeometryFromShape(shape);
-            debouncedHistoryUpdate(newGeometry);
-        };
-        
+            handleHistoryUpdate(newGeometry);
+        }
+        isDraggingRef.current = false;
+    };
+    
+    const setupListeners = () => {
         const listeners = [
             shape.addListener('dragstart', handleDragStart),
             shape.addListener('dragend', handleDragEnd),
         ];
 
+        if ('getRadius' in shape) {
+            listeners.push(shape.addListener('radius_changed', () => {
+                if (isDraggingRef.current || isRestoringRef.current) return;
+                const newGeometry = getGeometryFromShape(shape);
+                debouncedHistoryUpdate(newGeometry);
+            }));
+        }
+
         if ('getPath' in shape) {
             const path = (shape as google.maps.Polygon).getPath();
+            const handleChange = () => {
+                if (isDraggingRef.current || isRestoringRef.current) return;
+                const newGeometry = getGeometryFromShape(shape);
+                debouncedHistoryUpdate(newGeometry);
+            };
             listeners.push(path.addListener('set_at', handleChange));
             listeners.push(path.addListener('insert_at', handleChange));
             listeners.push(path.addListener('remove_at', handleChange));
         }
 
         if ('getBounds' in shape) {
-            listeners.push(shape.addListener('bounds_changed', handleChange));
-        }
-
-        if ('getRadius' in shape) {
-            listeners.push(shape.addListener('radius_changed', handleChange));
+             listeners.push(shape.addListener('bounds_changed', () => {
+                if (isDraggingRef.current || isRestoringRef.current) return;
+                const newGeometry = getGeometryFromShape(shape);
+                debouncedHistoryUpdate(newGeometry);
+            }));
         }
         
         return listeners;
