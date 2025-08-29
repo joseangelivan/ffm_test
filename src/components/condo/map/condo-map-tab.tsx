@@ -14,7 +14,7 @@ import {
   Redo,
 } from 'lucide-react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-import { isEqual } from 'lodash';
+import { isEqual, debounce } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
@@ -289,29 +289,31 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   useEffect(() => {
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing' || !mapRef.current) return;
-
-    const handleMouseUp = () => {
-        if (isDraggingRef.current) {
-            updateHistory(shape);
-        }
-        isDraggingRef.current = false;
-        
-        if (isResizingRef.current) {
-            updateHistory(shape);
-        }
-        isResizingRef.current = false;
-    };
     
-    window.addEventListener('mouseup', handleMouseUp);
+    const debouncedUpdateHistory = debounce(() => {
+      if (isRestoringRef.current || isDraggingRef.current) return;
+      updateHistory(shape);
+    }, 100, { leading: false, trailing: true });
 
     const listeners = [
         shape.addListener('dragstart', () => { isDraggingRef.current = true; }),
-        shape.addListener('dragend', handleMouseUp),
+        shape.addListener('dragend', () => {
+          isDraggingRef.current = false;
+          updateHistory(shape);
+        }),
+        shape.addListener('radius_changed', debouncedUpdateHistory),
     ];
+    
+    if ('getPath' in shape) {
+        const path = (shape as google.maps.Polygon).getPath();
+        listeners.push(path.addListener('set_at', debouncedUpdateHistory));
+        listeners.push(path.addListener('insert_at', debouncedUpdateHistory));
+        listeners.push(path.addListener('remove_at', debouncedUpdateHistory));
+    }
     
     return () => {
         listeners.forEach(listener => listener.remove());
-        window.removeEventListener('mouseup', handleMouseUp);
+        debouncedUpdateHistory.cancel();
     };
 }, [activeShapeState, mode, updateHistory]);
   
@@ -362,10 +364,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     activeShapeState
 ]);
   
-  const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
-  const handleZoomOut = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! - 1);
-
-
   const handleMapLoad = useCallback(async (map: google.maps.Map) => {
     if (mapInitialized.current) return;
     mapInitialized.current = true;
@@ -465,11 +463,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             </div>
                          )}
                         <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
-                            <Button onClick={handleZoomIn} variant="ghost" size="icon" title="Zoom In">
+                            <Button onClick={() => mapRef.current?.setZoom(mapRef.current.getZoom()! + 1)} variant="ghost" size="icon" title="Zoom In">
                                 <ZoomIn className="h-5 w-5" />
                             </Button>
                             <span className="text-xs font-bold w-6 text-center select-none">{zoomLevel}</span>
-                            <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
+                            <Button onClick={() => mapRef.current?.setZoom(mapRef.current.getZoom()! - 1)} variant="ghost" size="icon" title="Zoom Out">
                                 <ZoomOut className="h-5 w-5" />
                             </Button>
                             <Button onClick={applyZoomLevel} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')} disabled={(mode === 'editing' && !selectedGeofenceId && !defaultGeofenceId) || (mode === 'view' && !defaultGeofenceId)}>
