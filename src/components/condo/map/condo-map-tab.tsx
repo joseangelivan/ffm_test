@@ -330,46 +330,72 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const map = mapRef.current;
     if (!map || isLoading) return;
 
+    // Create or update shapes from dbGeofences
     dbGeofences.forEach(dbGf => {
-        if (!mapShapesRef.current.has(dbGf.id)) {
-            const newShape = createShapeFromGeometry(dbGf.geometry);
-            if (newShape) mapShapesRef.current.set(dbGf.id, newShape);
+        let shape = mapShapesRef.current.get(dbGf.id);
+        if (!shape) {
+            shape = createShapeFromGeometry(dbGf.geometry);
+            if (shape) {
+                mapShapesRef.current.set(dbGf.id, shape);
+            }
+        } else {
+            // If editing is finished, ensure shape matches DB state.
+             if (!activeShapeState || activeShapeState.id !== dbGf.id) {
+                const currentShapeGeometry = getGeometryFromShape(shape);
+                if (!isEqual(currentShapeGeometry, dbGf.geometry)) {
+                    restoreShapeToGeometry(shape, dbGf.geometry);
+                }
+             }
         }
     });
 
+    // Clean up shapes that no longer exist in the database
     mapShapesRef.current.forEach((shape, id) => {
-        if (shape !== activeShapeState?.shape) {
-            const isSelected = id === selectedGeofenceId;
-            const isDefault = id === defaultGeofenceId;
-            let styleOptions: any = {};
-            let isVisible = false;
+        if (!dbGeofences.some(dbGf => dbGf.id === id) && id !== activeShapeState?.id) {
+            shape.setMap(null);
+            mapShapesRef.current.delete(id);
+        }
+    });
 
+    // After a data refresh, clear the active editing state
+    if (activeShapeState && dbGeofences.some(g => g.id === activeShapeState.id)) {
+        setActiveShapeState(null);
+    }
+    
+    // Apply styles and visibility to all shapes
+    mapShapesRef.current.forEach((shape, id) => {
+        const isBeingEdited = activeShapeState?.id === id;
+        const isSelected = id === selectedGeofenceId;
+        const isDefault = id === defaultGeofenceId;
+        
+        let styleOptions: any = {};
+        let isVisible = false;
+
+        if (isBeingEdited) {
+            isVisible = true;
+            styleOptions = STYLE_FOCUSED_BLUE;
+        } else {
             if (mode === 'view') {
                 isVisible = (isDefault && !showAllGeofences) || showAllGeofences;
-                styleOptions = isDefault ? { ...STYLE_VIEW_MODE } : { ...STYLE_BACKGROUND_GREY };
-                if (isSelected && !isDefault) styleOptions = { ...STYLE_VIEW_MODE };
+                styleOptions = isDefault ? STYLE_VIEW_MODE : STYLE_BACKGROUND_GREY;
+                if (isSelected && !isDefault) styleOptions = STYLE_VIEW_MODE;
             } else { // mode === 'editing'
                 isVisible = showAllGeofences || isSelected;
                 styleOptions = isSelected ? { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3 } : { ...STYLE_BACKGROUND_GREY };
             }
-            shape.setOptions({ ...styleOptions, editable: false, draggable: false });
-            shape.setMap(isVisible ? map : null);
         }
+        
+        shape.setOptions({ ...styleOptions, editable: isBeingEdited, draggable: isBeingEdited });
+        shape.setMap(isVisible ? map : null);
     });
     
-    if (activeShapeState?.shape) {
-        const shape = activeShapeState.shape;
-        shape.setOptions(STYLE_FOCUSED_BLUE);
-        shape.setMap(map);
-    }
-    
 }, [
-    mode,
+    isLoading,
     dbGeofences,
+    mode,
     selectedGeofenceId,
     defaultGeofenceId,
     showAllGeofences,
-    isLoading,
     activeShapeState
 ]);
   
