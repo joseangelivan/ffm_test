@@ -148,10 +148,8 @@ export function GeofenceControls({
             const { shape, originalGeometry } = activeShapeState;
             if (shape) {
                 if (originalGeometry) {
-                    // If it was an existing shape, restore it and put it back in the main mapShapesRef
                     restoreShapeToGeometry(shape, originalGeometry);
                 } else {
-                    // If it was a new shape, just remove it from the map
                     shape.setMap(null);
                 }
             }
@@ -211,8 +209,8 @@ export function GeofenceControls({
         if (result?.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
             const newSelectedId = isNewShape ? result.data?.id : id;
-            cancelCurrentAction();
             await onDataNeedsRefresh(newSelectedId);
+            cancelCurrentAction();
         } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
         }
