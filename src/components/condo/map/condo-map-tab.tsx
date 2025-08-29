@@ -133,7 +133,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [undoStack, setUndoStack] = useState<any[]>([]);
   const [redoStack, setRedoStack] = useState<any[]>([]);
 
-  const canUndo = undoStack.length > 1;
+  const canUndo = undoStack.length > 0;
   const canRedo = redoStack.length > 0;
   
   const isDraggingRef = useRef(false);
@@ -309,13 +309,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         };
 
         listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleEditStart));
-        listeners.push(google.maps.event.addListener(shape, 'mouseup', handleEditEnd));
+        listeners.push(google.maps.event.addListener(shape, 'center_changed', handleEditStart));
         
-        listeners.push(google.maps.event.addListener(shape, 'center_changed', () => {
-            if (!isDraggingRef.current) {
-                handleEditStart();
-            }
-        }));
+        listeners.push(google.maps.event.addListener(shape, 'mouseup', handleEditEnd));
     }
     
     return () => {
