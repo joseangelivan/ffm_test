@@ -140,10 +140,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const isDraggingRef = useRef(false);
   const isResizingRef = useRef(false);
   
-  const updateHistory = useCallback((s: google.maps.MVCObject) => {
-    const newGeometry = getGeometryFromShape(s);
+  const updateHistory = useCallback((shape: google.maps.MVCObject | null) => {
+    if (!shape) return;
+    const newGeometry = getGeometryFromShape(shape);
+    
     setUndoStack(prev => {
-        if (isEqual(newGeometry, prev[prev.length - 1])) return prev;
+        // Prevent adding duplicates
+        if (prev.length > 0 && isEqual(newGeometry, prev[prev.length - 1])) {
+            return prev;
+        }
         return [...prev, newGeometry];
     });
     setRedoStack([]);
@@ -261,62 +266,48 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       if (currentZoom) setZoomLevel(currentZoom);
     });
     
-    const handleMouseDown = () => {
-        isResizingRef.current = true;
-    };
-    const handleMouseUp = () => {
-        if (isResizingRef.current) {
-            if (activeShapeState?.shape) {
-                updateHistory(activeShapeState.shape);
-            }
-            isResizingRef.current = false;
-        }
-    };
-    mapRef.current.addListener('mousedown', handleMouseDown);
-    mapRef.current.addListener('mouseup', handleMouseUp);
-    
     return () => { 
         zoomListener.remove(); 
-        google.maps.event.clearInstanceListeners(mapRef.current!);
     };
-  }, [activeShapeState?.shape, updateHistory]);
+  }, []);
     
   
     useEffect(() => {
         const shape = activeShapeState?.shape;
         if (!shape || mode !== 'editing' || !mapRef.current) return;
-        
-        const listeners: google.maps.MapsEventListener[] = [];
-        
-        listeners.push(shape.addListener('dragstart', () => { isDraggingRef.current = true; }));
-        listeners.push(shape.addListener('dragend', () => {
-            updateHistory(shape);
+
+        const handleMouseUp = () => {
+            if (isDraggingRef.current || isResizingRef.current) {
+                updateHistory(shape);
+            }
             isDraggingRef.current = false;
-        }));
+            isResizingRef.current = false;
+        };
+
+        const listeners = [
+            shape.addListener('dragstart', () => { isDraggingRef.current = true; }),
+            shape.addListener('dragend', () => {
+                if (isDraggingRef.current) {
+                    updateHistory(shape);
+                }
+                isDraggingRef.current = false;
+            }),
+        ];
 
         if ('getPath' in shape) { // Polygon
             const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(path.addListener('insert_at', () => updateHistory(shape)));
-            listeners.push(path.addListener('remove_at', () => updateHistory(shape)));
-            listeners.push(path.addListener('set_at', () => updateHistory(shape)));
+            const mousedownListener = path.addListener('set_at', () => { isResizingRef.current = true; });
+            listeners.push(mousedownListener);
+        } else { // Rectangle and Circle
+             const mousedownListener = shape.addListener('mousedown', () => { isResizingRef.current = true; });
+             listeners.push(mousedownListener);
         }
-        if ('getBounds' in shape) { // Rectangle
-             listeners.push(shape.addListener('bounds_changed', () => {
-                if (!isDraggingRef.current && isResizingRef.current) {
-                    updateHistory(shape);
-                }
-            }));
-        }
-        if ('getRadius' in shape) { // Circle
-            listeners.push(shape.addListener('radius_changed', () => {
-                if (!isDraggingRef.current && isResizingRef.current) {
-                    updateHistory(shape);
-                }
-            }));
-        }
+
+        const mouseUpListener = window.addEventListener('mouseup', handleMouseUp);
         
         return () => {
             listeners.forEach(listener => listener.remove());
+            window.removeEventListener('mouseup', handleMouseUp);
         };
     }, [activeShapeState, mode, updateHistory]);
   
