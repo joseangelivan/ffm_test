@@ -137,7 +137,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const canRedo = redoStack.length > 0;
   
   const isDraggingRef = useRef(false);
-  const isEditingRef = useRef(false);
   
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -269,42 +268,40 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   useEffect(() => {
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing') return;
-  
+
     const handleDragStart = () => { isDraggingRef.current = true; };
     const handleDragEnd = () => {
-      if (isDraggingRef.current) {
-        updateHistory(shape);
-        isDraggingRef.current = false;
-      }
+        if (isDraggingRef.current) {
+            updateHistory(shape);
+            isDraggingRef.current = false;
+        }
     };
-  
+    
+    const handleEdit = () => {
+        if (!isDraggingRef.current) {
+            updateHistory(shape);
+        }
+    }
+
     const listeners: google.maps.MapsEventListener[] = [
-      google.maps.event.addListener(shape, 'dragstart', handleDragStart),
-      google.maps.event.addListener(shape, 'dragend', handleDragEnd),
+        google.maps.event.addListener(shape, 'dragstart', handleDragStart),
+        google.maps.event.addListener(shape, 'dragend', handleDragEnd),
     ];
   
     if ('getPath' in shape) { // Polygon
       const path = (shape as google.maps.Polygon).getPath();
-      const vertexEvents = ['set_at', 'insert_at', 'remove_at'];
-      vertexEvents.forEach(eventName => {
-        listeners.push(google.maps.event.addListener(path, eventName, () => {
-          if (!isDraggingRef.current) {
-            updateHistory(shape);
-          }
-        }));
-      });
-    } else if ('getRadius' in shape) { // Circle
-      const handleEditStart = () => { isEditingRef.current = true; };
-      const handleEditEnd = () => {
-        if (isEditingRef.current) {
-          updateHistory(shape);
-          isEditingRef.current = false;
-        }
-      };
-  
-      // Listen to radius_changed to detect start, and mouseup to detect end
-      listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleEditStart));
-      listeners.push(google.maps.event.addListener(shape, 'mouseup', handleEditEnd));
+      listeners.push(google.maps.event.addListener(path, 'set_at', handleEdit));
+      listeners.push(google.maps.event.addListener(path, 'insert_at', handleEdit));
+      listeners.push(google.maps.event.addListener(path, 'remove_at', handleEdit));
+    }
+    
+    if ('getBounds' in shape) { // Rectangle
+        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleEdit));
+    }
+    
+    if('getRadius' in shape) { // Circle
+        listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleEdit));
+        listeners.push(google.maps.event.addListener(shape, 'center_changed', handleEdit));
     }
   
     return () => {
@@ -316,7 +313,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const map = mapRef.current;
     if (!map || isLoading) return;
 
-    // Ensure all database geofences are represented in the mapShapesRef
     dbGeofences.forEach(dbGf => {
         if (!mapShapesRef.current.has(dbGf.id)) {
             const newShape = createShapeFromGeometry(dbGf.geometry);
@@ -324,7 +320,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
     });
 
-    // Handle all shapes that are NOT the active one
     mapShapesRef.current.forEach((shape, id) => {
         if (shape !== activeShapeState?.shape) {
             const isSelected = id === selectedGeofenceId;
@@ -345,7 +340,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
     });
     
-    // Specifically handle the active shape
     if (activeShapeState?.shape) {
         const shape = activeShapeState.shape;
         shape.setOptions(STYLE_FOCUSED_BLUE);
