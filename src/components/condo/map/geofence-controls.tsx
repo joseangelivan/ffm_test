@@ -177,7 +177,7 @@ export function GeofenceControls({
         setMode('editing');
         setActiveShapeState({ id: selectedGeofenceId, shape: shapeToEdit, originalGeometry });
         
-        setUndoStack([]); // Clear undo stack on new edit
+        setUndoStack([originalGeometry]);
         setRedoStack([]);
     
         setCurrentGeofenceName(selectedGeofence.name);
