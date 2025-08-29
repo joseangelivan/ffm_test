@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -108,6 +107,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const mapRef = useRef<google.maps.Map | null>(null);
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
   const mapInitialized = useRef(false);
+  const isDraggingRef = useRef(false);
   
   const mapShapesRef = useRef<Map<string, google.maps.MVCObject>>(new Map());
   
@@ -136,10 +136,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const canUndo = undoStack.length > 1;
   const canRedo = redoStack.length > 0;
-  
-  const isDraggingRef = useRef(false);
-  const isResizingRef = useRef(false);
-  const isRestoringRef = useRef(false);
   
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -258,66 +254,62 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     };
   }, []);
     
+  const handleHistoryUpdate = useCallback((newGeometry: any) => {
+    setUndoStack(prev => {
+        if (prev.length > 0 && isEqual(newGeometry, prev[prev.length - 1])) {
+            return prev;
+        }
+        return [...prev, newGeometry];
+    });
+    setRedoStack([]);
+  }, []);
+
+  const debouncedHistoryUpdate = useCallback(debounce(handleHistoryUpdate, 100), [handleHistoryUpdate]);
   
   useEffect(() => {
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing' || !mapRef.current) return;
     
-    const updateHistory = debounce((newGeometry) => {
-        setUndoStack(prev => {
-            if (prev.length > 0 && isEqual(newGeometry, prev[prev.length - 1])) {
-                return prev;
-            }
-            return [...prev, newGeometry];
-        });
-        setRedoStack([]);
-    }, 100, { leading: false, trailing: true });
-
-    const handleShapeChange = () => {
-        if (isRestoringRef.current) return;
+    const handleDragEnd = () => {
         const newGeometry = getGeometryFromShape(shape);
-        updateHistory(newGeometry);
+        handleHistoryUpdate(newGeometry);
+        isDraggingRef.current = false;
+    };
+    const handleDragStart = () => {
+        isDraggingRef.current = true;
+    };
+    
+    const handleChange = () => {
+        if (isDraggingRef.current) return;
+        const newGeometry = getGeometryFromShape(shape);
+        debouncedHistoryUpdate(newGeometry);
     };
     
     const listeners = [
-        shape.addListener('dragstart', () => { 
-            isDraggingRef.current = true;
-            handleShapeChange(); // Capture state before drag
-        }),
-        shape.addListener('dragend', () => {
-            isDraggingRef.current = false;
-            handleShapeChange(); // Capture state after drag
-        }),
-        shape.addListener('mousedown', () => {
-             isResizingRef.current = true;
-             handleShapeChange(); // Capture state before resize
-        }),
-        shape.addListener('mouseup', () => {
-            isResizingRef.current = false;
-            handleShapeChange(); // Capture state after resize
-        }),
+      shape.addListener('dragstart', handleDragStart),
+      shape.addListener('dragend', handleDragEnd),
     ];
     
     if ('getPath' in shape) {
         const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(path.addListener('set_at', handleShapeChange));
-        listeners.push(path.addListener('insert_at', handleShapeChange));
-        listeners.push(path.addListener('remove_at', handleShapeChange));
+        listeners.push(path.addListener('set_at', handleChange));
+        listeners.push(path.addListener('insert_at', handleChange));
+        listeners.push(path.addListener('remove_at', handleChange));
     }
     
     if ('getBounds' in shape) {
-        listeners.push(shape.addListener('bounds_changed', handleShapeChange));
+        listeners.push(shape.addListener('bounds_changed', handleChange));
     }
     
     if ('getRadius' in shape) {
-        listeners.push(shape.addListener('radius_changed', handleShapeChange));
+        listeners.push(shape.addListener('radius_changed', handleChange));
     }
     
     return () => {
         listeners.forEach(listener => listener.remove());
-        updateHistory.cancel();
+        debouncedHistoryUpdate.cancel();
     };
-}, [activeShapeState, mode]);
+}, [activeShapeState, mode, debouncedHistoryUpdate, handleHistoryUpdate]);
   
   useEffect(() => {
     const map = mapRef.current;
@@ -381,7 +373,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
     const handleUndo = () => {
         if (!canUndo) return;
-        isRestoringRef.current = true;
 
         const currentStack = [...undoStack];
         const lastState = currentStack.pop();
@@ -393,13 +384,10 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         if (activeShapeState?.shape && prevState) {
           restoreShapeToGeometry(activeShapeState.shape, prevState);
         }
-
-        setTimeout(() => { isRestoringRef.current = false; }, 100);
     };
     
     const handleRedo = () => {
         if (!canRedo) return;
-        isRestoringRef.current = true;
         const currentStack = [...redoStack];
         const nextState = currentStack.shift();
         
@@ -409,7 +397,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         if (activeShapeState?.shape && nextState) {
             restoreShapeToGeometry(activeShapeState.shape, nextState);
         }
-        setTimeout(() => { isRestoringRef.current = false; }, 100);
     };
   
   const handleShapeDrawn = (shape: google.maps.MVCObject | null) => {
@@ -418,8 +405,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     if (activeShapeState?.shape) {
       activeShapeState.shape.setMap(null);
     }
-    mapShapesRef.current.set('new-shape', shape);
-    setActiveShapeState({ id: 'new-shape', shape, originalGeometry: null });
+    const newId = `new-shape-${Date.now()}`;
+    mapShapesRef.current.set(newId, shape);
+    setActiveShapeState({ id: newId, shape, originalGeometry: null });
     setUndoStack([getGeometryFromShape(shape)]);
     setRedoStack([]);
   };
