@@ -61,7 +61,7 @@ const DrawingManagerComponent = ({
   useEffect(() => {
     if (!drawingLibrary || !map) return;
 
-    const newDrawingManager = new drawingManager.DrawingManager({
+    const newDrawingManager = new drawingLibrary.DrawingManager({
       drawingControl: false,
       polygonOptions: { ...STYLE_FOCUSED_BLUE },
       rectangleOptions: { ...STYLE_FOCUSED_BLUE },
