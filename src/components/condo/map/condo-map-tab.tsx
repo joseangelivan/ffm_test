@@ -25,6 +25,7 @@ import MapComponent, { AdvancedMarker } from '@/components/map';
 import { GeofenceControls } from './geofence-controls';
 import { ElementsControls } from './elements-controls';
 import { getGeofencesByCondoId } from '@/actions/maps';
+import { geocodeAddress } from '@/actions/geocoding';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 import { MapSettingsDialog } from './map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -45,9 +46,9 @@ import MapContainer from '@/components/map/map-container';
 
 interface MapRendererProps {
   condo: Condominio;
-  initialPosition: { lat: number; lng: number };
   onMapLoad: (map: google.maps.Map) => void;
   drawingManagerRef: React.MutableRefObject<google.maps.drawing.DrawingManager | null>;
+  condoPosition: { lat: number; lng: number } | null;
 }
 
 const DrawingManagerComponent = ({
@@ -81,7 +82,7 @@ const DrawingManagerComponent = ({
   return null;
 };
 
-function MapRenderer({ condo, initialPosition, onMapLoad, drawingManagerRef }: MapRendererProps) {
+function MapRenderer({ condo, onMapLoad, drawingManagerRef, condoPosition }: MapRendererProps) {
   const map = useMap();
   useEffect(() => {
     if (map && onMapLoad) {
@@ -92,8 +93,8 @@ function MapRenderer({ condo, initialPosition, onMapLoad, drawingManagerRef }: M
   return (
     <>
         <DrawingManagerComponent drawingManagerRef={drawingManagerRef} />
-        {initialPosition && (
-            <AdvancedMarker position={initialPosition} title={condo.name}>
+        {condoPosition && (
+            <AdvancedMarker position={condoPosition} title={condo.name}>
                 <Building className="h-8 w-8 text-slate-700 drop-shadow-lg" />
             </AdvancedMarker>
         )}
@@ -102,7 +103,7 @@ function MapRenderer({ condo, initialPosition, onMapLoad, drawingManagerRef }: M
 }
 
 
-export default function CondoMapTab({ condo, initialPosition }: { condo: Condominio, initialPosition: { lat: number; lng: number } }) {
+export default function CondoMapTab({ condo }: { condo: Condominio }) {
   const { t } = useLocale();
   const { toast } = useToast();
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -126,7 +127,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [fitLevel, setFitLevel] = useState<'1' | '2' | '3'>('2');
   const [isLoading, setIsLoading] = useState(true);
   
-  const [condoAddressPosition] = useState(initialPosition);
+  const [condoPosition, setCondoPosition] = useState<{lat: number, lng: number} | null>(null);
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
   const [selectedModule, setSelectedModule] = useState('geofence');
 
@@ -166,12 +167,23 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   }, [condo.id, selectedGeofenceId, toast, t]);
 
 
-  const centerMapOnAddress = useCallback(() => {
+  const centerMapOnAddress = useCallback(async () => {
     const map = mapRef.current;
-    if(!map || !condoAddressPosition) return;
-    map.setCenter(condoAddressPosition);
-    map.setZoom(17);
-  }, [condoAddressPosition]);
+    if (!map) return;
+  
+    const geoResult = await geocodeAddress({
+        street: `${condo.street}, ${condo.number}`, city: condo.city, state: condo.state, country: condo.country
+    });
+
+    if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
+        const location = geoResult.data[0].geometry.location;
+        setCondoPosition(location);
+        map.setCenter(location);
+        map.setZoom(17);
+    } else {
+        toast({ title: t('toast.errorTitle'), description: geoResult.message, variant: 'destructive' });
+    }
+  }, [condo, toast, t]);
 
 
   const getZoomForBounds = useCallback((bounds: google.maps.LatLngBounds, mapDim: { width: number, height: number }) => {
@@ -296,7 +308,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
 
         if ('getPath' in shape) {
-            const path = (shape as google.maps.Polygon).getPath();
             const handleChange = () => {
                 if (isDraggingRef.current || isRestoringRef.current) return;
                 const newGeometry = getGeometryFromShape(shape);
@@ -399,7 +410,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     mapInitialized.current = true;
     mapRef.current = map;
     await onDataNeedsRefresh();
-  }, [onDataNeedsRefresh]);
+    await centerMapOnAddress();
+  }, [onDataNeedsRefresh, centerMapOnAddress]);
 
     useEffect(() => {
         if (!isLoading && mapRef.current) {
@@ -480,7 +492,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                 <div className="grid grid-cols-1 md:grid-cols-3 h-[70vh]">
                     <div ref={mapContainerRef} className="col-span-1 md:col-span-2 relative p-1">
                         <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
-                            {isLoading && (
+                            {(isLoading || !condoPosition) && (
                                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
                                     <div className="flex items-center gap-2 text-muted-foreground">
                                         <Loader className="h-5 w-5 animate-spin" />
@@ -492,9 +504,9 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 <MapComponent mapId="follow-for-me-map">
                                     <MapRenderer 
                                         condo={condo}
-                                        initialPosition={initialPosition}
                                         onMapLoad={handleMapLoad}
                                         drawingManagerRef={drawingManagerRef}
+                                        condoPosition={condoPosition}
                                     />
                                 </MapComponent>
                             </MapContainer>
