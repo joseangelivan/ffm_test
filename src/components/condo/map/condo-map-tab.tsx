@@ -138,6 +138,16 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const canRedo = redoStack.length > 0;
   
   const isDraggingRef = useRef(false);
+  const isResizingRef = useRef(false);
+  
+  const updateHistory = useCallback((s: google.maps.MVCObject) => {
+    const newGeometry = getGeometryFromShape(s);
+    setUndoStack(prev => {
+        if (isEqual(newGeometry, prev[prev.length - 1])) return prev;
+        return [...prev, newGeometry];
+    });
+    setRedoStack([]);
+  }, []);
   
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -257,16 +267,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     useEffect(() => {
         const shape = activeShapeState?.shape;
         if (!shape || mode !== 'editing' || !mapRef.current) return;
-
-        const updateHistory = (s: google.maps.MVCObject) => {
-            const newGeometry = getGeometryFromShape(s);
-            setUndoStack(prev => {
-                if (isEqual(newGeometry, prev[prev.length - 1])) return prev;
-                return [...prev, newGeometry];
-            });
-            setRedoStack([]);
-        };
-
+        
         const listeners: google.maps.MapsEventListener[] = [];
         
         listeners.push(shape.addListener('dragstart', () => { isDraggingRef.current = true; }));
@@ -287,18 +288,23 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             }));
         }
         if ('getRadius' in shape) { // Circle
-             listeners.push(shape.addListener('radius_changed', () => {
-                if (!isDraggingRef.current) updateHistory(shape);
-             }));
-             listeners.push(shape.addListener('center_changed', () => {
-                if (!isDraggingRef.current) updateHistory(shape);
-             }));
+            // For circles, radius and center changes often fire together.
+            // We use a mouseup listener to capture the final state after a resize.
+            listeners.push(shape.addListener('mousedown', () => {
+                isResizingRef.current = true;
+            }));
+            listeners.push(shape.addListener('mouseup', () => {
+                if (isResizingRef.current) {
+                    updateHistory(shape);
+                }
+                isResizingRef.current = false;
+            }));
         }
         
         return () => {
             listeners.forEach(listener => listener.remove());
         };
-    }, [activeShapeState, mode]);
+    }, [activeShapeState, mode, updateHistory]);
   
   useEffect(() => {
     const map = mapRef.current;
