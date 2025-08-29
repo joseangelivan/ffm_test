@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -135,12 +135,12 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     router.push('/admin/login');
   };
 
-  const providerValue = {
+  const providerValue = useMemo(() => ({
     handleSetLocale,
     handleSetTheme,
     theme,
     condo: initialCondo,
-  };
+  }), [handleSetLocale, handleSetTheme, theme, initialCondo]);
 
   return (
     <CondoDashboardContext.Provider value={providerValue}>
