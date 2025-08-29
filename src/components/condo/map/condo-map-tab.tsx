@@ -259,65 +259,53 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const shape = activeShapeState?.shape;
         if (!shape || mode !== 'editing' || !mapRef.current) return;
 
+        const map = mapRef.current;
+        const listeners: google.maps.MapsEventListener[] = [];
+
         const updateHistory = () => {
             const newGeometry = getGeometryFromShape(shape);
+            if (isEqual(newGeometry, undoStack[undoStack.length - 1])) return;
             setUndoStack(prev => [...prev, newGeometry]);
             setRedoStack([]);
         };
 
-        const handleMouseDown = () => { isResizingRef.current = true; };
         const handleMouseUp = () => {
-            if (isResizingRef.current) {
+            if (isDraggingRef.current || isResizingRef.current) {
                 updateHistory();
-                isResizingRef.current = false;
             }
+            isDraggingRef.current = false;
+            isResizingRef.current = false;
         };
-
+        const mapMouseUpListener = map.addListener('mouseup', handleMouseUp);
+        
         const handleDragStart = () => { isDraggingRef.current = true; };
-        const handleDragEnd = () => {
-            if (isDraggingRef.current) {
-                updateHistory();
-                isDraggingRef.current = false;
-            }
-        };
+        const handleResizeStart = () => { isResizingRef.current = true; };
         
-        const map = mapRef.current;
-        const listeners: google.maps.MapsEventListener[] = [];
-        
-        // Listeners for resizing/vertex editing
-        const mouseUpListener = map.addListener('mouseup', handleMouseUp);
-        listeners.push(mouseUpListener);
+        listeners.push(shape.addListener('dragstart', handleDragStart));
 
         if ('getPath' in shape) { // Polygon
             const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(path.addListener('insert_at', handleMouseDown));
-            listeners.push(path.addListener('remove_at', handleMouseDown));
-            listeners.push(path.addListener('set_at', handleMouseDown));
+            listeners.push(path.addListener('insert_at', handleResizeStart));
+            listeners.push(path.addListener('remove_at', handleResizeStart));
+            listeners.push(path.addListener('set_at', handleResizeStart));
         }
         if ('getBounds' in shape) { // Rectangle
-            listeners.push(shape.addListener('bounds_changed', () => {
-                if(!isDraggingRef.current) isResizingRef.current = true;
+             listeners.push(shape.addListener('bounds_changed', () => {
+                if(!isDraggingRef.current) handleResizeStart();
             }));
         }
         if ('getRadius' in shape) { // Circle
-             listeners.push(shape.addListener('radius_changed', () => {
-                 if(!isDraggingRef.current) isResizingRef.current = true;
-             }));
+             listeners.push(shape.addListener('radius_changed', handleResizeStart));
              listeners.push(shape.addListener('center_changed', () => {
-                // This is for radius handle dragging which also changes center
-                 if(!isDraggingRef.current) isResizingRef.current = true;
+                if(!isDraggingRef.current) handleResizeStart();
              }));
         }
-
-        // Listeners for dragging the whole shape
-        listeners.push(shape.addListener('dragstart', handleDragStart));
-        listeners.push(shape.addListener('dragend', handleDragEnd));
-
+        
         return () => {
             listeners.forEach(listener => listener.remove());
-            google.maps.event.clearInstanceListeners(map);
+            mapMouseUpListener.remove();
         };
-    }, [activeShapeState, mode]);
+    }, [activeShapeState, mode, undoStack]);
   
   useEffect(() => {
     const map = mapRef.current;
@@ -405,7 +393,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         setUndoStack(prev => [...prev, nextState]);
         setRedoStack(currentStack);
     
-        if (activeShapeState?.shape) {
+        if (activeShapeState?.shape && nextState) {
             restoreShapeToGeometry(activeShapeState.shape, nextState);
         }
     };
