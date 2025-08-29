@@ -187,7 +187,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
             variant: 'destructive'
         });
     }
- }, [condo.street, condo.number, condo.city, condo.state, condo.country, setCondoPosition]);
+ }, [condo, setCondoPosition, t, toast]);
 
 
   const getZoomForBounds = useCallback((bounds: google.maps.LatLngBounds, mapDim: { width: number, height: number }) => {
@@ -418,8 +418,14 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
 
   useEffect(() => {
     if (isLoading) return;
-    centerMapOnAddress();
-  }, [isLoading, centerMapOnAddress]);
+    
+    // Prioritize fitting to default geofence, fallback to address.
+    if (defaultGeofenceId) {
+        applyZoomLevel();
+    } else {
+        centerMapOnAddress();
+    }
+}, [isLoading, defaultGeofenceId, applyZoomLevel, centerMapOnAddress]);
     
   const setHistoryStacks = (undo: any[], redo: any[]) => {
       setUndoStack(undo);
