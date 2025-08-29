@@ -543,7 +543,7 @@
         "manageDialog": {
             "menuTitle": "Gestionar Protocolo",
             "title": "Gerenciar Dispositivo: {name}",
-            "description": "Configura los parâmetros de comunicação para o dispositivo.",
+            "description": "Configura os parâmetros de comunicação para o dispositivo.",
             "protocol": "Protocolo de Comunicação",
             "selectProtocol": "Selecionar protocolo",
             "physicalDeviceId": "ID Físico do Dispositivo",
