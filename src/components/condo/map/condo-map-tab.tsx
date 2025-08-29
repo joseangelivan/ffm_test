@@ -181,14 +181,13 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
         map.setCenter(location);
         map.setZoom(17);
     } else {
-        // Show a non-blocking toast, but don't prevent the map from loading.
         toast({
             title: t('toast.errorTitle'),
             description: geoResult.message || 'Geocoding failed.',
             variant: 'destructive'
         });
     }
-  }, [condo, toast, t]);
+  }, [condo.street, condo.number, condo.city, condo.state, condo.country, setCondoPosition]);
 
 
   const getZoomForBounds = useCallback((bounds: google.maps.LatLngBounds, mapDim: { width: number, height: number }) => {
@@ -229,7 +228,6 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     }
     
     if (!map || !geofenceIdToFit) {
-        if(map) centerMapOnAddress();
         return;
     }
 
@@ -256,7 +254,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     }
     map.setCenter(bounds.getCenter());
 
-}, [mode, defaultGeofenceId, selectedGeofenceId, getZoomForBounds, fitLevel, centerMapOnAddress]);
+}, [mode, defaultGeofenceId, selectedGeofenceId, getZoomForBounds, fitLevel]);
 
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -415,14 +413,12 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     if (mapInitialized.current) return;
     mapInitialized.current = true;
     mapRef.current = map;
-    // Decouple data loading from geocoding. Always load the map.
     await onDataNeedsRefresh();
     setIsLoading(false);
   }, [onDataNeedsRefresh]);
 
     useEffect(() => {
         if (!isLoading && mapRef.current) {
-             // Attempt to center map once data is loaded and map is ready
             centerMapOnAddress();
             applyZoomLevel();
         }
