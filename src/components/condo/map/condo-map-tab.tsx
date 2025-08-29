@@ -133,7 +133,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const [undoStack, setUndoStack] = useState<any[]>([]);
   const [redoStack, setRedoStack] = useState<any[]>([]);
 
-  const canUndo = undoStack.length > 0;
+  const canUndo = undoStack.length > 1;
   const canRedo = redoStack.length > 0;
   
   const isDraggingRef = useRef(false);
@@ -374,12 +374,12 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }, [isLoading, applyZoomLevel]);
     
     const handleUndo = () => {
-        if (undoStack.length === 0) return;
+        if (!canUndo) return;
     
-        const currentState = undoStack[undoStack.length - 1];
-        setRedoStack(prev => [currentState, ...prev]);
-        
-        const prevState = undoStack.length > 1 ? undoStack[undoStack.length - 2] : activeShapeState?.originalGeometry;
+        const lastState = undoStack[undoStack.length - 1];
+        const prevState = undoStack[undoStack.length - 2];
+    
+        setRedoStack(prev => [lastState, ...prev]);
         setUndoStack(prev => prev.slice(0, -1));
     
         if (activeShapeState?.shape && prevState) {
@@ -388,7 +388,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     };
     
     const handleRedo = () => {
-        if (redoStack.length === 0) return;
+        if (!canRedo) return;
     
         const nextState = redoStack[0];
         setUndoStack(prev => [...prev, nextState]);
