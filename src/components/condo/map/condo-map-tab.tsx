@@ -137,6 +137,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const canRedo = redoStack.length > 0;
   
   const isDraggingRef = useRef(false);
+  const isEditingRef = useRef(false);
   
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -257,7 +258,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const newGeometry = getGeometryFromShape(shape);
     
     setUndoStack(prev => {
-        if (isEqual(prev[prev.length - 1], newGeometry)) {
+        const lastState = prev[prev.length - 1];
+        if (isEqual(lastState, newGeometry)) {
             return prev;
         }
         return [...prev, newGeometry];
@@ -269,6 +271,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing') return;
 
+    const handleMouseDown = () => { isEditingRef.current = true; };
     const handleDragStart = () => { isDraggingRef.current = true; };
     const handleDragEnd = () => {
         if (isDraggingRef.current) {
@@ -277,35 +280,29 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
     };
     
-    const handleEdit = () => {
-        if (!isDraggingRef.current) {
-            updateHistory(shape);
-        }
-    }
-
     const listeners: google.maps.MapsEventListener[] = [
+        google.maps.event.addListener(shape, 'mousedown', handleMouseDown),
         google.maps.event.addListener(shape, 'dragstart', handleDragStart),
         google.maps.event.addListener(shape, 'dragend', handleDragEnd),
     ];
-  
-    if ('getPath' in shape) { // Polygon
-      const path = (shape as google.maps.Polygon).getPath();
-      listeners.push(google.maps.event.addListener(path, 'set_at', handleEdit));
-      listeners.push(google.maps.event.addListener(path, 'insert_at', handleEdit));
-      listeners.push(google.maps.event.addListener(path, 'remove_at', handleEdit));
-    }
     
-    if ('getBounds' in shape) { // Rectangle
-        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', handleEdit));
-    }
-    
-    if('getRadius' in shape) { // Circle
-        listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleEdit));
-        listeners.push(google.maps.event.addListener(shape, 'center_changed', handleEdit));
+    // Add mouseup listener to the whole map to catch the end of any edit
+    const map = mapRef.current;
+    let mapMouseUpListener: google.maps.MapsEventListener | null = null;
+    if (map) {
+        mapMouseUpListener = google.maps.event.addListener(map, 'mouseup', () => {
+            if (isEditingRef.current && !isDraggingRef.current) {
+                updateHistory(shape);
+            }
+            isEditingRef.current = false;
+        });
     }
   
     return () => {
       listeners.forEach(listener => listener.remove());
+      if (mapMouseUpListener) {
+        mapMouseUpListener.remove();
+      }
     };
   }, [activeShapeState, mode, updateHistory]);
   
