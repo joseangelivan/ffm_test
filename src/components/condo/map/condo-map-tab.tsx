@@ -541,6 +541,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     setUndoStack={setUndoStack}
                                     setRedoStack={setRedoStack}
                                     mapRef={mapRef}
+                                    mapShapesRef={mapShapesRef}
                                 />
                             )}
                             {selectedModule === 'elements' && (

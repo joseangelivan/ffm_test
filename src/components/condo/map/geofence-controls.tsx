@@ -40,6 +40,7 @@ type GeofenceControlsProps = {
     condoId: string;
     geofences: DbGeofence[];
     onDataNeedsRefresh: (newSelectedId?: string) => void;
+    onShapeDrawn: (shape: google.maps.MVCObject | null) => void;
     selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
     defaultGeofenceId: string | null;
@@ -55,12 +56,14 @@ type GeofenceControlsProps = {
     setUndoStack: React.Dispatch<React.SetStateAction<any[]>>;
     setRedoStack: React.Dispatch<React.SetStateAction<any[]>>;
     mapRef: React.RefObject<google.maps.Map | null>;
+    mapShapesRef: React.RefObject<Map<string, google.maps.MVCObject>>;
 }
 
 export function GeofenceControls({
     condoId,
     geofences,
     onDataNeedsRefresh,
+    onShapeDrawn,
     selectedGeofenceId,
     setSelectedGeofenceId,
     defaultGeofenceId,
@@ -76,6 +79,7 @@ export function GeofenceControls({
     setUndoStack,
     setRedoStack,
     mapRef,
+    mapShapesRef,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -119,18 +123,12 @@ export function GeofenceControls({
             return;
         }
         
-        event.overlay.setMap(null);
-
+        event.overlay.setMap(null); // The main component will handle adding it to the map
+        onShapeDrawn(newShape);
         setMode('editing');
         setCurrentGeofenceName(currentGeofenceName || getNextGeofenceName());
-        setActiveShapeState({ id: `new-shape-${Date.now()}`, shape: newShape, originalGeometry: null });
-        
-        const newGeometry = getGeometryFromShape(newShape);
-        setUndoStack([newGeometry]);
-        setRedoStack([]);
-        
         setIsDrawing(false);
-    }, [drawingManager, getNextGeofenceName, setActiveShapeState, setUndoStack, setRedoStack, setMode, currentGeofenceName]);
+    }, [drawingManager, getNextGeofenceName, setMode, currentGeofenceName, onShapeDrawn]);
 
     useEffect(() => {
         if (!drawingManager) return;
@@ -147,9 +145,15 @@ export function GeofenceControls({
 
     const cancelCurrentAction = useCallback(() => {
         if (activeShapeState) {
-            const { shape } = activeShapeState;
+            const { shape, originalGeometry } = activeShapeState;
             if (shape) {
-                shape.setMap(null);
+                if (originalGeometry) {
+                    // If it was an existing shape, restore it and put it back in the main mapShapesRef
+                    restoreShapeToGeometry(shape, originalGeometry);
+                } else {
+                    // If it was a new shape, just remove it from the map
+                    shape.setMap(null);
+                }
             }
         }
         setActiveShapeState(null);
@@ -165,13 +169,13 @@ export function GeofenceControls({
     }, [activeShapeState, drawingManager, setUndoStack, setRedoStack, setActiveShapeState]);
       
     const startEditingSelected = useCallback(() => {
-        if (!selectedGeofenceId) return;
+        if (!selectedGeofenceId || !mapShapesRef.current) return;
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
+        const shapeToEdit = mapShapesRef.current.get(selectedGeofenceId);
         
-        if (!selectedGeofence) return;
+        if (!selectedGeofence || !shapeToEdit) return;
     
         cancelCurrentAction();
-        const shapeToEdit = createShapeFromGeometry(selectedGeofence.geometry);
         
         setMode('editing');
         setActiveShapeState({ id: selectedGeofenceId, shape: shapeToEdit, originalGeometry: selectedGeofence.geometry });
@@ -181,7 +185,7 @@ export function GeofenceControls({
         setRedoStack([]);
     
         setCurrentGeofenceName(selectedGeofence.name);
-    }, [selectedGeofenceId, geofences, cancelCurrentAction, setUndoStack, setRedoStack, setActiveShapeState, setMode]);
+    }, [selectedGeofenceId, geofences, cancelCurrentAction, setUndoStack, setRedoStack, setActiveShapeState, setMode, mapShapesRef]);
       
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.shape) return;
