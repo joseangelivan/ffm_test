@@ -269,53 +269,46 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   useEffect(() => {
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing') return;
-
+  
     const handleDragStart = () => { isDraggingRef.current = true; };
     const handleDragEnd = () => {
-        if (isDraggingRef.current) {
-            updateHistory(shape);
-        }
+      if (isDraggingRef.current) {
+        updateHistory(shape);
         isDraggingRef.current = false;
+      }
     };
-
+  
     const listeners: google.maps.MapsEventListener[] = [
-        google.maps.event.addListener(shape, 'dragstart', handleDragStart),
-        google.maps.event.addListener(shape, 'dragend', handleDragEnd),
+      google.maps.event.addListener(shape, 'dragstart', handleDragStart),
+      google.maps.event.addListener(shape, 'dragend', handleDragEnd),
     ];
-    
+  
     if ('getPath' in shape) { // Polygon
-        const path = (shape as google.maps.Polygon).getPath();
-        const vertexEvents = ['set_at', 'insert_at', 'remove_at'];
-        vertexEvents.forEach(eventName => {
-            listeners.push(google.maps.event.addListener(path, eventName, () => {
-                if (!isDraggingRef.current) {
-                    updateHistory(shape);
-                }
-            }));
-        });
-    } else if ('getBounds' in shape && !('getRadius' in shape)) { // Rectangle
-        listeners.push(google.maps.event.addListener(shape, 'bounds_changed', () => {
-            if (!isDraggingRef.current) {
-                updateHistory(shape);
-            }
+      const path = (shape as google.maps.Polygon).getPath();
+      const vertexEvents = ['set_at', 'insert_at', 'remove_at'];
+      vertexEvents.forEach(eventName => {
+        listeners.push(google.maps.event.addListener(path, eventName, () => {
+          if (!isDraggingRef.current) {
+            updateHistory(shape);
+          }
         }));
+      });
     } else if ('getRadius' in shape) { // Circle
-        const handleEditStart = () => { isEditingRef.current = true; };
-        const handleEditEnd = () => {
-            if (isEditingRef.current) {
-                updateHistory(shape);
-            }
-            isEditingRef.current = false;
-        };
-
-        listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleEditStart));
-        listeners.push(google.maps.event.addListener(shape, 'center_changed', handleEditStart));
-        
-        listeners.push(google.maps.event.addListener(shape, 'mouseup', handleEditEnd));
+      const handleEditStart = () => { isEditingRef.current = true; };
+      const handleEditEnd = () => {
+        if (isEditingRef.current) {
+          updateHistory(shape);
+          isEditingRef.current = false;
+        }
+      };
+  
+      // Listen to radius_changed to detect start, and mouseup to detect end
+      listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleEditStart));
+      listeners.push(google.maps.event.addListener(shape, 'mouseup', handleEditEnd));
     }
-    
+  
     return () => {
-        listeners.forEach(listener => listener.remove());
+      listeners.forEach(listener => listener.remove());
     };
   }, [activeShapeState, mode, updateHistory]);
   
@@ -387,15 +380,15 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     }, [isLoading, applyZoomLevel]);
     
     const handleUndo = () => {
-        if (undoStack.length <= 1) return;
+        if (undoStack.length === 0) return;
     
-        const lastState = undoStack[undoStack.length - 1];
-        setRedoStack(prev => [lastState, ...prev]);
+        const currentState = undoStack[undoStack.length - 1];
+        setRedoStack(prev => [currentState, ...prev]);
         
-        const prevState = undoStack[undoStack.length - 2];
+        const prevState = undoStack.length > 1 ? undoStack[undoStack.length - 2] : activeShapeState?.originalGeometry;
         setUndoStack(prev => prev.slice(0, -1));
     
-        if (activeShapeState?.shape) {
+        if (activeShapeState?.shape && prevState) {
           restoreShapeToGeometry(activeShapeState.shape, prevState);
         }
     };
