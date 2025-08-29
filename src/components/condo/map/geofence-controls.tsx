@@ -172,12 +172,12 @@ export function GeofenceControls({
     
         cancelCurrentAction();
         const shapeToEdit = createShapeFromGeometry(selectedGeofence.geometry);
-        const originalGeometry = getGeometryFromShape(shapeToEdit);
         
         setMode('editing');
-        setActiveShapeState({ id: selectedGeofenceId, shape: shapeToEdit, originalGeometry });
+        setActiveShapeState({ id: selectedGeofenceId, shape: shapeToEdit, originalGeometry: selectedGeofence.geometry });
         
-        setUndoStack([originalGeometry]);
+        const initialGeometry = getGeometryFromShape(shapeToEdit);
+        setUndoStack([initialGeometry]);
         setRedoStack([]);
     
         setCurrentGeofenceName(selectedGeofence.name);
