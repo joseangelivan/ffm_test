@@ -271,52 +271,48 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   useEffect(() => {
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing' || !mapRef.current) return;
-    
-    const handleDragEnd = () => {
-        if (!isRestoringRef.current) {
-            const newGeometry = getGeometryFromShape(shape);
-            handleHistoryUpdate(newGeometry);
-        }
-        isDraggingRef.current = false;
-    };
-    const handleDragStart = () => {
-        if (!isRestoringRef.current) {
-            isDraggingRef.current = true;
-        }
-    };
-    
-    const handleChange = () => {
-        if (isDraggingRef.current || isRestoringRef.current) return;
-        const newGeometry = getGeometryFromShape(shape);
-        debouncedHistoryUpdate(newGeometry);
-    };
 
-    const handleRadiusChange = debounce(() => {
-      if (isDraggingRef.current || isRestoringRef.current) return;
-      const newGeometry = getGeometryFromShape(shape);
-      handleHistoryUpdate(newGeometry);
-    }, 100);
+    const setupListeners = () => {
+        const handleDragStart = () => { isDraggingRef.current = true; };
+        const handleDragEnd = () => {
+            if (!isRestoringRef.current) {
+                const newGeometry = getGeometryFromShape(shape);
+                handleHistoryUpdate(newGeometry);
+            }
+            isDraggingRef.current = false;
+        };
+
+        const handleChange = () => {
+            if (isDraggingRef.current || isRestoringRef.current) return;
+            const newGeometry = getGeometryFromShape(shape);
+            debouncedHistoryUpdate(newGeometry);
+        };
+        
+        const listeners = [
+            shape.addListener('dragstart', handleDragStart),
+            shape.addListener('dragend', handleDragEnd),
+        ];
+
+        if ('getPath' in shape) {
+            const path = (shape as google.maps.Polygon).getPath();
+            listeners.push(path.addListener('set_at', handleChange));
+            listeners.push(path.addListener('insert_at', handleChange));
+            listeners.push(path.addListener('remove_at', handleChange));
+        }
+
+        if ('getBounds' in shape) {
+            listeners.push(shape.addListener('bounds_changed', handleChange));
+        }
+
+        if ('getRadius' in shape) {
+            listeners.push(shape.addListener('radius_changed', handleChange));
+        }
+        
+        return listeners;
+    };
     
-    const listeners = [
-      shape.addListener('dragstart', handleDragStart),
-      shape.addListener('dragend', handleDragEnd),
-    ];
-    
-    if ('getPath' in shape) {
-        const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(path.addListener('set_at', handleChange));
-        listeners.push(path.addListener('insert_at', handleChange));
-        listeners.push(path.addListener('remove_at', handleChange));
-    }
-    
-    if ('getBounds' in shape) {
-        listeners.push(shape.addListener('bounds_changed', handleChange));
-    }
-    
-    if ('getRadius' in shape) {
-        listeners.push(shape.addListener('radius_changed', handleRadiusChange));
-    }
-    
+    const listeners = setupListeners();
+
     return () => {
         listeners.forEach(listener => listener.remove());
         debouncedHistoryUpdate.cancel();
@@ -383,41 +379,37 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         }
     }, [isLoading, applyZoomLevel]);
     
-    const handleUndo = () => {
+  const setHistoryStacks = (undo: any[], redo: any[]) => {
+      setUndoStack(undo);
+      setRedoStack(redo);
+  };
+    
+  const handleUndo = () => {
       if (!canUndo) return;
 
       const newUndoStack = [...undoStack];
       const lastState = newUndoStack.pop();
       const prevState = newUndoStack[newUndoStack.length - 1];
 
-      if (lastState) {
-        setRedoStack(prev => [lastState, ...prev]);
-      }
-      
-      setUndoStack(newUndoStack);
-
-      if (activeShapeState?.shape && prevState) {
-        isRestoringRef.current = true;
-        restoreShapeToGeometry(activeShapeState.shape, prevState);
-        setTimeout(() => { isRestoringRef.current = false; }, 50);
+      if (lastState && activeShapeState?.shape && prevState) {
+          isRestoringRef.current = true;
+          restoreShapeToGeometry(activeShapeState.shape, prevState);
+          setHistoryStacks(newUndoStack, [lastState, ...redoStack]);
+          setTimeout(() => { isRestoringRef.current = false; }, 50);
       }
   };
 
   const handleRedo = () => {
       if (!canRedo) return;
-      
+
       const newRedoStack = [...redoStack];
       const nextState = newRedoStack.shift();
-
-      if (nextState) {
-        setUndoStack(prev => [...prev, nextState]);
-        setRedoStack(newRedoStack);
-
-        if (activeShapeState?.shape) {
+      
+      if (nextState && activeShapeState?.shape) {
           isRestoringRef.current = true;
           restoreShapeToGeometry(activeShapeState.shape, nextState);
+          setHistoryStacks([...undoStack, nextState], newRedoStack);
           setTimeout(() => { isRestoringRef.current = false; }, 50);
-        }
       }
   };
   
@@ -430,9 +422,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const newId = `new-shape-${Date.now()}`;
     mapShapesRef.current.set(newId, shape);
     setActiveShapeState({ id: newId, shape, originalGeometry: null });
-    setUndoStack([getGeometryFromShape(shape)]);
+    
+    const newGeometry = getGeometryFromShape(shape);
+    setUndoStack([newGeometry]);
     setRedoStack([]);
   };
+
+  const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
+  const handleZoomOut = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! - 1);
   
   return (
     <>
@@ -487,11 +484,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             </div>
                          )}
                         <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
-                            <Button onClick={() => mapRef.current?.setZoom(mapRef.current.getZoom()! + 1)} variant="ghost" size="icon" title="Zoom In">
+                            <Button onClick={handleZoomIn} variant="ghost" size="icon" title="Zoom In">
                                 <ZoomIn className="h-5 w-5" />
                             </Button>
                             <span className="text-xs font-bold w-6 text-center select-none">{zoomLevel}</span>
-                            <Button onClick={() => mapRef.current?.setZoom(mapRef.current.getZoom()! - 1)} variant="ghost" size="icon" title="Zoom Out">
+                            <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
                                 <ZoomOut className="h-5 w-5" />
                             </Button>
                             <Button onClick={applyZoomLevel} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')} disabled={(mode === 'editing' && !selectedGeofenceId && !defaultGeofenceId) || (mode === 'view' && !defaultGeofenceId)}>
