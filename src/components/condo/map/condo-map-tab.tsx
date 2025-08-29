@@ -138,7 +138,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const canRedo = redoStack.length > 0;
   
   const isDraggingRef = useRef(false);
-  const isResizingRef = useRef(false);
   
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -259,53 +258,47 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const shape = activeShapeState?.shape;
         if (!shape || mode !== 'editing' || !mapRef.current) return;
 
-        const map = mapRef.current;
-        const listeners: google.maps.MapsEventListener[] = [];
-
-        const updateHistory = () => {
-            const newGeometry = getGeometryFromShape(shape);
-            if (isEqual(newGeometry, undoStack[undoStack.length - 1])) return;
-            setUndoStack(prev => [...prev, newGeometry]);
+        const updateHistory = (s: google.maps.MVCObject) => {
+            const newGeometry = getGeometryFromShape(s);
+            setUndoStack(prev => {
+                if (isEqual(newGeometry, prev[prev.length - 1])) return prev;
+                return [...prev, newGeometry];
+            });
             setRedoStack([]);
         };
 
-        const handleMouseUp = () => {
-            if (isDraggingRef.current || isResizingRef.current) {
-                updateHistory();
-            }
+        const listeners: google.maps.MapsEventListener[] = [];
+        
+        listeners.push(shape.addListener('dragstart', () => { isDraggingRef.current = true; }));
+        listeners.push(shape.addListener('dragend', () => {
+            updateHistory(shape);
             isDraggingRef.current = false;
-            isResizingRef.current = false;
-        };
-        const mapMouseUpListener = map.addListener('mouseup', handleMouseUp);
-        
-        const handleDragStart = () => { isDraggingRef.current = true; };
-        const handleResizeStart = () => { isResizingRef.current = true; };
-        
-        listeners.push(shape.addListener('dragstart', handleDragStart));
+        }));
 
         if ('getPath' in shape) { // Polygon
             const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(path.addListener('insert_at', handleResizeStart));
-            listeners.push(path.addListener('remove_at', handleResizeStart));
-            listeners.push(path.addListener('set_at', handleResizeStart));
+            listeners.push(path.addListener('insert_at', () => updateHistory(shape)));
+            listeners.push(path.addListener('remove_at', () => updateHistory(shape)));
+            listeners.push(path.addListener('set_at', () => updateHistory(shape)));
         }
         if ('getBounds' in shape) { // Rectangle
              listeners.push(shape.addListener('bounds_changed', () => {
-                if(!isDraggingRef.current) handleResizeStart();
+                if (!isDraggingRef.current) updateHistory(shape);
             }));
         }
         if ('getRadius' in shape) { // Circle
-             listeners.push(shape.addListener('radius_changed', handleResizeStart));
+             listeners.push(shape.addListener('radius_changed', () => {
+                if (!isDraggingRef.current) updateHistory(shape);
+             }));
              listeners.push(shape.addListener('center_changed', () => {
-                if(!isDraggingRef.current) handleResizeStart();
+                if (!isDraggingRef.current) updateHistory(shape);
              }));
         }
         
         return () => {
             listeners.forEach(listener => listener.remove());
-            mapMouseUpListener.remove();
         };
-    }, [activeShapeState, mode, undoStack]);
+    }, [activeShapeState, mode]);
   
   useEffect(() => {
     const map = mapRef.current;
