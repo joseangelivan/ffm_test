@@ -138,13 +138,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const canRedo = redoStack.length > 0;
   
   const isDraggingRef = useRef(false);
+  const isResizingRef = useRef(false);
+  const isRestoringRef = useRef(false);
   
   const updateHistory = useCallback((shape: google.maps.MVCObject | null) => {
     if (!shape) return;
     const newGeometry = getGeometryFromShape(shape);
     
     setUndoStack(prev => {
-        // Prevent adding duplicates
         if (prev.length > 0 && isEqual(newGeometry, prev[prev.length - 1])) {
             return prev;
         }
@@ -265,40 +266,54 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
       if (currentZoom) setZoomLevel(currentZoom);
     });
     
+    const handleMouseDown = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (target && target.closest) {
+             const isResizeHandle = target.closest('img[src*="resize.png"]');
+             if(isResizeHandle) {
+                isResizingRef.current = true;
+             }
+        }
+    };
+    
+    const mapDiv = mapRef.current.getDiv();
+    mapDiv.addEventListener('mousedown', handleMouseDown, true);
+
     return () => { 
-        zoomListener.remove(); 
+        zoomListener.remove();
+        mapDiv.removeEventListener('mousedown', handleMouseDown, true);
     };
   }, []);
     
   
-    useEffect(() => {
-        const shape = activeShapeState?.shape;
-        if (!shape || mode !== 'editing' || !mapRef.current) return;
+  useEffect(() => {
+    const shape = activeShapeState?.shape;
+    if (!shape || mode !== 'editing' || !mapRef.current) return;
 
-        const listeners = [
-            shape.addListener('dragstart', () => { isDraggingRef.current = true; }),
-            shape.addListener('dragend', () => {
-                updateHistory(shape);
-                isDraggingRef.current = false;
-            }),
-        ];
-
-        if ('getPath' in shape) { // Polygon
-            const path = (shape as google.maps.Polygon).getPath();
-            listeners.push(path.addListener('set_at', () => { if(!isDraggingRef.current) updateHistory(shape); }));
-            listeners.push(path.addListener('insert_at', () => { if(!isDraggingRef.current) updateHistory(shape); }));
-            listeners.push(path.addListener('remove_at', () => { if(!isDraggingRef.current) updateHistory(shape); }));
-        } else if ('getBounds' in shape && !('getRadius' in shape)) { // Rectangle
-            listeners.push(shape.addListener('bounds_changed', () => { if(!isDraggingRef.current) updateHistory(shape); }));
-        } else if ('getRadius' in shape) { // Circle
-            listeners.push(shape.addListener('radius_changed', () => { if(!isDraggingRef.current) updateHistory(shape); }));
-            listeners.push(shape.addListener('center_changed', () => { if(!isDraggingRef.current) updateHistory(shape); }));
+    const handleMouseUp = () => {
+        if (isDraggingRef.current) {
+            updateHistory(shape);
         }
+        isDraggingRef.current = false;
         
-        return () => {
-            listeners.forEach(listener => listener.remove());
-        };
-    }, [activeShapeState, mode, updateHistory]);
+        if (isResizingRef.current) {
+            updateHistory(shape);
+        }
+        isResizingRef.current = false;
+    };
+    
+    window.addEventListener('mouseup', handleMouseUp);
+
+    const listeners = [
+        shape.addListener('dragstart', () => { isDraggingRef.current = true; }),
+        shape.addListener('dragend', handleMouseUp),
+    ];
+    
+    return () => {
+        listeners.forEach(listener => listener.remove());
+        window.removeEventListener('mouseup', handleMouseUp);
+    };
+}, [activeShapeState, mode, updateHistory]);
   
   useEffect(() => {
     const map = mapRef.current;
@@ -366,6 +381,8 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     
     const handleUndo = () => {
         if (!canUndo) return;
+        isRestoringRef.current = true;
+
         const currentStack = [...undoStack];
         const lastState = currentStack.pop();
         const prevState = currentStack[currentStack.length - 1];
@@ -376,10 +393,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         if (activeShapeState?.shape && prevState) {
           restoreShapeToGeometry(activeShapeState.shape, prevState);
         }
+
+        setTimeout(() => { isRestoringRef.current = false; }, 100);
     };
     
     const handleRedo = () => {
         if (!canRedo) return;
+        isRestoringRef.current = true;
         const currentStack = [...redoStack];
         const nextState = currentStack.shift();
         
@@ -389,6 +409,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         if (activeShapeState?.shape && nextState) {
             restoreShapeToGeometry(activeShapeState.shape, nextState);
         }
+        setTimeout(() => { isRestoringRef.current = false; }, 100);
     };
   
   return (
