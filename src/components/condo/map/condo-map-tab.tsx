@@ -138,7 +138,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
   const canRedo = redoStack.length > 0;
   
   const isDraggingRef = useRef(false);
-  const isResizingRef = useRef(false);
   
   const updateHistory = useCallback((shape: google.maps.MVCObject | null) => {
     if (!shape) return;
@@ -276,38 +275,28 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const shape = activeShapeState?.shape;
         if (!shape || mode !== 'editing' || !mapRef.current) return;
 
-        const handleMouseUp = () => {
-            if (isDraggingRef.current || isResizingRef.current) {
-                updateHistory(shape);
-            }
-            isDraggingRef.current = false;
-            isResizingRef.current = false;
-        };
-
         const listeners = [
             shape.addListener('dragstart', () => { isDraggingRef.current = true; }),
             shape.addListener('dragend', () => {
-                if (isDraggingRef.current) {
-                    updateHistory(shape);
-                }
+                updateHistory(shape);
                 isDraggingRef.current = false;
             }),
         ];
 
         if ('getPath' in shape) { // Polygon
             const path = (shape as google.maps.Polygon).getPath();
-            const mousedownListener = path.addListener('set_at', () => { isResizingRef.current = true; });
-            listeners.push(mousedownListener);
-        } else { // Rectangle and Circle
-             const mousedownListener = shape.addListener('mousedown', () => { isResizingRef.current = true; });
-             listeners.push(mousedownListener);
+            listeners.push(path.addListener('set_at', () => { if(!isDraggingRef.current) updateHistory(shape); }));
+            listeners.push(path.addListener('insert_at', () => { if(!isDraggingRef.current) updateHistory(shape); }));
+            listeners.push(path.addListener('remove_at', () => { if(!isDraggingRef.current) updateHistory(shape); }));
+        } else if ('getBounds' in shape && !('getRadius' in shape)) { // Rectangle
+            listeners.push(shape.addListener('bounds_changed', () => { if(!isDraggingRef.current) updateHistory(shape); }));
+        } else if ('getRadius' in shape) { // Circle
+            listeners.push(shape.addListener('radius_changed', () => { if(!isDraggingRef.current) updateHistory(shape); }));
+            listeners.push(shape.addListener('center_changed', () => { if(!isDraggingRef.current) updateHistory(shape); }));
         }
-
-        const mouseUpListener = window.addEventListener('mouseup', handleMouseUp);
         
         return () => {
             listeners.forEach(listener => listener.remove());
-            window.removeEventListener('mouseup', handleMouseUp);
         };
     }, [activeShapeState, mode, updateHistory]);
   
