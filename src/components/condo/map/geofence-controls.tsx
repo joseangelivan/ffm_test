@@ -210,10 +210,17 @@ export function GeofenceControls({
             toast({ title: t('toast.successTitle'), description: result.message });
             const newSelectedId = isNewShape ? result.data?.id : id;
             await onDataNeedsRefresh(newSelectedId);
+            // Clean up state after successful save and refresh
+            setMode('view');
+            setActiveShapeState(null);
+            setUndoStack([]);
+            setRedoStack([]);
+            setCurrentGeofenceName('');
+
         } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
         }
-    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast]);
+    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, setActiveShapeState, setMode, setUndoStack, setRedoStack]);
 
     const handleSaveGeofence = () => {
         startSavingTransition(async () => {

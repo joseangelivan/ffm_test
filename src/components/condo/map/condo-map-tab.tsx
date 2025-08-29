@@ -61,7 +61,7 @@ const DrawingManagerComponent = ({
   useEffect(() => {
     if (!drawingLibrary || !map) return;
 
-    const newDrawingManager = new drawingLibrary.DrawingManager({
+    const newDrawingManager = new drawingManager.DrawingManager({
       drawingControl: false,
       polygonOptions: { ...STYLE_FOCUSED_BLUE },
       rectangleOptions: { ...STYLE_FOCUSED_BLUE },
@@ -356,11 +356,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             mapShapesRef.current.delete(id);
         }
     });
-
-    // After a data refresh, clear the active editing state
-    if (activeShapeState && dbGeofences.some(g => g.id === activeShapeState.id)) {
-        setActiveShapeState(null);
-    }
     
     // Apply styles and visibility to all shapes
     mapShapesRef.current.forEach((shape, id) => {
