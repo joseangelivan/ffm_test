@@ -270,9 +270,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
     const shape = activeShapeState?.shape;
     if (!shape || mode !== 'editing') return;
 
-    const handleDragStart = () => {
-        isDraggingRef.current = true;
-    };
+    const handleDragStart = () => { isDraggingRef.current = true; };
     const handleDragEnd = () => {
         if (isDraggingRef.current) {
             updateHistory(shape);
@@ -290,7 +288,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         const vertexEvents = ['set_at', 'insert_at', 'remove_at'];
         vertexEvents.forEach(eventName => {
             listeners.push(google.maps.event.addListener(path, eventName, () => {
-                 if (!isDraggingRef.current) {
+                if (!isDraggingRef.current) {
                     updateHistory(shape);
                 }
             }));
@@ -311,10 +309,13 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
         };
 
         listeners.push(google.maps.event.addListener(shape, 'radius_changed', handleEditStart));
-        listeners.push(google.maps.event.addListener(shape, 'center_changed', handleEditStart));
-
-        listeners.push(google.maps.event.addListener(shape, 'dragend', handleEditEnd));
         listeners.push(google.maps.event.addListener(shape, 'mouseup', handleEditEnd));
+        
+        listeners.push(google.maps.event.addListener(shape, 'center_changed', () => {
+            if (!isDraggingRef.current) {
+                handleEditStart();
+            }
+        }));
     }
     
     return () => {
