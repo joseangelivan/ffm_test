@@ -4,6 +4,7 @@
 
 import React, { useEffect } from 'react';
 import { Map, AdvancedMarker as GoogleAdvancedMarker, useMap } from '@vis.gl/react-google-maps';
+import { getDefaultMapProvider } from '@/actions/map_providers';
 
 export interface Marker {
     id: string;
@@ -17,9 +18,18 @@ interface MapProps {
     defaultCenter?: { lat: number; lng: number; };
     markers?: Marker[];
     mapId?: string;
+    onMapLoad?: (map: google.maps.Map) => void;
 }
 
-const MapComponent: React.FC<MapProps> = ({ children, defaultCenter, markers, mapId }) => {
+const MapComponent: React.FC<MapProps> = ({ children, defaultCenter, markers, mapId, onMapLoad }) => {
+    const map = useMap();
+
+    useEffect(() => {
+        if (map && onMapLoad) {
+            onMapLoad(map);
+        }
+    }, [map, onMapLoad]);
+
     return (
         <Map
             defaultCenter={defaultCenter}
