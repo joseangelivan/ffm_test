@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import type { PoolClient } from 'pg';
@@ -31,6 +32,7 @@ const SCHEMA_FILES_ORDER = [
     'app_settings/base_schema.sql',
     'translation_services/base_schema.sql',
     'maps/base_schema.sql',
+    'geocoding_services/base_schema.sql',
 ];
 
 async function applySqlFile(client: PoolClient, filePath: string, log: string[]): Promise<void> {

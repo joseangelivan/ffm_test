@@ -41,6 +41,7 @@ import {
   Building,
   Server,
   User,
+  MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -54,6 +55,7 @@ import { ManageDomainDialog } from './manage-domain-dialog';
 import { ManageInterfaceDialog } from './manage-interface-dialog';
 import { ManageCatalogsDialog } from './manage-catalogs-dialog';
 import { ManageTranslatorDialog } from './manage-translator-dialog';
+import { ManageGeocodingDialog } from './manage-geocoding-dialog';
 
 
 export function LoadingOverlay({ text }: { text: string }) {
@@ -162,6 +164,7 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess }: Admi
                                             <SmtpConfigDialog />
                                             <ManageDomainDialog />
                                             <ManageTranslatorDialog />
+                                            <ManageGeocodingDialog />
                                         </DropdownMenuSubContent>
                                     </DropdownMenuPortal>
                                 </DropdownMenuSub>
