@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Loader,
@@ -120,11 +120,11 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
       )
   }
 
-  const providerValue = {
+  const providerValue = useMemo(() => ({
     handleSetLocale,
     handleSetTheme,
     theme,
-  };
+  }), [handleSetLocale, handleSetTheme, theme]);
 
   return (
     <AdminDashboardContext.Provider value={providerValue}>
