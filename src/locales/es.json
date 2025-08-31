@@ -351,6 +351,22 @@
         "setAsDefault": "Establecer como predeterminado",
         "test": "Probar Servicio",
         "deleteConfirmation": "Esto eliminará permanentemente el servicio de traducción \"{name}\"."
+      },
+      "geocoding": {
+        "title": "Configurar Geocodificación",
+        "description": "Gestiona los servicios de geocodificación para la aplicación.",
+        "noServices": "No hay servicios de geocodificación configurados.",
+        "addButton": "Agregar Servicio",
+        "editTitle": "Editar Servicio de Geocodificación",
+        "newTitle": "Nuevo Servicio de Geocodificación",
+        "formDescription": "Define un nombre y proporciona la configuración para la API del servicio.",
+        "nameLabel": "Nombre del Servicio",
+        "requestConfigLabel": "Configuración de la Solicitud (Request)",
+        "responseConfigLabel": "Configuración de la Respuesta (Response)",
+        "invalidJson": "El formato JSON no es válido.",
+        "setAsDefault": "Establecer como predeterminado",
+        "test": "Probar Servicio",
+        "deleteConfirmation": "Esto eliminará permanentemente el servicio de geocodificación \"{name}\"."
       }
     },
     "condoDashboard": {
@@ -631,3 +647,5 @@
         "logTitle": "Registro de Inicialización"
     }
   }
+
+    
