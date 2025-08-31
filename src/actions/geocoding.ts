@@ -67,21 +67,14 @@ async function geocodeWithService(
     const { base_url, parameters } = requestConfig;
     const urlParams = new URLSearchParams();
 
-    for (const [key, paramConfig] of Object.entries(parameters)) {
-        let rawValue: any;
-        let isOptional: boolean = true; 
+    for (const [key, value] of Object.entries(parameters)) {
+        let paramValue = value as string;
 
-        if (typeof paramConfig === 'object' && paramConfig !== null) {
-            rawValue = (paramConfig as any).value;
-            isOptional = (paramConfig as any).optional !== false;
-        } else {
-            rawValue = paramConfig;
+        if (paramValue === '$Address') {
+            paramValue = address;
         }
         
-        let paramValue = String(rawValue || '')
-            .replace(/\$Address/g, address);
-
-        // Replace API keys from environment variables
+        // Handle potential API keys from environment variables
         const apiKeyMatch = paramValue.match(/\$API_KEY_([A-Z0-9_]+)/);
         if (apiKeyMatch) {
             const envVarName = apiKeyMatch[1];
@@ -94,9 +87,7 @@ async function geocodeWithService(
             }
         }
         
-        if (paramValue || !isOptional) {
-            urlParams.append(key, paramValue);
-        }
+        urlParams.append(key, paramValue);
     }
     
     const finalUrl = `${base_url}?${urlParams.toString()}`;
@@ -111,7 +102,12 @@ async function geocodeWithService(
             throw new Error(`La API respondió con el estado: ${response.status}. Body: ${responseText}`);
         }
 
-        const responseData = JSON.parse(responseText);
+        let responseData: any;
+        try {
+            responseData = JSON.parse(responseText);
+        } catch (e) {
+             throw new Error(`La respuesta de la API no es un JSON válido. Body: ${responseText}`);
+        }
         
         const latPath = responseConfig.lat;
         const lonPath = responseConfig.lon;
