@@ -299,10 +299,24 @@ async function translateText(
         let paramValue = String(rawValue || '');
             
         if (typeof paramValue === 'string') {
-            paramValue = paramValue
-                .replace(/\$InputText/g, text)
-                .replace(/\$InputLang/g, inputLang)
-                .replace(/\$OutputLang/g, outputLang);
+            if (paramValue.startsWith('$')) {
+                const varName = paramValue.substring(1);
+                 if (varName === 'InputText') {
+                    paramValue = text;
+                } else if (varName === 'InputLang') {
+                    paramValue = inputLang;
+                } else if (varName === 'OutputLang') {
+                    paramValue = outputLang;
+                } else {
+                    const envValue = process.env[varName];
+                    if (envValue) {
+                        paramValue = envValue;
+                    } else {
+                        console.warn(`Translation Service: Environment variable "${varName}" not found.`);
+                        paramValue = '';
+                    }
+                }
+            }
         }
 
         if (!paramValue && isOptional) {
