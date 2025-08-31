@@ -81,17 +81,14 @@ async function geocodeWithService(
         if (typeof paramValue === 'string') {
             if (paramValue === '$Address') {
                  paramValue = address;
-            }
-            
-            const apiKeyMatch = paramValue.match(/\$API_KEY_([A-Z0-9_]+)/);
-            if (apiKeyMatch) {
-                const envVarName = apiKeyMatch[1];
+            } else if (paramValue.startsWith('$API_KEY_')) {
+                const envVarName = paramValue.substring(9);
                 const apiKey = process.env[envVarName];
                 if (apiKey) {
-                    paramValue = paramValue.replace(apiKeyMatch[0], apiKey);
+                    paramValue = apiKey;
                 } else {
                      console.warn(`Geocoding Service: API Key variable "${envVarName}" not found in environment.`);
-                     paramValue = paramValue.replace(apiKeyMatch[0], ''); // Replace with empty if not found
+                     paramValue = ''; // Replace with empty if not found
                 }
             }
         }
