@@ -367,6 +367,23 @@
         "setAsDefault": "Establecer como predeterminado",
         "test": "Probar Servicio",
         "deleteConfirmation": "Esto eliminará permanentemente el servicio de geocodificación \"{name}\"."
+      },
+      "maps": {
+        "title": "Configurar Mapas",
+        "description": "Gestiona los proveedores de mapas para la aplicación.",
+        "noServices": "No hay proveedores de mapas configurados.",
+        "addButton": "Agregar Proveedor",
+        "editTitle": "Editar Proveedor de Mapas",
+        "newTitle": "Nuevo Proveedor de Mapas",
+        "formDescription": "Define un nombre y proporciona la configuración para el proveedor.",
+        "nameLabel": "Nombre del Proveedor",
+        "typeLabel": "Tipo de Proveedor",
+        "configLabel": "Configuración (JSON)",
+        "invalidJson": "El formato JSON no es válido.",
+        "setAsDefault": "Establecer como predeterminado",
+        "test": "Probar Proveedor",
+        "deleteConfirmation": "Esto eliminará permanentemente el proveedor de mapas \"{name}\".",
+        "providerNotSupported": "El proveedor de mapas '{type}' no es compatible actualmente."
       }
     },
     "condoDashboard": {
@@ -647,5 +664,7 @@
         "logTitle": "Registro de Inicialización"
     }
   }
+
+    
 
     
