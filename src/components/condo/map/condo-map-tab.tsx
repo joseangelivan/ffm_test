@@ -169,8 +169,6 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
   const centerMapOnAddress = useCallback(async () => {
     const map = mapRef.current;
     if (!map) return;
-
-    const fullAddress = [condo.street, condo.number, condo.city, condo.state, condo.country].filter(Boolean).join(', ');
   
     const geoResult = await geocodeAddress({
         street: `${condo.street}, ${condo.number}`, city: condo.city, state: condo.state, country: condo.country
@@ -218,7 +216,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     return Math.min(latZoom, lngZoom, ZOOM_MAX);
   }, []);
   
-  const applyZoomLevel = useCallback(() => {
+const applyZoomLevel = useCallback(() => {
     const map = mapRef.current;
     let geofenceIdToFit: string | null;
 
@@ -229,11 +227,21 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     }
     
     if (!map || !geofenceIdToFit) {
+        if(map && condoPosition) {
+             map.setCenter(condoPosition);
+             map.setZoom(17);
+        }
         return;
     }
 
     const geofenceShape = mapShapesRef.current.get(geofenceIdToFit);
-    if (!geofenceShape) return;
+    if (!geofenceShape) {
+        if(map && condoPosition) {
+             map.setCenter(condoPosition);
+             map.setZoom(17);
+        }
+        return;
+    };
     
     const bounds = getBoundsOfShape(geofenceShape);
     const mapDiv = map.getDiv();
@@ -255,7 +263,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     }
     map.setCenter(bounds.getCenter());
 
-}, [mode, defaultGeofenceId, selectedGeofenceId, getZoomForBounds, fitLevel]);
+}, [mode, defaultGeofenceId, selectedGeofenceId, getZoomForBounds, fitLevel, condoPosition]);
 
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -268,9 +276,9 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
     });
     
     return () => { 
-        zoomListener.remove();
+        if (zoomListener) zoomListener.remove();
     };
-  }, []);
+  }, [mapRef.current]);
     
   const handleHistoryUpdate = useCallback((newGeometry: any) => {
     setUndoStack(prev => {
@@ -420,13 +428,12 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
   useEffect(() => {
     if (isLoading) return;
     
-    // Prioritize fitting to default geofence, fallback to address.
     if (defaultGeofenceId) {
         applyZoomLevel();
     } else {
         centerMapOnAddress();
     }
-}, [isLoading, defaultGeofenceId, applyZoomLevel, centerMapOnAddress]);
+}, [isLoading, defaultGeofenceId, applyZoomLevel, centerMapOnAddress, showAllGeofences]);
     
   const setHistoryStacks = (undo: any[], redo: any[]) => {
       setUndoStack(undo);
