@@ -34,7 +34,7 @@ export function Toaster() {
       {toasts.map(function ({ id, title, description, action, copyable, ...props }) {
         return (
           <Toast key={id} {...props}>
-            <div className="grid gap-1">
+            <div className="grid gap-1 overflow-hidden">
               {title && <ToastTitle>{title}</ToastTitle>}
               {description && (
                 <ToastDescription>{description}</ToastDescription>
@@ -46,7 +46,7 @@ export function Toaster() {
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-8 w-8 group-[.destructive]:border-destructive-foreground/20 group-[.destructive]:hover:bg-destructive-foreground/10 group-[.destructive]:text-destructive-foreground"
+                      className="h-8 w-8 shrink-0 group-[.destructive]:border-destructive-foreground/20 group-[.destructive]:hover:bg-destructive-foreground/10 group-[.destructive]:text-destructive-foreground"
                       onClick={() => handleCopy(title, description)}
                     >
                       <Copy className="h-4 w-4" />
