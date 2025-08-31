@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { Toaster } from '@/components/ui/toaster';
 import { LocaleProvider } from '@/lib/i18n.tsx';
 import { getSession } from '@/lib/auth';
 import { getSettings, getActiveTheme } from '@/actions/admin';
@@ -66,7 +65,6 @@ export default async function RootLayout({
       <body className={cn("h-full font-body antialiased", inter.variable)}>
         <LocaleProvider initialLocale={initialLocale}>
           {children}
-          <Toaster />
         </LocaleProvider>
       </body>
     </html>

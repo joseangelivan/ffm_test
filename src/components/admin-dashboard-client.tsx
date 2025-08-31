@@ -22,6 +22,7 @@ import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
 import { type Theme } from '@/actions/themes';
 import { AdminDashboardContext } from '@/contexts/admin-dashboard-context';
+import { Toaster } from './ui/toaster';
 
 export function useAdminDashboard() {
     const context = useContext(AdminDashboardContext);
@@ -128,6 +129,7 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
 
   return (
     <AdminDashboardContext.Provider value={providerValue}>
+        <Toaster />
         <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
         <AdminHeader 
             session={session}

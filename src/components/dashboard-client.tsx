@@ -88,6 +88,7 @@ import type { SessionPayload } from '@/lib/session';
 import type { Device } from '@/actions/devices';
 import { handleLogoutAction } from '@/lib/session';
 import MapContainer from './map/map-container';
+import { Toaster } from './ui/toaster';
 
 const deviceIcons: { [key: string]: React.ReactNode } = {
   'Teléfono Inteligente': <Smartphone className="h-5 w-5 text-muted-foreground" />,
@@ -349,6 +350,7 @@ export default function DashboardClient({
 
   return (
     <div className="flex min-h-screen w-full flex-col">
+      <Toaster />
       <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-50">
         <Logo />
         <div className="flex-1">

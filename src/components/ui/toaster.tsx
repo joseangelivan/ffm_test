@@ -42,7 +42,7 @@ export function Toaster() {
             </div>
             <div className="flex items-center gap-2">
               {action}
-              {copyable && (
+              {copyable === true && (
                   <Button
                     variant="outline"
                     size="icon"
