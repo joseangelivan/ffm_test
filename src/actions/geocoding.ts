@@ -78,19 +78,17 @@ async function geocodeWithService(
         
         let paramValue = String(rawValue || '');
             
-        if (typeof paramValue === 'string') {
-            if (paramValue.startsWith('$')) {
-                const varName = paramValue.substring(1);
-                if (varName === 'Address') {
-                    paramValue = address;
+        if (typeof paramValue === 'string' && paramValue.startsWith('$')) {
+            const varName = paramValue.substring(1);
+            if (varName === 'Address') {
+                paramValue = address;
+            } else {
+                const envValue = process.env[varName];
+                 if (envValue) {
+                    paramValue = envValue;
                 } else {
-                    const envValue = process.env[varName];
-                     if (envValue) {
-                        paramValue = envValue;
-                    } else {
-                        console.warn(`Geocoding Service: Environment variable "${varName}" not found.`);
-                        paramValue = '';
-                    }
+                    console.warn(`Geocoding Service: Environment variable "${varName}" not found.`);
+                    paramValue = '';
                 }
             }
         }
@@ -106,15 +104,16 @@ async function geocodeWithService(
         const response = await fetch(finalUrl, { cache: 'no-store' });
         const responseText = await response.text();
         
-        if (!response.ok) {
-            throw new Error(`La API respondió con el estado: ${response.status}. Body: ${responseText}`);
-        }
-
         let responseData: any;
         try {
             responseData = JSON.parse(responseText);
         } catch (e) {
-             throw new Error(`La respuesta de la API no es un JSON válido. Body: ${responseText}`);
+            // Not all error responses are JSON, so we handle this gracefully
+            responseData = responseText;
+        }
+
+        if (!response.ok) {
+            throw new Error(`La API respondió con el estado: ${response.status}. Body: ${responseText}`);
         }
         
         const latPath = responseConfig.lat;
@@ -383,56 +382,25 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
     const { street, city, state, country } = request;
     const fullAddress = [street, city, state, country].filter(Boolean).join(', ');
 
-    // First try with Google as a fallback/default
-    const googleApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    
-    if (googleApiKey) {
-        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${googleApiKey}`;
-        try {
-            const response = await fetch(url);
-            const data = await response.json();
-            if (data.status === 'OK' && data.results.length > 0) {
-                 const results: GeocodeResult[] = data.results.map((result: any) => {
-                    const components: any = {};
-                    result.address_components.forEach((component: any) => {
-                      const type = component.types[0];
-                      components[type] = component.long_name;
-                    });
-                    return {
-                      street_number: components.street_number || null,
-                      route: components.route || '',
-                      locality: components.locality || '',
-                      administrative_area_level_1: components.administrative_area_level_1 || '',
-                      country: components.country || '',
-                      formatted_address: result.formatted_address,
-                      geometry: result.geometry,
-                    };
-                }).filter((r: GeocodeResult) => r.route);
-                 return { success: true, message: 'Direcciones encontradas con Google.', data: results };
-            }
-        } catch (error) {
-            console.error("Google Geocoding API call failed", error);
-        }
-    }
-    
-    // If Google fails or no key, try the default dynamic service
     let client;
     try {
         const pool = await getDbPool();
         if (!pool) return { success: false, message: 'Error de servidor al geocodificar la dirección.' };
         client = await pool.connect();
         const result = await client.query('SELECT * FROM geocoding_services WHERE is_default = TRUE LIMIT 1');
+        
         if (result.rows.length === 0) {
             return { success: false, message: "No se ha configurado ningún servicio de geocodificación predeterminado." };
         }
         
         const defaultService = result.rows[0];
         const serviceResult = await geocodeWithService(defaultService, fullAddress);
+
         if (serviceResult.success && serviceResult.data) {
              const customResult: GeocodeResult = {
                 geometry: { location: { lat: serviceResult.data.lat, lng: serviceResult.data.lon } },
                 formatted_address: fullAddress,
-                street_number: null,
+                street_number: null, // Dynamic services might not parse this level of detail
                 route: street,
                 locality: city,
                 administrative_area_level_1: state,
