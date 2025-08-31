@@ -102,12 +102,10 @@ async function geocodeWithService(
     }
     
     const finalUrl = `${base_url}?${urlParams.toString()}`;
-    console.log("Geocoding URL:", finalUrl);
 
     try {
         const response = await fetch(finalUrl, { cache: 'no-store' });
         const responseText = await response.text();
-        console.log("Geocoding Response:", responseText);
         
         if (!response.ok) {
             throw new Error(`La API respondió con el estado: ${response.status}. Body: ${responseText}`);
@@ -253,7 +251,7 @@ export async function updateGeocodingService(prevState: any, formData: FormData)
             [name, combinedConfig, id]
         );
 
-        if (result.rows.length === 0) {
+        if (result.rowCount === 0) {
             return { success: false, message: "Servicio no encontrado." };
         }
         
