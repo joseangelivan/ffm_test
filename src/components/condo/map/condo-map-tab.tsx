@@ -166,7 +166,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
   }, [condo.id, selectedGeofenceId, toast, t]);
 
 
-  const centerMapOnAddress = useCallback(async () => {
+  const centerMapOnAddress = useCallback(async (zoom: boolean = true) => {
     const map = mapRef.current;
     if (!map) return;
   
@@ -178,7 +178,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
         const location = geoResult.data[0].geometry.location;
         setCondoPosition(location);
         map.setCenter(location);
-        map.setZoom(17);
+        if (zoom) map.setZoom(17);
     } else {
         toast({
             title: t('toast.errorTitle'),
@@ -258,15 +258,11 @@ const applyZoomLevel = useCallback(() => {
     if (fitLevel === '2') finalZoom = calculatedZoom > 0 ? calculatedZoom - 1 : 0;
     if (fitLevel === '3') finalZoom = calculatedZoom > 1 ? calculatedZoom - 2 : 1;
     
-    if (map.getZoom() !== finalZoom) {
-        map.setZoom(finalZoom);
-    }
-    map.setCenter(bounds.getCenter());
+    map.fitBounds(bounds, 0);
+    map.setZoom(finalZoom);
 
 }, [mode, defaultGeofenceId, selectedGeofenceId, getZoomForBounds, fitLevel, condoPosition]);
 
-
-  const mapContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -278,7 +274,7 @@ const applyZoomLevel = useCallback(() => {
     return () => { 
         if (zoomListener) zoomListener.remove();
     };
-  }, [mapRef.current]);
+  }, []);
     
   const handleHistoryUpdate = useCallback((newGeometry: any) => {
     setUndoStack(prev => {
@@ -423,17 +419,14 @@ const applyZoomLevel = useCallback(() => {
     mapInitialized.current = true;
     mapRef.current = map;
     await onDataNeedsRefresh();
-  }, [onDataNeedsRefresh]);
-
-  useEffect(() => {
-    if (isLoading) return;
     
-    if (defaultGeofenceId) {
-        applyZoomLevel();
+    const geofenceToCenter = dbGeofences.find(g => g.is_default);
+    if (geofenceToCenter) {
+      applyZoomLevel();
     } else {
-        centerMapOnAddress();
+      await centerMapOnAddress();
     }
-}, [isLoading, defaultGeofenceId, applyZoomLevel, centerMapOnAddress, showAllGeofences]);
+  }, [onDataNeedsRefresh, dbGeofences, applyZoomLevel, centerMapOnAddress]);
     
   const setHistoryStacks = (undo: any[], redo: any[]) => {
       setUndoStack(undo);
@@ -498,7 +491,7 @@ const applyZoomLevel = useCallback(() => {
                  <div className="text-right">
                     <h3 className="font-semibold">{condo.name}</h3>
                     <p className="text-xs text-muted-foreground">{condo.address}</p>
-                    <Button onClick={centerMapOnAddress} variant="link" size="sm" className="p-0 h-auto">
+                    <Button onClick={() => centerMapOnAddress(true)} variant="link" size="sm" className="p-0 h-auto">
                         <Locate className="h-3 w-3 mr-1" />
                         {t('condoDashboard.map.recenterOnAddress')}
                     </Button>
@@ -506,7 +499,7 @@ const applyZoomLevel = useCallback(() => {
             </CardHeader>
             <CardContent className="p-0">
                 <div className="grid grid-cols-1 md:grid-cols-3 h-[70vh]">
-                    <div ref={mapContainerRef} className="col-span-1 md:col-span-2 relative p-1">
+                    <div className="col-span-1 md:col-span-2 relative p-1">
                         <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
                             {isLoading && (
                                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
@@ -628,7 +621,7 @@ const applyZoomLevel = useCallback(() => {
                 }
             }}
             isGeofenceAvailable={!!defaultGeofenceId}
-            onCenterAddress={centerMapOnAddress}
+            onCenterAddress={() => centerMapOnAddress(true)}
         />
     </>
   );
