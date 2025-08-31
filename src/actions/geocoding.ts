@@ -68,22 +68,23 @@ async function geocodeWithService(
     const urlParams = new URLSearchParams();
 
     for (const [key, value] of Object.entries(parameters)) {
-        let paramValue = value as string;
+        let paramValue = value as any;
 
         if (paramValue === '$Address') {
             paramValue = address;
         }
         
-        // Handle potential API keys from environment variables
-        const apiKeyMatch = paramValue.match(/\$API_KEY_([A-Z0-9_]+)/);
-        if (apiKeyMatch) {
-            const envVarName = apiKeyMatch[1];
-            const apiKey = process.env[envVarName];
-            if (apiKey) {
-                paramValue = paramValue.replace(apiKeyMatch[0], apiKey);
-            } else {
-                 console.warn(`Geocoding Service: API Key variable "${envVarName}" not found in environment.`);
-                 paramValue = paramValue.replace(apiKeyMatch[0], ''); // Replace with empty if not found
+        if (typeof paramValue === 'string') {
+            const apiKeyMatch = paramValue.match(/\$API_KEY_([A-Z0-9_]+)/);
+            if (apiKeyMatch) {
+                const envVarName = apiKeyMatch[1];
+                const apiKey = process.env[envVarName];
+                if (apiKey) {
+                    paramValue = paramValue.replace(apiKeyMatch[0], apiKey);
+                } else {
+                     console.warn(`Geocoding Service: API Key variable "${envVarName}" not found in environment.`);
+                     paramValue = paramValue.replace(apiKeyMatch[0], ''); // Replace with empty if not found
+                }
             }
         }
         
@@ -430,5 +431,3 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
         if (client) client.release();
     }
 }
-
-    

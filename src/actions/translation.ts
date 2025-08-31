@@ -56,6 +56,7 @@ async function runAndSaveLanguageTest(service: TranslationService) {
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return;
         client = await pool.connect();
         await client.query(
             'UPDATE translation_services SET supported_languages = $1, updated_at = NOW() WHERE id = $2',
@@ -74,6 +75,7 @@ export async function getTranslationServices(): Promise<TranslationService[]> {
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return [];
         client = await pool.connect();
         const result = await client.query('SELECT * FROM translation_services ORDER BY created_at ASC');
         return result.rows;
@@ -112,6 +114,7 @@ export async function createTranslationService(prevState: any, formData: FormDat
     let newService: TranslationService | null = null;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         
         await client.query('BEGIN');
@@ -173,6 +176,7 @@ export async function updateTranslationService(prevState: any, formData: FormDat
     let updatedService: TranslationService | null = null;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         const result = await client.query(
             'UPDATE translation_services SET name = $1, config_json = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
@@ -203,6 +207,7 @@ export async function deleteTranslationService(id: string): Promise<ActionState>
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         await client.query('DELETE FROM translation_services WHERE id = $1', [id]);
         return { success: true, message: 'Servicio de traducción eliminado con éxito.' };
@@ -220,6 +225,7 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         await client.query('BEGIN');
         await client.query('UPDATE translation_services SET is_default = FALSE');
@@ -290,10 +296,14 @@ async function translateText(
             rawValue = paramConfig;
         }
         
-        const paramValue = String(rawValue || '')
-            .replace(/\$InputText/g, text)
-            .replace(/\$InputLang/g, inputLang)
-            .replace(/\$OutputLang/g, outputLang);
+        let paramValue = String(rawValue || '');
+            
+        if (typeof paramValue === 'string') {
+            paramValue = paramValue
+                .replace(/\$InputText/g, text)
+                .replace(/\$InputLang/g, inputLang)
+                .replace(/\$OutputLang/g, outputLang);
+        }
 
         if (!paramValue && isOptional) {
             continue;
@@ -350,6 +360,7 @@ export async function testTranslationService(id: string): Promise<ActionState> {
     let service: TranslationService | null = null;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         const result = await client.query('SELECT * FROM translation_services WHERE id = $1', [id]);
         
@@ -373,6 +384,7 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         
         // Re-fetch the service to get the updated supported languages
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         const updatedResult = await client.query('SELECT supported_languages FROM translation_services WHERE id = $1', [id]);
         const totalLanguagesResult = await client.query('SELECT COUNT(*) FROM languages');
@@ -407,6 +419,7 @@ export async function translateTextAction(data: {
   let client;
   try {
     const pool = await getDbPool();
+    if (!pool) return { success: false, message: 'Error del servidor.' };
     client = await pool.connect();
     const result = await client.query('SELECT * FROM translation_services WHERE is_default = TRUE');
     
