@@ -67,14 +67,22 @@ async function geocodeWithService(
     const { base_url, parameters } = requestConfig;
     const urlParams = new URLSearchParams();
 
-    for (const [key, value] of Object.entries(parameters)) {
-        let paramValue = value as any;
+    for (const [key, paramConfig] of Object.entries(parameters)) {
+        let rawValue: any;
 
-        if (paramValue === '$Address') {
-            paramValue = address;
+        if (typeof paramConfig === 'object' && paramConfig !== null) {
+            rawValue = (paramConfig as any).value;
+        } else {
+            rawValue = paramConfig;
         }
         
+        let paramValue = String(rawValue || '');
+            
         if (typeof paramValue === 'string') {
+            if (paramValue === '$Address') {
+                 paramValue = address;
+            }
+            
             const apiKeyMatch = paramValue.match(/\$API_KEY_([A-Z0-9_]+)/);
             if (apiKeyMatch) {
                 const envVarName = apiKeyMatch[1];
@@ -88,7 +96,9 @@ async function geocodeWithService(
             }
         }
         
-        urlParams.append(key, paramValue);
+        if (paramValue) {
+            urlParams.append(key, paramValue);
+        }
     }
     
     const finalUrl = `${base_url}?${urlParams.toString()}`;
@@ -344,7 +354,7 @@ export async function testGeocodingService(id: string): Promise<ActionState> {
             } catch {
                 responseString = String(result.debug.response);
             }
-            detailedError += `\nURL: ${result.debug.url || 'No disponible'}\nRespuesta: ${responseString}`;
+            detailedError += `\nURL: ${result.debug.url || 'No disponible'}\nRespuesta: ${responseString || 'No disponible'}`;
         }
         return { success: false, message: detailedError };
     }

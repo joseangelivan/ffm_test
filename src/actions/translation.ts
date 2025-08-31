@@ -309,7 +309,7 @@ async function translateText(
             continue;
         }
         
-        if (paramValue || !isOptional) {
+        if (paramValue) {
             urlParams.append(key, paramValue);
         }
     }
