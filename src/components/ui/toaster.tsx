@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useToast, toast as toastFn } from "@/hooks/use-toast"
@@ -30,7 +31,7 @@ export function Toaster() {
 
   return (
     <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
+      {toasts.map(function ({ id, title, description, action, copyable, ...props }) {
         return (
           <Toast key={id} {...props}>
             <div className="grid gap-1">
@@ -41,7 +42,7 @@ export function Toaster() {
             </div>
             <div className="flex items-center gap-2">
               {action}
-              {props.variant === "destructive" && (
+              {copyable && (
                   <Button
                     variant="outline"
                     size="icon"

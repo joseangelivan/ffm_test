@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useActionState, useTransition } from 'react';
@@ -258,7 +259,13 @@ export function ManageGeocodingDialog() {
           if (result.success) {
               toast({ title: t('toast.successTitle'), description: result.message, duration: 9000 });
           } else {
-              toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', duration: 9000 });
+              toast({ 
+                title: t('toast.errorTitle'), 
+                description: result.message, 
+                variant: 'destructive',
+                copyable: true,
+                duration: 15000 
+              });
           }
           setTestingId(null);
       });
