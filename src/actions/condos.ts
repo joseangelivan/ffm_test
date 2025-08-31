@@ -60,7 +60,8 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
                 condo.street,
                 condo.number,
                 condo.city,
-                condo.state
+                condo.state,
+                condo.country
             ].filter(Boolean).join(', ');
 
             return {
@@ -101,7 +102,8 @@ export async function getCondominioById(id: string): Promise<ActionState<Condomi
         const addressParts = [
             `${condoData.street || ''} ${condoData.number || ''}`.trim(),
             condoData.city,
-            condoData.state
+            condoData.state,
+            condoData.country
         ].filter(Boolean);
 
         const fullCondo: Condominio = {
@@ -244,5 +246,3 @@ export async function deleteCondominio(id: string): Promise<ActionState<null>> {
         if (client) client.release();
     }
 }
-
-    
