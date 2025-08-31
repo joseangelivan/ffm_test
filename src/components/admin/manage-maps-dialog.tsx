@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useActionState, useTransition } from 'react';
@@ -54,10 +55,30 @@ import { LoadingOverlay } from './admin-header';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 
-function ServiceFormFields({ service, onCancel }: { service: MapProvider | null, onCancel: () => void}) {
-    const { pending } = useFormStatus();
-    const isEditMode = !!service;
+function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpen: boolean, onOpenChange: (open: boolean) => void, service: MapProvider | null, onSuccess: () => void }) {
     const { t } = useLocale();
+    const { toast } = useToast();
+    const isEditMode = !!service;
+    const formAction = isEditMode ? updateMapProvider : createMapProvider;
+    
+    const onFormSuccessCallback = useCallback(() => {
+        onSuccess();
+    }, [onSuccess]);
+
+    const handleAction = async (prevState: any, formData: FormData) => {
+        const result = await formAction(prevState, formData);
+        if (result?.success === false) {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+        }
+        if (result?.success === true) {
+            toast({ title: t('toast.successTitle'), description: result.message });
+            onFormSuccessCallback();
+        }
+        return result;
+    }
+    
+    const [state, dispatch] = useActionState(handleAction, undefined);
+    const { pending } = useFormStatus();
 
     const getInitialJson = (config: any) => {
         if (!config) return '';
@@ -90,85 +111,56 @@ function ServiceFormFields({ service, onCancel }: { service: MapProvider | null,
     };
     
     return (
-        <div className={cn("relative transition-opacity", pending && "opacity-50")}>
-            {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating')} />}
-            <DialogHeader>
-                <DialogTitle>{isEditMode ? t('adminDashboard.maps.editTitle') : t('adminDashboard.maps.newTitle')}</DialogTitle>
-                <DialogDescription>{t('adminDashboard.maps.formDescription')}</DialogDescription>
-            </DialogHeader>
-            <input type="hidden" name="id" value={service?.id || ''} />
-
-            <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                    <Label htmlFor="name">{t('adminDashboard.maps.nameLabel')}</Label>
-                    <Input id="name" name="name" defaultValue={service?.name} placeholder="Google Maps" required disabled={pending}/>
-                </div>
-                 <div className="grid gap-2">
-                    <Label htmlFor="provider_type">{t('adminDashboard.maps.typeLabel')}</Label>
-                    <Select name="provider_type" defaultValue={service?.provider_type || 'google'} disabled={pending}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar tipo"/>
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="google">Google Maps</SelectItem>
-                            <SelectItem value="leaflet" disabled>Leaflet (OpenStreetMap)</SelectItem>
-                            <SelectItem value="mapbox" disabled>Mapbox</SelectItem>
-                             <SelectItem value="openlayers" disabled>OpenLayers</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="config">{t('adminDashboard.maps.configLabel')}</Label>
-                    <Textarea 
-                        id="config"
-                        name="config"
-                        value={config}
-                        onChange={handleJsonChange}
-                        placeholder='{ "apiKey": "$ENV_VAR_NAME", "mapId": "YOUR_MAP_ID" }' 
-                        required 
-                        disabled={pending}
-                        className={cn("min-h-[150px] font-mono text-xs", !isJsonValid && "border-destructive focus-visible:ring-destructive")}
-                    />
-                    {!isJsonValid && <p className="text-sm text-destructive">{t('adminDashboard.maps.invalidJson')}</p>}
-                </div>
-            </div>
-            <DialogFooter>
-                <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
-                <Button type="submit" disabled={pending || !isJsonValid}>{isEditMode ? t('common.saveChanges') : t('common.create')}</Button>
-            </DialogFooter>
-        </div>
-    )
-}
-
-function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpen: boolean, onOpenChange: (open: boolean) => void, service: MapProvider | null, onSuccess: () => void }) {
-    const { t } = useLocale();
-    const { toast } = useToast();
-    const isEditMode = !!service;
-    const formAction = isEditMode ? updateMapProvider : createMapProvider;
-    
-    const onFormSuccessCallback = useCallback(() => {
-        onSuccess();
-    }, [onSuccess]);
-
-    const handleAction = async (prevState: any, formData: FormData) => {
-        const result = await formAction(prevState, formData);
-        if (result?.success === false) {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
-        }
-        if (result?.success === true) {
-            toast({ title: t('toast.successTitle'), description: result.message });
-            onFormSuccessCallback();
-        }
-        return result;
-    }
-    
-    const [state, dispatch] = useActionState(handleAction, undefined);
-    
-    return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
                 <form action={dispatch}>
-                    <ServiceFormFields service={service} onCancel={() => onOpenChange(false)} />
+                    <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+                        {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating')} />}
+                        <DialogHeader>
+                            <DialogTitle>{isEditMode ? t('adminDashboard.maps.editTitle') : t('adminDashboard.maps.newTitle')}</DialogTitle>
+                            <DialogDescription>{t('adminDashboard.maps.formDescription')}</DialogDescription>
+                        </DialogHeader>
+                        <input type="hidden" name="id" value={service?.id || ''} />
+
+                        <div className="grid gap-4 py-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="name">{t('adminDashboard.maps.nameLabel')}</Label>
+                                <Input id="name" name="name" defaultValue={service?.name} placeholder="Google Maps" required disabled={pending}/>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="provider_type">{t('adminDashboard.maps.typeLabel')}</Label>
+                                <Select name="provider_type" defaultValue={service?.provider_type || 'google'} disabled={pending}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccionar tipo"/>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="google">Google Maps</SelectItem>
+                                        <SelectItem value="leaflet" disabled>Leaflet (OpenStreetMap)</SelectItem>
+                                        <SelectItem value="mapbox" disabled>Mapbox</SelectItem>
+                                        <SelectItem value="openlayers" disabled>OpenLayers</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="config">{t('adminDashboard.maps.configLabel')}</Label>
+                                <Textarea 
+                                    id="config"
+                                    name="config"
+                                    value={config}
+                                    onChange={handleJsonChange}
+                                    placeholder='{ "apiKey": "$ENV_VAR_NAME", "mapId": "YOUR_MAP_ID" }' 
+                                    required 
+                                    disabled={pending}
+                                    className={cn("min-h-[150px] font-mono text-xs", !isJsonValid && "border-destructive focus-visible:ring-destructive")}
+                                />
+                                {!isJsonValid && <p className="text-sm text-destructive">{t('adminDashboard.maps.invalidJson')}</p>}
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>{t('common.cancel')}</Button>
+                            <Button type="submit" disabled={pending || !isJsonValid}>{isEditMode ? t('common.saveChanges') : t('common.create')}</Button>
+                        </DialogFooter>
+                    </div>
                 </form>
             </DialogContent>
         </Dialog>
