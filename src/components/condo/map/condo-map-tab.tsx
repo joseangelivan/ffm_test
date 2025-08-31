@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -509,16 +510,14 @@ const applyZoomLevel = useCallback(() => {
                                     </div>
                                 </div>
                             )}
-                            <MapContainer>
-                                <MapComponent mapId="follow-for-me-map">
-                                    <MapRenderer 
-                                        condo={condo}
-                                        onMapLoad={handleMapLoad}
-                                        drawingManagerRef={drawingManagerRef}
-                                        condoPosition={condoPosition}
-                                    />
-                                </MapComponent>
-                            </MapContainer>
+                            <MapComponent config={{}} onMapLoad={handleMapLoad}>
+                                <MapRenderer 
+                                    condo={condo}
+                                    onMapLoad={handleMapLoad}
+                                    drawingManagerRef={drawingManagerRef}
+                                    condoPosition={condoPosition}
+                                />
+                            </MapComponent>
                         </div>
                          {activeShapeState && (canUndo || canRedo) && (
                             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">

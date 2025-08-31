@@ -1,10 +1,8 @@
 
-
 "use client";
 
-import React, { useEffect } from 'react';
-import { Map, AdvancedMarker as GoogleAdvancedMarker, useMap } from '@vis.gl/react-google-maps';
-import { getDefaultMapProvider } from '@/actions/map_providers';
+import React from 'react';
+import { Map, AdvancedMarker as GoogleAdvancedMarker } from '@vis.gl/react-google-maps';
 
 export interface Marker {
     id: string;
@@ -13,31 +11,28 @@ export interface Marker {
     isActive?: boolean;
 }
 
-interface MapProps {
+interface MapComponentProps {
     children?: React.ReactNode;
     defaultCenter?: { lat: number; lng: number; };
     markers?: Marker[];
-    mapId?: string;
+    config: {
+        apiKey: string;
+        mapId?: string;
+    }
     onMapLoad?: (map: google.maps.Map) => void;
 }
 
-const MapComponent: React.FC<MapProps> = ({ children, defaultCenter, markers, mapId, onMapLoad }) => {
-    const map = useMap();
-
-    useEffect(() => {
-        if (map && onMapLoad) {
-            onMapLoad(map);
-        }
-    }, [map, onMapLoad]);
-
+const MapComponent: React.FC<MapComponentProps> = ({ children, defaultCenter, markers, config, onMapLoad }) => {
+    
     return (
         <Map
             defaultCenter={defaultCenter}
             defaultZoom={15}
             gestureHandling={'greedy'}
             disableDefaultUI={true}
-            mapId={mapId}
+            mapId={config.mapId}
             style={{ width: '100%', height: '100%' }}
+            onLoad={e => onMapLoad && onMapLoad(e.map)}
         >
             {markers && markers.map(marker => (
                 <GoogleAdvancedMarker

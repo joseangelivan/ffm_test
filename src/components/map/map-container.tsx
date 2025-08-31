@@ -1,25 +1,28 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { getDefaultMapProvider, type MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { Loader } from 'lucide-react';
-import { getAppSetting } from '@/actions/settings';
+import MapComponent from '@/components/map'; // Assuming this is the Google Maps implementation
 
 type MapContainerProps = {
     children: React.ReactNode;
 }
 
-const GoogleMapsProvider: React.FC<MapContainerProps & { config: any }> = ({ children, config }) => {
+const GoogleMapsProviderWrapper: React.FC<{ config: any, children: React.ReactNode }> = ({ config, children }) => {
     const { toast } = useToast();
     const { t } = useLocale();
-    
-    let apiKey = config?.apiKey;
+
+    let apiKey = config?.api_config?.parameters?.apiKey;
     if (typeof apiKey === 'string' && apiKey.startsWith('$')) {
         apiKey = process.env[apiKey.substring(1)] || '';
+        if (!apiKey) {
+             console.error(`Environment variable ${config.api_config.parameters.apiKey} not found.`);
+        }
     }
 
     const handleApiError = (error: { name: string, message: string, cause: any }) => {
@@ -51,7 +54,7 @@ const GoogleMapsProvider: React.FC<MapContainerProps & { config: any }> = ({ chi
             onLoad={() => console.log('Maps API loaded.')}
             onError={(e) => handleApiError(e)}
         >
-            {children}
+            {React.cloneElement(children as React.ReactElement, { config: config.api_config.parameters })}
         </APIProvider>
     );
 };
@@ -65,9 +68,15 @@ const MapContainer: React.FC<MapContainerProps> = ({ children }) => {
     useEffect(() => {
         const fetchProvider = async () => {
             setIsLoading(true);
-            const defaultProvider = await getDefaultMapProvider();
-            setProvider(defaultProvider);
-            setIsLoading(false);
+            try {
+                const defaultProvider = await getDefaultMapProvider();
+                setProvider(defaultProvider);
+            } catch (error) {
+                console.error("Failed to fetch map provider:", error);
+                setProvider(null);
+            } finally {
+                setIsLoading(false);
+            }
         };
         fetchProvider();
     }, []);
@@ -93,10 +102,17 @@ const MapContainer: React.FC<MapContainerProps> = ({ children }) => {
 
     switch(provider.provider_type) {
         case 'google':
-            return <GoogleMapsProvider config={provider.config_json}>{children}</GoogleMapsProvider>;
-        // Add cases for other providers here in the future
+            // The children already contain the MapComponent, we just need to wrap it with the provider
+            return (
+                 <GoogleMapsProviderWrapper config={provider.config_json}>
+                    {children}
+                 </GoogleMapsProviderWrapper>
+            );
+        
+        // --- Future providers would be added here ---
         // case 'leaflet':
-        //    return <LeafletProvider>{children}</LeafletProvider>;
+        //    return <LeafletProvider config={provider.config_json}>{children}</LeafletProvider>;
+        
         default:
              return (
                 <div className="flex items-center justify-center h-full bg-muted">

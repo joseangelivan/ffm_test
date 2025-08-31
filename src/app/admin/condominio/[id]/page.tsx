@@ -1,4 +1,5 @@
 
+
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 
@@ -61,5 +62,3 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
     </Suspense>
   );
 }
-
-    
