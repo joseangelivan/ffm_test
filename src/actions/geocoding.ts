@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -78,7 +79,7 @@ async function geocodeWithService(
         }
         
         let paramValue = String(rawValue || '')
-            .replace(/\$Address/g, encodeURIComponent(address));
+            .replace(/\$Address/g, address);
 
         // Replace API keys from environment variables
         const apiKeyMatch = paramValue.match(/\$API_KEY_([A-Z0-9_]+)/);
@@ -368,9 +369,6 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
 
     // First try with Google as a fallback/default
     const googleApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!googleApiKey) {
-        return { success: false, message: "Server configuration error: Geocoding API Key is missing." };
-    }
     
     if (googleApiKey) {
         const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${googleApiKey}`;
@@ -436,3 +434,5 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
         if (client) client.release();
     }
 }
+
+    
