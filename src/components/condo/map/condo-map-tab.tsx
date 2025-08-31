@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -170,6 +169,8 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
   const centerMapOnAddress = useCallback(async () => {
     const map = mapRef.current;
     if (!map) return;
+
+    const fullAddress = [condo.street, condo.number, condo.city, condo.state, condo.country].filter(Boolean).join(', ');
   
     const geoResult = await geocodeAddress({
         street: `${condo.street}, ${condo.number}`, city: condo.city, state: condo.state, country: condo.country
