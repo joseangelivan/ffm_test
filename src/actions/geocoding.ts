@@ -3,7 +3,6 @@
 
 import { z } from 'zod';
 import { getDbPool } from '@/lib/db';
-import { getNestedValue } from '@/lib/utils';
 
 export type GeocodingService = {
     id: string;
@@ -27,6 +26,20 @@ const ServiceSchema = z.object({
         try { JSON.parse(val); return true; } catch (e) { return false; }
     }, { message: "La configuración de respuesta debe ser un JSON válido."}),
 });
+
+// Self-contained helper function to avoid import issues on server actions.
+function getNestedValue(obj: any, path: string): any {
+  if (!path) return undefined;
+  const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
+  let result = obj;
+  for (const key of keys) {
+    if (result === null || result === undefined) {
+      return undefined;
+    }
+    result = result[key];
+  }
+  return result;
+}
 
 async function geocodeWithService(
     service: GeocodingService,
@@ -339,6 +352,10 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
 
     // First try with Google as a fallback/default
     const googleApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!googleApiKey) {
+        return { success: false, message: "Server configuration error: Geocoding API Key is missing." };
+    }
+    
     if (googleApiKey) {
         const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${googleApiKey}`;
         try {

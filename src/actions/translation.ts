@@ -235,23 +235,18 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
     }
 }
 
+// Self-contained helper function to avoid import issues on server actions.
 function getNestedValue(obj: any, path: string): any {
-  const conditionalMatch = path.match(/^(.*)\{(.*)\}$/);
-  
-  if (conditionalMatch) {
-    const [_, basePath, condition] = conditionalMatch;
-    const value = basePath ? basePath.replace(/\[(\d+)\]/g, '.$1').split('.').reduce((o, k) => (o || {})[k], obj) : obj;
-    
-    try {
-      const ternario = condition.replace(/"/g, "'");
-      const expresion = `return ${ternario.replace(/value/g, JSON.stringify(value))}`;
-      return new Function('value', expresion)(value);
-    } catch {
-      return value;
+  if (!path) return undefined;
+  const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
+  let result = obj;
+  for (const key of keys) {
+    if (result === null || result === undefined) {
+      return undefined;
     }
+    result = result[key];
   }
-  
-  return path.replace(/\[(\d+)\]/g, '.$1').split('.').reduce((o, k) => (o || {})[k], obj);
+  return result;
 }
 
 async function translateText(
