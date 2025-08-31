@@ -45,7 +45,7 @@ function getNestedValue(obj: any, path: string): any {
 async function geocodeWithService(
     service: GeocodingService,
     address: string
-): Promise<{ success: boolean; data?: {lat: number, lon: number}; error?: string, debug?: { url: string, response: any } }> {
+): Promise<{ success: boolean; data?: {lat: number, lon: number}; error?: string, debug?: { url: string, response?: any } }> {
     let config: any;
     if (typeof service.config_json === 'string') {
         try {
@@ -131,7 +131,11 @@ async function geocodeWithService(
         }
 
     } catch (apiError: any) {
-        return { success: false, error: `Error al conectar con la API de geocodificación: ${apiError.message}` };
+        return { 
+            success: false, 
+            error: `Error al conectar con la API de geocodificación: ${apiError.message}`,
+            debug: { url: finalUrl }
+        };
     }
 }
 
@@ -332,7 +336,15 @@ export async function testGeocodingService(id: string): Promise<ActionState> {
     } else {
         let detailedError = `Prueba fallida. Error: ${result.error}`;
         if (result.debug) {
-            detailedError += `\nURL: ${result.debug.url}\nRespuesta: ${JSON.stringify(result.debug.response, null, 2)}`;
+            let responseString = '';
+            try {
+                responseString = typeof result.debug.response === 'string' 
+                    ? result.debug.response 
+                    : JSON.stringify(result.debug.response, null, 2);
+            } catch {
+                responseString = String(result.debug.response);
+            }
+            detailedError += `\nURL: ${result.debug.url || 'No disponible'}\nRespuesta: ${responseString}`;
         }
         return { success: false, message: detailedError };
     }
