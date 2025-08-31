@@ -238,6 +238,7 @@ export async function setTranslationServiceAsDefault(id: string): Promise<Action
 // Self-contained helper function to avoid import issues on server actions.
 function getNestedValue(obj: any, path: string): any {
   if (!path) return undefined;
+  // This regex allows for array access like 'results[0].geometry' and simple paths like '0.lat'
   const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
   let result = obj;
   for (const key of keys) {
