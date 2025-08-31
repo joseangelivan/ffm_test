@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useActionState, useTransition } from 'react';
+import React, { useState, useEffect, useCallback, useActionState, useTransition, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
   Dialog,
@@ -89,6 +89,7 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
         }
     };
     
+    const nameRef = useRef<HTMLInputElement>(null);
     const [config, setConfig] = useState(
         isEditMode ? getInitialJson(service.config_json) : ''
     );
@@ -110,6 +111,20 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
         }
     };
     
+    const handleProviderTypeChange = (value: string) => {
+        if (nameRef.current && !isEditMode) {
+            // Find label from options
+            const providerLabels: {[key: string]: string} = {
+                'google': 'Google Maps',
+                'mapbox': 'Mapbox',
+                'leaflet': 'Leaflet (OpenStreetMap)',
+                'openlayers': 'OpenLayers',
+                'maplibre': 'MapLibre GL'
+            };
+            nameRef.current.value = providerLabels[value] || value;
+        }
+    }
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
@@ -124,22 +139,23 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
 
                         <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="name">{t('adminDashboard.maps.nameLabel')}</Label>
-                                <Input id="name" name="name" defaultValue={service?.name} placeholder="Google Maps" required disabled={pending}/>
-                            </div>
-                            <div className="grid gap-2">
                                 <Label htmlFor="provider_type">{t('adminDashboard.maps.typeLabel')}</Label>
-                                <Select name="provider_type" defaultValue={service?.provider_type || 'google'} disabled={pending}>
+                                <Select name="provider_type" defaultValue={service?.provider_type} onValueChange={handleProviderTypeChange} required disabled={pending}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Seleccionar tipo"/>
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="google">Google Maps</SelectItem>
-                                        <SelectItem value="leaflet" disabled>Leaflet (OpenStreetMap)</SelectItem>
-                                        <SelectItem value="mapbox" disabled>Mapbox</SelectItem>
-                                        <SelectItem value="openlayers" disabled>OpenLayers</SelectItem>
+                                        <SelectItem value="leaflet">Leaflet (OpenStreetMap)</SelectItem>
+                                        <SelectItem value="mapbox">Mapbox</SelectItem>
+                                        <SelectItem value="openlayers">OpenLayers</SelectItem>
+                                        <SelectItem value="maplibre">MapLibre GL</SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="name">{t('adminDashboard.maps.nameLabel')}</Label>
+                                <Input ref={nameRef} id="name" name="name" defaultValue={service?.name} placeholder="Google Maps" required disabled={pending}/>
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="config">{t('adminDashboard.maps.configLabel')}</Label>
@@ -148,7 +164,7 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
                                     name="config"
                                     value={config}
                                     onChange={handleJsonChange}
-                                    placeholder='{ "apiKey": "$ENV_VAR_NAME", "mapId": "YOUR_MAP_ID" }' 
+                                    placeholder='{ "api_config": { ... }, "ui_config": { ... } }' 
                                     required 
                                     disabled={pending}
                                     className={cn("min-h-[150px] font-mono text-xs", !isJsonValid && "border-destructive focus-visible:ring-destructive")}

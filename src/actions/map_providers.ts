@@ -20,7 +20,7 @@ type ActionState<T = null> = {
 
 const ServiceSchema = z.object({
     name: z.string().min(1, "El nombre es obligatorio."),
-    provider_type: z.enum(['google', 'leaflet', 'mapbox', 'openlayers']),
+    provider_type: z.string().min(1, "El tipo de proveedor es obligatorio."),
     config: z.string().refine((val) => {
         try { JSON.parse(val); return true; } catch (e) { return false; }
     }, { message: "La configuración debe ser un JSON válido."}),
@@ -53,7 +53,7 @@ export async function getDefaultMapProvider(): Promise<MapProvider | null> {
             return result.rows[0];
         }
         // Fallback to any provider if no default is set
-        const fallbackResult = await client.query('SELECT * FROM map_providers LIMIT 1');
+        const fallbackResult = await client.query('SELECT * FROM map_providers ORDER BY created_at ASC LIMIT 1');
         return fallbackResult.rows.length > 0 ? fallbackResult.rows[0] : null;
 
     } catch (error) {
