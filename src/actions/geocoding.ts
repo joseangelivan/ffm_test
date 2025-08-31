@@ -137,6 +137,7 @@ export async function getGeocodingServices(): Promise<GeocodingService[]> {
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return [];
         client = await pool.connect();
         const result = await client.query('SELECT * FROM geocoding_services ORDER BY created_at ASC');
         return result.rows;
@@ -174,6 +175,7 @@ export async function createGeocodingService(prevState: any, formData: FormData)
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         
         await client.query('BEGIN');
@@ -227,6 +229,7 @@ export async function updateGeocodingService(prevState: any, formData: FormData)
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         const result = await client.query(
             'UPDATE geocoding_services SET name = $1, config_json = $2, updated_at = NOW() WHERE id = $3',
@@ -252,6 +255,7 @@ export async function deleteGeocodingService(id: string): Promise<ActionState> {
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         await client.query('DELETE FROM geocoding_services WHERE id = $1', [id]);
         return { success: true, message: 'Servicio de geocodificación eliminado con éxito.' };
@@ -269,6 +273,7 @@ export async function setGeocodingServiceAsDefault(id: string): Promise<ActionSt
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         await client.query('BEGIN');
         await client.query('UPDATE geocoding_services SET is_default = FALSE');
@@ -293,6 +298,7 @@ export async function testGeocodingService(id: string): Promise<ActionState> {
     let service: GeocodingService | null = null;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: "Error al leer la configuración de la base de datos." };
         client = await pool.connect();
         const result = await client.query('SELECT * FROM geocoding_services WHERE id = $1', [id]);
         
@@ -390,6 +396,7 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error de servidor al geocodificar la dirección.' };
         client = await pool.connect();
         const result = await client.query('SELECT * FROM geocoding_services WHERE is_default = TRUE LIMIT 1');
         if (result.rows.length === 0) {
@@ -420,3 +427,5 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
         if (client) client.release();
     }
 }
+
+    

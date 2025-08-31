@@ -60,6 +60,10 @@ async function ensureAdminSettingsExist(adminId: string) {
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) {
+            console.error("Database connection failed in ensureAdminSettingsExist.");
+            return;
+        }
         client = await pool.connect();
         
         // First, check if the admin actually exists in the admins table
@@ -88,6 +92,7 @@ export async function getSettings(session: SessionPayload | null): Promise<UserS
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return null; // Graceful exit
         client = await pool.connect();
         
         const tableName = `admin_settings`;
@@ -125,6 +130,7 @@ export async function updateSettings(settings: Partial<UserSettings>, session: S
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false }; // Graceful exit
         client = await pool.connect();
 
         const tableName = `admin_settings`;
@@ -179,6 +185,7 @@ export async function checkAdminEmail(prevState: any, formData: FormData): Promi
     let admin;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: "toast.adminLogin.serverError" };
         client = await pool.connect();
         const result = await client.query('SELECT a.*, s.secret IS NOT NULL as has_totp FROM admins a LEFT JOIN admin_totp_secrets s ON a.id = s.admin_id WHERE a.email = $1', [email]);
         
@@ -211,6 +218,7 @@ export async function authenticateAdmin(prevState: any, formData: FormData): Pro
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: "toast.adminLogin.serverError" };
         client = await pool.connect();
 
         const email = formData.get('email') as string;
@@ -275,6 +283,7 @@ export async function handleFirstLogin(prevState: any, formData: FormData): Prom
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: "toast.adminLogin.serverError" };
         client = await pool.connect();
         
         const adminResult = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
@@ -350,6 +359,7 @@ export async function createAdmin(prevState: ActionState | undefined, formData: 
         }
         
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: "toast.adminLogin.serverError" };
         client = await pool.connect();
         
         await client.query('BEGIN');
@@ -407,6 +417,7 @@ export async function getAdmins(): Promise<{admins?: Admin[], error?: string}> {
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { error: "Error del servidor al obtener administradores." };
         client = await pool.connect();
         const result = await client.query('SELECT id, name, email, can_create_admins, created_at FROM admins ORDER BY name');
         return { admins: result.rows };
@@ -440,6 +451,7 @@ export async function updateAdmin(prevState: ActionState | undefined, formData: 
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: "toast.adminLogin.serverError" };
         client = await pool.connect();
 
         const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1 AND id != $2', [email, id]);
@@ -474,6 +486,7 @@ export async function deleteAdmin(id: string): Promise<ActionState> {
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: "toast.adminLogin.serverError" };
         client = await pool.connect();
         const result = await client.query('DELETE FROM admins WHERE id = $1', [id]);
         
@@ -506,6 +519,7 @@ export async function requestEmailChange(newEmail: string): Promise<ActionState>
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: "Error del servidor al enviar el PIN." };
         client = await pool.connect();
 
         const existingAdmin = await client.query('SELECT id FROM admins WHERE email = $1 AND id != $2', [newEmail, session.id]);
@@ -547,6 +561,7 @@ export async function verifyAdminEmailChangePin(newEmail: string, pin: string): 
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: "Error del servidor." };
         client = await pool.connect();
         
         const pinResult = await client.query(
@@ -581,6 +596,7 @@ export async function updateAdminAccount(prevState: any, formData: FormData): Pr
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: "Error del servidor." };
         client = await pool.connect();
 
         const adminResult = await client.query('SELECT * FROM admins WHERE id = $1', [session.id]);
@@ -657,6 +673,7 @@ export async function verifySessionIntegrity(session: SessionPayload): Promise<b
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return false;
         client = await pool.connect();
         
         const result = await client.query('SELECT name, email, can_create_admins FROM admins WHERE id = $1', [session.id]);
@@ -719,6 +736,7 @@ export async function enableTotp(secret: string, token: string): Promise<ActionS
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: "Error del servidor." };
         client = await pool.connect();
         await client.query(
             'INSERT INTO admin_totp_secrets (admin_id, secret) VALUES ($1, $2) ON CONFLICT (admin_id) DO UPDATE SET secret = $2',
@@ -745,6 +763,7 @@ export async function verifyTotp(prevState: any, formData: FormData): Promise<Au
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: "Error del servidor." };
         client = await pool.connect();
         const result = await client.query('SELECT a.*, s.secret as totp_secret FROM admins a JOIN admin_totp_secrets s ON a.id = s.admin_id WHERE a.email = $1', [email]);
         
@@ -787,6 +806,7 @@ export async function hasTotpEnabled(session: SessionPayload | null): Promise<{e
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { enabled: false };
         client = await pool.connect();
         const result = await client.query('SELECT 1 FROM admin_totp_secrets WHERE admin_id = $1', [session.id]);
         return { enabled: result.rows.length > 0 };
@@ -805,6 +825,7 @@ export async function disableTotp(): Promise<ActionState> {
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: "Error del servidor." };
         client = await pool.connect();
         await client.query('DELETE FROM admin_totp_secrets WHERE admin_id = $1', [session.id]);
         return { success: true, message: "2FA desactivado con éxito." };
@@ -841,3 +862,5 @@ export async function getActiveTheme(settings: UserSettings | null) {
     
     return customTheme;
 }
+
+    

@@ -44,6 +44,7 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor al obtener condominios.' };
         client = await pool.connect();
         const result = await client.query(`
             SELECT 
@@ -88,6 +89,7 @@ export async function getCondominioById(id: string): Promise<ActionState<Condomi
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         const result = await client.query('SELECT * FROM condominiums WHERE id = $1', [id]);
         if (result.rows.length === 0) {
@@ -151,6 +153,7 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor al crear el condominio.' };
         client = await pool.connect();
         await client.query(
             'INSERT INTO condominiums (name, continent, country, state, city, street, number) VALUES ($1, $2, $3, $4, $5, $6, $7)',
@@ -197,6 +200,7 @@ export async function updateCondominio(prevState: any, formData: FormData): Prom
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         const result = await client.query(
             'UPDATE condominiums SET name = $1, continent = $2, country = $3, state = $4, city = $5, street = $6, number = $7, updated_at = NOW() WHERE id = $8 RETURNING *',
@@ -225,6 +229,7 @@ export async function deleteCondominio(id: string): Promise<ActionState<null>> {
     let client;
     try {
         const pool = await getDbPool();
+        if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         // Consider cascading deletes or checks for related data (residents, devices) here
         const result = await client.query('DELETE FROM condominiums WHERE id = $1', [id]);
@@ -239,3 +244,5 @@ export async function deleteCondominio(id: string): Promise<ActionState<null>> {
         if (client) client.release();
     }
 }
+
+    
