@@ -1,23 +1,28 @@
+-- Crear la función de actualización de timestamp si no existe
+CREATE OR REPLACE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = NOW(); 
+   RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Crear la tabla para los servicios de geocodificación
 CREATE TABLE IF NOT EXISTS geocoding_services (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    config_json JSONB NOT NULL,
-    is_default BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    name VARCHAR(255) NOT NULL UNIQUE,
+    config_json JSONB,
+    is_default BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Ensure only one service can be default
-CREATE UNIQUE INDEX IF NOT EXISTS geocoding_services_one_default_idx ON geocoding_services (is_default) WHERE is_default = true;
+-- Crear un índice en is_default para búsquedas rápidas
+CREATE INDEX IF NOT EXISTS idx_geocoding_services_is_default ON geocoding_services (is_default);
 
--- Trigger to update 'updated_at' column on row update
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_geocoding_services_timestamp') THEN
-        CREATE TRIGGER set_geocoding_services_timestamp
-        BEFORE UPDATE ON geocoding_services
-        FOR EACH ROW
-        EXECUTE FUNCTION update_timestamp();
-    END IF;
-END
-$$;
+-- Crear el trigger para actualizar 'updated_at' en cada modificación
+DROP TRIGGER IF EXISTS update_geocoding_services_timestamp ON geocoding_services;
+CREATE TRIGGER update_geocoding_services_timestamp
+BEFORE UPDATE ON geocoding_services
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();
