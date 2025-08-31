@@ -45,7 +45,7 @@ function getNestedValue(obj: any, path: string): any {
 async function geocodeWithService(
     service: GeocodingService,
     address: string
-): Promise<{ success: boolean; data?: {lat: number, lon: number}; error?: string }> {
+): Promise<{ success: boolean; data?: {lat: number, lon: number}; error?: string, debug?: { url: string, response: any } }> {
     let config: any;
     if (typeof service.config_json === 'string') {
         try {
@@ -100,16 +100,18 @@ async function geocodeWithService(
     }
     
     const finalUrl = `${base_url}?${urlParams.toString()}`;
+    console.log("Geocoding URL:", finalUrl);
 
     try {
         const response = await fetch(finalUrl, { cache: 'no-store' });
+        const responseText = await response.text();
+        console.log("Geocoding Response:", responseText);
         
         if (!response.ok) {
-            const errorBody = await response.text();
-            throw new Error(`La API respondió con el estado: ${response.status}. Body: ${errorBody}`);
+            throw new Error(`La API respondió con el estado: ${response.status}. Body: ${responseText}`);
         }
 
-        const responseData = await response.json();
+        const responseData = JSON.parse(responseText);
         
         const latPath = responseConfig.lat;
         const lonPath = responseConfig.lon;
@@ -124,7 +126,11 @@ async function geocodeWithService(
         if (!isNaN(lat) && !isNaN(lon)) {
             return { success: true, data: { lat, lon } };
         } else {
-            return { success: false, error: "No se pudieron extraer coordenadas válidas de la respuesta de la API." };
+            return { 
+                success: false, 
+                error: "No se pudieron extraer coordenadas válidas de la respuesta de la API.",
+                debug: { url: finalUrl, response: responseData }
+            };
         }
 
     } catch (apiError: any) {
@@ -327,7 +333,11 @@ export async function testGeocodingService(id: string): Promise<ActionState> {
             message: `Prueba exitosa! Coordenadas para "${testAddress}": Lat: ${result.data.lat}, Lon: ${result.data.lon}` 
         };
     } else {
-        return { success: false, message: `Prueba fallida. Error: ${result.error}` };
+        let detailedError = `Prueba fallida. Error: ${result.error}`;
+        if (result.debug) {
+            detailedError += `\nURL: ${result.debug.url}\nRespuesta: ${JSON.stringify(result.debug.response, null, 2)}`;
+        }
+        return { success: false, message: detailedError };
     }
 }
 
@@ -427,5 +437,3 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
         if (client) client.release();
     }
 }
-
-    
