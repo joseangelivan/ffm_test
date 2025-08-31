@@ -40,19 +40,19 @@ export function Toaster() {
                 <ToastDescription>{description}</ToastDescription>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              {action}
-              {copyable === true && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 group-[.destructive]:border-destructive-foreground/20 group-[.destructive]:hover:bg-destructive-foreground/10 group-[.destructive]:text-destructive-foreground"
-                    onClick={() => handleCopy(title, description)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-              )}
-               <ToastClose />
+             <div className="flex items-center gap-2">
+                {action}
+                {copyable && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 group-[.destructive]:border-destructive-foreground/20 group-[.destructive]:hover:bg-destructive-foreground/10 group-[.destructive]:text-destructive-foreground"
+                      onClick={() => handleCopy(title, description)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                )}
+                <ToastClose />
             </div>
           </Toast>
         )
