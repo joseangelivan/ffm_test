@@ -6,6 +6,7 @@ import { getSession } from '@/lib/auth';
 import { getSettings, getActiveTheme } from '@/actions/admin';
 import { cn } from '@/lib/utils';
 import type { Theme } from '@/actions/themes';
+import { Toaster } from '@/components/ui/toaster';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -65,6 +66,7 @@ export default async function RootLayout({
       <body className={cn("h-full font-body antialiased", inter.variable)}>
         <LocaleProvider initialLocale={initialLocale}>
           {children}
+          <Toaster />
         </LocaleProvider>
       </body>
     </html>
