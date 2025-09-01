@@ -8,14 +8,15 @@ import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
 import { fromLonLat } from 'ol/proj';
 import 'ol/ol.css';
+import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 
 interface MapProps {
     children?: React.ReactNode;
-    config: any;
+    provider: DbMapProvider;
     onMapLoad: (map: Map) => void;
 }
 
-const OpenLayersMap: React.FC<MapProps> = ({ children, config, onMapLoad }) => {
+const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) => {
     const mapRef = useRef<HTMLDivElement>(null);
     const olMapRef = useRef<Map | null>(null);
 
@@ -23,12 +24,20 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, config, onMapLoad }) => {
         if (!mapRef.current || olMapRef.current) return;
 
         let source;
-        const baseUrl = config?.api_config?.base_url;
+        const config = provider.config_json || {};
+        const apiKey = config.api_config?.parameters?.apiKey;
 
-        if (baseUrl) {
+        if (provider.provider_type === 'google' && apiKey) {
              source = new XYZ({
-                url: baseUrl,
-                attributions: config?.ui_config?.attribution || undefined,
+                url: `https://mt.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${apiKey}`,
+                attributions: config.ui_config?.attribution || 'Google',
+                attributionsCollapsible: false,
+                maxZoom: 20
+            });
+        } else if (config.api_config?.base_url) {
+             source = new XYZ({
+                url: config.api_config.base_url,
+                attributions: config.ui_config?.attribution || undefined,
                 attributionsCollapsible: false
             });
         }
@@ -59,7 +68,7 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, config, onMapLoad }) => {
                 olMapRef.current = null;
             }
         };
-    }, [config, onMapLoad]);
+    }, [provider, onMapLoad]);
 
     return (
        <div ref={mapRef} className="w-full h-full">

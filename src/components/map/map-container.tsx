@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -8,8 +7,7 @@ import { useLocale } from '@/lib/i18n';
 import { getDefaultMapProvider, type MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { Loader } from 'lucide-react';
 
-// Import map provider components
-import GoogleMap from './providers/google/map';
+// OpenLayers is now the only renderer
 import OpenLayersMap from './providers/openlayers/map';
 
 
@@ -46,35 +44,24 @@ const MapContainer: React.FC<MapContainerProps> = ({ children, onMapLoad }) => {
             </div>
         )
     }
-    
-    switch (provider?.provider_type) {
-        case 'google':
-             return (
-                <GoogleMap config={provider?.config_json || null} onMapLoad={onMapLoad}>
-                    {children}
-                </GoogleMap>
-            );
-        case 'openlayers':
-        case 'leaflet':
-        case 'mapbox':
-        case 'maplibre':
-             return (
-                <OpenLayersMap config={provider?.config_json || null} onMapLoad={onMapLoad}>
-                    {children}
-                </OpenLayersMap>
-            );
-        default:
-            return (
-                 <div className="flex items-center justify-center h-full bg-muted-foreground/10">
-                    <p className="text-muted-foreground text-center p-4">
-                        {provider 
-                            ? t('adminDashboard.maps.providerNotSupported', { type: provider.provider_type})
-                            : "Nenhum provedor de mapa padrão configurado."
-                        }
-                    </p>
-                </div>
-            );
+
+    if (!provider) {
+        return (
+            <div className="flex items-center justify-center h-full bg-muted-foreground/10">
+                <p className="text-muted-foreground text-center p-4">
+                    Nenhum provedor de mapa padrão configurado.
+                </p>
+            </div>
+        );
     }
+    
+    // Always render OpenLayersMap, and pass it the provider configuration.
+    // It will be responsible for interpreting the config and setting the correct tile source.
+    return (
+        <OpenLayersMap provider={provider} onMapLoad={onMapLoad}>
+            {children}
+        </OpenLayersMap>
+    );
 }
 
 export default MapContainer;
