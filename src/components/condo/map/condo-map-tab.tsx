@@ -46,7 +46,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
     }
   }, [condo.id, toast, t]);
 
- const centerMapOnAddress = async (map: Map, zoom: boolean = true) => {
+  const fetchAndSetCondoPosition = useCallback(async (map: Map) => {
     setIsLoading(true);
     try {
         const geoResult = await geocodeAddress({
@@ -56,7 +56,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
             const location = geoResult.data[0].geometry.location;
             setCondoPosition(location);
             map.getView().setCenter(fromLonLat([location.lng, location.lat]));
-            if (zoom) map.getView().setZoom(17);
+            map.getView().setZoom(17);
         } else {
             toast({
                 title: t('toast.errorTitle'),
@@ -73,15 +73,28 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
     } finally {
         setIsLoading(false);
     }
- };
+  }, [condo, toast, t]);
+
+  const centerMapOnStoredPosition = useCallback(() => {
+    if (mapRef.current && condoPosition) {
+        const view = mapRef.current.getView();
+        view.animate({
+            center: fromLonLat([condoPosition.lng, condoPosition.lat]),
+            zoom: 17,
+            duration: 500
+        });
+    } else if (mapRef.current) {
+        // Fallback to refetch if position is somehow lost
+        fetchAndSetCondoPosition(mapRef.current);
+    }
+  }, [condoPosition, fetchAndSetCondoPosition]);
 
 
-  const handleMapLoad = async (map: Map) => {
+  const handleMapLoad = useCallback(async (map: Map) => {
     mapRef.current = map;
     onDataNeedsRefresh();
-    await centerMapOnAddress(map, true);
+    await fetchAndSetCondoPosition(map);
     
-    // Listen for zoom changes
     map.getView().on('change:resolution', () => {
         const currentZoom = map.getView().getZoom();
         if (currentZoom) {
@@ -89,7 +102,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
         }
     });
 
-  };
+  }, [onDataNeedsRefresh, fetchAndSetCondoPosition]);
 
   const handleZoomIn = () => {
     const view = mapRef.current?.getView();
@@ -99,13 +112,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
     const view = mapRef.current?.getView();
     if(view) view.animate({ zoom: view.getZoom()! - 1, duration: 250 });
   };
-
-  const handleRecenter = () => {
-      if (mapRef.current) {
-          centerMapOnAddress(mapRef.current, true);
-      }
-  }
-
+  
   return (
     <>
         <Card>
@@ -117,7 +124,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
                  <div className="text-right">
                     <h3 className="font-semibold">{condo.name}</h3>
                     <p className="text-xs text-muted-foreground">{condo.address}</p>
-                    <Button onClick={handleRecenter} variant="link" size="sm" className="p-0 h-auto">
+                    <Button onClick={centerMapOnStoredPosition} variant="link" size="sm" className="p-0 h-auto">
                         <Locate className="h-3 w-3 mr-1" />
                         {t('condoDashboard.map.recenterOnAddress')}
                     </Button>
@@ -189,7 +196,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
             initialFitLevel={'2'}
             onApplyFit={() => {}}
             isGeofenceAvailable={false}
-            onCenterAddress={handleRecenter}
+            onCenterAddress={centerMapOnStoredPosition}
         />
     </>
   );
