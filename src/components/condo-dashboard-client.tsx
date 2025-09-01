@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -42,7 +41,6 @@ import { type Theme } from '@/actions/themes';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 import { useToast } from '@/hooks/use-toast';
 import MapContainer from './map/map-container';
-import MapComponent from './map';
 
 
 type CondoDashboardClientProps = {

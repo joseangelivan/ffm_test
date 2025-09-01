@@ -7,7 +7,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { getDefaultMapProvider, type MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { Loader } from 'lucide-react';
-import MapComponent from '@/components/map'; // Assuming this is the Google Maps implementation
+import GoogleMapComponent from '@/components/map/providers/google-maps/map';
+import LeafletMapPlaceholder from './providers/leaflet/map';
 
 type MapContainerProps = {
     children: React.ReactNode;
@@ -19,9 +20,12 @@ const GoogleMapsProviderWrapper: React.FC<{ config: any, children: React.ReactNo
 
     let apiKey = config?.api_config?.parameters?.apiKey;
     if (typeof apiKey === 'string' && apiKey.startsWith('$')) {
-        apiKey = process.env[apiKey.substring(1)] || '';
-        if (!apiKey) {
-             console.error(`Environment variable ${config.api_config.parameters.apiKey} not found.`);
+        const envVarName = apiKey.substring(1);
+        if (typeof process !== 'undefined' && process.env[envVarName]) {
+            apiKey = process.env[envVarName];
+        } else {
+            apiKey = '';
+            console.error(`Environment variable ${envVarName} not found.`);
         }
     }
 
@@ -102,16 +106,14 @@ const MapContainer: React.FC<MapContainerProps> = ({ children }) => {
 
     switch(provider.provider_type) {
         case 'google':
-            // The children already contain the MapComponent, we just need to wrap it with the provider
             return (
                  <GoogleMapsProviderWrapper config={provider.config_json}>
                     {children}
                  </GoogleMapsProviderWrapper>
             );
         
-        // --- Future providers would be added here ---
-        // case 'leaflet':
-        //    return <LeafletProvider config={provider.config_json}>{children}</LeafletProvider>;
+        case 'leaflet':
+           return <LeafletMapPlaceholder />;
         
         default:
              return (
