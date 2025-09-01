@@ -17,6 +17,7 @@ export const dynamic = 'force-dynamic';
 async function CondoDashboard({ condoId }: { condoId: string }) {
     const session = await getSession();
     if (!session) {
+        // This case should be handled by middleware, but as a safeguard.
         notFound();
     }
 

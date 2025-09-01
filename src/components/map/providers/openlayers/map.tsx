@@ -20,9 +20,6 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<Map | null>(null);
 
-    // DEBUG: Log the received provider configuration
-    console.log('[OpenLayersMap] Provider config received:', provider);
-
     useEffect(() => {
         if (!mapRef.current || !provider || mapInstanceRef.current) return;
 
@@ -37,7 +34,7 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
         } else {
             config = provider.config_json || {};
         }
-
+        
         const apiConfig = config.api_config || {};
         const uiConfig = config.ui_config || {};
         const parameters = apiConfig.parameters || {};
