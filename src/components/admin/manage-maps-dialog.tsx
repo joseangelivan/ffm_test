@@ -54,7 +54,6 @@ import {
 } from 'lucide-react';
 import { LoadingOverlay } from './admin-header';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 
 const IMMUTABLE_PROVIDER_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -86,18 +85,45 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
     const getInitialJson = (config: any) => {
         if (!config) return '';
         try {
+            if (typeof config === 'string') {
+                return JSON.stringify(JSON.parse(config), null, 2);
+            }
             return JSON.stringify(config, null, 2);
         } catch {
             return '';
         }
     };
     
-    const nameRef = useRef<HTMLInputElement>(null);
-    const [config, setConfig] = useState(
-        isEditMode ? getInitialJson(service.config_json) : ''
-    );
-
+    const [name, setName] = useState(service?.name || '');
+    const [config, setConfig] = useState(isEditMode ? getInitialJson(service.config_json) : '');
+    const [providerType, setProviderType] = useState(service?.provider_type || '');
     const [isJsonValid, setIsJsonValid] = useState(true);
+
+    useEffect(() => {
+        if(service) {
+            setProviderType(service.provider_type);
+        } else {
+            setProviderType('');
+        }
+    }, [service])
+
+    const handleLoadConfig = () => {
+        try {
+            const parsedConfig = JSON.parse(config);
+            const extractedProvider = parsedConfig?.api_config?.provider;
+            if (extractedProvider && typeof extractedProvider === 'string') {
+                setProviderType(extractedProvider);
+                toast({ title: t('toast.successTitle'), description: `Provider "${extractedProvider}" carregado com sucesso.`});
+            } else {
+                setProviderType('');
+                toast({ title: t('toast.errorTitle'), description: 'A chave "provider" não foi encontrada ou é inválida no JSON.', variant: 'destructive'});
+            }
+        } catch (e) {
+            setProviderType('');
+            setIsJsonValid(false);
+            toast({ title: t('toast.errorTitle'), description: t('adminDashboard.maps.invalidJson'), variant: 'destructive'});
+        }
+    };
 
     const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const text = e.target.value;
@@ -113,20 +139,13 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
             setIsJsonValid(false);
         }
     };
+
+    const isCreateButtonDisabled = () => {
+        if (pending) return true;
+        if (isEditMode) return !isJsonValid; // In edit mode, provider type is fixed.
+        return !providerType || !name || !isJsonValid;
+    };
     
-    const handleProviderTypeChange = (value: string) => {
-        if (nameRef.current && !isEditMode) {
-            // Find label from options
-            const providerLabels: {[key: string]: string} = {
-                'google': 'Google Maps',
-                'mapbox': 'Mapbox',
-                'leaflet': 'Leaflet (OpenStreetMap)',
-                'openlayers': 'OpenLayers',
-                'maplibre': 'MapLibre GL'
-            };
-            nameRef.current.value = providerLabels[value] || value;
-        }
-    }
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -139,26 +158,12 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
                             <DialogDescription>{t('adminDashboard.maps.formDescription')}</DialogDescription>
                         </DialogHeader>
                         <input type="hidden" name="id" value={service?.id || ''} />
+                        <input type="hidden" name="provider_type" value={providerType} />
 
                         <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="provider_type">{t('adminDashboard.maps.typeLabel')}</Label>
-                                <Select name="provider_type" defaultValue={service?.provider_type} onValueChange={handleProviderTypeChange} required disabled={pending}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar tipo"/>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="google">Google Maps</SelectItem>
-                                        <SelectItem value="leaflet">Leaflet (OpenStreetMap)</SelectItem>
-                                        <SelectItem value="mapbox">Mapbox</SelectItem>
-                                        <SelectItem value="openlayers">OpenLayers</SelectItem>
-                                        <SelectItem value="maplibre">MapLibre GL</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="grid gap-2">
+                             <div className="grid gap-2">
                                 <Label htmlFor="name">{t('adminDashboard.maps.nameLabel')}</Label>
-                                <Input ref={nameRef} id="name" name="name" defaultValue={service?.name} placeholder="Google Maps" required disabled={pending}/>
+                                <Input id="name" name="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="OpenLayers - Ruas" required disabled={pending}/>
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="config">{t('adminDashboard.maps.configLabel')}</Label>
@@ -167,17 +172,27 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
                                     name="config"
                                     value={config}
                                     onChange={handleJsonChange}
-                                    placeholder='{ "api_config": { ... }, "ui_config": { ... } }' 
+                                    placeholder='{\n  "api_config": {\n    "provider": "openlayers",\n    ...\n  }\n}'
                                     required 
                                     disabled={pending}
                                     className={cn("min-h-[150px] font-mono text-xs", !isJsonValid && "border-destructive focus-visible:ring-destructive")}
                                 />
                                 {!isJsonValid && <p className="text-sm text-destructive">{t('adminDashboard.maps.invalidJson')}</p>}
                             </div>
+
+                             <div className="grid grid-cols-3 gap-2 items-end">
+                                <Button type="button" variant="outline" className="col-span-1" onClick={handleLoadConfig} disabled={pending || isEditMode}>
+                                    {t('adminDashboard.maps.loadConfigButton')}
+                                 </Button>
+                                <div className="grid gap-2 col-span-2">
+                                    <Label htmlFor="provider_type_display">{t('adminDashboard.maps.typeLabel')}</Label>
+                                    <Input id="provider_type_display" value={providerType} readOnly disabled placeholder={t('adminDashboard.maps.typeExtractedPlaceholder')} />
+                                </div>
+                            </div>
                         </div>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>{t('common.cancel')}</Button>
-                            <Button type="submit" disabled={pending || !isJsonValid}>{isEditMode ? t('common.saveChanges') : t('common.create')}</Button>
+                            <Button type="submit" disabled={isCreateButtonDisabled()}>{isEditMode ? t('common.saveChanges') : t('common.create')}</Button>
                         </DialogFooter>
                     </div>
                 </form>
@@ -298,13 +313,8 @@ export function ManageMapsDialog() {
                                     <div className="flex-grow">
                                         <p className="font-medium flex items-center gap-2">
                                             {service.name}
-                                            {isImmutable && (
-                                                <Tooltip>
-                                                    <TooltipTrigger><Lock className="h-3 w-3 text-muted-foreground" /></TooltipTrigger>
-                                                    <TooltipContent><p>{t('adminDashboard.maps.immutableTooltip')}</p></TooltipContent>
-                                                </Tooltip>
-                                            )}
                                         </p>
+                                        <p className="text-xs text-muted-foreground">{service.provider_type}</p>
                                     </div>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
