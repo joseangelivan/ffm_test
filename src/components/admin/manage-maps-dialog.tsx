@@ -369,7 +369,7 @@ export function ManageMapsDialog() {
                                     </Tooltip>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(service)} disabled={isSubmitting || isImmutable}>
+                                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(service)} disabled={isSubmitting || (isImmutable && service.id !== IMMUTABLE_PROVIDER_ID)}>
                                                 <Edit className="h-4 w-4"/>
                                             </Button>
                                         </TooltipTrigger>
