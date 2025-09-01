@@ -10,10 +10,8 @@ import { Loader } from 'lucide-react';
 
 // Import map provider components
 import GoogleMap from './providers/google/map';
-import LeafletMapPlaceholder from './providers/leaflet/map';
-import OpenLayersMapPlaceholder from './providers/openlayers/map';
-import MapboxPlaceholder from './providers/mapbox/map';
-import MapLibrePlaceholder from './providers/maplibre/map';
+import OpenLayersMap from './providers/openlayers/map';
+
 
 type MapContainerProps = {
     children?: React.ReactNode;
@@ -56,14 +54,15 @@ const MapContainer: React.FC<MapContainerProps> = ({ children, onMapLoad }) => {
                     {children}
                 </GoogleMap>
             );
-        case 'leaflet':
-            return <LeafletMapPlaceholder />;
         case 'openlayers':
-            return <OpenLayersMapPlaceholder />;
+        case 'leaflet':
         case 'mapbox':
-            return <MapboxPlaceholder />;
         case 'maplibre':
-            return <MapLibrePlaceholder />;
+             return (
+                <OpenLayersMap config={provider?.config_json || null} onMapLoad={onMapLoad}>
+                    {children}
+                </OpenLayersMap>
+            );
         default:
             return (
                  <div className="flex items-center justify-center h-full bg-muted-foreground/10">

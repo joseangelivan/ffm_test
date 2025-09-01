@@ -23,7 +23,7 @@ import { ElementsControls } from './elements-controls';
 import { getGeofencesByCondoId } from '@/actions/maps';
 import { geocodeAddress } from '@/actions/geocoding';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-import { MapSettingsDialog } from './map/map-settings-dialog';
+import { MapSettingsDialog } from './map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
 
 export default function CondoMapTab({ condo }: { condo: Condominio }) {

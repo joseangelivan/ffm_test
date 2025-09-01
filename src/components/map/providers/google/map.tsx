@@ -9,10 +9,10 @@ import { useLocale } from '@/lib/i18n';
 interface MapProps {
     children?: React.ReactNode;
     config: any;
-    onMapLoad: (map: google.maps.Map) => void;
+    onMapLoad: (map: google.maps.Map | null) => void;
 }
 
-const GoogleMap: React.FC<MapProps> = ({ children, config, onMapLoad }) => {
+const GoogleMapRenderer: React.FC<MapProps> = ({ children, config, onMapLoad }) => {
     const { toast } = useToast();
     const { t } = useLocale();
     const mapRef = useRef<google.maps.Map | null>(null);
@@ -39,6 +39,7 @@ const GoogleMap: React.FC<MapProps> = ({ children, config, onMapLoad }) => {
 
 
     if (!apiKey) {
+        onMapLoad(null);
         return (
             <div className="flex items-center justify-center h-full bg-muted-foreground/10">
                 <p className="text-muted-foreground text-center p-4">
@@ -69,4 +70,4 @@ const GoogleMap: React.FC<MapProps> = ({ children, config, onMapLoad }) => {
     );
 };
 
-export default GoogleMap;
+export default GoogleMapRenderer;

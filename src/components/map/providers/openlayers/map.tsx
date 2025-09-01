@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useEffect, useRef } from 'react';
@@ -24,17 +23,13 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, config, onMapLoad }) => {
         if (!mapRef.current || olMapRef.current) return;
 
         let source;
-        const providerType = config?.provider_type || 'openlayers';
+        const baseUrl = config?.api_config?.base_url;
 
-        if (providerType === 'google' && config?.api_config?.parameters?.apiKey) {
-            source = new XYZ({
-                url: `https://mt{0-3}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${config.api_config.parameters.apiKey}`,
-                attributions: config?.ui_config?.attribution || '© Google',
-            });
-        } else if (config?.api_config?.base_url) {
+        if (baseUrl) {
              source = new XYZ({
-                url: config.api_config.base_url,
+                url: baseUrl,
                 attributions: config?.ui_config?.attribution || undefined,
+                attributionsCollapsible: false
             });
         }
         else {
