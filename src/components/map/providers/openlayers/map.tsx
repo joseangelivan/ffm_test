@@ -21,9 +21,10 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
     const mapInstanceRef = useRef<Map | null>(null);
 
     useEffect(() => {
-        if (!mapRef.current) return;
+        if (!mapRef.current || !provider) return;
 
         let config: any;
+        // Robustly handle config_json whether it's a string or an object
         if (typeof provider.config_json === 'string') {
             try {
                 config = JSON.parse(provider.config_json);
@@ -35,10 +36,15 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
             config = provider.config_json || {};
         }
 
-        const apiKey = config.api_config?.parameters?.apiKey;
-        const attribution = config.ui_config?.attribution;
-        let baseUrl = config.api_config?.base_url;
+        const apiConfig = config.api_config || {};
+        const uiConfig = config.ui_config || {};
+        const parameters = apiConfig.parameters || {};
+        
+        const apiKey = parameters.apiKey;
+        const attribution = uiConfig.attribution;
+        let baseUrl = apiConfig.base_url;
 
+        // Special handling for Google Maps tiles
         if (provider.provider_type === 'google' && apiKey) {
             baseUrl = `https://mt.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${apiKey}`;
         }
@@ -52,6 +58,7 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
                 maxZoom: 20,
             });
         } else {
+            // Fallback to default OSM if no base_url is provided
             source = new OSM();
         }
         
@@ -86,7 +93,6 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
         return () => {
             if (mapInstanceRef.current) {
                 mapInstanceRef.current.setTarget(undefined);
-                // Completely dispose of the map instance to avoid memory leaks.
                 mapInstanceRef.current.dispose();
                 mapInstanceRef.current = null;
             }
