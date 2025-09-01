@@ -385,7 +385,11 @@
         "providerNotSupported": "O provedor de mapas '{type}' não é compatível atualmente.",
         "immutableTooltip": "Este provedor é imutável e não pode ser modificado.",
         "loadConfigButton": "Carregar Configuração",
-        "typeExtractedPlaceholder": "Extraído do JSON"
+        "typeExtractedPlaceholder": "Extraído do JSON",
+        "testDialog": {
+            "title": "Testando Provedor",
+            "description": "Se a configuração estiver correta, o mapa a seguir deve ser renderizado corretamente."
+        }
       }
     },
     "condoDashboard": {

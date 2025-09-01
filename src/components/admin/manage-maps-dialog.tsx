@@ -54,8 +54,39 @@ import {
 } from 'lucide-react';
 import { LoadingOverlay } from './admin-header';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import MapContainer from '../map/map-container';
 
 const IMMUTABLE_PROVIDER_ID = '00000000-0000-0000-0000-000000000001';
+
+
+function TestMapProviderDialog({ provider, onOpenChange }: { provider: MapProvider | null, onOpenChange: (open: boolean) => void }) {
+    const { t } = useLocale();
+    const isOpen = !!provider;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>{t('adminDashboard.maps.testDialog.title')}: {provider?.name}</DialogTitle>
+                    <DialogDescription>
+                        {t('adminDashboard.maps.testDialog.description')}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="h-[50vh] w-full rounded-lg border bg-muted my-4">
+                    {provider && (
+                         <MapContainer 
+                            provider={provider} 
+                            onMapLoad={() => {}}
+                        />
+                    )}
+                </div>
+                 <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t('common.close')}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpen: boolean, onOpenChange: (open: boolean) => void, service: MapProvider | null, onSuccess: () => void }) {
     const { t } = useLocale();
@@ -142,7 +173,7 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
 
     const isCreateButtonDisabled = () => {
         if (pending) return true;
-        if (isEditMode) return !isJsonValid; // In edit mode, provider type is fixed.
+        if (isEditMode) return !isJsonValid;
         return !providerType || !name || !isJsonValid;
     };
     
@@ -208,7 +239,7 @@ export function ManageMapsDialog() {
   const [services, setServices] = useState<MapProvider[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, startSubmitting] = useTransition();
-  const [testingId, setTestingId] = useState<string | null>(null);
+  const [testingService, setTestingService] = useState<MapProvider | null>(null);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isListOpen, setIsListOpen] = useState(false);
@@ -272,8 +303,8 @@ export function ManageMapsDialog() {
     });
   }
 
-  const handleTest = (id: string) => {
-      toast({ title: "Función no disponible", description: "La prueba de proveedores de mapas se implementará próximamente."})
+  const handleTest = (service: MapProvider) => {
+      setTestingService(service);
   }
 
   return (
@@ -286,8 +317,8 @@ export function ManageMapsDialog() {
             </DropdownMenuItem>
         </DialogTrigger>
         <DialogContent className="sm:max-w-2xl">
-            <div className={cn("relative", (isSubmitting && !testingId) && "opacity-50")}>
-                {(isSubmitting && !testingId) && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
+            <div className={cn("relative", isSubmitting && "opacity-50")}>
+                {isSubmitting && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
                 <DialogHeader>
                     <DialogTitle>{t('adminDashboard.maps.title')}</DialogTitle>
                     <DialogDescription>
@@ -328,12 +359,8 @@ export function ManageMapsDialog() {
                                     </Tooltip>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" onClick={() => handleTest(service.id)} disabled={isSubmitting}>
-                                                {testingId === service.id ? (
-                                                    <Loader className="h-4 w-4 animate-spin"/>
-                                                ) : (
-                                                    <TestTube2 className="h-4 w-4"/>
-                                                )}
+                                            <Button variant="ghost" size="icon" onClick={() => handleTest(service)} disabled={isSubmitting}>
+                                                <TestTube2 className="h-4 w-4"/>
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
@@ -342,7 +369,9 @@ export function ManageMapsDialog() {
                                     </Tooltip>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(service)} disabled={isSubmitting}><Edit className="h-4 w-4"/></Button>
+                                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(service)} disabled={isSubmitting || isImmutable}>
+                                                <Edit className="h-4 w-4"/>
+                                            </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
                                             <p>{t('common.edit')}</p>
@@ -395,6 +424,11 @@ export function ManageMapsDialog() {
             onSuccess={onFormSuccess} 
         />
       )}
+
+      <TestMapProviderDialog 
+        provider={testingService} 
+        onOpenChange={() => setTestingService(null)} 
+      />
     </>
   );
 }

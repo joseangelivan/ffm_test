@@ -385,7 +385,11 @@
         "providerNotSupported": "El proveedor de mapas '{type}' no es compatible actualmente.",
         "immutableTooltip": "Este proveedor es inmutable y no se puede modificar.",
         "loadConfigButton": "Cargar Configuración",
-        "typeExtractedPlaceholder": "Extraído del JSON"
+        "typeExtractedPlaceholder": "Extraído del JSON",
+        "testDialog": {
+            "title": "Probando Proveedor",
+            "description": "Si la configuración es correcta, el siguiente mapa debería renderizarse correctamente."
+        }
       }
     },
     "condoDashboard": {
@@ -503,7 +507,7 @@
         },
         "elementTypes": {
             "camera": "Cámara de Vigilancia",
-            "gatehouse": "Portería / Garita",
+            "gatehouse": "Portería / Guarita",
             "housing_area": "Área de Vivienda",
             "other": "Otro"
         },
