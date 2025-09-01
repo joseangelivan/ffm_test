@@ -15,7 +15,7 @@ import { AlertTriangle } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CondominioDashboardPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CondominioDashboardPage({ params }: { params: { id: string } }) {
   // First, await the session to satisfy Next.js's requirement for using params.
   const session = await getSession();
   if (!session) {
@@ -24,7 +24,7 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
   }
 
   // Await the params object before accessing its properties
-  const { id } = await params;
+  const { id } = params;
 
   // Fetch all other data needed for the dashboard in parallel
   const [condoResult, devices, settings] = await Promise.all([

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -9,12 +10,9 @@ import {
   Smartphone,
   Users,
   Map,
-  Loader,
-  AlertTriangle,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     AlertDialog,
@@ -39,9 +37,6 @@ import type { UserSettings } from '@/actions/admin';
 import { getActiveTheme, updateSettings } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
-import { useToast } from '@/hooks/use-toast';
-import MapContainer from './map/map-container';
-
 
 type CondoDashboardClientProps = {
     session: SessionPayload;
@@ -53,7 +48,6 @@ type CondoDashboardClientProps = {
 export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings }: CondoDashboardClientProps) { 
   const { t, setLocale } = useLocale();
   const router = useRouter();
-  const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState('map');
   const [theme, setTheme] = useState(initialSettings.theme);
@@ -172,9 +166,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                       <ManageDevicesTab condoId={initialCondo.id} devices={initialDevices} onDataNeedsRefresh={onDataNeedsRefresh} />
                   </TabsContent>
                   <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
-                      <MapContainer>
-                          <CondoMapTab condo={initialCondo} />
-                      </MapContainer>
+                      <CondoMapTab condo={initialCondo} />
                   </TabsContent>
               </div>
             </Tabs>

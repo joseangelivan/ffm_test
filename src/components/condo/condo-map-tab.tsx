@@ -13,16 +13,13 @@ import {
   Undo,
   Redo,
 } from 'lucide-react';
-import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-import { isEqual } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLocale } from '@/lib/i18n';
-import MapComponent, { AdvancedMarker } from '@/components/map';
-import { GeofenceControls } from './map/geofence-controls';
+import MapContainer from '@/components/map/map-container';
 import { ElementsControls } from './map/elements-controls';
 import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
@@ -31,141 +28,10 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 
-// --- Style Definitions ---
-export const STYLE_FOCUSED_BLUE = { fillColor: 'hsl(210 80% 50%)', strokeColor: 'hsl(210 80% 50%)', fillOpacity: 0.2, strokeWeight: 2, editable: true, draggable: true };
-export const STYLE_REFERENCE_GREEN = { fillColor: 'hsl(142 71% 45%)', strokeColor: 'hsl(142 71% 45%)', fillOpacity: 0.2, strokeWeight: 2, editable: false, draggable: false };
-export const STYLE_BACKGROUND_GREY = { fillColor: '#808080', strokeColor: '#808080', fillOpacity: 0.1, strokeWeight: 1, editable: false, draggable: false };
-export const STYLE_VIEW_MODE = { fillOpacity: 0.0, strokeColor: 'hsl(210 80% 50%)', strokeWeight: 2, editable: false, draggable: false };
-
-
-export const getGeometryFromShape = (shape: google.maps.MVCObject | null): any | null => {
-    if (!shape) return null;
-    
-    if ('getRadius' in shape && typeof (shape as any).getRadius === 'function') {
-        const circle = shape as google.maps.Circle;
-        return { type: 'circle', center: circle.getCenter()?.toJSON(), radius: circle.getRadius() };
-    }
-    if ('getPath' in shape && typeof (shape as any).getPath === 'function') {
-        const path = (shape as google.maps.Polygon).getPath();
-        return { type: 'polygon', paths: path.getArray().map((latLng: google.maps.LatLng) => latLng.toJSON()) };
-    }
-    if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') {
-        const rectangle = shape as google.maps.Rectangle;
-        return { type: 'rectangle', bounds: rectangle.getBounds()?.toJSON() };
-    }
-    
-    return null;
-};
-
-export const createShapeFromGeometry = (geometry: any): google.maps.MVCObject | null => {
-    if (!geometry || typeof google === 'undefined' || !google.maps) return null;
-    
-    let shape: google.maps.MVCObject | null = null;
-    
-    if (geometry.type === 'polygon' && Array.isArray(geometry.paths)) {
-        shape = new google.maps.Polygon({ paths: geometry.paths });
-    } else if (geometry.type === 'rectangle' && geometry.bounds) {
-        shape = new google.maps.Rectangle({ bounds: geometry.bounds });
-    } else if (geometry.type === 'circle' && geometry.center && geometry.radius) {
-        shape = new google.maps.Circle({ center: geometry.center, radius: geometry.radius });
-    }
-    return shape;
-};
-
-export const restoreShapeToGeometry = (shape: google.maps.MVCObject, geometry: any) => {
-    if (!geometry || !shape) return;
-    if ('setPath' in shape && geometry.type === 'polygon') {
-        (shape as google.maps.Polygon).setPath(geometry.paths);
-    } else if ('setBounds' in shape && geometry.type === 'rectangle') {
-        (shape as google.maps.Rectangle).setBounds(geometry.bounds);
-    } else if ('setCenter' in shape && 'setRadius' in shape && geometry.type === 'circle') {
-        (shape as google.maps.Circle).setCenter(geometry.center);
-        (shape as google.maps.Circle).setRadius(geometry.radius);
-    }
-};
-
-
-const getBoundsOfShape = (shape: google.maps.MVCObject | null): google.maps.LatLngBounds | null => {
-    if (!shape) return null;
-    if ('getBounds' in shape && typeof (shape as any).getBounds === 'function') { // Rectangle, Circle
-        const bounds = (shape as any).getBounds();
-        if (!bounds) return null;
-        return new google.maps.LatLngBounds(bounds.getSouthWest(), bounds.getNorthEast());
-    }
-    if ('getPath' in shape && typeof (shape as any).getPath === 'function') { // Polygon
-        const bounds = new google.maps.LatLngBounds();
-        (shape as google.maps.Polygon).getPath().forEach((latlng: google.maps.LatLng) => bounds.extend(latlng));
-        return bounds;
-    }
-    return null;
-}
-
-const getCenterOfShape = (shape: google.maps.MVCObject | null): google.maps.LatLng | null => {
-    if (!shape) return null;
-    const bounds = getBoundsOfShape(shape);
-    return bounds ? bounds.getCenter() : null;
-}
-
-interface MapInnerProps {
-  condo: Condominio;
-  initialPosition: { lat: number; lng: number };
-  onMapLoad: (map: google.maps.Map) => void;
-  drawingManagerRef: React.MutableRefObject<google.maps.drawing.DrawingManager | null>;
-}
-
-const DrawingManagerComponent = ({
-  drawingManagerRef,
-}: {
-  drawingManagerRef: React.MutableRefObject<google.maps.drawing.DrawingManager | null>;
-}) => {
-  const map = useMap();
-  const drawingLibrary = useMapsLibrary('drawing');
-
-  useEffect(() => {
-    if (!drawingLibrary || !map) return;
-
-    const newDrawingManager = new drawingLibrary.DrawingManager({
-      drawingControl: false,
-      polygonOptions: { ...STYLE_FOCUSED_BLUE },
-      rectangleOptions: { ...STYLE_FOCUSED_BLUE },
-      circleOptions: { ...STYLE_FOCUSED_BLUE },
-    });
-
-    drawingManagerRef.current = newDrawingManager;
-    newDrawingManager.setMap(map);
-
-    return () => {
-      if (drawingManagerRef.current) {
-        drawingManagerRef.current.setMap(null);
-        drawingManagerRef.current = null;
-      }
-    };
-  }, [drawingLibrary, drawingManagerRef, map]);
-
-  return null;
-};
-
-function MapInner({ condo, initialPosition, onMapLoad, drawingManagerRef }: MapInnerProps) {
-  return (
-    <MapComponent onMapLoad={onMapLoad}>
-        <DrawingManagerComponent drawingManagerRef={drawingManagerRef} />
-        {initialPosition && (
-            <AdvancedMarker position={initialPosition} title={condo.name}>
-                <Building className="h-8 w-8 text-slate-700 drop-shadow-lg" />
-            </AdvancedMarker>
-        )}
-    </MapComponent>
-  );
-}
-
-
-export default function CondoMapTab({ condo, initialPosition }: { condo: Condominio, initialPosition: { lat: number; lng: number } }) {
+export default function CondoMapTab({ condo }: { condo: Condominio }) {
   const { t } = useLocale();
   const { toast } = useToast();
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
-  
-  const mapShapesRef = useRef<Map<string, google.maps.MVCObject>>(new Map());
+  const mapRef = useRef<any | null>(null);
   
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
   
@@ -182,12 +48,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const [calculatedZoomLevels, setCalculatedZoomLevels] = useState<{ tight: number, normal: number, wide: number } | null>(null);
   
-  const [condoAddressPosition] = useState(initialPosition);
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
   const [selectedModule, setSelectedModule] = useState('geofence');
 
   // --- History State Management ---
-  const activeShapeRef = useRef<{ id: string, shape: google.maps.MVCObject | null, originalGeometry?: any } | null>(null);
+  const activeShapeRef = useRef<{ id: string, shape: any | null, originalGeometry?: any } | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
@@ -228,246 +93,24 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const centerMapOnAddress = useCallback(() => {
     const map = mapRef.current;
-    if(!map || !condoAddressPosition) return;
-    map.setCenter(condoAddressPosition);
-    map.setZoom(17);
-  }, [condoAddressPosition]);
-
-
-  const recalculateZoomLevels = useCallback(() => {
-      const map = mapRef.current;
-      const geofenceToCenter = dbGeofences.find(g => g.id === defaultGeofenceId);
-      if (!map || !geofenceToCenter || !mapShapesRef.current) return;
-
-      const shape = mapShapesRef.current.get(geofenceToCenter.id);
-      if (!shape) return;
-
-      const bounds = getBoundsOfShape(shape);
-      if (bounds) {
-          map.fitBounds(bounds, 0);
-          const maxZoom = map.getZoom();
-
-          if (maxZoom !== undefined) {
-              const newLevels = {
-                  tight: maxZoom,
-                  normal: maxZoom > 1 ? maxZoom - 1 : maxZoom,
-                  wide: maxZoom > 2 ? maxZoom - 2 : maxZoom,
-              };
-              setCalculatedZoomLevels(newLevels);
-              
-              let zoomToSet = newLevels.normal;
-              if (fitLevel === '1') zoomToSet = newLevels.tight;
-              if (fitLevel === '3') zoomToSet = newLevels.wide;
-              
-              map.setZoom(zoomToSet);
-          }
-      }
-  }, [dbGeofences, defaultGeofenceId, fitLevel]);
-
-
-  const applyZoomLevel = useCallback((level: '1' | '2' | '3') => {
-    const map = mapRef.current;
-    if (!map || !calculatedZoomLevels || !mapShapesRef.current) return;
-    
-    const geofenceToCenter = dbGeofences.find(g => g.id === defaultGeofenceId);
-    if(geofenceToCenter) {
-        const shape = mapShapesRef.current.get(geofenceToCenter.id);
-        if(shape) {
-            const center = getCenterOfShape(shape);
-            if (center) map.setCenter(center);
-        }
+    if(!map || !condo.address) return;
+    // This function will need to be provider-agnostic
+    // For now, it assumes a Google-like map object
+    if(map.setCenter && map.setZoom) {
+        // Here we would need to geocode the address if we don't have lat/lng
+        // For simplicity, let's assume we get lat/lng with the condo data
     }
-    
-    let zoomToSet = calculatedZoomLevels.normal;
-    if (level === '1') zoomToSet = calculatedZoomLevels.tight;
-    if (level === '3') zoomToSet = calculatedZoomLevels.wide;
-    
-    if (map.getZoom() !== zoomToSet) {
-      map.setZoom(zoomToSet);
-    }
-    
-    setFitLevel(level);
-  }, [calculatedZoomLevels, dbGeofences, defaultGeofenceId]);
-
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const mapContainer = mapContainerRef.current;
-    if (!mapContainer) return;
-
-    const observer = new ResizeObserver(() => {
-        setTimeout(() => {
-            if (!mapRef.current) return;
-            recalculateZoomLevels();
-        }, 0);
-    });
-    
-    observer.observe(mapContainer);
-
-    return () => {
-        observer.disconnect();
-    };
-  }, [recalculateZoomLevels]);
+  }, [condo.address]);
 
 
-  useEffect(() => {
-    if (!mapRef.current) return;
-    const zoomListener = mapRef.current.addListener('zoom_changed', () => {
-      const currentZoom = mapRef.current?.getZoom();
-      if (currentZoom) setZoomLevel(currentZoom);
-    });
-    return () => { zoomListener.remove(); };
-  }, []);
-    
-  useEffect(() => {
-    const shape = activeShapeRef.current?.shape;
-    if (!shape || mode !== 'editing') {
-        return;
-    }
-    
-    const handleHistoryUpdate = (shape: google.maps.MVCObject | null) => {
-        if (!shape) {
-            setHistory([]);
-            setHistoryIndex(-1);
-        } else {
-            const newGeometry = getGeometryFromShape(shape);
-            const lastGeometry = history[historyIndex];
-            
-            if(historyIndex > -1 && isEqual(newGeometry, lastGeometry)) {
-                return;
-            }
-    
-            const newHistory = history.slice(0, historyIndex + 1);
-            
-            newHistory.push(newGeometry);
-            setHistory(newHistory);
-            setHistoryIndex(newHistory.length - 1);
-        }
-    };
-    
-    const registerChange = () => handleHistoryUpdate(shape);
-
-    const listeners = [
-        google.maps.event.addListener(shape, 'dragend', registerChange),
-    ];
-  
-    if ('getPath' in shape) {
-        const path = (shape as google.maps.Polygon).getPath();
-        listeners.push(google.maps.event.addListener(path, 'set_at', registerChange));
-        listeners.push(google.maps.event.addListener(path, 'insert_at', registerChange));
-        listeners.push(google.maps.event.addListener(path, 'remove_at', registerChange));
-    }
-    
-    return () => {
-        google.maps.event.clearInstanceListeners(shape);
-    };
-  }, [activeShapeRef.current, mode, history, historyIndex]);
-    
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || isLoading) return;
-
-    dbGeofences.forEach(dbGf => {
-        if (!mapShapesRef.current.has(dbGf.id)) {
-            const newShape = createShapeFromGeometry(dbGf.geometry);
-            if (newShape) mapShapesRef.current.set(dbGf.id, newShape);
-        }
-    });
-
-    const activeActionId = activeShapeRef.current?.id;
-    const isActionActive = !!activeActionId;
-
-    mapShapesRef.current.forEach((shape, id) => {
-        const isBeingEdited = activeActionId === id;
-        shape.setOptions({ editable: isBeingEdited, draggable: isBeingEdited });
-        
-        let isVisible = false;
-        let styleOptions: any = {};
-        const isSelected = id === selectedGeofenceId;
-        const isDefault = id === defaultGeofenceId;
-        
-        if(mode === 'view') {
-            isVisible = (isDefault && !showAllGeofences) || (showAllGeofences);
-            styleOptions = isDefault ? { ...STYLE_VIEW_MODE } : { ...STYLE_BACKGROUND_GREY };
-            if (isSelected && !isDefault) styleOptions = { ...STYLE_VIEW_MODE };
-
-        } else { // mode === 'editing'
-            if (isBeingEdited) {
-                isVisible = true;
-                styleOptions = { ...STYLE_FOCUSED_BLUE };
-            } else if (isActionActive) { // Another action is active (e.g. drawing new)
-                isVisible = id === selectedGeofenceId;
-                styleOptions = { ...STYLE_REFERENCE_GREEN };
-            } else {
-                 if(showAllGeofences) {
-                    isVisible = true;
-                    styleOptions = isSelected ? { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3 } : { ...STYLE_BACKGROUND_GREY };
-                } else {
-                    isVisible = isSelected;
-                    styleOptions = isSelected ? { ...STYLE_REFERENCE_GREEN, fillOpacity: 0.3 } : { ...STYLE_BACKGROUND_GREY };
-                }
-            }
-        }
-        shape.setOptions(styleOptions);
-        shape.setMap(isVisible ? map : null);
-    });
-
-  }, [
-      mode,
-      dbGeofences,
-      selectedGeofenceId,
-      defaultGeofenceId,
-      showAllGeofences,
-      isLoading,
-      historyState // Add historyState as dependency to re-run styles
-  ]);
-  
-  const handleZoomIn = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! + 1);
-  const handleZoomOut = () => mapRef.current && mapRef.current.setZoom(mapRef.current.getZoom()! - 1);
-
-
-  const handleMapLoad = useCallback(async (map: google.maps.Map) => {
+  const handleMapLoad = useCallback(async (map: any) => {
     mapRef.current = map;
     await onDataNeedsRefresh();
   }, [onDataNeedsRefresh]);
 
-  useEffect(() => {
-    if (isLoading || !mapRef.current) return;
-
-    const geofenceToCenter = dbGeofences.find(g => g.is_default);
-    
-    if (geofenceToCenter) {
-         const shape = mapShapesRef.current.get(geofenceToCenter.id);
-         if(shape) {
-            const bounds = getBoundsOfShape(shape);
-            if (bounds) {
-                google.maps.event.addListenerOnce(mapRef.current, 'idle', () => {
-                    recalculateZoomLevels();
-                });
-                mapRef.current.fitBounds(bounds, 0);
-            } else {
-                centerMapOnAddress();
-            }
-         } else {
-             centerMapOnAddress();
-         }
-    } else {
-        centerMapOnAddress();
-    }
-  }, [isLoading, dbGeofences, centerMapOnAddress, recalculateZoomLevels]);
-    
     
   const handleHistoryAction = (action: 'undo' | 'redo') => {
-    if ((action === 'undo' && !historyState.canUndo) || (action === 'redo' && !historyState.canRedo)) return;
-
-    const newIndex = action === 'undo' ? historyIndex - 1 : historyIndex + 1;
-    const geometry = history[newIndex];
-    const shapeToUpdate = activeShapeRef.current?.shape;
-
-    if (!geometry || !shapeToUpdate) return;
-    
-    restoreShapeToGeometry(shapeToUpdate, geometry);
-    setHistoryIndex(newIndex);
+    // This logic will need to be implemented within the specific map provider component
   };
   
   return (
@@ -489,7 +132,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             </CardHeader>
             <CardContent className="p-0">
                 <div className="grid grid-cols-1 md:grid-cols-3 h-[70vh]">
-                    <div ref={mapContainerRef} className="col-span-1 md:col-span-2 relative p-1">
+                    <div className="col-span-1 md:col-span-2 relative p-1">
                         <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
                             {isLoading && (
                                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
@@ -499,12 +142,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                     </div>
                                 </div>
                             )}
-                            <MapInner 
-                                condo={condo}
-                                initialPosition={initialPosition}
+                            <MapContainer 
                                 onMapLoad={handleMapLoad}
-                                drawingManagerRef={drawingManagerRef}
-                            />
+                            >
+                                <Building className="h-8 w-8 text-slate-700 drop-shadow-lg" />
+                            </MapContainer>
                         </div>
                          {activeShapeRef.current && (historyState.canUndo || historyState.canRedo) && (
                             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">
@@ -519,14 +161,14 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             </div>
                          )}
                         <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
-                            <Button onClick={handleZoomIn} variant="ghost" size="icon" title="Zoom In">
+                            <Button onClick={() => {}} variant="ghost" size="icon" title="Zoom In">
                                 <ZoomIn className="h-5 w-5" />
                             </Button>
                             <span className="text-xs font-bold w-6 text-center select-none">{zoomLevel}</span>
-                            <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
+                            <Button onClick={() => {}} variant="ghost" size="icon" title="Zoom Out">
                                 <ZoomOut className="h-5 w-5" />
                             </Button>
-                            <Button onClick={() => applyZoomLevel(fitLevel)} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')} disabled={!defaultGeofenceId}>
+                            <Button onClick={() => {}} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')} disabled={!defaultGeofenceId}>
                                 <Frame className="h-5 w-5" />
                             </Button>
                         </div>
@@ -549,27 +191,11 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                             </div>
                             
                             {selectedModule === 'geofence' && (
-                                <GeofenceControls
-                                    condoId={condo.id}
-                                    geofences={dbGeofences}
-                                    mapShapesRef={mapShapesRef}
-                                    onDataNeedsRefresh={onDataNeedsRefresh}
-                                    selectedGeofenceId={selectedGeofenceId}
-                                    setSelectedGeofenceId={setSelectedGeofenceId}
-                                    defaultGeofenceId={defaultGeofenceId}
-                                    setDefaultGeofenceId={setDefaultGeofenceId}
-                                    mode={mode}
-                                    setMode={setMode}
-                                    drawingManager={drawingManagerRef.current}
-                                    showAllGeofences={showAllGeofences}
-                                    setShowAllGeofences={setShowAllGeofences}
-                                    onSettingsClick={() => setIsMapSettingsOpen(true)}
-                                    activeShapeRef={activeShapeRef}
-                                    history={history}
-                                    setHistory={setHistory}
-                                    historyIndex={historyIndex}
-                                    setHistoryIndex={setHistoryIndex}
-                                />
+                                 <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground text-sm p-4">
+                                     <Loader className="h-6 w-6 animate-spin mb-4" />
+                                    <p>{t('condoDashboard.settingsGroups.catalogs.wipDescription')}</p>
+                                    <p>La gestión de geocercas está siendo refactorizada para el nuevo sistema de mapas.</p>
+                                </div>
                             )}
                             {selectedModule === 'elements' && (
                                 <ElementsControls condoId={condo.id}/>
@@ -584,7 +210,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
             onOpenChange={setIsMapSettingsOpen}
             zoomLevel={zoomLevel}
             initialFitLevel={fitLevel}
-            onApplyFit={applyZoomLevel}
+            onApplyFit={() => {}}
             isGeofenceAvailable={!!calculatedZoomLevels}
             onCenterAddress={centerMapOnAddress}
         />

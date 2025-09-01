@@ -83,11 +83,10 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import MapComponent, { type Marker } from '@/components/map';
+import MapContainer from './map/map-container';
 import type { SessionPayload } from '@/lib/session';
 import type { Device } from '@/actions/devices';
 import { handleLogoutAction } from '@/lib/session';
-import MapContainer from './map/map-container';
 
 const deviceIcons: { [key: string]: React.ReactNode } = {
   'Teléfono Inteligente': <Smartphone className="h-5 w-5 text-muted-foreground" />,
@@ -263,6 +262,7 @@ export default function DashboardClient({
   const router = useRouter();
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [map, setMap] = useState<any | null>(null);
 
   useEffect(() => {
     // This effect can be simplified as we now receive props directly
@@ -329,20 +329,6 @@ export default function DashboardClient({
     router.push('/');
   }
   
-  const mapCenter = { lat: 40.7128, lng: -74.0060 }; // Default center if no device selected
-
-  const mapMarkers: Marker[] = devices
-    .map(device => {
-        return {
-            id: device.id,
-            position: { lat: 40.7128, lng: -74.0060 }, // Placeholder
-            label: device.name,
-            isActive: device.id === selectedDevice?.id
-        };
-    })
-    .filter((marker): marker is Marker => marker !== null);
-
-
   if (!user) {
     return <DashboardSkeleton />;
   }
@@ -466,9 +452,7 @@ export default function DashboardClient({
             </CardHeader>
             <CardContent>
               <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden relative shadow-inner">
-                <MapContainer>
-                  <MapComponent mapId="follow-for-me-map" defaultCenter={mapCenter} markers={mapMarkers} />
-                </MapContainer>
+                <MapContainer onMapLoad={setMap}/>
               </div>
             </CardContent>
           </Card>
@@ -491,7 +475,7 @@ export default function DashboardClient({
                 </TableHeader>
                 <TableBody>
                   {devices.map((device) => {
-                    const deviceTypeName = device.device_type_name_translations[locale] || device.device_type_name_translations['pt-BR'];
+                    const deviceTypeName = device.device_type_name_translations[locale as 'es' | 'pt-BR'] || device.device_type_name_translations['pt-BR'];
                     return (
                         <TableRow key={device.id} className={cn(selectedDevice?.id === device.id && "bg-accent/10")}>
                         <TableCell>

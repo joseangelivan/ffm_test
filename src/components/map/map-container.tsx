@@ -1,70 +1,26 @@
 
+
 "use client";
 
-import React, { useState, useEffect, Suspense } from 'react';
-import { APIProvider } from '@vis.gl/react-google-maps';
+import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { getDefaultMapProvider, type MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { Loader } from 'lucide-react';
-import GoogleMapComponent from '@/components/map/providers/google-maps/map';
+
+// Import map provider components
+import GoogleMap from './providers/google/map';
 import LeafletMapPlaceholder from './providers/leaflet/map';
+import OpenLayersMapPlaceholder from './providers/openlayers/map';
+import MapboxPlaceholder from './providers/mapbox/map';
+import MapLibrePlaceholder from './providers/maplibre/map';
 
 type MapContainerProps = {
-    children: React.ReactNode;
+    children?: React.ReactNode;
+    onMapLoad: (map: any) => void;
 }
 
-const GoogleMapsProviderWrapper: React.FC<{ config: any, children: React.ReactNode }> = ({ config, children }) => {
-    const { toast } = useToast();
-    const { t } = useLocale();
-
-    let apiKey = config?.api_config?.parameters?.apiKey;
-    if (typeof apiKey === 'string' && apiKey.startsWith('$')) {
-        const envVarName = apiKey.substring(1);
-        if (typeof process !== 'undefined' && process.env[envVarName]) {
-            apiKey = process.env[envVarName];
-        } else {
-            apiKey = '';
-            console.error(`Environment variable ${envVarName} not found.`);
-        }
-    }
-
-    const handleApiError = (error: { name: string, message: string, cause: any }) => {
-        if (error.name === 'BillingNotEnabledMapError') {
-             toast({
-                title: t('toast.mapsBillingError.title'),
-                description: t('toast.mapsBillingError.description'),
-                variant: 'destructive',
-            });
-        } else {
-            console.error('Google Maps API Error:', error);
-        }
-    };
-
-    if (!apiKey) {
-        return (
-            <div className="flex items-center justify-center h-full bg-muted">
-                <p className="text-destructive text-center p-4">
-                    {t('condoDashboard.map.apiKeyMissing.title')}
-                </p>
-            </div>
-        );
-    }
-    
-    return (
-        <APIProvider 
-            apiKey={apiKey} 
-            libraries={['drawing', 'geocoding', 'places', 'marker']}
-            onLoad={() => console.log('Maps API loaded.')}
-            onError={(e) => handleApiError(e)}
-        >
-            {React.cloneElement(children as React.ReactElement, { config: config.api_config.parameters })}
-        </APIProvider>
-    );
-};
-
-
-const MapContainer: React.FC<MapContainerProps> = ({ children }) => {
+const MapContainer: React.FC<MapContainerProps> = ({ children, onMapLoad }) => {
     const [provider, setProvider] = useState<DbMapProvider | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const { t } = useLocale();
@@ -85,7 +41,6 @@ const MapContainer: React.FC<MapContainerProps> = ({ children }) => {
         fetchProvider();
     }, []);
 
-
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-full bg-muted">
@@ -93,36 +48,33 @@ const MapContainer: React.FC<MapContainerProps> = ({ children }) => {
             </div>
         )
     }
-
-    if (!provider) {
-        return (
-            <div className="flex items-center justify-center h-full bg-muted">
-                <p className="text-destructive text-center p-4">
-                    {t('adminDashboard.maps.noServices')}
-                </p>
-            </div>
-        )
-    }
-
-    switch(provider.provider_type) {
+    
+    switch (provider?.provider_type) {
         case 'google':
-            return (
-                 <GoogleMapsProviderWrapper config={provider.config_json}>
-                    {children}
-                 </GoogleMapsProviderWrapper>
-            );
-        
-        case 'leaflet':
-           return <LeafletMapPlaceholder />;
-        
-        default:
              return (
-                <div className="flex items-center justify-center h-full bg-muted">
-                    <p className="text-destructive text-center p-4">
-                        {t('adminDashboard.maps.providerNotSupported', { type: provider.provider_type })}
+                <GoogleMap config={provider?.config_json || null} onMapLoad={onMapLoad}>
+                    {children}
+                </GoogleMap>
+            );
+        case 'leaflet':
+            return <LeafletMapPlaceholder />;
+        case 'openlayers':
+            return <OpenLayersMapPlaceholder />;
+        case 'mapbox':
+            return <MapboxPlaceholder />;
+        case 'maplibre':
+            return <MapLibrePlaceholder />;
+        default:
+            return (
+                 <div className="flex items-center justify-center h-full bg-muted-foreground/10">
+                    <p className="text-muted-foreground text-center p-4">
+                        {provider 
+                            ? t('adminDashboard.maps.providerNotSupported', { type: provider.provider_type})
+                            : "Nenhum provedor de mapa padrão configurado."
+                        }
                     </p>
                 </div>
-            )
+            );
     }
 }
 
