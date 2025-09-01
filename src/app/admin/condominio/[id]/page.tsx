@@ -1,5 +1,4 @@
 
-
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 
@@ -14,17 +13,19 @@ import { AlertTriangle } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-async function CondoDashboard({ condoId }: { condoId: string }) {
+export default async function CondominioDashboardPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session) {
     // This case should be handled by middleware, but as a safeguard.
     notFound();
   }
 
+  const awaitedParams = await params;
+
   // Fetch all data needed for the dashboard in parallel
   const [condoResult, devices, settings, mapProvider] = await Promise.all([
-    getCondominioById(condoId),
-    getDevicesByCondoId(condoId),
+    getCondominioById(awaitedParams.id),
+    getDevicesByCondoId(awaitedParams.id),
     getSettings(session),
     getDefaultMapProvider()
   ]);
@@ -47,23 +48,14 @@ async function CondoDashboard({ condoId }: { condoId: string }) {
   const initialSettings = settings || { theme: 'light', language: 'pt-BR' };
 
   return (
-    <CondoDashboardClient
-      session={session}
-      initialCondo={condo}
-      initialDevices={devices}
-      initialSettings={initialSettings}
-      mapProvider={mapProvider}
-    />
-  );
-}
-
-
-export default async function CondominioDashboardPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-
-  return (
     <Suspense fallback={<Loading />}>
-      <CondoDashboard condoId={id} />
+        <CondoDashboardClient
+          session={session}
+          initialCondo={condo}
+          initialDevices={devices}
+          initialSettings={initialSettings}
+          mapProvider={mapProvider}
+        />
     </Suspense>
   );
 }
