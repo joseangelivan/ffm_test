@@ -19,51 +19,17 @@ interface MapProps {
 const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) => {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<Map | null>(null);
-    const layerRef = useRef<TileLayer<OSM | XYZ> | null>(null);
 
-    // Effect to initialize the map only once
     useEffect(() => {
-        if (mapRef.current && !mapInstanceRef.current) {
-            const initialLayer = new TileLayer({
-                source: new OSM(), // Start with a default, will be updated
-            });
-            layerRef.current = initialLayer;
+        if (!mapRef.current) return;
 
-            const map = new Map({
-                target: mapRef.current,
-                layers: [initialLayer],
-                view: new View({
-                    center: fromLonLat([-49.2, -25.4]), // Default center
-                    zoom: 4,
-                }),
-                controls: [],
-            });
-            mapInstanceRef.current = map;
-            onMapLoad(map);
-        }
-
-        return () => {
-            if (mapInstanceRef.current) {
-                mapInstanceRef.current.setTarget(undefined);
-            }
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // Effect to update the map source when the provider changes
-    useEffect(() => {
-        if (!mapInstanceRef.current || !layerRef.current) return;
-
-        let source;
         let config: any;
-
-        // --- FIX: Ensure config_json is always an object ---
         if (typeof provider.config_json === 'string') {
             try {
                 config = JSON.parse(provider.config_json);
             } catch (e) {
                 console.error("Failed to parse map provider config_json:", e);
-                config = {}; // Fallback to an empty object
+                config = {};
             }
         } else {
             config = provider.config_json || {};
@@ -73,26 +39,59 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
         const attribution = config.ui_config?.attribution;
         let baseUrl = config.api_config?.base_url;
 
-        // Special handling for Google Maps tiles
         if (provider.provider_type === 'google' && apiKey) {
-             baseUrl = `https://mt.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${apiKey}`;
+            baseUrl = `https://mt.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${apiKey}`;
         }
         
+        let source;
         if (baseUrl) {
-             source = new XYZ({
+            source = new XYZ({
                 url: baseUrl,
                 attributions: attribution || undefined,
                 attributionsCollapsible: false,
-                maxZoom: 20
+                maxZoom: 20,
             });
+        } else {
+            source = new OSM();
         }
-        else {
-            source = new OSM(); // Default to OpenStreetMap
+        
+        const initialLayer = new TileLayer({ source });
+
+        // Ensure we don't create a new map if one already exists for this component instance.
+        if (!mapInstanceRef.current) {
+            mapInstanceRef.current = new Map({
+                target: mapRef.current,
+                layers: [initialLayer],
+                view: new View({
+                    center: fromLonLat([-49.2, -25.4]),
+                    zoom: 4,
+                }),
+                controls: [],
+            });
+            onMapLoad(mapInstanceRef.current);
+        } else {
+            // If the map instance exists, just update the layer's source.
+            const currentLayers = mapInstanceRef.current.getLayers();
+            if (currentLayers.getLength() > 0) {
+                 const firstLayer = currentLayers.item(0);
+                 if(firstLayer instanceof TileLayer) {
+                     firstLayer.setSource(source);
+                 }
+            } else {
+                mapInstanceRef.current.addLayer(initialLayer);
+            }
         }
 
-        layerRef.current.setSource(source);
-
-    }, [provider]);
+        // Cleanup function: This is crucial. It runs when the component unmounts.
+        return () => {
+            if (mapInstanceRef.current) {
+                mapInstanceRef.current.setTarget(undefined);
+                // Completely dispose of the map instance to avoid memory leaks.
+                mapInstanceRef.current.dispose();
+                mapInstanceRef.current = null;
+            }
+        };
+    }, [provider, onMapLoad]);
 
     return (
        <div ref={mapRef} className="w-full h-full">
@@ -102,4 +101,3 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
 };
 
 export default OpenLayersMap;
-
