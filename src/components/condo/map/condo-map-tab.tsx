@@ -127,16 +127,12 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
   const handleMapLoad = useCallback(async (map: Map) => {
     mapRef.current = map;
     
-    // First, try to fit to a geofence
     const { hasGeofences, defaultGeofence } = await onDataNeedsRefresh();
 
     if (hasGeofences && defaultGeofence) {
-        // TODO: Implement fitToGeofence logic for OpenLayers
         console.log("TODO: Fit map to geofence bounds", defaultGeofence);
-        // For now, center on condo address as fallback
         await fetchAndSetCondoPosition(map, true);
     } else if (!hasGeofences) {
-        // If no geofences, silently try to center on address
         await fetchAndSetCondoPosition(map, true);
     }
     
@@ -250,5 +246,3 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
     </>
   );
 }
-
-

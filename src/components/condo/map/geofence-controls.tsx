@@ -174,7 +174,7 @@ export function GeofenceControls({
 }
 
 
-const CreateEditGeofenceDialog = ({ condoId, geofence, onSuccess }: { condoId: string, geofence?: Geofence, onSuccess: (newId?: string) => void }) => {
+const CreateEditGeofenceDialog = ({ condoId, geofence, onSuccess }: { condoId: string, geofence?: Geofence | null, onSuccess: (newId?: string) => void }) => {
     const { t } = useLocale();
     const { toast } = useToast();
     const [name, setName] = useState(geofence?.name || '');
