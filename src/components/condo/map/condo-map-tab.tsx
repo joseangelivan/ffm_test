@@ -8,7 +8,6 @@ import {
   ZoomIn,
   ZoomOut,
   Frame,
-  Building,
   Loader,
 } from 'lucide-react';
 import { fromLonLat } from 'ol/proj';
@@ -20,19 +19,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useLocale } from '@/lib/i18n';
 import MapContainer from '@/components/map/map-container';
 import { ElementsControls } from './elements-controls';
-import { getGeofencesByCondoId } from '@/actions/maps';
 import { geocodeAddress } from '@/actions/geocoding';
-import type { Geofence as DbGeofence } from '@/actions/maps';
 import { MapSettingsDialog } from './map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
 
 export default function CondoMapTab({ condo }: { condo: Condominio }) {
   const { t } = useLocale();
   const { toast } = useToast();
-  const mapRef = useRef<any | null>(null); // To hold OpenLayers map instance
-  
-  const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
-  const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
+  const mapRef = useRef<any | null>(null);
   
   const [zoomLevel, setZoomLevel] = useState(15);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,14 +37,9 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
 
   const onDataNeedsRefresh = useCallback(async () => {
     setIsLoading(true);
+    // Placeholder for fetching map data like geofences, elements, etc.
     try {
-        const freshDbGeofences = await getGeofencesByCondoId(condo.id);
-        setDbGeofences(freshDbGeofences);
-        
-        const defaultGfDb = freshDbGeofences.find(g => g.is_default);
-        const newDefaultId = defaultGfDb ? defaultGfDb.id : (freshDbGeofences.length > 0 ? freshDbGeofences[0].id : null);
-        setDefaultGeofenceId(newDefaultId);
-        
+      // Example: const freshDbGeofences = await getGeofencesByCondoId(condo.id);
     } catch (e) {
         console.error("Failed to refresh data", e);
         toast({ title: t('toast.errorTitle'), description: "Error al recargar los datos del mapa.", variant: 'destructive' });
@@ -65,6 +54,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
   
     // Geocode only if we don't have the position yet
     if (!condoPosition) {
+        setIsLoading(true);
         const geoResult = await geocodeAddress({
             street: `${condo.street}, ${condo.number}`, city: condo.city, state: condo.state, country: condo.country
         });
@@ -80,6 +70,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                 variant: 'destructive'
             });
         }
+        setIsLoading(false);
     } else {
         map.getView().setCenter(fromLonLat([condoPosition.lng, condoPosition.lat]));
         if (zoom) map.getView().setZoom(17);
@@ -90,7 +81,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
   const handleMapLoad = useCallback(async (map: any) => {
     mapRef.current = map;
     await onDataNeedsRefresh();
-    await centerMapOnAddress();
+    await centerMapOnAddress(true);
     
     // Listen for zoom changes
     map.getView().on('change:resolution', () => {
@@ -129,6 +120,14 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                 <div className="grid grid-cols-1 md:grid-cols-3 h-[70vh]">
                     <div className="col-span-1 md:col-span-2 relative p-1">
                         <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
+                             {isLoading && (
+                                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Loader className="h-5 w-5 animate-spin" />
+                                        <span>{t('condoDashboard.map.loadingMap')}</span>
+                                    </div>
+                                </div>
+                            )}
                             <MapContainer onMapLoad={handleMapLoad}>
                                {/* Markers and polygons will be added here as children */}
                             </MapContainer>
@@ -166,8 +165,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                             {selectedModule === 'geofence' && (
                                 <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground text-sm p-4">
                                      <Loader className="h-6 w-6 animate-spin mb-4" />
-                                    <p>{t('condoDashboard.settingsGroups.catalogs.wipDescription')}</p>
-                                    <p>Geofence controls will be reimplemented using OpenLayers soon.</p>
+                                    <p>{t('condoDashboard.map.wipDescription')}</p>
                                 </div>
                             )}
                             {selectedModule === 'elements' && (

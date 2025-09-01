@@ -190,7 +190,6 @@
         "catalogs": {
             "title": "Gestión de Catálogos",
             "description": "Gestiona los datos globales que se utilizan en toda la aplicación, como tipos de dispositivo y protocolos.",
-            "wipDescription": "Gestión completa para este catálogo próximamente.",
             "table": {
                 "name": "Nombre",
                 "features": "Características",
@@ -406,6 +405,7 @@
         "customMap2": "Mapa Personalizado 2",
         "undo": "Deshacer",
         "redo": "Rehacer",
+        "wipDescription": "La gestión de este módulo está en desarrollo y se implementará utilizando OpenLayers.",
         "modules": {
             "title": "Módulos del Mapa",
             "selectPlaceholder": "Seleccionar módulo",
@@ -668,3 +668,4 @@
     
 
     
+
