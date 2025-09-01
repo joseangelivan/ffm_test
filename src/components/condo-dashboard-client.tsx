@@ -10,6 +10,7 @@ import {
   Smartphone,
   Users,
   Map,
+  Loader,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -34,8 +35,9 @@ import { cn } from '@/lib/utils';
 import type { SessionPayload } from '@/lib/session';
 import { handleLogoutAction } from '@/lib/session';
 import type { UserSettings } from '@/actions/admin';
-import { getActiveTheme, updateSettings } from '@/actions/admin';
+import { getActiveTheme, updateSettings, getDefaultMapProvider } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
+import { type MapProvider } from '@/actions/map_providers';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 
 type CondoDashboardClientProps = {
@@ -43,9 +45,10 @@ type CondoDashboardClientProps = {
     initialCondo: Condominio;
     initialDevices: Device[];
     initialSettings: UserSettings;
+    mapProvider: MapProvider | null;
 };
 
-export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings }: CondoDashboardClientProps) { 
+export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider }: CondoDashboardClientProps) { 
   const { t, setLocale } = useLocale();
   const router = useRouter();
 
@@ -135,6 +138,14 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     condo: initialCondo,
   }), [handleSetLocale, handleSetTheme, theme, initialCondo]);
 
+  if (!mapProvider) {
+    return (
+        <div className="flex items-center justify-center h-full bg-muted">
+            <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+    )
+  }
+
   return (
     <CondoDashboardContext.Provider value={providerValue}>
       <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -166,7 +177,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                       <ManageDevicesTab condoId={initialCondo.id} devices={initialDevices} onDataNeedsRefresh={onDataNeedsRefresh} />
                   </TabsContent>
                   <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
-                      <CondoMapTab condo={initialCondo} />
+                      <CondoMapTab condo={initialCondo} mapProvider={mapProvider} />
                   </TabsContent>
               </div>
             </Tabs>

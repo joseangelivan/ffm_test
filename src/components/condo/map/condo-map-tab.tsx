@@ -22,8 +22,10 @@ import { ElementsControls } from './elements-controls';
 import { geocodeAddress } from '@/actions/geocoding';
 import { MapSettingsDialog } from './map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
+import type { MapProvider } from '@/actions/map_providers';
 
-export default function CondoMapTab({ condo }: { condo: Condominio }) {
+
+export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio, mapProvider: MapProvider | null }) {
   const { t } = useLocale();
   const { toast } = useToast();
   const mapRef = useRef<any | null>(null);
@@ -120,15 +122,7 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                 <div className="grid grid-cols-1 md:grid-cols-3 h-[70vh]">
                     <div className="col-span-1 md:col-span-2 relative p-1">
                         <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
-                             {isLoading && (
-                                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                        <Loader className="h-5 w-5 animate-spin" />
-                                        <span>{t('condoDashboard.map.loadingMap')}</span>
-                                    </div>
-                                </div>
-                            )}
-                            <MapContainer onMapLoad={handleMapLoad}>
+                            <MapContainer provider={mapProvider} onMapLoad={handleMapLoad}>
                                {/* Markers and polygons will be added here as children */}
                             </MapContainer>
                         </div>
@@ -164,7 +158,6 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                             
                             {selectedModule === 'geofence' && (
                                 <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground text-sm p-4">
-                                     <Loader className="h-6 w-6 animate-spin mb-4" />
                                     <p>{t('condoDashboard.map.wipDescription')}</p>
                                 </div>
                             )}

@@ -8,7 +8,7 @@ import CondoDashboardClient from '@/components/condo-dashboard-client';
 import { getCondominioById } from '@/actions/condos';
 import { getDevicesByCondoId } from '@/actions/devices';
 import { getSession } from '@/lib/auth';
-import { getSettings } from '@/actions/admin';
+import { getSettings, getDefaultMapProvider } from '@/actions/admin';
 import { geocodeAddress } from '@/actions/geocoding';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
@@ -16,21 +16,19 @@ import { AlertTriangle } from 'lucide-react';
 export const dynamic = 'force-dynamic';
 
 export default async function CondominioDashboardPage({ params }: { params: { id: string } }) {
-  // First, await the session to satisfy Next.js's requirement for using params.
   const session = await getSession();
   if (!session) {
-    // This should be handled by middleware, but as a safeguard
     notFound();
   }
 
-  // Await the params object before accessing its properties
   const { id } = params;
 
   // Fetch all other data needed for the dashboard in parallel
-  const [condoResult, devices, settings] = await Promise.all([
+  const [condoResult, devices, settings, mapProvider] = await Promise.all([
     getCondominioById(id),
     getDevicesByCondoId(id),
     getSettings(session),
+    getDefaultMapProvider()
   ]);
 
   if (!condoResult.success || !condoResult.data || !settings) {
@@ -58,6 +56,7 @@ export default async function CondominioDashboardPage({ params }: { params: { id
             initialCondo={condo}
             initialDevices={devices}
             initialSettings={initialSettings}
+            mapProvider={mapProvider}
         />
     </Suspense>
   );
