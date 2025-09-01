@@ -26,19 +26,20 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
         let source;
         const config = provider.config_json || {};
         const apiKey = config.api_config?.parameters?.apiKey;
+        const attribution = config.ui_config?.attribution;
+        let baseUrl = config.api_config?.base_url;
 
+        // Special handling for Google Maps tiles
         if (provider.provider_type === 'google' && apiKey) {
+             baseUrl = `https://mt.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${apiKey}`;
+        }
+        
+        if (baseUrl) {
              source = new XYZ({
-                url: `https://mt.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${apiKey}`,
-                attributions: config.ui_config?.attribution || 'Google',
+                url: baseUrl,
+                attributions: attribution || undefined,
                 attributionsCollapsible: false,
                 maxZoom: 20
-            });
-        } else if (config.api_config?.base_url) {
-             source = new XYZ({
-                url: config.api_config.base_url,
-                attributions: config.ui_config?.attribution || undefined,
-                attributionsCollapsible: false
             });
         }
         else {

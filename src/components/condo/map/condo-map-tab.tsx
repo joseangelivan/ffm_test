@@ -38,7 +38,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
   const [selectedModule, setSelectedModule] = useState('geofence');
 
   const onDataNeedsRefresh = useCallback(async () => {
-    setIsLoading(true);
+    // setIsLoading(true); This might be redundant if centerMapOnAddress handles it
     // Placeholder for fetching map data like geofences, elements, etc.
     try {
       // Example: const freshDbGeofences = await getGeofencesByCondoId(condo.id);
@@ -46,17 +46,15 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
         console.error("Failed to refresh data", e);
         toast({ title: t('toast.errorTitle'), description: "Error al recargar los datos del mapa.", variant: 'destructive' });
     } finally {
-        setIsLoading(false);
+        // setIsLoading(false);
     }
   }, [condo.id, toast, t]);
 
-  const centerMapOnAddress = useCallback(async (zoom: boolean = true) => {
-    const map = mapRef.current;
+  const centerMapOnAddress = useCallback(async (map: any, zoom: boolean = true) => {
     if (!map) return;
-  
-    // Geocode only if we don't have the position yet
-    if (!condoPosition) {
-        setIsLoading(true);
+    setIsLoading(true);
+
+    try {
         const geoResult = await geocodeAddress({
             street: `${condo.street}, ${condo.number}`, city: condo.city, state: condo.state, country: condo.country
         });
@@ -72,22 +70,29 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
                 variant: 'destructive'
             });
         }
+    } catch (error) {
+        toast({
+            title: t('toast.errorTitle'),
+            description: "An error occurred during geocoding.",
+            variant: 'destructive'
+        });
+    } finally {
         setIsLoading(false);
-    } else {
-        map.getView().setCenter(fromLonLat([condoPosition.lng, condoPosition.lat]));
-        if (zoom) map.getView().setZoom(17);
     }
- }, [condo, condoPosition, setCondoPosition, t, toast]);
+ }, [condo, t, toast]);
 
 
   const handleMapLoad = useCallback(async (map: any) => {
     mapRef.current = map;
     await onDataNeedsRefresh();
-    await centerMapOnAddress(true);
+    await centerMapOnAddress(map, true);
     
     // Listen for zoom changes
     map.getView().on('change:resolution', () => {
-        setZoomLevel(Math.round(map.getView().getZoom()!));
+        const currentZoom = map.getView().getZoom();
+        if (currentZoom) {
+            setZoomLevel(Math.round(currentZoom));
+        }
     });
 
   }, [onDataNeedsRefresh, centerMapOnAddress]);
@@ -101,6 +106,12 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
     if(view) view.animate({ zoom: view.getZoom()! - 1, duration: 250 });
   };
 
+  const handleRecenter = () => {
+      if (mapRef.current) {
+          centerMapOnAddress(mapRef.current, true);
+      }
+  }
+
   return (
     <>
         <Card>
@@ -112,7 +123,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
                  <div className="text-right">
                     <h3 className="font-semibold">{condo.name}</h3>
                     <p className="text-xs text-muted-foreground">{condo.address}</p>
-                    <Button onClick={() => centerMapOnAddress(true)} variant="link" size="sm" className="p-0 h-auto">
+                    <Button onClick={handleRecenter} variant="link" size="sm" className="p-0 h-auto">
                         <Locate className="h-3 w-3 mr-1" />
                         {t('condoDashboard.map.recenterOnAddress')}
                     </Button>
@@ -122,6 +133,14 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
                 <div className="grid grid-cols-1 md:grid-cols-3 h-[70vh]">
                     <div className="col-span-1 md:col-span-2 relative p-1">
                         <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
+                            {isLoading && (
+                                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Loader className="h-5 w-5 animate-spin" />
+                                        <span>{t('condoDashboard.map.loadingMap')}</span>
+                                    </div>
+                                </div>
+                            )}
                             <MapContainer provider={mapProvider} onMapLoad={handleMapLoad}>
                                {/* Markers and polygons will be added here as children */}
                             </MapContainer>
@@ -176,7 +195,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
             initialFitLevel={'2'}
             onApplyFit={() => {}}
             isGeofenceAvailable={false}
-            onCenterAddress={() => centerMapOnAddress(true)}
+            onCenterAddress={handleRecenter}
         />
     </>
   );
