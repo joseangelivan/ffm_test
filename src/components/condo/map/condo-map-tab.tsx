@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -11,6 +10,7 @@ import {
   Loader,
 } from 'lucide-react';
 import { fromLonLat } from 'ol/proj';
+import type { Map } from 'ol';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
@@ -24,11 +24,10 @@ import { MapSettingsDialog } from './map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { MapProvider } from '@/actions/map_providers';
 
-
 export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio, mapProvider: MapProvider | null }) {
   const { t } = useLocale();
   const { toast } = useToast();
-  const mapRef = useRef<any | null>(null);
+  const mapRef = useRef<Map | null>(null);
   
   const [zoomLevel, setZoomLevel] = useState(15);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,23 +36,18 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
   const [selectedModule, setSelectedModule] = useState('geofence');
 
-  const onDataNeedsRefresh = useCallback(async () => {
-    // setIsLoading(true); This might be redundant if centerMapOnAddress handles it
+  const onDataNeedsRefresh = useCallback(() => {
     // Placeholder for fetching map data like geofences, elements, etc.
     try {
       // Example: const freshDbGeofences = await getGeofencesByCondoId(condo.id);
     } catch (e) {
         console.error("Failed to refresh data", e);
         toast({ title: t('toast.errorTitle'), description: "Error al recargar los datos del mapa.", variant: 'destructive' });
-    } finally {
-        // setIsLoading(false);
     }
   }, [condo.id, toast, t]);
 
-  const centerMapOnAddress = useCallback(async (map: any, zoom: boolean = true) => {
-    if (!map) return;
+ const centerMapOnAddress = async (map: Map, zoom: boolean = true) => {
     setIsLoading(true);
-
     try {
         const geoResult = await geocodeAddress({
             street: `${condo.street}, ${condo.number}`, city: condo.city, state: condo.state, country: condo.country
@@ -79,12 +73,12 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
     } finally {
         setIsLoading(false);
     }
- }, [condo, t, toast]);
+ };
 
 
-  const handleMapLoad = useCallback(async (map: any) => {
+  const handleMapLoad = async (map: Map) => {
     mapRef.current = map;
-    await onDataNeedsRefresh();
+    onDataNeedsRefresh();
     await centerMapOnAddress(map, true);
     
     // Listen for zoom changes
@@ -95,7 +89,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
         }
     });
 
-  }, [onDataNeedsRefresh, centerMapOnAddress]);
+  };
 
   const handleZoomIn = () => {
     const view = mapRef.current?.getView();

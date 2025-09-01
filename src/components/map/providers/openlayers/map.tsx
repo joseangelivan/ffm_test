@@ -18,10 +18,40 @@ interface MapProps {
 
 const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) => {
     const mapRef = useRef<HTMLDivElement>(null);
-    const olMapRef = useRef<Map | null>(null);
+    const mapInstanceRef = useRef<Map | null>(null);
+    const layerRef = useRef<TileLayer<OSM | XYZ> | null>(null);
 
+    // Effect to initialize the map only once
     useEffect(() => {
-        if (!mapRef.current || olMapRef.current) return;
+        if (mapRef.current && !mapInstanceRef.current) {
+            const initialLayer = new TileLayer({
+                source: new OSM(), // Start with a default, will be updated
+            });
+            layerRef.current = initialLayer;
+
+            const map = new Map({
+                target: mapRef.current,
+                layers: [initialLayer],
+                view: new View({
+                    center: fromLonLat([-49.2, -25.4]), // Default center
+                    zoom: 4,
+                }),
+                controls: [],
+            });
+            mapInstanceRef.current = map;
+            onMapLoad(map);
+        }
+
+        return () => {
+            if (mapInstanceRef.current) {
+                mapInstanceRef.current.setTarget(undefined);
+            }
+        };
+    }, [onMapLoad]);
+
+    // Effect to update the map source when the provider changes
+    useEffect(() => {
+        if (!mapInstanceRef.current || !layerRef.current) return;
 
         let source;
         const config = provider.config_json || {};
@@ -46,30 +76,9 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
             source = new OSM(); // Default to OpenStreetMap
         }
 
-        const map = new Map({
-            target: mapRef.current,
-            layers: [
-                new TileLayer({
-                    source: source,
-                })
-            ],
-            view: new View({
-                center: fromLonLat([-49.2, -25.4]), // Default center
-                zoom: 4, // Default zoom
-            }),
-            controls: [], // Remove default controls
-        });
+        layerRef.current.setSource(source);
 
-        olMapRef.current = map;
-        onMapLoad(map);
-        
-        return () => {
-            if (olMapRef.current) {
-                olMapRef.current.setTarget(undefined);
-                olMapRef.current = null;
-            }
-        };
-    }, [provider, onMapLoad]);
+    }, [provider]);
 
     return (
        <div ref={mapRef} className="w-full h-full">
