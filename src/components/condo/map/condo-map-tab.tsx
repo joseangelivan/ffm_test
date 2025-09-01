@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -8,6 +9,7 @@ import {
   ZoomOut,
   Frame,
   Loader,
+  Building
 } from 'lucide-react';
 import { fromLonLat } from 'ol/proj';
 import type { Map } from 'ol';
@@ -23,6 +25,8 @@ import { geocodeAddress } from '@/actions/geocoding';
 import { MapSettingsDialog } from './map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { MapProvider } from '@/actions/map_providers';
+import { GeofenceControls } from './geofence-controls';
+import { getGeofencesByCondoId, type Geofence as DbGeofence } from '@/actions/maps';
 
 export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio, mapProvider: MapProvider | null }) {
   const { t } = useLocale();
@@ -35,16 +39,37 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
   const [condoPosition, setCondoPosition] = useState<{lat: number, lng: number} | null>(null);
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
   const [selectedModule, setSelectedModule] = useState('geofence');
+  
+  const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
+  const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
+  const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
 
-  const onDataNeedsRefresh = useCallback(() => {
-    // Placeholder for fetching map data like geofences, elements, etc.
+  const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
+    setIsLoading(true);
     try {
-      // Example: const freshDbGeofences = await getGeofencesByCondoId(condo.id);
+        const freshDbGeofences = await getGeofencesByCondoId(condo.id);
+        setDbGeofences(freshDbGeofences);
+        
+        const defaultGfDb = freshDbGeofences.find(g => g.is_default);
+        const newDefaultId = defaultGfDb ? defaultGfDb.id : (freshDbGeofences.length > 0 ? freshDbGeofences[0].id : null);
+        setDefaultGeofenceId(newDefaultId);
+        
+        if (newSelectedId) {
+            setSelectedGeofenceId(newSelectedId);
+        } else {
+            const currentSelectionExists = freshDbGeofences.some(g => g.id === selectedGeofenceId);
+            if (!currentSelectionExists) {
+                setSelectedGeofenceId(newDefaultId);
+            }
+        }
     } catch (e) {
         console.error("Failed to refresh data", e);
         toast({ title: t('toast.errorTitle'), description: "Error al recargar los datos del mapa.", variant: 'destructive' });
+    } finally {
+        setIsLoading(false);
     }
-  }, [condo.id, toast, t]);
+  }, [condo.id, selectedGeofenceId, toast, t]);
+
 
   const fetchAndSetCondoPosition = useCallback(async (map: Map) => {
     setIsLoading(true);
@@ -143,7 +168,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
                                 </div>
                             )}
                             <MapContainer provider={mapProvider} onMapLoad={handleMapLoad}>
-                               {/* Markers and polygons will be added here as children */}
+                                <Building className="h-8 w-8 text-slate-700 drop-shadow-lg" />
                             </MapContainer>
                         </div>
                         <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
@@ -177,9 +202,11 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
                             </div>
                             
                             {selectedModule === 'geofence' && (
-                                <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground text-sm p-4">
-                                    <p>{t('condoDashboard.map.wipDescription')}</p>
-                                </div>
+                                <GeofenceControls 
+                                    condoId={condo.id}
+                                    dbGeofences={dbGeofences}
+                                    onDataNeedsRefresh={onDataNeedsRefresh}
+                                />
                             )}
                             {selectedModule === 'elements' && (
                                 <ElementsControls condoId={condo.id}/>
@@ -201,3 +228,4 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
     </>
   );
 }
+
