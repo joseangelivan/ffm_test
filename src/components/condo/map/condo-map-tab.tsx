@@ -42,8 +42,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
   
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
-  const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
-
+  
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
     try {
@@ -52,7 +51,6 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
         
         const defaultGfDb = freshDbGeofences.find(g => g.is_default);
         const newDefaultId = defaultGfDb ? defaultGfDb.id : (freshDbGeofences.length > 0 ? freshDbGeofences[0].id : null);
-        setDefaultGeofenceId(newDefaultId);
         
         if (newSelectedId) {
             setSelectedGeofenceId(newSelectedId);
@@ -62,16 +60,20 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
                 setSelectedGeofenceId(newDefaultId);
             }
         }
+        
+        return { hasGeofences: freshDbGeofences.length > 0, defaultGeofence: defaultGfDb };
+
     } catch (e) {
         console.error("Failed to refresh data", e);
         toast({ title: t('toast.errorTitle'), description: "Error al recargar los datos del mapa.", variant: 'destructive' });
+        return { hasGeofences: false, defaultGeofence: null };
     } finally {
         setIsLoading(false);
     }
   }, [condo.id, selectedGeofenceId, toast, t]);
 
 
-  const fetchAndSetCondoPosition = useCallback(async (map: Map) => {
+  const fetchAndSetCondoPosition = useCallback(async (map: Map, suppressToast = false) => {
     setIsLoading(true);
     try {
         const geoResult = await geocodeAddress({
@@ -83,18 +85,26 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
             map.getView().setCenter(fromLonLat([location.lng, location.lat]));
             map.getView().setZoom(17);
         } else {
-            toast({
-                title: t('toast.errorTitle'),
-                description: geoResult.message || 'Geocoding failed.',
-                variant: 'destructive'
-            });
+            if (!suppressToast) {
+                toast({
+                    title: t('toast.errorTitle'),
+                    description: geoResult.message || 'Geocoding failed.',
+                    variant: 'destructive'
+                });
+            } else {
+                console.warn("Silent geocoding failure:", geoResult.message);
+            }
         }
     } catch (error) {
-        toast({
-            title: t('toast.errorTitle'),
-            description: "An error occurred during geocoding.",
-            variant: 'destructive'
-        });
+         if (!suppressToast) {
+            toast({
+                title: t('toast.errorTitle'),
+                description: "An error occurred during geocoding.",
+                variant: 'destructive'
+            });
+        } else {
+            console.error("Silent geocoding error:", error);
+        }
     } finally {
         setIsLoading(false);
     }
@@ -109,7 +119,6 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
             duration: 500
         });
     } else if (mapRef.current) {
-        // Fallback to refetch if position is somehow lost
         fetchAndSetCondoPosition(mapRef.current);
     }
   }, [condoPosition, fetchAndSetCondoPosition]);
@@ -117,8 +126,19 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
 
   const handleMapLoad = useCallback(async (map: Map) => {
     mapRef.current = map;
-    onDataNeedsRefresh();
-    await fetchAndSetCondoPosition(map);
+    
+    // First, try to fit to a geofence
+    const { hasGeofences, defaultGeofence } = await onDataNeedsRefresh();
+
+    if (hasGeofences && defaultGeofence) {
+        // TODO: Implement fitToGeofence logic for OpenLayers
+        console.log("TODO: Fit map to geofence bounds", defaultGeofence);
+        // For now, center on condo address as fallback
+        await fetchAndSetCondoPosition(map, true);
+    } else if (!hasGeofences) {
+        // If no geofences, silently try to center on address
+        await fetchAndSetCondoPosition(map, true);
+    }
     
     map.getView().on('change:resolution', () => {
         const currentZoom = map.getView().getZoom();
@@ -126,6 +146,8 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
             setZoomLevel(Math.round(currentZoom));
         }
     });
+    
+    setIsLoading(false);
 
   }, [onDataNeedsRefresh, fetchAndSetCondoPosition]);
 
@@ -228,4 +250,5 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
     </>
   );
 }
+
 
