@@ -308,7 +308,7 @@ export function ManageMapsDialog() {
                                     </div>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" disabled={isSubmitting || service.is_default || isImmutable} onClick={() => handleSetDefault(service.id)}>
+                                            <Button variant="ghost" size="icon" disabled={isSubmitting || service.is_default} onClick={() => handleSetDefault(service.id)}>
                                                 <Star className={cn("h-4 w-4", service.is_default && "fill-orange-400 text-orange-500")} />
                                             </Button>
                                         </TooltipTrigger>
@@ -332,7 +332,7 @@ export function ManageMapsDialog() {
                                     </Tooltip>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(service)} disabled={isSubmitting || isImmutable}><Edit className="h-4 w-4"/></Button>
+                                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(service)} disabled={isSubmitting}><Edit className="h-4 w-4"/></Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
                                             <p>{t('common.edit')}</p>
@@ -361,7 +361,7 @@ export function ManageMapsDialog() {
                                         </TooltipContent>
                                     </Tooltip>
                                 </div>
-                            )
+                            );
                         })
                     )}
                     </TooltipProvider>

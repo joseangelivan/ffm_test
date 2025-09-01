@@ -35,7 +35,7 @@ export async function getMapProviders(): Promise<MapProvider[]> {
         const pool = await getDbPool();
         if (!pool) return [];
         client = await pool.connect();
-        const result = await client.query('SELECT * FROM map_providers ORDER BY is_immutable DESC, name ASC');
+        const result = await client.query('SELECT * FROM map_providers ORDER BY name ASC');
         return result.rows;
     } catch (error) {
         console.error("Error getting map providers:", error);
@@ -119,9 +119,6 @@ export async function createMapProvider(prevState: any, formData: FormData): Pro
 export async function updateMapProvider(prevState: any, formData: FormData): Promise<ActionState> {
     const id = formData.get('id') as string;
     if (!id) return { success: false, message: "ID no proporcionado." };
-    if (id === IMMUTABLE_PROVIDER_ID) {
-        return { success: false, message: "No se puede modificar el proveedor por defecto." };
-    }
 
     const validatedFields = ServiceSchema.safeParse({
         name: formData.get('name'),
@@ -148,12 +145,12 @@ export async function updateMapProvider(prevState: any, formData: FormData): Pro
         if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         const result = await client.query(
-            'UPDATE map_providers SET name = $1, provider_type = $2, config_json = $3, updated_at = NOW() WHERE id = $4 AND is_immutable = FALSE',
+            'UPDATE map_providers SET name = $1, provider_type = $2, config_json = $3, updated_at = NOW() WHERE id = $4',
             [name, provider_type, configJson, id]
         );
 
         if (result.rowCount === 0) {
-            return { success: false, message: "Proveedor no encontrado o es inmutable." };
+            return { success: false, message: "Proveedor no encontrado." };
         }
         
         return { success: true, message: `Proveedor "${name}" actualizado.` };
@@ -205,9 +202,6 @@ export async function deleteMapProvider(id: string): Promise<ActionState> {
 
 export async function setMapProviderAsDefault(id: string): Promise<ActionState> {
     if (!id) return { success: false, message: "ID no proporcionado." };
-    if (id === IMMUTABLE_PROVIDER_ID) {
-        return { success: false, message: "Este proveedor ya es el predeterminado de respaldo." };
-    }
 
     let client;
     try {
