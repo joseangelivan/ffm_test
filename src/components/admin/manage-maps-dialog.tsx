@@ -81,7 +81,7 @@ function TestMapProviderDialog({ provider, onOpenChange }: { provider: MapProvid
                 </div>
                  <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t('common.close')}</Button>
-                </DialogFooter>
+                 </DialogFooter>
             </DialogContent>
         </Dialog>
     )
@@ -132,8 +132,12 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
     useEffect(() => {
         if(service) {
             setProviderType(service.provider_type);
+            setName(service.name);
+            setConfig(getInitialJson(service.config_json));
         } else {
             setProviderType('');
+            setName('');
+            setConfig('');
         }
     }, [service])
 
@@ -172,8 +176,8 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
 
     const isCreateButtonDisabled = () => {
         if (pending) return true;
-        if (isEditMode) return !isJsonValid;
-        return !providerType || !name || !isJsonValid;
+        if (!providerType || !name || !isJsonValid) return true;
+        return false;
     };
     
 
@@ -211,7 +215,7 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
                             </div>
 
                              <div className="grid grid-cols-3 gap-2 items-end">
-                                <Button type="button" variant="outline" className="col-span-1" onClick={handleLoadConfig} disabled={pending || isEditMode}>
+                                <Button type="button" variant="outline" className="col-span-1" onClick={handleLoadConfig} disabled={pending}>
                                     {t('adminDashboard.maps.loadConfigButton')}
                                  </Button>
                                 <div className="grid gap-2 col-span-2">
@@ -431,5 +435,3 @@ export function ManageMapsDialog() {
     </>
   );
 }
-
-    
