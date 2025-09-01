@@ -62,7 +62,7 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
         const initialLayer = new TileLayer({ source });
 
         const map = new Map({
-            target: mapRef.current,
+            target: mapRef.current!,
             layers: [initialLayer],
             view: new View({
                 center: fromLonLat([-49.2, -25.4]),

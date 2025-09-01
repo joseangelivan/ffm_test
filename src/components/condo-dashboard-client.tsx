@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils';
 import type { SessionPayload } from '@/lib/session';
 import { handleLogoutAction } from '@/lib/session';
 import type { UserSettings } from '@/actions/admin';
-import { getActiveTheme, updateSettings, getDefaultMapProvider } from '@/actions/admin';
+import { getActiveTheme, updateSettings } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
 import { type MapProvider } from '@/actions/map_providers';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
