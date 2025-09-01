@@ -383,7 +383,8 @@
         "setAsDefault": "Establecer como predeterminado",
         "test": "Probar Proveedor",
         "deleteConfirmation": "Esto eliminará permanentemente el proveedor de mapas \"{name}\".",
-        "providerNotSupported": "El proveedor de mapas '{type}' no es compatible actualmente."
+        "providerNotSupported": "El proveedor de mapas '{type}' no es compatible actualmente.",
+        "immutableTooltip": "Este proveedor es inmutable y no se puede modificar."
       }
     },
     "condoDashboard": {
@@ -561,84 +562,84 @@
         "title": "Gestionar Dispositivos",
         "description": "Añade o elimina dispositivos de rastreo para este condominio.",
         "addDeviceButton": "Añadir Dispositivo",
-        "noDevices": "Aún no hay dispositivos para este condominio.",
+        "noDevices": "Ainda não há dispositivos para este condomínio.",
         "editDialog": {
             "title": "Editar Dispositivo"
         },
         "table": {
-          "name": "Nombre",
+          "name": "Nome",
           "type": "Tipo",
           "status": "Estado",
           "protocol": "Protocolo",
           "actions": "Ações",
-          "noProtocol": "No configurado"
+          "noProtocol": "Não configurado"
         },
         "manageDialog": {
-            "menuTitle": "Gestionar Protocolo",
+            "menuTitle": "Gerenciar Protocolo",
             "title": "Gerenciar Dispositivo: {name}",
-            "description": "Configura os parâmetros de comunicação para o dispositivo.",
+            "description": "Configure os parâmetros de comunicação para o dispositivo.",
             "protocol": "Protocolo de Comunicação",
             "selectProtocol": "Selecionar protocolo",
             "physicalDeviceId": "ID Físico do Dispositivo",
             "removeButton": "Remover Configuração"
         },
-        "deleteConfirmation": "Esto eliminará permanentemente el dispositivo \"{name}\". Esta acción no puede deshacerse.",
+        "deleteConfirmation": "Isso excluirá permanentemente o dispositivo \"{name}\". Esta ação não pode ser desfeita.",
         "toast": {
-            "deviceDeleted": "Dispositivo eliminado con éxito.",
-            "tokenCopied": "Token copiado al portapapeles."
+            "deviceDeleted": "Dispositivo excluído com sucesso.",
+            "tokenCopied": "Token copiado para a área de transferência."
         }
       }
     },
     "addressVerification": {
         "checkButton": "Verificar",
-        "title": "Resultados de la Verificación de Dirección",
-        "description": "Hemos encontrado las siguientes direcciones. Selecciona la correcta para autocompletar.",
-        "loading": "Buscando direcciones...",
-        "notFound": "Dirección no encontrada.",
-        "selectButton": "Seleccionar",
+        "title": "Resultados da Verificação de Endereço",
+        "description": "Encontramos os seguintes endereços. Selecione o correto para preencher automaticamente.",
+        "loading": "Procurando endereços...",
+        "notFound": "Endereço não encontrado.",
+        "selectButton": "Selecionar",
         "error": {
-            "missingInfo": "Por favor, selecciona continente, país, estado y ciudad antes de verificar la calle."
+            "missingInfo": "Por favor, selecione continente, país, estado e cidade antes de verificar a rua."
         }
     },
     "userTypes": {
-        "resident": "Residente",
-        "gatekeeper": "Portería"
+        "resident": "Morador",
+        "gatekeeper": "Portaria"
     },
     "common": {
-        "close": "Cerrar",
+        "close": "Fechar",
         "cancel": "Cancelar",
-        "save": "Guardar",
-        "saveChanges": "Guardar Cambios",
-        "you": "tú",
+        "save": "Salvar",
+        "saveChanges": "Salvar Alterações",
+        "you": "você",
         "edit": "Editar",
-        "delete": "Eliminar",
-        "create": "Crear",
-        "default": "por defecto",
-        "areYouSure": "¿Estás seguro?"
+        "delete": "Excluir",
+        "create": "Criar",
+        "default": "padrão",
+        "areYouSure": "Você tem certeza?"
     },
     "emails": {
         "adminFirstLogin": {
-            "subject": "Activa tu cuenta de Administrador de Follow For Me",
-            "title": "Activa tu Cuenta de Administrador",
-            "hello": "Hola",
-            "intro": "Se ha creado una cuenta de administrador para ti. Para activar tu cuenta, navega a la siguiente URL.",
-            "pinInfo": "Por favor, usa el PIN que te fue proporcionado personally para activar tu cuenta.",
-            "thanks": "Gracias,",
-            "teamName": "El Equipo de Follow For Me"
+            "subject": "Ative sua conta de Administrador da Follow For Me",
+            "title": "Ative sua Conta de Administrador",
+            "hello": "Olá",
+            "intro": "Uma conta de administrador foi criada para você. Para ativar sua conta, navegue até a seguinte URL.",
+            "pinInfo": "Por favor, use o PIN que lhe foi fornecido pessoalmente para ativar sua conta.",
+            "thanks": "Obrigado,",
+            "teamName": "A Equipe Follow For Me"
         },
         "verifyNewEmail": {
-            "subject": "Tu PIN de Verificación de Follow For Me",
-            "title": "Verifica tu nuevo correo electrónico",
-            "hello": "Hola",
-            "intro": "Has solicitado cambiar tu correo electrónico en Follow For Me a esta dirección.",
-            "pinPrompt": "Para confirmar la alteración, use el siguiente PIN de verificación:",
-            "expiration": "Este PIN expirará en 10 minutos.",
-            "thanks": "El Equipo de Follow For Me"
+            "subject": "Seu PIN de Verificação da Follow For Me",
+            "title": "Verifique seu novo e-mail",
+            "hello": "Olá",
+            "intro": "Você solicitou a alteração do seu e-mail na Follow For Me para este endereço.",
+            "pinPrompt": "Para confirmar a alteração, use o seguinte PIN de verificação:",
+            "expiration": "Este PIN expirará em 10 minutos.",
+            "thanks": "A Equipe Follow For Me"
         }
     },
     "firstLogin": {
-        "title": "Primer Inicio de Sesión",
-        "description": "Bienvenido. Activa tu cuenta estableciendo tu contraseña.",
+        "title": "Primeiro Login",
+        "description": "Bem-vindo. Ative sua conta definindo sua senha.",
         "emailLabel": "Email",
         "pinLabel": "PIN de Ativação",
         "newPasswordLabel": "Nova Senha",
@@ -648,20 +649,19 @@
         "backToLogin": "Voltar para o login"
     },
     "dbInitializer": {
-        "title": "Inicialización de la Base de Datos",
-        "description": "Esta es una acción sensible que reiniciará las migraciones. Esto podría ser útil si hubo un error, pero también puede causar problemas si no se usa con cuidado.",
+        "title": "Inicialização do Banco de Dados",
+        "description": "Esta é uma ação sensível que irá reiniciar as migrações. Isso pode ser útil se houve um erro, mas também pode causar problemas se não for usado com cuidado.",
         "loading": "Inicializando...",
         "clearing": "Limpando banco de dados...",
-        "successTitle": "¡Éxito!",
+        "successTitle": "Sucesso!",
         "successDescription": "O processo de inicialização do banco de dados foi concluído.",
-        "button": "Inicializar Base de Datos",
+        "button": "Inicializar Banco de Dados",
         "clearButton": "Limpar Tabelas e Dados",
-        "goBack": "Volver al Login de Administrador",
-        "confirmationDescription": "Esto intentará ejecutar de nuevo todas las migraicones de la base de datos. Esta acción generalmente es segura, pero solo debe realizarse si se sospecha un problema con el esquema de la base de datos. ¿Estás seguro de que quieres continuar?",
-        "clearConfirmationDescription": "Esta acción eliminará permanentemente TODAS las tablas y datos de la base de datos. Esta acción no se puede deshacer. ¿Estás absolutamente seguro?",
-        "confirmButton": "Sí, inicializar",
-        "clearConfirmButton": "Sí, eliminar todo",
-        "logTitle": "Registro de Inicialización"
+        "goBack": "Voltar para o Login de Administrador",
+        "confirmationDescription": "Isso tentará executar novamente todas as migrações do banco de dados. Esta ação geralmente é segura, mas só deve ser feita se houver suspeita de um problema com o esquema do banco de dados. Tem certeza de que deseja continuar?",
+        "clearConfirmButton": "Sim, excluir tudo",
+        "confirmButton": "Sim, inicializar",
+        "logTitle": "Registro de Inicialização"
     }
   }
 

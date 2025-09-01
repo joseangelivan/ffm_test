@@ -49,11 +49,14 @@ import {
     Edit,
     Trash2,
     PlusCircle,
-    TestTube2
+    TestTube2,
+    Lock
 } from 'lucide-react';
 import { LoadingOverlay } from './admin-header';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
+
+const IMMUTABLE_PROVIDER_ID = '00000000-0000-0000-0000-000000000001';
 
 function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpen: boolean, onOpenChange: (open: boolean) => void, service: MapProvider | null, onSuccess: () => void }) {
     const { t } = useLocale();
@@ -284,71 +287,82 @@ export function ManageMapsDialog() {
                     ) : services.length === 0 ? (
                         <p className="text-center text-muted-foreground py-4">{t('adminDashboard.maps.noServices')}</p>
                     ) : (
-                        services.map((service) => (
-                            <div 
-                                key={service.id} 
-                                className="flex items-center gap-2 p-2 border rounded-lg bg-card"
-                            >
-                                {service.is_default && <Star className="h-5 w-5 text-orange-500 fill-orange-400" />}
-                                <div className="flex-grow">
-                                    <p className="font-medium">{service.name}</p>
-                                </div>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" disabled={isSubmitting || service.is_default} onClick={() => handleSetDefault(service.id)}>
-                                            <Star className={cn("h-4 w-4", service.is_default && "fill-orange-400 text-orange-500")} />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{t('adminDashboard.maps.setAsDefault')}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" onClick={() => handleTest(service.id)} disabled={isSubmitting}>
-                                            {testingId === service.id ? (
-                                                <Loader className="h-4 w-4 animate-spin"/>
-                                            ) : (
-                                                <TestTube2 className="h-4 w-4"/>
+                        services.map((service) => {
+                            const isImmutable = service.id === IMMUTABLE_PROVIDER_ID;
+                            return (
+                                <div 
+                                    key={service.id} 
+                                    className="flex items-center gap-2 p-2 border rounded-lg bg-card"
+                                >
+                                    {service.is_default && <Star className="h-5 w-5 text-orange-500 fill-orange-400" />}
+                                    <div className="flex-grow">
+                                        <p className="font-medium flex items-center gap-2">
+                                            {service.name}
+                                            {isImmutable && (
+                                                <Tooltip>
+                                                    <TooltipTrigger><Lock className="h-3 w-3 text-muted-foreground" /></TooltipTrigger>
+                                                    <TooltipContent><p>{t('adminDashboard.maps.immutableTooltip')}</p></TooltipContent>
+                                                </Tooltip>
                                             )}
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{t('adminDashboard.maps.test')}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(service)} disabled={isSubmitting}><Edit className="h-4 w-4"/></Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{t('common.edit')}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={isSubmitting}><Trash2 className="h-4 w-4"/></Button>
-                                            </TooltipTrigger>
-                                        </AlertDialogTrigger>
-                                         <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
-                                                <AlertDialogDescription>{t('adminDashboard.maps.deleteConfirmation', { name: service.name })}</AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDelete(service.id)} className={buttonVariants({variant: 'destructive'})}>{t('common.delete')}</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                    <TooltipContent>
-                                        <p>{t('common.delete')}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                        ))
+                                        </p>
+                                    </div>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" disabled={isSubmitting || service.is_default || isImmutable} onClick={() => handleSetDefault(service.id)}>
+                                                <Star className={cn("h-4 w-4", service.is_default && "fill-orange-400 text-orange-500")} />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>{t('adminDashboard.maps.setAsDefault')}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" onClick={() => handleTest(service.id)} disabled={isSubmitting}>
+                                                {testingId === service.id ? (
+                                                    <Loader className="h-4 w-4 animate-spin"/>
+                                                ) : (
+                                                    <TestTube2 className="h-4 w-4"/>
+                                                )}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>{t('adminDashboard.maps.test')}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(service)} disabled={isSubmitting || isImmutable}><Edit className="h-4 w-4"/></Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>{t('common.edit')}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <TooltipTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={isSubmitting || isImmutable}><Trash2 className="h-4 w-4"/></Button>
+                                                </TooltipTrigger>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
+                                                    <AlertDialogDescription>{t('adminDashboard.maps.deleteConfirmation', { name: service.name })}</AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDelete(service.id)} className={buttonVariants({variant: 'destructive'})}>{t('common.delete')}</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                        <TooltipContent>
+                                            <p>{t('common.delete')}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            )
+                        })
                     )}
                     </TooltipProvider>
                 </div>

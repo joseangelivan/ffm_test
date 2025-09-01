@@ -126,6 +126,13 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
         log.push(`ERROR: Seeding protocols failed: ${e.message}`);
         throw e;
     }
+     try {
+        await applySqlFile(client, 'map_providers/seed.sql', log);
+        log.push('SUCCESS: Default map provider seeded.');
+    } catch(e: any) {
+        log.push(`ERROR: Seeding map provider failed: ${e.message}`);
+        throw e;
+    }
 }
 
 async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
