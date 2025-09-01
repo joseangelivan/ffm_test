@@ -47,14 +47,28 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
                 mapInstanceRef.current.setTarget(undefined);
             }
         };
-    }, [onMapLoad]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Effect to update the map source when the provider changes
     useEffect(() => {
         if (!mapInstanceRef.current || !layerRef.current) return;
 
         let source;
-        const config = provider.config_json || {};
+        let config: any;
+
+        // --- FIX: Ensure config_json is always an object ---
+        if (typeof provider.config_json === 'string') {
+            try {
+                config = JSON.parse(provider.config_json);
+            } catch (e) {
+                console.error("Failed to parse map provider config_json:", e);
+                config = {}; // Fallback to an empty object
+            }
+        } else {
+            config = provider.config_json || {};
+        }
+
         const apiKey = config.api_config?.parameters?.apiKey;
         const attribution = config.ui_config?.attribution;
         let baseUrl = config.api_config?.base_url;
@@ -88,3 +102,4 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
 };
 
 export default OpenLayersMap;
+
