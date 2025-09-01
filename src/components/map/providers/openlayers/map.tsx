@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useRef } from 'react';
@@ -18,6 +19,9 @@ interface MapProps {
 const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) => {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<Map | null>(null);
+
+    // DEBUG: Log the received provider configuration
+    console.log('[OpenLayersMap] Provider config received:', provider);
 
     useEffect(() => {
         if (!mapRef.current || !provider || mapInstanceRef.current) return;
@@ -79,7 +83,7 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
                 mapInstanceRef.current.dispose();
                 mapInstanceRef.current = null;
             }
-             if (mapRef.current) {
+            if (mapRef.current) {
                 mapRef.current.innerHTML = '';
             }
         };
