@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -241,6 +240,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
     if (!hasGeofences) {
         await fetchAndSetCondoPosition(map, true);
     } else {
+        // Logic to fit to default geofence would go here, for now we still center
         await fetchAndSetCondoPosition(map, true); 
     }
     
@@ -266,7 +266,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
 
   const handleSetDefault = (geofenceId: string) => {
     startSubmittingTransition(async () => {
-        const result = await setCondoDefaultGeofence(condoId, geofenceId);
+        const result = await setCondoDefaultGeofence(condo.id, geofenceId);
         if (result.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
             onDataNeedsRefresh(geofenceId);
@@ -320,7 +320,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
                                 </div>
                             )}
                             <MapContainer provider={mapProvider} onMapLoad={handleMapLoad}>
-                                <Building className="h-8 w-8 text-slate-700 drop-shadow-lg" />
+                                {condoPosition && <Building className="h-8 w-8 text-slate-700 drop-shadow-lg" />}
                             </MapContainer>
                         </div>
                         <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
@@ -476,3 +476,5 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
     </>
   );
 }
+
+    
