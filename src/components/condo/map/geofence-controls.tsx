@@ -1,127 +1,62 @@
-
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useTransition } from 'react';
 import {
-  PenSquare,
-  PlusCircle,
+  PencilRuler,
+  ChevronDown,
   Save,
-  XCircle,
-  Settings,
   Star,
+  Layers,
+  Edit,
   Trash2,
-  Eye,
-  EyeOff,
-  Edit
+  Settings,
+  X,
+  Loader,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 
-import { useLocale } from '@/lib/i18n';
-import { useToast } from '@/hooks/use-toast';
-
+import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-import { 
-    setCondoDefaultGeofence,
-    createGeofence,
-    updateGeofence,
-    deleteGeofence,
-} from '@/actions/maps';
 
-const CreateEditGeofenceDialog = ({ condoId, geofence, onSuccess, onOpenChange, isOpen, activeShapeState }: { condoId: string, geofence?: DbGeofence | null, onSuccess: (newId?: string) => void, onOpenChange: (isOpen: boolean) => void, isOpen: boolean, activeShapeState: any }) => {
-    const { t } = useLocale();
-    const { toast } = useToast();
-    const [name, setName] = useState(geofence?.name || '');
-    const [isDefault, setIsDefault] = useState(geofence?.is_default || false);
-    const [isPending, startTransition] = React.useTransition();
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useLocale } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { LoadingOverlay } from '@/components/admin/admin-header';
 
-    useEffect(() => {
-        if(isOpen) {
-            setName(geofence?.name || '');
-            setIsDefault(geofence?.is_default || false);
-        }
-    }, [isOpen, geofence]);
+export type DrawingMode = 'polygon' | 'rectangle' | 'circle';
 
-    const handleSubmit = () => {
-        startTransition(async () => {
-            const geometry = activeShapeState?.shape ? {} : (geofence?.geometry || {}); // Placeholder for geometry
-            
-            if (!Object.keys(geometry).length) {
-                toast({ title: t('toast.errorTitle'), description: "No shape drawn.", variant: 'destructive' });
-                return;
-            }
-            
-            let result;
-            if (geofence) {
-                result = await updateGeofence(geofence.id, { name, geometry });
-            } else {
-                result = await createGeofence({ condoId, name, geometry, isDefault });
-            }
+type ActiveShapeState = { id: string, shape: any | null, originalGeometry?: any } | null;
 
-            if (result.success) {
-                toast({ title: t('toast.successTitle'), description: result.message });
-                onSuccess(result.data?.id);
-                onOpenChange(false);
-            } else {
-                 toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
-            }
-        });
-    }
+type GeofenceControlsProps = {
+    condoId: string;
+    geofences: DbGeofence[];
+    onDataNeedsRefresh: (newSelectedId?: string) => void;
+    onShapeDrawn: (shape: any | null) => void;
+    selectedGeofenceId: string | null;
+    setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
+    defaultGeofenceId: string | null;
+    setDefaultGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
+    mode: 'view' | 'editing';
+    setMode: React.Dispatch<React.SetStateAction<'view' | 'editing'>>;
+    drawingManager: any | null; // This will be the OpenLayers Interaction
+    showAllGeofences: boolean;
+    setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
+    onSettingsClick: () => void;
+    activeShapeState: ActiveShapeState;
+    setActiveShapeState: React.Dispatch<React.SetStateAction<ActiveShapeState>>;
+    setUndoStack: React.Dispatch<React.SetStateAction<any[]>>;
+    setRedoStack: React.Dispatch<React.SetStateAction<any[]>>;
+    mapRef: React.RefObject<any | null>;
+    mapShapesRef: React.RefObject<Map<string, any>>;
+}
 
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{geofence ? t('common.edit') : t('common.create')} {t('condoDashboard.map.modules.geofence')}</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="name">{t('addDeviceDialog.nameLabel')}</Label>
-                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('condoDashboard.map.geofence.defaultName')} />
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <Checkbox id="is-default" checked={isDefault} onCheckedChange={(checked) => setIsDefault(!!checked)} />
-                        <Label htmlFor="is-default">{t('condoDashboard.map.geofence.setAsDefault')}</Label>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
-                    <Button onClick={handleSubmit} disabled={!name || isPending}>{t('common.save')}</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-};
-
-const getGeofenceName = (gf: DbGeofence, isDefault: boolean, t: (key: string) => string) => {
-  return `${gf.name}${isDefault ? ` (${t('common.default')})` : ''}`;
-};
-
-
-export const GeofenceControls = ({
+export function GeofenceControls({
     condoId,
     geofences,
     onDataNeedsRefresh,
@@ -129,185 +64,278 @@ export const GeofenceControls = ({
     selectedGeofenceId,
     setSelectedGeofenceId,
     defaultGeofenceId,
+    setDefaultGeofenceId,
     mode,
     setMode,
     drawingManager,
     showAllGeofences,
     setShowAllGeofences,
+    onSettingsClick,
     activeShapeState,
     setActiveShapeState,
     setUndoStack,
     setRedoStack,
-    mapShapesRef
-}: any) => {
+    mapRef,
+    mapShapesRef,
+}: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
-    const [shapeType, setShapeType] = useState('Polygon');
-    const [isCreateGeofenceDialogOpen, setIsCreateGeofenceDialogOpen] = useState(false);
-    const [isEditGeofenceDialogOpen, setIsEditGeofenceDialogOpen] = useState(false);
-    const [isPending, startTransition] = React.useTransition();
+    
+    const [isSaving, startSavingTransition] = useTransition();
+    const [isDeleting, startDeletingTransition] = useTransition();
+    const [isSettingDefault, startSettingDefaultTransition] = useTransition();
+    const [isDrawing, setIsDrawing] = useState(false);
 
-    const handleSetDefault = (geofenceId: string) => {
-        startTransition(async () => {
-            const result = await setCondoDefaultGeofence(condoId, geofenceId);
-            if (result.success) {
-                toast({ title: t('toast.successTitle'), description: result.message });
-                onDataNeedsRefresh(geofenceId);
+    const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
+    const [currentGeofenceName, setCurrentGeofenceName] = useState('');
+
+    const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
+    
+    const getNextGeofenceName = useCallback(() => {
+        const baseName = t('condoDashboard.map.geofence.defaultName');
+        const existingNumbers = geofences.map(g => {
+            const match = g.name.match(new RegExp(`^${baseName}_(\\d+)$`));
+            return match ? parseInt(match[1], 10) : 0;
+        }).filter(n => n > 0).sort((a,b) => a-b);
+        
+        let nextNumber = 1;
+        for (const num of existingNumbers) {
+            if (num === nextNumber) {
+                nextNumber++;
             } else {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+                break;
             }
+        }
+        return `${baseName}_${String(nextNumber).padStart(2, '0')}`;
+    }, [geofences, t]);
+
+    // This needs to be adapted to OpenLayers
+    const cancelCurrentAction = useCallback(() => {
+        setActiveShapeState(null);
+        setCurrentGeofenceName('');
+        setUndoStack([]);
+        setRedoStack([]);
+        setIsDrawing(false);
+    }, [setActiveShapeState, setUndoStack, setRedoStack]);
+      
+    // This needs to be adapted to OpenLayers
+    const startEditingSelected = useCallback(() => {
+        if (!selectedGeofenceId || !mapShapesRef.current) return;
+        const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
+        
+        if (!selectedGeofence) return;
+    
+        cancelCurrentAction();
+        setMode('editing');
+        // Placeholder for setting active shape
+        setActiveShapeState({ id: selectedGeofenceId, shape: {}, originalGeometry: selectedGeofence.geometry });
+        setUndoStack([{}]);
+        setRedoStack([]);
+        setCurrentGeofenceName(selectedGeofence.name);
+    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, setUndoStack, setRedoStack, mapShapesRef]);
+      
+    const saveCurrentAction = useCallback(async () => {
+        // This needs to be adapted to OpenLayers
+        toast({ title: t('toast.errorTitle'), description: "La función de guardado aún no está implementada para OpenLayers.", variant: "destructive" });
+    }, []);
+
+    const handleSaveGeofence = () => {
+        startSavingTransition(async () => {
+            await saveCurrentAction();
         });
     };
 
-    const handleDelete = (geofenceId: string) => {
-      startTransition(async () => {
-          const result = await deleteGeofence(geofenceId);
-          if (result.success) {
-              toast({ title: t('toast.successTitle'), description: result.message });
-              onDataNeedsRefresh();
-          } else {
-              toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
-          }
-      });
-  };
-
-    const handleDraw = () => {
-        // Placeholder for OpenLayers drawing logic
-        onShapeDrawn({}); // Mock drawing a shape
-    };
-    
-    const handleSave = () => {
-        if (!activeShapeState?.id) return;
-        if(activeShapeState.id.startsWith('new-shape')) {
-             setIsCreateGeofenceDialogOpen(true);
-        } else {
-             setIsEditGeofenceDialogOpen(true);
-        }
+    const handleDelete = () => {
+        if (!selectedGeofenceId) return;
+        const idToDelete = selectedGeofenceId;
+        
+        startDeletingTransition(async () => {
+            const result = await deleteGeofence(idToDelete);
+            
+            if (result?.success) {
+                toast({ title: t('toast.successTitle'), description: t('condoDashboard.map.toast.geofenceDeleted')});
+                await onDataNeedsRefresh();
+            } else if (result) {
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+            } else {
+                toast({ title: t('toast.errorTitle'), description: t('toast.adminLogin.serverError'), variant: "destructive" });
+            }
+        });
     }
     
-    const handleCancel = () => {
-        setActiveShapeState(null);
-        setUndoStack([]);
-        setRedoStack([]);
-        setMode('view');
+    const handleSetAsDefault = () => {
+        if (!selectedGeofenceId) return;
+        startSettingDefaultTransition(async () => {
+            const result = await setCondoDefaultGeofence(condoId, selectedGeofenceId!);
+            if (result.success) {
+                setDefaultGeofenceId(selectedGeofenceId);
+                toast({ title: t('condoDashboard.map.toast.defaultSet.title'), description: t('condoDashboard.map.toast.defaultSet.description')});
+            } else {
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+            }
+        });
+    }
+    
+    const handleStartDrawing = () => {
+        // This needs to be adapted to OpenLayers
+        toast({ title: t('toast.errorTitle'), description: "La función de dibujo aún no está implementada para OpenLayers.", variant: "destructive" });
     };
-
-    const editingGeofence = geofences.find((g: DbGeofence) => g.id === activeShapeState?.id);
+    
+    const isBusy = isSaving || isDeleting || isSettingDefault;
 
     return (
-        <>
-            <div className="space-y-4 pt-2 border-t mt-4 flex-grow flex flex-col">
-                 <div className="grid grid-cols-2 gap-4 items-end">
-                  <div>
-                      <Label htmlFor='default-geofence-display'>{t('condoDashboard.map.geofence.defaultLabel')}</Label>
-                      <Input id='default-geofence-display' value={geofences.find((g: DbGeofence) => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none')} readOnly />
-                  </div>
-                  <div className="flex items-center space-x-2 pb-2">
-                      <Checkbox id="show-all" checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)} />
-                      <Label htmlFor="show-all">{t('condoDashboard.map.geofence.viewAll')}</Label>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                    <Label>{t('condoDashboard.map.geofence.selectPlaceholder')}</Label>
-                    <Select
-                        value={selectedGeofenceId || ''}
-                        onValueChange={setSelectedGeofenceId}
-                        disabled={showAllGeofences}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {geofences.map((gf: DbGeofence) => (
-                                <SelectItem key={gf.id} value={gf.id}>{getGeofenceName(gf, gf.id === defaultGeofenceId, t)}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" disabled={isPending} onClick={() => { setMode('editing'); setActiveShapeState(null); }}>
-                        <PlusCircle className="mr-2 h-4 w-4"/>{t('common.create')}
-                    </Button>
-                    <Button variant="outline" disabled={!selectedGeofenceId || isPending} onClick={() => {
-                        setMode('editing');
-                        setActiveShapeState({ id: selectedGeofenceId, shape: {}, originalGeometry: {} });
-                        setUndoStack([{}]);
-                        setRedoStack([]);
-                    }}>
-                        <Edit className="mr-2 h-4 w-4"/>{t('common.edit')}
-                    </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive" disabled={!selectedGeofenceId || isPending}>
-                                <Trash2 className="mr-2 h-4 w-4"/>{t('common.delete')}
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    {t('condoDashboard.users.deleteConfirmation', {name: geofences.find((g: DbGeofence) => g.id === selectedGeofenceId)?.name || ''})}
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(selectedGeofenceId!)}>{t('common.delete')}</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                    <Button variant="secondary" onClick={() => handleSetDefault(selectedGeofenceId!)} disabled={!selectedGeofenceId || selectedGeofenceId === defaultGeofenceId || isPending}>
-                        <Star className="mr-2 h-4 w-4"/>{t('condoDashboard.map.geofence.setAsDefault')}
-                    </Button>
-                </div>
-                
-                 <fieldset className="border rounded-md p-4 pt-2 space-y-4 mt-auto">
-                    <legend className="-ml-1 px-1 text-sm font-medium flex items-center">
-                       <Checkbox id="enable-editing" checked={mode === 'editing'} onCheckedChange={(checked) => setMode(checked ? 'editing' : 'view')} />
-                       <Label htmlFor="enable-editing" className="ml-2 font-semibold text-foreground">{t('adminDashboard.settingsGroups.catalogs.deviceTypes.editMode')}</Label>
-                    </legend>
-                    {mode === 'editing' && (
-                        <div className="space-y-4 animate-in fade-in-50">
-                            <Select value={shapeType} onValueChange={(v) => setShapeType(v as any)} disabled={!!activeShapeState}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value='Polygon'>{t('condoDashboard.map.shapes.polygon')}</SelectItem>
-                                    <SelectItem value='Rectangle'>{t('condoDashboard.map.shapes.rectangle')}</SelectItem>
-                                    <SelectItem value='Circle'>{t('condoDashboard.map.shapes.circle')}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <div className="grid grid-cols-1 gap-2">
-                                 {!activeShapeState ? (
-                                    <Button onClick={handleDraw}><PenSquare className="h-4 w-4 mr-2" />{t('condoDashboard.map.geofence.draw')} {shapeType}</Button>
-                                 ) : (
-                                    <>
-                                        <Button onClick={handleSave}><Save className="h-4 w-4 mr-2"/> {t('condoDashboard.map.geofence.saveButton')}</Button>
-                                        <Button onClick={handleCancel} variant="ghost"><XCircle className="h-4 w-4 mr-2"/> {t('common.cancel')}</Button>
-                                    </>
-                                 )}
-                            </div>
+        <div className="space-y-4 pt-2 border-t mt-4">
+            <div className="flex flex-col gap-4">
+                 <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <Label htmlFor="default-geofence">{t('condoDashboard.map.geofence.defaultLabel')}</Label>
+                        <div className="flex items-center space-x-2">
+                            <Checkbox id="view-all" checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)}/>
+                            <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                {t('condoDashboard.map.geofence.viewAll')}
+                            </label>
                         </div>
-                    )}
-                </fieldset>
+                    </div>
+                     <div className="flex items-center gap-2">
+                         <div className="relative flex-grow">
+                            {defaultGeofenceId && (
+                                <Star className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-500 fill-orange-400" />
+                            )}
+                            <Input id="default-geofence" value={defaultGeofenceName} readOnly disabled className="pl-8 text-xs h-8"/>
+                        </div>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={onSettingsClick}>
+                                        <Settings className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Configuración de Vista del Mapa</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
+                 </div>
             </div>
-            
-            <CreateEditGeofenceDialog
-                condoId={condoId}
-                isOpen={isCreateGeofenceDialogOpen}
-                onOpenChange={setIsCreateGeofenceDialogOpen}
-                onSuccess={(newId) => { onDataNeedsRefresh(newId); setMode('view'); setActiveShapeState(null); }}
-                activeShapeState={activeShapeState}
-            />
-             <CreateEditGeofenceDialog
-                condoId={condoId}
-                geofence={editingGeofence}
-                isOpen={isEditGeofenceDialogOpen}
-                onOpenChange={setIsEditGeofenceDialogOpen}
-                onSuccess={() => { onDataNeedsRefresh(activeShapeState?.id); setMode('view'); setActiveShapeState(null); }}
-                activeShapeState={activeShapeState}
-            />
-        </>
+
+            <div className="pt-4 border-t space-y-2">
+                <div className="space-y-4">
+                     <div className="flex items-center space-x-2">
+                        <Checkbox 
+                            id="edit-mode" 
+                            checked={mode === 'editing'} 
+                            onCheckedChange={(checked) => {
+                                if (!checked) cancelCurrentAction();
+                                setMode(checked ? 'editing' : 'view');
+                            }}
+                        />
+                        <label
+                            htmlFor="edit-mode"
+                            className="text-base font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                            {t('adminDashboard.settingsGroups.catalogs.deviceTypes.editMode')}
+                        </label>
+                    </div>
+
+                    <fieldset disabled={isBusy || mode === 'view'} className="space-y-4 disabled:opacity-50">
+                            <div className="flex items-center gap-2">
+                                <Select value={selectedGeofenceId || ''} onValueChange={setSelectedGeofenceId} disabled={!!activeShapeState || isDrawing || isBusy}>
+                                    <SelectTrigger className={cn("flex-1", selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-') && "text-blue-600 border-blue-400 font-bold")}>
+                                        <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {geofences.map(gf => (
+                                            <SelectItem key={gf.id} value={gf.id}>
+                                                <div className='flex items-center gap-2'>
+                                                    {gf.id === defaultGeofenceId && <Star className="h-4 w-4 text-orange-500 fill-orange-400" />}
+                                                    <span>{gf.name}</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <div className="flex items-center">
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button variant="ghost" size="icon" disabled={!!activeShapeState || !selectedGeofenceId || isBusy || defaultGeofenceId === selectedGeofenceId} onClick={handleSetAsDefault}>
+                                                    {isSettingDefault ? <Loader className="h-4 w-4 animate-spin"/> : <Star className="h-4 w-4" />}
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent><p>{t('condoDashboard.map.geofence.setAsDefault')}</p></TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                             <TooltipTrigger asChild>
+                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!!activeShapeState || !selectedGeofenceId || isBusy}>
+                                                    <Edit className="h-4 w-4"/>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent><p>{t('common.edit')}</p></TooltipContent>
+                                        </Tooltip>
+                                         <Tooltip>
+                                             <TooltipTrigger asChild>
+                                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={!!activeShapeState || !selectedGeofenceId || isBusy}>
+                                                    {isDeleting ? <Loader className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4 text-destructive"/>}
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent><p>{t('common.delete')}</p></TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </div>
+                            </div>
+                        
+                        
+                            {activeShapeState || isDrawing ? (
+                                <div className='relative space-y-4 p-4 border border-blue-300 rounded-md bg-blue-50/30 dark:border-blue-700 dark:bg-blue-900/20'>
+                                     {isSaving && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
+                                    <div className="space-y-2">
+                                        <Input 
+                                            id="geofence-name" 
+                                            value={currentGeofenceName}
+                                            onChange={(e) => setCurrentGeofenceName(e.target.value)}
+                                            placeholder={t('condoDashboard.map.geofence.defaultName')}
+                                            disabled={isSaving}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Button onClick={cancelCurrentAction} variant="ghost" disabled={isSaving}>
+                                            <X className="mr-2 h-4 w-4" /> {t('common.cancel')}
+                                        </Button>
+                                        <Button onClick={handleSaveGeofence} disabled={isSaving || !activeShapeState?.shape}>
+                                            {isSaving ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                            {activeShapeState?.id.startsWith('new-shape-') ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
+                                 <div className="flex items-center gap-2">
+                                    <Button onClick={handleStartDrawing} variant="outline" className="flex-1" disabled={!!activeShapeState || isBusy}>
+                                        <PencilRuler className="mr-2 h-4 w-4"/>
+                                        {t('condoDashboard.map.geofence.draw')}
+                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="outline" className="w-40 justify-between" disabled={!!activeShapeState || isBusy}>
+                                                <span>
+                                                    {drawingMode === 'polygon' && t('condoDashboard.map.shapes.polygon')}
+                                                    {drawingMode === 'rectangle' && t('condoDashboard.map.shapes.rectangle')}
+                                                    {drawingMode === 'circle' && t('condoDashboard.map.shapes.circle')}
+                                                </span>
+                                                <ChevronDown className="h-4 w-4"/>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <DropdownMenuItem onSelect={() => setDrawingMode('polygon')}>{t('condoDashboard.map.shapes.polygon')}</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setDrawingMode('rectangle')}>{t('condoDashboard.map.shapes.rectangle')}</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setDrawingMode('circle')}>{t('condoDashboard.map.shapes.circle')}</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                            )}
+                    </fieldset>
+                </div>
+            </div>
+        </div>
     );
-};
+}
