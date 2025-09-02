@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useMemo, useRef } from 'react';
@@ -44,25 +45,9 @@ const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
 }
 
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
-    const olPolygon = require('ol/geom/Polygon').default;
-
-    const poligonoOriginal = new olPolygon([verticesOriginales]);
     const indiceOpuesto = (indiceMovido + 2) % 4;
     const verticeOpuesto = verticesOriginales[indiceOpuesto];
-    
-    if (!puntoEstaDentro(poligonoOriginal, verticeMovido)) {
-        const tempVertices = [...verticesOriginales];
-        tempVertices[indiceMovido] = verticeMovido;
-        const xs = tempVertices.map(v => v[0]);
-        const ys = tempVertices.map(v => v[1]);
-        const minX = Math.min(...xs);
-        const maxX = Math.max(...xs);
-        const minY = Math.min(...ys);
-        const maxY = Math.max(...ys);
-        const rectanguloPerfecto = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]];
-        return [...rectanguloPerfecto, rectanguloPerfecto[0]];
-    }
-
+  
     const nuevoRectangulo = [
         [verticeMovido[0], verticeMovido[1]],
         [verticeOpuesto[0], verticeMovido[1]],
@@ -83,9 +68,8 @@ type GeofenceControlsProps = {
     condoId: string;
     geofences: DbGeofence[];
     onDataNeedsRefresh: (newSelectedId?: string) => void;
+    onShapeDrawn: (feature: Feature) => void;
     activeShapeState: ActiveShapeState;
-    setActiveShapeState: React.Dispatch<React.SetStateAction<ActiveShapeState>>;
-    selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
     defaultGeofenceId: string | null;
     setDefaultGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -94,7 +78,6 @@ type GeofenceControlsProps = {
     showAllGeofences: boolean;
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
-    mapRef: React.RefObject<OlMap | null>;
     historyStack: Geometry[];
     setHistoryStack: React.Dispatch<React.SetStateAction<Geometry[]>>;
     historyIndex: number;
@@ -105,9 +88,8 @@ export function GeofenceControls({
     condoId,
     geofences,
     onDataNeedsRefresh,
+    onShapeDrawn,
     activeShapeState,
-    setActiveShapeState,
-    selectedGeofenceId,
     setSelectedGeofenceId,
     defaultGeofenceId,
     setDefaultGeofenceId,
@@ -116,7 +98,6 @@ export function GeofenceControls({
     showAllGeofences,
     setShowAllGeofences,
     onSettingsClick,
-    mapRef,
     historyStack,
     setHistoryStack,
     historyIndex,
@@ -141,9 +122,10 @@ export function GeofenceControls({
     
     const geofenceSourceRef = useRef<VectorSource | null>(null);
     useEffect(() => {
-        const layer = mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer');
-        geofenceSourceRef.current = (layer as any)?.getSource() || null;
-    }, [mapRef, mapRef.current?.getLayers().getArray()]);
+        if (activeShapeState?.feature?.get('source_ref')) {
+            geofenceSourceRef.current = activeShapeState.feature.get('source_ref');
+        }
+    }, [activeShapeState]);
 
 
     const pushToHistory = useCallback((geometry: Geometry) => {
@@ -172,13 +154,13 @@ export function GeofenceControls({
     }, [geofences, t]);
 
     const removeAllInteractions = useCallback(() => {
-        const map = mapRef.current;
-        if (!map) return;
+        if (!interactionsRef.current.draw?.getMap()) return;
+        const map = interactionsRef.current.draw.getMap();
         if (interactionsRef.current.draw) map.removeInteraction(interactionsRef.current.draw);
         if (interactionsRef.current.modify) map.removeInteraction(interactionsRef.current.modify);
         if (interactionsRef.current.translate) map.removeInteraction(interactionsRef.current.translate);
         interactionsRef.current = { draw: null, modify: null, translate: null };
-    }, [mapRef]);
+    }, []);
 
     const cancelCurrentAction = useCallback(() => {
         const source = geofenceSourceRef.current;
@@ -200,11 +182,11 @@ export function GeofenceControls({
         }
         
         setIsDrawing(false);
-        setActiveShapeState(null);
+        onShapeDrawn(new Feature());
         setCurrentGeofenceName('');
         setHistoryStack([]);
         setHistoryIndex(-1);
-    }, [activeShapeState, setActiveShapeState, setHistoryStack, setHistoryIndex]);
+    }, [activeShapeState, onShapeDrawn, setHistoryStack, setHistoryIndex]);
     
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
@@ -235,8 +217,8 @@ export function GeofenceControls({
         if (result?.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
             const newSelectedId = isNewShape ? result.data?.id : id;
-            cancelCurrentAction();
             await onDataNeedsRefresh(newSelectedId);
+            cancelCurrentAction();
         } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
         }
@@ -297,103 +279,112 @@ export function GeofenceControls({
         cancelCurrentAction();
         setIsDrawing(false);
         
-        setActiveShapeState({
-            id: selectedGeofenceId,
-            feature: featureToEdit,
-            originalGeometry: selectedGeofence.geometry,
-        });
+        onShapeDrawn(featureToEdit);
         setCurrentGeofenceName(selectedGeofence.name);
         
         const initialGeom = featureToEdit.getGeometry();
         if (initialGeom) {
             pushToHistory(initialGeom);
         }
-    }, [geofences, selectedGeofenceId, setActiveShapeState, pushToHistory, cancelCurrentAction]);
+    }, [geofences, selectedGeofenceId, onShapeDrawn, pushToHistory, cancelCurrentAction]);
     
-    useEffect(() => {
+     useEffect(() => {
+        if (!activeShapeState?.feature?.getMap()) return;
+        const map = activeShapeState.feature.getMap();
+
         removeAllInteractions();
-        const map = mapRef.current;
-        const source = geofenceSourceRef.current;
-        if (!map || !source || mode !== 'editing') return;
-        
-        if (isDrawing) {
-            const drawOptions: any = { source };
-            if (drawingMode === 'Rectangle') {
-                drawOptions.type = 'Circle';
-                drawOptions.geometryFunction = createBox();
-            } else {
-                drawOptions.type = drawingMode;
-            }
 
-            const newInteraction = new Draw(drawOptions);
-            map.addInteraction(newInteraction);
-            interactionsRef.current.draw = newInteraction;
-
-            newInteraction.once('drawend', (event) => {
-                const feature = event.feature;
+        if (mode === 'editing') {
+            if (isDrawing) {
+                const drawOptions: any = { source: geofenceSourceRef.current };
                 if (drawingMode === 'Rectangle') {
-                     feature.set('geometryType', 'Rectangle');
+                    drawOptions.type = 'Circle';
+                    drawOptions.geometryFunction = createBox();
+                } else {
+                    drawOptions.type = drawingMode;
                 }
-                const newId = `new-shape-${Date.now()}`;
-                feature.setId(newId);
-                setActiveShapeState({ id: newId, feature, originalGeometry: null });
-                setIsDrawing(false);
-                const newGeometry = feature.getGeometry();
-                if(newGeometry) pushToHistory(newGeometry);
-            });
 
-        } else if (activeShapeState?.feature) {
-            const featureToEdit = activeShapeState.feature;
-            const features = new Collection([featureToEdit]);
+                const newInteraction = new Draw(drawOptions);
+                map.addInteraction(newInteraction);
+                interactionsRef.current.draw = newInteraction;
 
-            let modifyInteraction;
-            const isRectangle = featureToEdit.get('geometryType') === 'Rectangle';
-            
-            if (isRectangle) {
-                const geometryFunction = (coordinates: any, geometry: any) => {
-                    if (!geometry) {
-                        const Polygon = require('ol/geom/Polygon').default;
-                        geometry = new Polygon(coordinates);
+                newInteraction.once('drawend', (event) => {
+                    const feature = event.feature;
+                    if (drawingMode === 'Rectangle') {
+                        feature.set('geometryType', 'Rectangle');
                     }
-                    const [[first, ...rest], ...other] = coordinates;
-                    const movedPoint = first[0];
-                    const originalVertices = (featureToEdit.getGeometry() as Polygon).getCoordinates()[0].slice(0, 4);
-                    const movedPointIndex = originalVertices.findIndex(
-                        v => v[0] === movedPoint[0] && v[1] === movedPoint[1]
-                    );
+                    onShapeDrawn(feature);
+                    setIsDrawing(false);
+                });
 
-                    if (movedPointIndex !== -1) {
-                        const newCoords = RecalcularRectangulo(originalVertices, movedPoint, movedPointIndex);
-                        geometry.setCoordinates([newCoords]);
-                    }
-                    return geometry;
+            } else if (activeShapeState?.feature) {
+                const featureToEdit = activeShapeState.feature;
+                const features = new Collection([featureToEdit]);
+
+                let modifyInteraction;
+                const isRectangle = featureToEdit.get('geometryType') === 'Rectangle';
+
+                if (isRectangle) {
+                    const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
+                        const originalPolygon = (featureToEdit.getGeometry() as Polygon);
+                        const originalVertices = originalPolygon.getCoordinates()[0].slice(0, 4);
+                        
+                        const newVertices = coordinates[0];
+                        let changedVertex: number[] | undefined;
+                        let changedIndex = -1;
+                        
+                        for(let i=0; i<newVertices.length; i++) {
+                            const vert = newVertices[i];
+                            const matchingOriginal = originalVertices.find(ov => ov[0] === vert[0] && ov[1] === vert[1]);
+                            if(!matchingOriginal) {
+                                changedVertex = vert;
+                                for(let j=0; j<originalVertices.length; j++) {
+                                     const isPointInNewCoords = newVertices.some((nv: number[]) => nv[0] === originalVertices[j][0] && nv[1] === originalVertices[j][1]);
+                                     if (!isPointInNewCoords) {
+                                         changedIndex = j;
+                                         break;
+                                     }
+                                }
+                                break;
+                            }
+                        }
+                
+                        if (changedVertex && changedIndex !== -1) {
+                            const newCoords = RecalcularRectangulo(originalVertices, changedVertex, changedIndex);
+                            geometry.setCoordinates([newCoords]);
+                        } else {
+                             geometry.setCoordinates(coordinates);
+                        }
+                
+                        return geometry;
+                    };
+                    modifyInteraction = new Modify({ features, geometryFunction });
+                } else {
+                    modifyInteraction = new Modify({ features, insertVertexCondition: () => false });
                 }
-                modifyInteraction = new Modify({ features, geometryFunction });
-            } else {
-                modifyInteraction = new Modify({ features, insertVertexCondition: () => false });
+                
+                map.addInteraction(modifyInteraction);
+                interactionsRef.current.modify = modifyInteraction;
+
+                modifyInteraction.on('modifyend', (event: any) => {
+                    const feature = event.features.getArray()[0];
+                    if (feature) pushToHistory(feature.getGeometry()!.clone());
+                });
+
+                const translate = new Translate({ features });
+                map.addInteraction(translate);
+                interactionsRef.current.translate = translate;
+
+                translate.on('translateend', (e: any) => {
+                    const feature = e.features.getArray()[0];
+                    if (feature) pushToHistory(feature.getGeometry()!.clone());
+                });
             }
-            
-            map.addInteraction(modifyInteraction);
-            interactionsRef.current.modify = modifyInteraction;
-
-            modifyInteraction.on('modifyend', (event: any) => {
-                const feature = event.features.getArray()[0];
-                if (feature) pushToHistory(feature.getGeometry()!.clone());
-            });
-
-            const translate = new Translate({ features });
-            map.addInteraction(translate);
-            interactionsRef.current.translate = translate;
-
-            translate.on('translateend', (e: any) => {
-                const feature = e.features.getArray()[0];
-                if (feature) pushToHistory(feature.getGeometry()!.clone());
-            });
         }
         
         return () => removeAllInteractions();
 
-    }, [mode, isDrawing, activeShapeState, drawingMode, mapRef, pushToHistory, removeAllInteractions, setActiveShapeState]);
+    }, [mode, isDrawing, activeShapeState, drawingMode, pushToHistory, removeAllInteractions, onShapeDrawn]);
 
     const isBusy = isSaving || isDeleting || isSettingDefault;
 
@@ -456,7 +447,7 @@ export function GeofenceControls({
 
                     <fieldset disabled={isBusy || mode === 'view'} className="space-y-4 disabled:opacity-50">
                             <div className="flex items-center gap-2">
-                                <Select value={selectedGeofenceId || ''} onValueChange={setSelectedGeofenceId} disabled={!!activeShapeState || isBusy}>
+                                <Select value={selectedGeofenceId || ''} onValueChange={setSelectedGeofenceId} disabled={!!activeShapeState?.feature || isBusy}>
                                     <SelectTrigger className={cn("flex-1", selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-') && "text-blue-600 border-blue-400 font-bold")}>
                                         <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
                                     </SelectTrigger>
@@ -475,7 +466,7 @@ export function GeofenceControls({
                                     <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" disabled={!!activeShapeState || !selectedGeofenceId || isBusy || defaultGeofenceId === selectedGeofenceId} onClick={handleSetAsDefault}>
+                                                <Button variant="ghost" size="icon" disabled={!!activeShapeState?.feature || !selectedGeofenceId || isBusy || defaultGeofenceId === selectedGeofenceId} onClick={handleSetAsDefault}>
                                                     {isSettingDefault ? <Loader className="h-4 w-4 animate-spin"/> : <Star className="h-4 w-4" />}
                                                 </Button>
                                             </TooltipTrigger>
@@ -483,7 +474,7 @@ export function GeofenceControls({
                                         </Tooltip>
                                         <Tooltip>
                                              <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!!activeShapeState || !selectedGeofenceId || isBusy || (selectedGeofenceId !== null && selectedGeofenceId.startsWith('new-shape-'))}>
+                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!!activeShapeState?.feature || !selectedGeofenceId || isBusy || (selectedGeofenceId !== null && selectedGeofenceId.startsWith('new-shape-'))}>
                                                     <Edit className="h-4 w-4"/>
                                                 </Button>
                                             </TooltipTrigger>
@@ -491,7 +482,7 @@ export function GeofenceControls({
                                         </Tooltip>
                                          <Tooltip>
                                              <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={!!activeShapeState || !selectedGeofenceId || isBusy || (selectedGeofenceId !== null && selectedGeofenceId.startsWith('new-shape-'))}>
+                                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={!!activeShapeState?.feature || !selectedGeofenceId || isBusy || (selectedGeofenceId !== null && selectedGeofenceId.startsWith('new-shape-'))}>
                                                     {isDeleting ? <Loader className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4 text-destructive"/>}
                                                 </Button>
                                             </TooltipTrigger>
@@ -502,7 +493,7 @@ export function GeofenceControls({
                             </div>
                         
                         
-                            {activeShapeState ? (
+                            {activeShapeState?.feature ? (
                                 <div className='relative space-y-4 p-4 border border-blue-300 rounded-md bg-blue-50/30 dark:border-blue-700 dark:bg-blue-900/20'>
                                      {isSaving && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
                                     <div className="space-y-2">
@@ -526,13 +517,13 @@ export function GeofenceControls({
                                 </div>
                             ) : (
                                  <div className="flex items-center gap-2">
-                                    <Button onClick={handleStartDrawing} variant="outline" className="flex-1" disabled={!!activeShapeState || isBusy}>
+                                    <Button onClick={handleStartDrawing} variant="outline" className="flex-1" disabled={!!activeShapeState?.feature || isBusy}>
                                         <PencilRuler className="mr-2 h-4 w-4"/>
                                         {t('condoDashboard.map.geofence.draw')}
                                     </Button>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="outline" className="w-40 justify-between" disabled={!!activeShapeState || isBusy}>
+                                            <Button variant="outline" className="w-40 justify-between" disabled={!!activeShapeState?.feature || isBusy}>
                                                 <span>
                                                     {drawingMode === 'Polygon' && t('condoDashboard.map.shapes.polygon')}
                                                     {drawingMode === 'Rectangle' && t('condoDashboard.map.shapes.rectangle')}
@@ -555,3 +546,4 @@ export function GeofenceControls({
         </div>
     );
 }
+
