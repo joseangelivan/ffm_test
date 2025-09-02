@@ -113,7 +113,9 @@ export function GeofenceControls({
         const newStack = historyStack.slice(0, historyIndex + 1);
         newStack.push(geometry.clone());
         setHistoryStack(newStack);
-        setHistoryIndex(newStack.length - 1);
+        const newIndex = newStack.length - 1;
+        setHistoryIndex(newIndex);
+        
         const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
         setDebugInfo(`¡Cambio guardado en el historial! Total: ${newStack.length}. Coords: ${JSON.stringify(format.writeGeometryObject(geometry), null, 2)}`);
     }, [historyStack, historyIndex, setHistoryStack, setHistoryIndex, setDebugInfo]);
@@ -201,12 +203,12 @@ export function GeofenceControls({
         const Collection = require('ol/Collection').default;
         const features = new Collection([featureToEdit]);
     
+        let originalCoords: number[][] | undefined;
         const modify = new Modify({ 
             features: features,
             insertVertexCondition: () => !isRectangle(featureToEdit.getGeometry()),
         });
-    
-        let originalCoords: number[][] | undefined;
+        
         modify.on('modifystart', (event) => {
             const feature = event.features.item(0);
             if (isRectangle(feature.getGeometry())) {
@@ -216,7 +218,7 @@ export function GeofenceControls({
     
         modify.on('modifying', (event) => {
             const feature = event.features.item(0);
-            setDebugInfo(`Moviendo vértice... Coords: ${JSON.stringify( (feature.getGeometry() as Polygon).getCoordinates() )}`);
+            setDebugInfo(`Moviendo vértice...`);
 
             if (!isRectangle(feature.getGeometry()) || !originalCoords) return;
     
@@ -234,10 +236,19 @@ export function GeofenceControls({
                 const oppositePoint = originalCoords[(movedIndex + 2) % 4];
     
                 const newCoords = new Array(5);
-                newCoords[0] = [oppositePoint[0], movedPoint[1]];
-                newCoords[1] = movedPoint;
-                newCoords[2] = [movedPoint[0], oppositePoint[1]];
-                newCoords[3] = oppositePoint;
+                newCoords[0] = [oppositePoint[0], movedPoint[1]]; // Top-left or bottom-left
+                newCoords[1] = movedPoint; // The point being dragged
+                newCoords[2] = [movedPoint[0], oppositePoint[1]]; // Top-right or bottom-right
+                newCoords[3] = oppositePoint; // The anchor point
+                newCoords[4] = newCoords[0]; // Close the polygon
+
+                const corner1 = newCoords[0];
+                const corner2 = newCoords[2];
+
+                newCoords[0] = [Math.min(corner1[0], corner2[0]), Math.min(corner1[1], corner2[1])];
+                newCoords[1] = [Math.max(corner1[0], corner2[0]), Math.min(corner1[1], corner2[1])];
+                newCoords[2] = [Math.max(corner1[0], corner2[0]), Math.max(corner1[1], corner2[1])];
+                newCoords[3] = [Math.min(corner1[0], corner2[0]), Math.max(corner1[1], corner2[1])];
                 newCoords[4] = newCoords[0];
     
                 const PolygonGeom = require('ol/geom/Polygon').default;
@@ -248,9 +259,14 @@ export function GeofenceControls({
     
         modify.on('modifyend', (event) => {
             if (event.features.getLength() > 0) {
-                const finalGeometry = event.features.item(0).getGeometry()!;
+                const feature = event.features.item(0);
+                const finalGeometry = feature.getGeometry()!;
+                if (isRectangle(finalGeometry) && originalCoords) {
+                     // The 'modifying' event already handled the geometry update.
+                     // The logic could be moved here entirely if preferred, but doing it in 'modifying' gives real-time feedback.
+                }
                 pushToHistory(finalGeometry);
-                originalCoords = undefined;
+                originalCoords = undefined; // Reset for next modification
             }
         });
     
