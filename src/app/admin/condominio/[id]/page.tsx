@@ -41,17 +41,25 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
 
   const condo = condoResult.data;
 
-  // Fetch all other data needed for the dashboard in parallel
-  const [devices, settings, mapProvider, geoResult] = await Promise.all([
-    getDevicesByCondoId(condoId),
-    getSettings(session),
-    getDefaultMapProvider(),
-    geocodeAddress({
+  const fetchAndSetCondoPosition = async () => {
+    const geoResult = await geocodeAddress({
         street: `${condo.street}, ${condo.number}`,
         city: condo.city,
         state: condo.state,
         country: condo.country,
-    })
+    });
+    if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
+        return geoResult.data[0].geometry.location
+    }
+    return { lat: 0, lng: 0 };
+  }
+
+  // Fetch all other data needed for the dashboard in parallel
+  const [devices, settings, mapProvider, initialPosition] = await Promise.all([
+    getDevicesByCondoId(condoId),
+    getSettings(session),
+    getDefaultMapProvider(),
+    fetchAndSetCondoPosition()
   ]);
 
   if (!settings) {
@@ -67,11 +75,6 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
       </div>
     );
   }
-  
-  const initialPosition = (geoResult.success && geoResult.data && geoResult.data.length > 0)
-    ? geoResult.data[0].geometry.location
-    : { lat: 0, lng: 0 }; // Fallback position
-
 
   return (
     <Suspense fallback={<Loading />}>
