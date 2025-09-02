@@ -36,7 +36,7 @@ import { Draw, Modify, Translate } from 'ol/interaction';
 import GeoJSON from 'ol/format/GeoJSON';
 import { createBox } from 'ol/interaction/Draw';
 import type { Vector as VectorSource } from 'ol/source';
-import type { Geometry } from 'ol/geom';
+import type { Geometry, Polygon } from 'ol/geom';
 
 
 export type DrawingMode = 'Polygon' | 'Rectangle' | 'Circle';
@@ -198,17 +198,25 @@ export function GeofenceControls({
         };
 
         const modify = new Modify({ features: features });
-
+        
         let originalCoords: number[][] | undefined;
         modify.on('modifystart', (event) => {
             const feature = event.features.item(0);
-            originalCoords = feature.getGeometry()?.getCoordinates()[0].slice();
+            const geom = feature.getGeometry() as Polygon;
+            if (isRectangle(geom)) {
+                originalCoords = geom.getCoordinates()[0].slice();
+            } else {
+                originalCoords = undefined;
+            }
+            pushToHistory(geom);
         });
 
         modify.on('modifyend', (event) => {
             const feature = event.features.item(0);
-            const modifiedCoords = feature.getGeometry()?.getCoordinates()[0];
-            if (isRectangle(feature.getGeometry()) && originalCoords && modifiedCoords) {
+            const geom = feature.getGeometry() as Polygon;
+
+            if (originalCoords && isRectangle(geom)) {
+                const modifiedCoords = geom.getCoordinates()[0];
                 let movedIndex = -1;
                 for (let i = 0; i < 4; i++) {
                     if (originalCoords[i][0] !== modifiedCoords[i][0] || originalCoords[i][1] !== modifiedCoords[i][1]) {
