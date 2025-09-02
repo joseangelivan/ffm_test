@@ -291,7 +291,6 @@ export function GeofenceControls({
 
         if (!map || !source || isDrawing) return;
         
-        cancelCurrentAction();
         setMode('editing');
         
         const drawOptions: any = { source: source };
