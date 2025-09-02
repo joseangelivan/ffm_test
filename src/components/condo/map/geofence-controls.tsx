@@ -39,31 +39,52 @@ import type { Vector as VectorSource } from 'ol/source';
 import type { Geometry, Polygon, SimpleGeometry } from 'ol/geom';
 
 
-// FUNCIÓN CORRECTA que SÍ actualiza todos los vértices
+const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
+    return poligono.intersectsCoordinate(punto);
+}
+
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number) => {
-  // 1. Crear una copia temporal con el vértice movido
-  const tempVertices = [...verticesOriginales];
-  tempVertices[indiceMovido] = verticeMovido;
-  
-  // 2. Encontrar el bounding box de todos los vértices
-  const xs = tempVertices.map(v => v[0]);
-  const ys = tempVertices.map(v => v[1]);
-  
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  
-  // 3. Crear un rectángulo perfecto con el bounding box
-  const rectanguloPerfecto = [
-    [minX, minY], // esquina inferior izquierda
-    [maxX, minY], // esquina inferior derecha
-    [maxX, maxY], // esquina superior derecha
-    [minX, maxY]  // esquina superior izquierda
-  ];
-  
-  // 4. Para OpenLayers, cerrar el polígono
-  return [...rectanguloPerfecto, rectanguloPerfecto[0]];
+    const Polygon = require('ol/geom/Polygon').default;
+    const poligonoOriginal = new Polygon([verticesOriginales]);
+
+    if (puntoEstaDentro(poligonoOriginal, verticeMovido)) {
+        // --- CASO 2: Vértice se mueve HACIA ADENTRO (reducción) ---
+        const indiceOpuesto = (indiceMovido + 2) % 4;
+        const verticeOpuesto = verticesOriginales[indiceOpuesto];
+        
+        const nuevoRectangulo = new Array(4);
+        nuevoRectangulo[indiceMovido] = verticeMovido;
+        nuevoRectangulo[indiceOpuesto] = verticeOpuesto;
+        
+        if (indiceMovido % 2 === 0) { // Esquina par (0 o 2)
+            nuevoRectangulo[(indiceMovido + 1) % 4] = [verticeOpuesto[0], verticeMovido[1]];
+            nuevoRectangulo[(indiceMovido + 3) % 4] = [verticeMovido[0], verticeOpuesto[1]];
+        } else { // Esquina impar (1 o 3)
+            nuevoRectangulo[(indiceMovido + 1) % 4] = [verticeMovido[0], verticeOpuesto[1]];
+            nuevoRectangulo[(indiceMovido + 3) % 4] = [verticeOpuesto[0], verticeMovido[1]];
+        }
+        
+        return [...nuevoRectangulo, nuevoRectangulo[0]];
+
+    } else {
+        // --- CASO 1: Vértice se mueve HACIA AFUERA (expansión) ---
+        const tempVertices = [...verticesOriginales];
+        tempVertices[indiceMovido] = verticeMovido;
+        
+        const xs = tempVertices.map(v => v[0]);
+        const ys = tempVertices.map(v => v[1]);
+        
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        
+        const rectanguloPerfecto = [
+            [minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]
+        ];
+        
+        return [...rectanguloPerfecto, rectanguloPerfecto[0]];
+    }
 };
 
 
@@ -346,48 +367,48 @@ export function GeofenceControls({
     
         const onModifyStart = (event: any) => {
             const feature = event.features.getArray()[0] as Feature<Polygon>;
-            if (feature && feature.get('geometryType') === 'Rectangle') {
-                originalCoords = feature.getGeometry()!.getCoordinates()[0].slice(0, 4);
-                setDebugInfo("Iniciando modificación de rectángulo...");
+            if (feature.get('geometryType') === 'Rectangle') {
+                 // Clonar las coordenadas para tener una copia inmutable
+                 originalCoords = feature.getGeometry()!.getCoordinates()[0].map(c => [...c]);
+                 // Quitar el último punto que es igual al primero
+                 if (originalCoords.length === 5) {
+                    originalCoords.pop();
+                 }
+            } else {
+                 originalCoords = null;
             }
         };
-    
-        const onModifyEnd = (event: any) => {
-            setDebugInfo("Moviendo vértice...");
-            if (!originalCoords) {
-                setDebugInfo("Modificación finalizada (no es rectángulo).");
-                 const feature = event.features.getArray()[0];
-                 if(feature) pushToHistory(feature.getGeometry()!);
-                return;
-            };
-    
-            const feature = event.features.getArray()[0] as Feature<Polygon>;
-            const currentCoords = feature.getGeometry()!.getCoordinates()[0];
-    
-            let movedIndex = -1;
-            for (let i = 0; i < originalCoords.length; i++) {
-                if (originalCoords[i][0] !== currentCoords[i][0] || originalCoords[i][1] !== currentCoords[i][1]) {
-                    movedIndex = i;
-                    break;
-                }
-            }
-    
-            if (movedIndex !== -1) {
-                try {
-                    const verticeMovido = currentCoords[movedIndex];
-                    const correctedCoords = RecalcularRectangulo(originalCoords, verticeMovido, movedIndex);
-                    feature.getGeometry()!.setCoordinates([correctedCoords]);
-                    
-                    const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-                    const geometryToSave = format.writeGeometryObject(feature.getGeometry()!);
-                    setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(geometryToSave, null, 2)}`);
-                    pushToHistory(feature.getGeometry()!);
 
-                } catch(e: any) {
-                    setDebugInfo(`Error: ${e.message}`);
+        const onModifyEnd = (event: any) => {
+            const feature = event.features.getArray()[0];
+            if (!feature) return;
+
+            if (feature.get('geometryType') === 'Rectangle' && originalCoords) {
+                const currentCoords = feature.getGeometry()!.getCoordinates()[0];
+        
+                let movedIndex = -1;
+                for (let i = 0; i < originalCoords.length; i++) {
+                    if (originalCoords[i][0] !== currentCoords[i][0] || originalCoords[i][1] !== currentCoords[i][1]) {
+                        movedIndex = i;
+                        break;
+                    }
+                }
+        
+                if (movedIndex !== -1) {
+                    try {
+                        const verticeMovido = currentCoords[movedIndex];
+                        const correctedCoords = RecalcularRectangulo(originalCoords, verticeMovido, movedIndex);
+                        feature.getGeometry()!.setCoordinates([correctedCoords]);
+                        setDebugInfo(`Rectángulo corregido. Vértice movido: ${movedIndex}`);
+                    } catch(e: any) {
+                        setDebugInfo(`Error: ${e.message}`);
+                    }
                 }
             }
-            originalCoords = null; // Reset for next modification
+            
+            pushToHistory(feature.getGeometry()!);
+            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+            setDebugInfo(`Cambio guardado en el historial! Coords: ${JSON.stringify(format.writeGeometryObject(feature.getGeometry()!), null, 2)}`);
         };
     
         const modifyStartKey = modifyInteraction.on('modifystart', onModifyStart);
