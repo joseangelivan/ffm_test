@@ -188,6 +188,54 @@ export function GeofenceControls({
         return coords.length === 5;
     };
     
+    // This effect ensures our callback ref always has the latest functions/state
+    useEffect(() => {
+        modifyingCallbackRef.current = (event) => {
+            setDebugInfo("Moviendo vértice...");
+            try {
+                const feature = event.features.getArray()[0] as Feature<Polygon>;
+                if (!feature) return;
+
+                const geometry = feature.getGeometry();
+                if (!geometry || !isRectangle(geometry)) return;
+
+                const coords = geometry.getCoordinates()[0];
+                if (coords.length !== 5) return;
+
+                const startPoint = coords[0];
+                const endPoint = coords[2];
+                const newCoords = [
+                    startPoint,
+                    [endPoint[0], startPoint[1]],
+                    endPoint,
+                    [startPoint[0], endPoint[1]],
+                    startPoint
+                ];
+
+                geometry.setCoordinates([newCoords]);
+                
+                const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+                const finalGeomForDebug = format.writeGeometryObject(feature.getGeometry()!);
+                setDebugInfo(JSON.stringify(finalGeomForDebug, null, 2));
+
+            } catch (e: any) {
+                setDebugInfo(`Error en 'modifying': ${e.message}`);
+            }
+        };
+
+        modifyEndCallbackRef.current = (event) => {
+             const feature = event.features.getArray()[0];
+             const finalGeometry = feature.getGeometry();
+             if (finalGeometry) {
+                 pushToHistory(finalGeometry);
+                 const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+                 const finalGeomForDebug = format.writeGeometryObject(finalGeometry);
+                 setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(finalGeomForDebug, null, 2)}`);
+             }
+        };
+    }, [pushToHistory, setDebugInfo]);
+
+
     const startEditingSelected = useCallback(() => {
         const source = geofenceSourceRef();
         const map = mapRef.current;
@@ -205,81 +253,12 @@ export function GeofenceControls({
         const Collection = require('ol/Collection').default;
         const features = new Collection([featureToEdit]);
         
-        const isRect = isRectangle(featureToEdit.getGeometry());
+        const modify = new Modify({ features });
+        modify.on('modifying', (event) => modifyingCallbackRef.current?.(event));
+        modify.on('modifyend', (event) => modifyEndCallbackRef.current?.(event));
         
-        const modify = new Modify({ 
-            features: features,
-            insertVertexCondition: () => !isRect 
-        });
-
-        if (isRect) {
-            let startCoords: number[][] | null = null;
-            let draggedVertexIndex = -1;
-
-            modify.on('modifystart', (event) => {
-                const feature = event.features.getArray()[0] as Feature<Polygon>;
-                startCoords = feature.getGeometry()!.getCoordinates()[0];
-                const clickCoord = (event.mapBrowserEvent as any).coordinate;
-
-                let minDistance = Infinity;
-                startCoords.forEach((coord, index) => {
-                    if (index < 4) { // Only check the 4 main vertices
-                        const distance = Math.pow(coord[0] - clickCoord[0], 2) + Math.pow(coord[1] - clickCoord[1], 2);
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            draggedVertexIndex = index;
-                        }
-                    }
-                });
-            });
-
-            modify.on('modifying', (event) => {
-                if (draggedVertexIndex === -1) return;
-
-                const feature = event.features.getArray()[0] as Feature<Polygon>;
-                const currentCoords = feature.getGeometry()!.getCoordinates()[0];
-                
-                const pivotIndex = (draggedVertexIndex + 2) % 4;
-                const pivot = startCoords![pivotIndex];
-                const dragged = currentCoords[draggedVertexIndex];
-                
-                const newP1 = [pivot[0], dragged[1]];
-                const newP2 = [dragged[0], pivot[1]];
-                
-                let newCoords;
-                if (draggedVertexIndex % 2 === 0) { // 0 or 2
-                    newCoords = [dragged, newP2, pivot, newP1, dragged];
-                } else { // 1 or 3
-                    newCoords = [newP1, dragged, newP2, pivot, newP1];
-                }
-                
-                feature.getGeometry()!.setCoordinates([newCoords]);
-
-                 const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-                const finalGeomForDebug = format.writeGeometryObject(feature.getGeometry()!);
-                setDebugInfo(`Moviendo vértice...\n${JSON.stringify(finalGeomForDebug, null, 2)}`);
-            });
-        }
-        
-        modify.on('modifyend', (event) => {
-             const feature = event.features.getArray()[0];
-             const finalGeometry = feature.getGeometry();
-             if (finalGeometry) {
-                 pushToHistory(finalGeometry);
-                 const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-                 const finalGeomForDebug = format.writeGeometryObject(finalGeometry);
-                 setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(finalGeomForDebug, null, 2)}`);
-             }
-        });
-
         const translate = new Translate({ features: features });
-        translate.on('translateend', (event) => {
-             const feature = event.features.getArray()[0];
-             const finalGeometry = feature.getGeometry();
-             if (finalGeometry) {
-                 pushToHistory(finalGeometry);
-             }
-        });
+        translate.on('translateend', (event) => modifyEndCallbackRef.current?.(event));
 
         modifyInteractionRef.current = modify;
         translateInteractionRef.current = translate;
@@ -401,31 +380,8 @@ export function GeofenceControls({
             const Collection = require('ol/Collection').default;
             const features = new Collection([newFeature]);
             
-            const isRect = isRectangle(newFeature.getGeometry());
-            const modify = new Modify({ features: features, insertVertexCondition: () => !isRect });
-            
-            if(isRect) {
-                 modify.on('modifying', (event) => {
-                    const feature = event.features.getArray()[0] as Feature<Polygon>;
-                    if (!feature) return;
-
-                    const geometry = feature.getGeometry();
-                    if (!geometry) return;
-                    
-                    const coords = geometry.getCoordinates()[0];
-                    if (coords.length !== 5) return; // Not a rectangle-like structure
-
-                    const startPoint = coords[0];
-                    const endPoint = coords[2];
-
-                    coords[1] = [endPoint[0], startPoint[1]];
-                    coords[3] = [startPoint[0], endPoint[1]];
-                    coords[4] = startPoint;
-
-                    geometry.setCoordinates([coords]);
-                });
-            }
-
+            const modify = new Modify({ features: features });
+            modify.on('modifying', (event) => modifyingCallbackRef.current?.(event));
             modify.on('modifyend', (event) => modifyEndCallbackRef.current?.(event));
             
             map.addInteraction(modify);
