@@ -37,6 +37,7 @@ import { Draw, Modify } from 'ol/interaction';
 import GeoJSON from 'ol/format/GeoJSON';
 import { createBox } from 'ol/interaction/Draw';
 import type { Vector as VectorSource } from 'ol/source';
+import Collection from 'ol/Collection';
 
 
 export type DrawingMode = 'Polygon' | 'Rectangle' | 'Circle';
@@ -168,7 +169,7 @@ export function GeofenceControls({
         setMode('editing');
 
         removeInteractions();
-        const modify = new Modify({ source: source, features: source.getFeatures() as any });
+        const modify = new Modify({ source: source, features: new Collection(source.getFeatures()) });
         mapRef.current.addInteraction(modify);
         modifyInteractionRef.current = modify;
 
@@ -295,10 +296,10 @@ export function GeofenceControls({
             removeInteractions();
             
             const featureInSource = source.getFeatureById(newId);
+            const featuresCollection = new Collection([featureInSource]);
 
             if (featureInSource) {
-                // Immediately activate modify on the new feature
-                const modify = new Modify({ source, features: [featureInSource] });
+                const modify = new Modify({ features: featuresCollection });
                 map.addInteraction(modify);
                 modifyInteractionRef.current = modify;
                 setActiveShapeState({ id: newId, feature: featureInSource, originalGeometry: null });
