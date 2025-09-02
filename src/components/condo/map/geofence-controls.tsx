@@ -38,6 +38,24 @@ import { createBox } from 'ol/interaction/Draw';
 import type { Vector as VectorSource } from 'ol/source';
 import type { Geometry, Polygon, SimpleGeometry } from 'ol/geom';
 
+const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
+  const indiceOpuesto = (indiceMovido + 2) % 4;
+  const verticeOpuesto = verticesOriginales[indiceOpuesto];
+  const nuevoRectangulo = new Array(4);
+  
+  nuevoRectangulo[indiceMovido] = verticeMovido;
+  nuevoRectangulo[indiceOpuesto] = verticeOpuesto;
+  
+  const indiceLateral1 = (indiceMovido + 1) % 4;
+  nuevoRectangulo[indiceLateral1] = [verticeMovido[0], verticeOpuesto[1]];
+  
+  const indiceLateral2 = (indiceMovido + 3) % 4;
+  nuevoRectangulo[indiceLateral2] = [verticeOpuesto[0], verticeMovido[1]];
+  
+  // Reorder to ensure correct drawing path for OpenLayers
+  return [nuevoRectangulo[0], nuevoRectangulo[3], nuevoRectangulo[2], nuevoRectangulo[1], nuevoRectangulo[0]];
+};
+
 
 export type DrawingMode = 'Polygon' | 'Rectangle' | 'Circle';
 
@@ -69,33 +87,6 @@ type GeofenceControlsProps = {
     setHistoryIndex: React.Dispatch<React.SetStateAction<number>>;
     setDebugInfo: React.Dispatch<React.SetStateAction<string>>;
 }
-
-const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
-  const indiceOpuesto = (indiceMovido + 2) % 4;
-  const verticeOpuesto = verticesOriginales[indiceOpuesto];
-  const nuevoRectangulo = new Array(4);
-  
-  nuevoRectangulo[indiceMovido] = verticeMovido;
-  nuevoRectangulo[indiceOpuesto] = verticeOpuesto;
-  
-  const indiceLateral1 = (indiceMovido + 1) % 4;
-  nuevoRectangulo[indiceLateral1] = [verticeMovido[0], verticeOpuesto[1]];
-  
-  const indiceLateral2 = (indiceMovido + 3) % 4;
-  nuevoRectangulo[indiceLateral2] = [verticeOpuesto[0], verticeMovido[1]];
-  
-  // Reorder to ensure correct drawing path for OpenLayers
-  const finalCoords = [
-    nuevoRectangulo[0],
-    nuevoRectangulo[3],
-    nuevoRectangulo[2],
-    nuevoRectangulo[1],
-    nuevoRectangulo[0] // Close the polygon
-  ];
-
-  return finalCoords;
-};
-
 
 export function GeofenceControls({
     condoId,
@@ -248,6 +239,7 @@ export function GeofenceControls({
         });
 
         modify.on('modifying', (event) => {
+            setDebugInfo("Moviendo vértice...");
             const feature = event.features.getArray()[0] as Feature<Polygon>;
             if (feature.get('geometryType') !== 'Rectangle') return;
 
@@ -271,7 +263,7 @@ export function GeofenceControls({
             
             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
             const geomForDebug = format.writeGeometryObject(feature.getGeometry()!);
-            setDebugInfo(`Corrigiendo...\nCoords: ${JSON.stringify(geomForDebug, null, 2)}`);
+            setDebugInfo(`Coords: ${JSON.stringify(geomForDebug, null, 2)}`);
         });
 
         modify.on('modifyend', (event) => {
