@@ -39,34 +39,31 @@ import type { Vector as VectorSource } from 'ol/source';
 import type { Geometry, Polygon, SimpleGeometry } from 'ol/geom';
 
 
-const RecalcularRectangulo = (verticesOriginales, verticeMovido, indiceMovido) => {
-  // Crear nuevo array
-  const nuevoRectangulo = [...verticesOriginales];
-  nuevoRectangulo[indiceMovido] = verticeMovido;
+// FUNCIÓN CORRECTA que SÍ actualiza todos los vértices
+const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number) => {
+  // 1. Crear una copia temporal con el vértice movido
+  const tempVertices = [...verticesOriginales];
+  tempVertices[indiceMovido] = verticeMovido;
   
-  // Para un rectángulo alineado con ejes, propagar el cambio
-  if (indiceMovido === 0) { // Esquina inferior izquierda
-    nuevoRectangulo[1] = [verticeMovido[0], verticesOriginales[1][1]];
-    nuevoRectangulo[3] = [verticesOriginales[3][0], verticeMovido[1]];
-    nuevoRectangulo[2] = [verticeMovido[0], verticesOriginales[1][1]];
-  } 
-  else if (indiceMovido === 1) { // Esquina inferior derecha
-    nuevoRectangulo[0] = [verticesOriginales[0][0], verticeMovido[1]];
-    nuevoRectangulo[2] = [verticeMovido[0], verticesOriginales[2][1]];
-    nuevoRectangulo[3] = [verticesOriginales[0][0], verticesOriginales[2][1]];
-  }
-  else if (indiceMovido === 2) { // Esquina superior derecha
-    nuevoRectangulo[1] = [verticeMovido[0], verticesOriginales[1][1]];
-    nuevoRectangulo[3] = [verticesOriginales[3][0], verticeMovido[1]];
-    nuevoRectangulo[0] = [verticesOriginales[3][0], verticesOriginales[1][1]];
-  }
-  else if (indiceMovido === 3) { // Esquina superior izquierda
-    nuevoRectangulo[0] = [verticesOriginales[0][0], verticeMovido[1]];
-    nuevoRectangulo[2] = [verticeMovido[0], verticesOriginales[2][1]];
-    nuevoRectangulo[1] = [verticeMovido[0], verticesOriginales[0][1]];
-  }
+  // 2. Encontrar el bounding box de todos los vértices
+  const xs = tempVertices.map(v => v[0]);
+  const ys = tempVertices.map(v => v[1]);
   
-  return nuevoRectangulo;
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  
+  // 3. Crear un rectángulo perfecto con el bounding box
+  const rectanguloPerfecto = [
+    [minX, minY], // esquina inferior izquierda
+    [maxX, minY], // esquina inferior derecha
+    [maxX, maxY], // esquina superior derecha
+    [minX, maxY]  // esquina superior izquierda
+  ];
+  
+  // 4. Para OpenLayers, cerrar el polígono
+  return [...rectanguloPerfecto, rectanguloPerfecto[0]];
 };
 
 
@@ -310,7 +307,7 @@ export function GeofenceControls({
             const Collection = require('ol/Collection').default;
             const features = new Collection([newFeature]);
             
-            modifyInteractionRef.current = new Modify({ features: features });
+            modifyInteractionRef.current = new Modify({ features: features, insertVertexCondition: () => false });
             map.addInteraction(modifyInteractionRef.current);
             
             translateInteractionRef.current = new Translate({ features: features });
@@ -357,7 +354,7 @@ export function GeofenceControls({
         const Collection = require('ol/Collection').default;
         const features = new Collection([featureToEdit]);
         
-        const modify = new Modify({ features, deleteCondition: () => false });
+        const modify = new Modify({ features, deleteCondition: () => false, insertVertexCondition: () => false });
         modifyInteractionRef.current = modify;
         
         translateInteractionRef.current = new Translate({ features: features });
@@ -398,11 +395,10 @@ export function GeofenceControls({
         };
 
         const handleModifying = (event: any) => {
-            setDebugInfo("Moviendo vértice...");
             try {
                 const feature = event.features.getArray()[0] as Feature<Polygon>;
                 if (!feature || feature.get('geometryType') !== 'Rectangle') return;
-
+                
                 const originalCoords = feature.get('originalCoordinates');
                 const currentCoords = feature.getGeometry()!.getCoordinates()[0];
 
@@ -420,7 +416,9 @@ export function GeofenceControls({
                     const verticeMovido = currentCoords[movedIndex];
                     const correctedCoords = RecalcularRectangulo(originalCoords, verticeMovido, movedIndex);
                     feature.getGeometry()!.setCoordinates([correctedCoords]);
-                    setDebugInfo(`Coords: ${JSON.stringify(correctedCoords, null, 2)}`);
+                    const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+                    const geometryToSave = format.writeGeometryObject(feature.getGeometry()!);
+                    setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(geometryToSave, null, 2)}`);
                 }
             } catch(e: any) {
                 setDebugInfo(`Error: ${e.message}`);
@@ -431,7 +429,6 @@ export function GeofenceControls({
             const feature = event.features.getArray()[0];
             if (feature) {
                 pushToHistory(feature.getGeometry()!);
-                setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(feature.getGeometry()!), null, 2)}`);
             }
             feature.unset('originalCoordinates');
         };
