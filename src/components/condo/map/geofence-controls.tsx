@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import React, { useState, useEffect, useCallback, useTransition, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useTransition, useMemo, useRef } from 'react';
 import {
   PencilRuler,
   ChevronDown,
@@ -134,15 +135,15 @@ export function GeofenceControls({
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
     
-    const drawingInteractionRef = React.useRef<Draw | null>(null);
-    const modifyInteractionRef = React.useRef<Modify | null>(null);
-    const translateInteractionRef = React.useRef<Translate | null>(null);
+    const drawingInteractionRef = useRef<Draw | null>(null);
+    const modifyInteractionRef = useRef<Modify | null>(null);
+    const translateInteractionRef = useRef<Translate | null>(null);
     
     const defaultGeofenceName = useMemo(() => 
         geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none'),
     [geofences, defaultGeofenceId, t]);
     
-    const geofenceSourceRef = React.useRef<VectorSource | null>(null);
+    const geofenceSourceRef = useRef<VectorSource | null>(null);
     useEffect(() => {
         const layer = mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer');
         geofenceSourceRef.current = (layer as any)?.getSource() || null;
@@ -188,9 +189,9 @@ export function GeofenceControls({
     const cancelCurrentAction = useCallback(() => {
         const source = geofenceSourceRef.current;
         if (activeShapeState?.feature) {
-             const feature = activeShapeState.feature;
-             const originalGeometry = activeShapeState.originalGeometry;
+             const { feature, originalGeometry } = activeShapeState;
              if (originalGeometry && feature) {
+                if(originalGeometry.type === 'rectangle') originalGeometry.type = 'Polygon';
                 const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
                 const olGeom = format.readGeometry(originalGeometry);
                 if (olGeom) feature.setGeometry(olGeom);
@@ -213,8 +214,11 @@ export function GeofenceControls({
         if (!activeShapeState?.feature) return;
         const { id, feature } = activeShapeState;
     
-        const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-        const geometryToSave = format.writeGeometryObject(feature.getGeometry()!);
+        const geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(feature.getGeometry()!);
+        
+        if(feature.get('geometryType') === 'Rectangle'){
+            (geometryToSave as any).type = 'rectangle';
+        }
         
         if (!currentGeofenceName) {
             toast({ title: t('toast.errorTitle'), description: "El nombre de la geocerca es obligatorio.", variant: "destructive" });
@@ -574,3 +578,4 @@ export function GeofenceControls({
         </div>
     );
 }
+
