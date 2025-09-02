@@ -75,7 +75,9 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
             ].map(coord => fromLonLat(coord));
             
             const Polygon = require('ol/geom/Polygon').default;
-            return new Polygon([coords]);
+            const newPolygon = new Polygon([coords]);
+            newPolygon.set('geometryType', 'Rectangle');
+            return newPolygon;
         } else {
             console.warn(`Invalid coordinate structure for legacy Rectangle geometry:`, bounds);
             return null;
@@ -86,7 +88,11 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
     if ('type' in geometryObject && 'coordinates' in geometryObject) {
        try {
             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-            return format.readGeometry(geometryObject);
+            const geometry = format.readGeometry(geometryObject);
+            if (geometryObject.type === 'Polygon' && geometryObject.coordinates[0].length === 5) {
+                geometry.set('geometryType', 'Rectangle');
+            }
+            return geometry;
         } catch (e) {
             console.error("Error reading standard GeoJSON:", e, geometryObject);
             return null;
@@ -219,21 +225,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
             const olGeom = readLegacyOrStandardGeoJSON(dbGeofence);
             if (!olGeom) return;
             
-            // Check if geometry type is rectangle
-            let isRectangle = false;
-            if (dbGeofence.geometry?.type === 'Polygon') {
-                const coords = dbGeofence.geometry.coordinates[0];
-                if (coords.length === 5) {
-                    // Simple check for rectangle
-                     const isRect = (coords[0][0] === coords[3][0] && coords[1][0] === coords[2][0] && coords[0][1] === coords[1][1] && coords[2][1] === coords[3][1]);
-                     // This is a naive check. A better check would be to see if 'bounds' existed.
-                     // For now, we assume if it looks like a box, it was meant to be one.
-                     // The logic in draw handles this better by setting a property.
-                     isRectangle = true;
-                }
-            }
-
-
             let feature = source.getFeatureById(dbGeofence.id);
             if (feature) {
                 // Only update geometry if it's different to avoid unnecessary re-renders
@@ -244,9 +235,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             } else {
                 feature = new Feature({ geometry: olGeom });
                 feature.setId(dbGeofence.id);
-                 if (isRectangle) {
-                    feature.set('geometryType', 'Rectangle');
-                }
+                feature.set('geometryType', olGeom.get('geometryType'));
                 source.addFeature(feature);
             }
         });
