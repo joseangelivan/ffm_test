@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect, useRef } from 'react';
@@ -14,7 +15,8 @@ import { Style, Fill, Stroke } from 'ol/style';
 import 'ol/ol.css';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-import type Feature from 'ol/Feature';
+import Feature from 'ol/Feature';
+import { fromCircle } from 'ol/geom/Polygon';
 
 // --- STYLES ---
 const STYLE_VIEW_MODE = new Style({
@@ -48,6 +50,39 @@ interface MapProps {
     mode: 'view' | 'editing';
 }
 
+/**
+ * Reads a geometry object, which may be a standard GeoJSON object or a legacy
+ * custom object, and returns a valid OpenLayers Geometry.
+ * @param geometry The geometry object from the database.
+ * @returns An OpenLayers Geometry or null.
+ */
+function readLegacyOrStandardGeoJSON(geometry: any) {
+    const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+    
+    // Handle legacy, non-standard geometry types
+    if (geometry.type === 'Rectangle' && geometry.bounds) {
+        const { south, west, north, east } = geometry.bounds;
+        // GeoJSON polygon coordinates are in [longitude, latitude]
+        const coordinates = [[[west, south], [east, south], [east, north], [west, north], [west, south]]];
+        return format.readGeometry({ type: 'Polygon', coordinates });
+    } else if (geometry.type === 'Circle' && geometry.center && geometry.radius) {
+        // OpenLayers doesn't have a standard GeoJSON representation for Circle.
+        // We'll treat it as a point and buffer it, or convert it to a polygon approximation.
+        // Here, we convert it to a polygon.
+        const circleGeom = new ol.geom.Circle(fromLonLat([geometry.center.lng, geometry.center.lat]), geometry.radius);
+        return fromCircle(circleGeom, 64); // 64 vertices for a smooth circle
+    }
+    
+    // Handle standard GeoJSON types
+    try {
+        return format.readGeometry(geometry);
+    } catch (e) {
+        console.error(`Unsupported GeoJSON type or malformed geometry: ${geometry.type}`, e);
+        return null;
+    }
+}
+
+
 const OpenLayersMap: React.FC<MapProps> = ({ 
     provider, 
     onMapLoad, 
@@ -61,7 +96,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<Map | null>(null);
     const vectorSourceRef = useRef<VectorSource | null>(null);
-    const geojsonFormatRef = useRef(new GeoJSON({ featureProjection: 'EPSG:3857' }));
 
     useEffect(() => {
         if (!mapRef.current || !provider || mapInstanceRef.current) return;
@@ -130,8 +164,13 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
         dbGeofences.forEach(dbGf => {
             let feature = source.getFeatureById(dbGf.id);
-            const geometry = geojsonFormatRef.current.readGeometry(dbGf.geometry);
+            const geometry = readLegacyOrStandardGeoJSON(dbGf.geometry);
             
+            if (!geometry) {
+                console.warn(`Could not read geometry for geofence ${dbGf.id}`);
+                return;
+            }
+
             if (!feature) {
                 feature = new Feature({ geometry });
                 feature.setId(dbGf.id);
@@ -198,7 +237,9 @@ const OpenLayersMap: React.FC<MapProps> = ({
             }
 
             feature.setStyle(style);
-            feature.get('layer')?.setZIndex(zIndex);
+            // Z-index on layers is more reliable than on features,
+            // but for simplicity here we'll just set the style.
+            // For real z-indexing, multiple layers would be better.
         });
 
     }, [mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, activeShapeState]);

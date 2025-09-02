@@ -1,5 +1,13 @@
 
-import { isEqual, debounce } from 'lodash';
+
+import { fromCircle } from 'ol/geom/Polygon';
+import type { Map as OlMap } from 'ol';
+import type Feature from 'ol/Feature';
+import { Draw, Modify, Select } from 'ol/interaction';
+import GeoJSON from 'ol/format/GeoJSON';
+import { getArea } from 'ol/sphere';
+import type { Circle, Polygon } from 'ol/geom';
+
 
 // --- STYLES ---
 
@@ -51,79 +59,62 @@ export const STYLE_FOCUSED_BLUE = {
 
 // --- GEOMETRY HELPERS ---
 
-export const getGeometryFromShape = (shape: google.maps.MVCObject): any => {
-    if (shape instanceof google.maps.Polygon) {
-        const path = shape.getPath().getArray().map(latLng => ({ lat: latLng.lat(), lng: latLng.lng() }));
-        return { type: 'Polygon', path };
+const geojsonFormat = new GeoJSON({ featureProjection: 'EPSG:3857' });
+
+/**
+ * Converts an OpenLayers Feature's geometry into a GeoJSON Geometry object.
+ * Rectangles and Circles are converted to Polygons to conform to the GeoJSON standard.
+ * @param feature The OpenLayers Feature to process.
+ * @returns A GeoJSON Geometry object.
+ */
+export const getGeometryFromFeature = (feature: Feature): any => {
+    let geometry = feature.getGeometry();
+    if (!geometry) return null;
+
+    // For circles, convert them to a polygon approximation first.
+    if (geometry.getType() === 'Circle') {
+        geometry = fromCircle(geometry as Circle);
     }
-    if (shape instanceof google.maps.Rectangle) {
-        const bounds = shape.getBounds();
-        if(!bounds) return null;
-        return { type: 'Rectangle', bounds: bounds.toJSON() };
-    }
-    if (shape instanceof google.maps.Circle) {
-        return { 
-            type: 'Circle', 
-            center: shape.getCenter()?.toJSON(),
-            radius: shape.getRadius()
-        };
-    }
-    return null;
+    
+    return geojsonFormat.writeGeometryObject(geometry);
 };
 
-export const createShapeFromGeometry = (geometry: any): google.maps.MVCObject | null => {
-    if (!geometry || !geometry.type) return null;
+/**
+ * Creates an OpenLayers Feature from a GeoJSON geometry object.
+ * It handles standard GeoJSON types and custom legacy types ('Rectangle', 'Circle').
+ * @param geometry The GeoJSON geometry object from the database.
+ * @returns An OpenLayers Feature or null.
+ */
+export const createFeatureFromGeometry = (geometry: any): Feature | null => {
+    if (!geometry) return null;
 
-    switch (geometry.type) {
-        case 'Polygon':
-            return new google.maps.Polygon({ paths: geometry.path });
-        case 'Rectangle':
-            return new google.maps.Rectangle({ bounds: geometry.bounds });
-        case 'Circle':
-            return new google.maps.Circle({ center: geometry.center, radius: geometry.radius });
-        default:
+    let olGeometry;
+    const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+    
+    // Handle legacy, non-standard geometry types
+    if (geometry.type === 'Rectangle' && geometry.bounds) {
+        const { south, west, north, east } = geometry.bounds;
+        const coordinates = [[
+            [west, south],
+            [east, south],
+            [east, north],
+            [west, north],
+            [west, south]
+        ]];
+        olGeometry = format.readGeometry({ type: 'Polygon', coordinates });
+    } else if (geometry.type === 'Circle' && geometry.center && geometry.radius) {
+        const centerCoords = [geometry.center.lng, geometry.center.lat];
+        const circleGeom = new ol.geom.Circle(fromLonLat(centerCoords), geometry.radius);
+        olGeometry = fromCircle(circleGeom); // Convert to polygon
+    } else {
+        // Handle standard GeoJSON types
+        try {
+            olGeometry = format.readGeometry(geometry);
+        } catch (e) {
+            console.error("Error reading standard GeoJSON geometry:", e);
             return null;
+        }
     }
-};
-
-export const restoreShapeToGeometry = (shape: google.maps.MVCObject, geometry: any) => {
-    if (!geometry) return;
-
-    if (shape instanceof google.maps.Polygon && geometry.type === 'Polygon') {
-        shape.setPath(geometry.path);
-    } else if (shape instanceof google.maps.Rectangle && geometry.type === 'Rectangle') {
-        shape.setBounds(geometry.bounds);
-    } else if (shape instanceof google.maps.Circle && geometry.type === 'Circle') {
-        shape.setCenter(geometry.center);
-        shape.setRadius(geometry.radius);
-    }
-}
-
-
-// --- BOUNDS HELPERS ---
-
-export const getBoundsOfShape = (shape: google.maps.MVCObject): google.maps.LatLngBounds | null => {
-  if (shape instanceof google.maps.Polygon) {
-    const bounds = new google.maps.LatLngBounds();
-    shape.getPath().forEach(latLng => bounds.extend(latLng));
-    return bounds;
-  }
-  if (shape instanceof google.maps.Rectangle) {
-    return shape.getBounds();
-  }
-  if (shape instanceof google.maps.Circle) {
-    return shape.getBounds();
-  }
-  return null;
-};
-
-export const getCenterOfShape = (shape: google.maps.MVCObject): google.maps.LatLng | null => {
-    const bounds = getBoundsOfShape(shape);
-    return bounds ? bounds.getCenter() : null;
-};
-
-// --- MISC ---
-
-export const getGeofenceName = (gf: DbGeofence, isDefault: boolean, t: (key: string) => string) => {
-  return `${gf.name}${isDefault ? ` (${t('common.default')})` : ''}`;
+    
+    return olGeometry ? new Feature({ geometry: olGeometry }) : null;
 };
