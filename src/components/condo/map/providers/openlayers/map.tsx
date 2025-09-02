@@ -17,7 +17,6 @@ import type { Geometry } from 'ol/geom';
 import Feature from 'ol/Feature';
 import { Style, Fill, Stroke } from 'ol/style';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-import type { Draw, Modify } from 'ol/interaction';
 
 
 const STYLE_VIEW_MODE = new Style({
@@ -46,7 +45,7 @@ const STYLE_HIDDEN = new Style({
 
 
 function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
-    const geometryObject = dbGeofence.geometry;
+    const geometryObject = { ...dbGeofence.geometry };
 
     if (!geometryObject) {
         return null;
@@ -84,12 +83,17 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
         }
     }
     
+    if (geometryObject.type === 'rectangle') {
+        geometryObject.type = 'Polygon';
+    }
+
     // Standard GeoJSON handling
     if ('type' in geometryObject && 'coordinates' in geometryObject) {
        try {
             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
             const geometry = format.readGeometry(geometryObject);
-            if (geometryObject.type === 'Polygon' && geometryObject.coordinates[0].length === 5) {
+            // If it's a polygon and has 5 coordinates (4 vertices + closing point), it's a rectangle
+            if (geometry.getType() === 'Polygon' && (geometry as any).getCoordinates()[0].length === 5) {
                 geometry.set('geometryType', 'Rectangle');
             }
             return geometry;
@@ -114,8 +118,6 @@ interface MapProps {
     defaultGeofenceId: string | null;
     initialPosition: { lat: number, lng: number };
     mapRef: React.RefObject<Map | null>;
-    drawingInteractionRef: React.MutableRefObject<Draw | null>;
-    modifyInteractionRef: React.MutableRefObject<Modify | null>;
     activeShapeState: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     children?: React.ReactNode;
 }
@@ -149,9 +151,12 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 }
                 return STYLE_EDIT_MODE_SELECTED;
             }
+            if (featureId === selectedGeofenceId) {
+                return STYLE_VIEW_MODE; // Blue border for selected but not actively edited
+            }
             return STYLE_EDIT_MODE_UNSELECTED;
         }
-    }, [mode, showAllGeofences, defaultGeofenceId, activeShapeState]);
+    }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState]);
     
     useEffect(() => {
         if (!mapContainerRef.current) return;
@@ -224,9 +229,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
             let feature = source.getFeatureById(dbGeofence.id);
             if (feature) {
-                // To prevent issues, only update if geometry is truly different
                 const currentGeom = feature.getGeometry();
-                if (currentGeom) {
+                if (currentGeom && activeShapeState?.feature !== feature) {
                     const currentCoords = JSON.stringify(currentGeom.getCoordinates());
                     const newCoords = JSON.stringify(olGeom.getCoordinates());
                     if(currentCoords !== newCoords) {
@@ -241,24 +245,24 @@ const OpenLayersMap: React.FC<MapProps> = ({
             }
         });
         
-        // Remove features from map that are no longer in the DB,
-        // UNLESS it's the shape currently being edited.
+        // Add the currently active new shape if it's not already on the map
+        if (activeShapeState?.feature && !source.hasFeature(activeShapeState.feature)) {
+            source.addFeature(activeShapeState.feature);
+        }
+
+        // Clean up features that are no longer in DB and are not the active shape
         source.getFeatures().forEach(feature => {
-            const featureId = feature.getId();
-            if (typeof featureId === 'string' && !dbGeofenceIds.has(featureId)) {
-                 if (!activeShapeState || activeShapeState.id !== featureId) {
-                    source.removeFeature(feature);
-                }
+            const featureId = feature.getId() as string;
+            if (!dbGeofenceIds.has(featureId) && featureId !== activeShapeState?.id) {
+                source.removeFeature(feature);
             }
         });
 
         // Apply styles to all features
         source.getFeatures().forEach(feature => {
-            const featureId = feature.getId();
-            if (typeof featureId === 'string') {
-                const style = getFeatureStyle(featureId);
-                feature.set('style', style);
-            }
+            const featureId = feature.getId() as string;
+            const style = getFeatureStyle(featureId);
+            feature.set('style', style);
         });
 
         source.changed();
@@ -273,3 +277,5 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
+
+  
