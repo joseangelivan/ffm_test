@@ -15,7 +15,8 @@ import {
   X,
   Loader,
 } from 'lucide-react';
-import type { Map as OlMap, Feature } from 'ol';
+import type { Map as OlMap } from 'ol';
+import Feature from 'ol/Feature';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 
@@ -42,23 +43,34 @@ import CircleStyle from 'ol/style/Circle';
 import Fill from 'ol/style/Fill';
 
 
+const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
+    return poligono.intersectsCoordinate(punto);
+}
+
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
+    const olPolygon = require('ol/geom/Polygon').default;
+
+    const poligonoOriginal = new olPolygon([verticesOriginales]);
+    // This logic seems flawed, if the vertex is dragged "inwards" it will be inside.
+    // The original logic was probably better. Let's try to combine.
+    // The key is to find the diagonally opposite vertex.
+    
     const indiceOpuesto = (indiceMovido + 2) % 4;
     const verticeOpuesto = verticesOriginales[indiceOpuesto];
-  
-    const nuevoRectangulo = [
-        [verticeMovido[0], verticeMovido[1]],
-        [verticeOpuesto[0], verticeMovido[1]],
-        [verticeOpuesto[0], verticeOpuesto[1]],
-        [verticeMovido[0], verticeOpuesto[1]],
-    ];
 
-    const esValido = nuevoRectangulo.every(v => !isNaN(v[0]) && !isNaN(v[1]));
-    if (!esValido) {
-      return verticesOriginales;
-    }
+    const minX = Math.min(verticeMovido[0], verticeOpuesto[0]);
+    const maxX = Math.max(verticeMovido[0], verticeOpuesto[0]);
+    const minY = Math.min(verticeMovido[1], verticeOpuesto[1]);
+    const maxY = Math.max(verticeMovido[1], verticeOpuesto[1]);
+    
+    const nuevoRectangulo = [
+        [minX, minY],
+        [maxX, minY],
+        [maxX, maxY],
+        [minX, maxY],
+    ];
   
-    return [...nuevoRectangulo, nuevoRectangulo[0]];
+  return [...nuevoRectangulo, nuevoRectangulo[0]];
 };
 
 
@@ -243,8 +255,9 @@ export function GeofenceControls({
     
     const handleStartDrawing = () => {
         cancelCurrentAction();
-        const newId = `new-shape-${Date.now()}`;
-        setActiveShapeState({ id: newId, feature: new Feature(), originalGeometry: null });
+        const newFeature = new Feature();
+        newFeature.setId(`new-shape-${Date.now()}`);
+        setActiveShapeState({ id: newFeature.getId() as string, feature: newFeature, originalGeometry: null });
         setCurrentGeofenceName(getNextGeofenceName());
         setIsDrawing(true);
     };
@@ -308,13 +321,14 @@ export function GeofenceControls({
     
      useEffect(() => {
         const map = mapRef.current;
-        if (!map) return;
+        const source = geofenceSourceRef.current;
+        if (!map || !source) return;
 
         removeAllInteractions();
 
         if (mode === 'editing') {
-            if (isDrawing && activeShapeState?.feature) {
-                const drawOptions: any = { source: geofenceSourceRef.current };
+            if (isDrawing) {
+                const drawOptions: any = { source };
                 if (drawingMode === 'Rectangle') {
                     drawOptions.type = 'Circle';
                     drawOptions.geometryFunction = createBox();
@@ -327,17 +341,20 @@ export function GeofenceControls({
                 interactionsRef.current.draw = newInteraction;
 
                 newInteraction.once('drawend', (event) => {
+                    const feature = event.feature;
                     if (drawingMode === 'Rectangle') {
-                        event.feature.set('geometryType', 'Rectangle');
+                        feature.set('geometryType', 'Rectangle');
                     }
-                    onShapeDrawn(event.feature);
+                    if(activeShapeState?.feature) {
+                        source.removeFeature(activeShapeState.feature);
+                    }
+                    onShapeDrawn(feature);
                     setIsDrawing(false);
                 });
 
             } else if (activeShapeState?.feature) {
                 const featureToEdit = activeShapeState.feature;
                 const features = new Collection([featureToEdit]);
-
                 let modifyInteraction;
                 const isRectangle = featureToEdit.get('geometryType') === 'Rectangle';
 
@@ -345,27 +362,41 @@ export function GeofenceControls({
                     const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
                         const originalVertices = (featureToEdit.getGeometry() as Polygon).getCoordinates()[0].slice(0, 4);
 
-                        if (draggedVertexRef.current) {
-                             const movedIndex = originalVertices.findIndex(v => 
-                                v[0] === draggedVertexRef.current![0] && v[1] === draggedVertexRef.current![1]
-                            );
+                        if(draggedVertexRef.current){
+                           const movedIndex = originalVertices.findIndex(v => v[0] === draggedVertexRef.current![0] && v[1] === draggedVertexRef.current![1]);
                             if (movedIndex !== -1) {
                                 const newPoint = coordinates[0][movedIndex];
                                 const newCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
                                 geometry.setCoordinates([newCoords]);
                             } else {
-                                 geometry.setCoordinates(coordinates);
+                                geometry.setCoordinates(coordinates);
                             }
                         } else {
-                             geometry.setCoordinates(coordinates);
+                           geometry.setCoordinates(coordinates);
                         }
+                        
                         return geometry;
                     };
-
-                    modifyInteraction = new Modify({ features, geometryFunction });
                     
+                    modifyInteraction = new Modify({ features, geometryFunction });
+
                     modifyInteraction.on('modifystart', (e) => {
                         draggedVertexRef.current = e.mapBrowserEvent.coordinate;
+                        const geom = (e.features.getArray()[0].getGeometry() as Polygon);
+                        const coords = geom.getCoordinates()[0];
+                        const clickCoord = map.getCoordinateFromPixel(e.mapBrowserEvent.pixel);
+                        
+                        let closestDist = Infinity;
+                        let closestVertex: number[] | null = null;
+                        
+                        coords.forEach(c => {
+                            const dist = Math.sqrt(Math.pow(c[0] - clickCoord[0], 2) + Math.pow(c[1] - clickCoord[1], 2));
+                            if (dist < closestDist) {
+                                closestDist = dist;
+                                closestVertex = c;
+                            }
+                        });
+                        draggedVertexRef.current = closestVertex;
                     });
                     
                     modifyInteraction.on('modifyend', (e) => {
@@ -522,7 +553,7 @@ export function GeofenceControls({
                                         <Button onClick={cancelCurrentAction} variant="ghost" disabled={isSaving}>
                                             <X className="mr-2 h-4 w-4" /> {t('common.cancel')}
                                         </Button>
-                                        <Button onClick={handleSaveGeofence} disabled={isSaving || !activeShapeState?.feature}>
+                                        <Button onClick={handleSaveGeofence} disabled={isSaving || !activeShapeState?.feature?.getGeometry()}>
                                             {isSaving ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                             {activeShapeState?.id.startsWith('new-shape-') ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
                                         </Button>
