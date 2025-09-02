@@ -27,11 +27,11 @@ import { useToast } from '@/hooks/use-toast';
 import MapContainer from '@/components/map/map-container';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 
-import type { Map as OlMap } from 'ol';
+import type { Map as OlMap, Feature } from 'ol';
 import type { Vector as VectorSource } from 'ol/source';
-import type { Draw, Modify } from 'ol/interaction';
-import type Feature from 'ol/Feature';
+import type { Draw, Modify, Translate } from 'ol/interaction';
 import { fromLonLat } from 'ol/proj';
+import type { Geometry } from 'ol/geom';
 
 
 interface CondoMapTabProps {
@@ -48,6 +48,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const mapRef = useRef<OlMap | null>(null);
   const drawingInteractionRef = useRef<Draw | null>(null);
   const modifyInteractionRef = useRef<Modify | null>(null);
+  const translateInteractionRef = useRef<Translate | null>(null);
   const mapInitialized = useRef(false);
 
   // --- State ---
@@ -70,6 +71,10 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const [selectedModule, setSelectedModule] = useState('geofence');
   const [activeShapeState, setActiveShapeState] = useState<{ id: string, feature: Feature | null, originalGeometry?: any } | null>(null);
   
+  // History State
+  const [historyStack, setHistoryStack] = useState<Geometry[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+
   // --- Data Fetching & Refreshing ---
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -119,7 +124,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     });
   }, [condoAddressPosition]);
 
- const applyZoomLevel = useCallback(() => {
+  const applyZoomLevel = useCallback(() => {
     const map = mapRef.current;
     if (!map) return;
 
@@ -136,10 +141,9 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     if (mode === 'view') {
         geofenceIdToFit = defaultGeofenceId;
     } else {
-        // In editing mode, only fit if it's an existing, saved geofence being selected for edit
         const isEditingNewShape = selectedGeofenceId?.startsWith('new-shape-');
         if (isEditingNewShape) {
-            return; // Do not zoom when a new shape is drawn
+            return;
         }
         geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
     }
@@ -154,9 +158,9 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
 
     const extent = featureToFit.getGeometry()?.getExtent();
     if (extent) {
-        let paddingPercentage = 0.1; // 10% padding (normal)
-        if (fitLevel === '1') paddingPercentage = 0.05; // 5% padding (tight)
-        if (fitLevel === '3') paddingPercentage = 0.2; // 20% padding (wide)
+        let paddingPercentage = 0.1;
+        if (fitLevel === '1') paddingPercentage = 0.05;
+        if (fitLevel === '3') paddingPercentage = 0.2;
 
         const padding = map.getSize()!.map(s => s * paddingPercentage);
 
@@ -166,7 +170,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
             maxZoom: 20
         });
     }
-}, [mode, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress]);
+  }, [mode, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress]);
 
 
   const handleMapLoad = useCallback(async (map: OlMap, source: VectorSource) => {
@@ -191,6 +195,22 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     
   const handleZoomIn = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom()! + 1);
   const handleZoomOut = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom()! - 1);
+  
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
+        activeShapeState?.feature?.setGeometry(historyStack[newIndex]);
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < historyStack.length - 1) {
+        const newIndex = historyIndex + 1;
+        setHistoryIndex(newIndex);
+        activeShapeState?.feature?.setGeometry(historyStack[newIndex]);
+    }
+  };
   
   return (
     <>
@@ -238,11 +258,11 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                         </div>
                          {activeShapeState && (
                             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">
-                                <Button variant="ghost" size="sm" className="flex items-center gap-2" disabled={true}>
+                                <Button variant="ghost" size="sm" className="flex items-center gap-2" onClick={handleUndo} disabled={historyIndex <= 0}>
                                     <Undo className="h-4 w-4"/>
                                     {t('condoDashboard.map.undo')}
                                 </Button>
-                                <Button variant="ghost" size="sm" className="flex items-center gap-2" disabled={true}>
+                                <Button variant="ghost" size="sm" className="flex items-center gap-2" onClick={handleRedo} disabled={historyIndex >= historyStack.length - 1}>
                                     <Redo className="h-4 w-4"/>
                                     {t('condoDashboard.map.redo')}
                                 </Button>
@@ -298,6 +318,11 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                     mapRef={mapRef}
                                     drawingInteractionRef={drawingInteractionRef}
                                     modifyInteractionRef={modifyInteractionRef}
+                                    translateInteractionRef={translateInteractionRef}
+                                    historyStack={historyStack}
+                                    setHistoryStack={setHistoryStack}
+                                    historyIndex={historyIndex}
+                                    setHistoryIndex={setHistoryIndex}
                                 />
                             )}
                             {selectedModule === 'elements' && (

@@ -31,13 +31,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { LoadingOverlay } from '@/components/admin/admin-header';
 
-import type { Map as OlMap } from 'ol';
-import type Feature from 'ol/Feature';
-import { Draw, Modify } from 'ol/interaction';
+import type { Map as OlMap, Feature, Collection } from 'ol';
+import { Draw, Modify, Translate } from 'ol/interaction';
 import GeoJSON from 'ol/format/GeoJSON';
 import { createBox } from 'ol/interaction/Draw';
 import type { Vector as VectorSource } from 'ol/source';
-import Collection from 'ol/Collection';
+import type { Geometry } from 'ol/geom';
 
 
 export type DrawingMode = 'Polygon' | 'Rectangle' | 'Circle';
@@ -63,6 +62,11 @@ type GeofenceControlsProps = {
     mapRef: React.RefObject<OlMap | null>;
     drawingInteractionRef: React.MutableRefObject<Draw | null>;
     modifyInteractionRef: React.MutableRefObject<Modify | null>;
+    translateInteractionRef: React.MutableRefObject<Translate | null>;
+    historyStack: Geometry[];
+    setHistoryStack: React.Dispatch<React.SetStateAction<Geometry[]>>;
+    historyIndex: number;
+    setHistoryIndex: React.Dispatch<React.SetStateAction<number>>;
 }
 
 export function GeofenceControls({
@@ -83,7 +87,12 @@ export function GeofenceControls({
     setActiveShapeState,
     mapRef,
     drawingInteractionRef,
-    modifyInteractionRef
+    modifyInteractionRef,
+    translateInteractionRef,
+    historyStack,
+    setHistoryStack,
+    historyIndex,
+    setHistoryIndex,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -98,17 +107,22 @@ export function GeofenceControls({
 
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
+    const pushToHistory = useCallback((geometry: Geometry) => {
+        const newStack = historyStack.slice(0, historyIndex + 1);
+        newStack.push(geometry.clone());
+        setHistoryStack(newStack);
+        setHistoryIndex(newStack.length - 1);
+    }, [historyStack, historyIndex, setHistoryStack, setHistoryIndex]);
+
     const removeInteractions = useCallback(() => {
         if (!mapRef.current) return;
-        if (drawingInteractionRef.current) {
-            mapRef.current.removeInteraction(drawingInteractionRef.current);
-            drawingInteractionRef.current = null;
-        }
-        if (modifyInteractionRef.current) {
-            mapRef.current.removeInteraction(modifyInteractionRef.current);
-            modifyInteractionRef.current = null;
-        }
-    }, [mapRef, drawingInteractionRef, modifyInteractionRef]);
+        if (drawingInteractionRef.current) mapRef.current.removeInteraction(drawingInteractionRef.current);
+        if (modifyInteractionRef.current) mapRef.current.removeInteraction(modifyInteractionRef.current);
+        if (translateInteractionRef.current) mapRef.current.removeInteraction(translateInteractionRef.current);
+        drawingInteractionRef.current = null;
+        modifyInteractionRef.current = null;
+        translateInteractionRef.current = null;
+    }, [mapRef, drawingInteractionRef, modifyInteractionRef, translateInteractionRef]);
 
     const geofenceSourceRef = (): VectorSource | null => {
         const layer = mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer');
@@ -154,24 +168,46 @@ export function GeofenceControls({
         setActiveShapeState(null);
         setCurrentGeofenceName('');
         setIsDrawing(false);
-    }, [activeShapeState, removeInteractions, setActiveShapeState, geofences, setGeofences, geofenceSourceRef]);
+        setHistoryStack([]);
+        setHistoryIndex(-1);
+    }, [activeShapeState, removeInteractions, setActiveShapeState, geofences, setGeofences, geofenceSourceRef, setHistoryStack, setHistoryIndex]);
       
-    const startEditingSelected = useCallback(() => {
+     const startEditingSelected = useCallback(() => {
         const source = geofenceSourceRef();
         if (!selectedGeofenceId || !source || !mapRef.current) return;
         
-        const featureToEdit = source.getFeatureById(selectedGeofenceId);
+        const featureToEdit = source.getFeatureById(selectedGeofenceId) as Feature;
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
         
         if (!selectedGeofence || !featureToEdit) return;
     
         cancelCurrentAction();
         setMode('editing');
-
         removeInteractions();
-        const modify = new Modify({ source: source, features: new Collection([featureToEdit]) });
+
+        const features = new (require('ol/Collection').default)([featureToEdit]) as Collection<Feature>;
+
+        const modify = new Modify({
+            features: features,
+            geometryFunction: drawingMode === 'Rectangle' ? (geometry) => {
+                 const coords = (geometry as any).getCoordinates()[0];
+                 const minX = Math.min(coords[0][0], coords[2][0]);
+                 const minY = Math.min(coords[0][1], coords[2][1]);
+                 const maxX = Math.max(coords[0][0], coords[2][0]);
+                 const maxY = Math.max(coords[0][1], coords[2][1]);
+                 const newCoords = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY], [minX, minY]];
+                 (geometry as any).setCoordinates([newCoords]);
+                 return geometry;
+            } : undefined,
+        });
+        modify.on('modifyend', () => pushToHistory(featureToEdit.getGeometry()!));
         mapRef.current.addInteraction(modify);
         modifyInteractionRef.current = modify;
+        
+        const translate = new Translate({ features: features });
+        translate.on('translateend', () => pushToHistory(featureToEdit.getGeometry()!));
+        mapRef.current.addInteraction(translate);
+        translateInteractionRef.current = translate;
 
         setActiveShapeState({ 
             id: selectedGeofenceId, 
@@ -179,7 +215,9 @@ export function GeofenceControls({
             originalGeometry: selectedGeofence.geometry 
         });
         setCurrentGeofenceName(selectedGeofence.name);
-    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef, geofenceSourceRef]);
+        setHistoryStack([featureToEdit.getGeometry()!.clone()]);
+        setHistoryIndex(0);
+    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef, translateInteractionRef, geofenceSourceRef, pushToHistory, setHistoryStack, setHistoryIndex, drawingMode]);
       
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
@@ -212,11 +250,13 @@ export function GeofenceControls({
             setMode('view');
             setActiveShapeState(null);
             setCurrentGeofenceName('');
+            setHistoryStack([]);
+            setHistoryIndex(-1);
 
         } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
         }
-    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, setActiveShapeState, setMode, removeInteractions]);
+    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, setActiveShapeState, setMode, removeInteractions, setHistoryStack, setHistoryIndex]);
 
     const handleSaveGeofence = () => {
         startSavingTransition(async () => {
@@ -261,7 +301,7 @@ export function GeofenceControls({
 
         if (!map || !source) return;
 
-        removeInteractions();
+        cancelCurrentAction();
         
         const drawOptions: any = { source: source };
         if (drawingMode === 'Rectangle') {
@@ -279,22 +319,27 @@ export function GeofenceControls({
             const newId = `new-shape-${Date.now()}`;
             newFeature.setId(newId);
             
-            // Clean up the draw interaction
-            if (drawingInteractionRef.current) {
-                map.removeInteraction(drawingInteractionRef.current);
-                drawingInteractionRef.current = null;
-            }
-
-            // Immediately make the new feature editable
-            const modify = new Modify({ features: new Collection([newFeature]) });
+            map.removeInteraction(newInteraction);
+            drawingInteractionRef.current = null;
+            
+            const Collection = require('ol/Collection').default;
+            const features = new Collection([newFeature]);
+            
+            const modify = new Modify({ features: features });
+            modify.on('modifyend', () => pushToHistory(newFeature.getGeometry()!));
             map.addInteraction(modify);
             modifyInteractionRef.current = modify;
+
+            const translate = new Translate({ features: features });
+            translate.on('translateend', () => pushToHistory(newFeature.getGeometry()!));
+            map.addInteraction(translate);
+            translateInteractionRef.current = translate;
 
             const placeholderGeofence: DbGeofence = {
                 id: newId,
                 condominium_id: condoId,
                 name: getNextGeofenceName(),
-                geometry: {}, // Placeholder
+                geometry: {},
                 is_default: false,
             };
 
@@ -303,6 +348,8 @@ export function GeofenceControls({
             setCurrentGeofenceName(placeholderGeofence.name);
             setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
             setIsDrawing(false);
+            setHistoryStack([newFeature.getGeometry()!.clone()]);
+            setHistoryIndex(0);
         });
 
         map.addInteraction(newInteraction);
