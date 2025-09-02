@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef } from 'react';
@@ -43,32 +42,47 @@ const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: num
   const indiceOpuesto = (indiceMovido + 2) % 4;
   const verticeOpuesto = verticesOriginales[indiceOpuesto];
   
-  const nuevoRectanguloCoords = new Array(4);
-  nuevoRectanguloCoords[indiceMovido] = verticeMovido;
-  nuevoRectanguloCoords[indiceOpuesto] = verticeOpuesto;
+  const indiceAdyacente1 = (indiceMovido + 3) % 4;
+  const indiceAdyacente2 = (indiceMovido + 1) % 4;
   
-  nuevoRectanguloCoords[(indiceMovido + 1) % 4] = [verticeMovido[0], verticeOpuesto[1]];
-  nuevoRectanguloCoords[(indiceMovido + 3) % 4] = [verticeOpuesto[0], verticeMovido[1]];
+  const verticeAdyacente1 = verticesOriginales[indiceAdyacente1];
+  const verticeAdyacente2 = verticesOriginales[indiceAdyacente2];
   
-  const [v0, v1, v2, v3] = [
-      nuevoRectanguloCoords[0],
-      nuevoRectanguloCoords[1],
-      nuevoRectanguloCoords[2],
-      nuevoRectanguloCoords[3],
+  // Calcular vectores de dirección desde el vértice movido original
+  const vectorLado1 = [
+    verticeAdyacente1[0] - verticesOriginales[indiceMovido][0],
+    verticeAdyacente1[1] - verticesOriginales[indiceMovido][1]
   ];
-
-  const minX = Math.min(v0[0], v1[0], v2[0], v3[0]);
-  const minY = Math.min(v0[1], v1[1], v2[1], v3[1]);
-  const maxX = Math.max(v0[0], v1[0], v2[0], v3[0]);
-  const maxY = Math.max(v0[1], v1[1], v2[1], v3[1]);
-
-  return [
-    [minX, minY],
-    [maxX, minY],
-    [maxX, maxY],
-    [minX, maxY],
-    [minX, minY],
+  
+  const vectorLado2 = [
+    verticeAdyacente2[0] - verticesOriginales[indiceMovido][0],
+    verticeAdyacente2[1] - verticesOriginales[indiceMovido][1]
   ];
+  
+  // Calcular nuevos vértices adyacentes
+  const nuevoVerticeAdyacente1 = [
+    verticeMovido[0] + vectorLado1[0],
+    verticeMovido[1] + vectorLado1[1]
+  ];
+  
+  const nuevoVerticeAdyacente2 = [
+    verticeMovido[0] + vectorLado2[0],
+    verticeMovido[1] + vectorLado2[1]
+  ];
+  
+  // Calcular nuevo vértice opuesto
+  const nuevoVerticeOpuesto = [
+    nuevoVerticeAdyacente1[0] + vectorLado2[0],
+    nuevoVerticeAdyacente1[1] + vectorLado2[1]
+  ];
+  
+  const nuevoRectangulo = new Array(4);
+  nuevoRectangulo[indiceMovido] = verticeMovido;
+  nuevoRectangulo[indiceAdyacente1] = nuevoVerticeAdyacente1;
+  nuevoRectangulo[indiceAdyacente2] = nuevoVerticeAdyacente2;
+  nuevoRectangulo[indiceOpuesto] = nuevoVerticeOpuesto;
+  
+  return [...nuevoRectangulo, nuevoRectangulo[0]];
 };
 
 
@@ -611,4 +625,5 @@ export function GeofenceControls({
     );
 }
 
+    
     
