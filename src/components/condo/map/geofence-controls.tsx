@@ -354,7 +354,7 @@ export function GeofenceControls({
         const Collection = require('ol/Collection').default;
         const features = new Collection([featureToEdit]);
         
-        const modify = new Modify({ features, deleteCondition: () => false, insertVertexCondition: () => false });
+        const modify = new Modify({ features, insertVertexCondition: () => false });
         modifyInteractionRef.current = modify;
         
         translateInteractionRef.current = new Translate({ features: features });
@@ -362,47 +362,22 @@ export function GeofenceControls({
         map.addInteraction(modify);
         map.addInteraction(translateInteractionRef.current);
         
-        setActiveShapeState({
-            id: selectedGeofenceId,
-            feature: featureToEdit,
-            originalGeometry: selectedGeofence.geometry,
+        // Attach event listeners
+        let originalCoords: number[][] | null = null;
+        modify.on('modifystart', (event) => {
+             const feature = event.features.getArray()[0] as Feature<Polygon>;
+             if (feature && feature.get('geometryType') === 'Rectangle') {
+                originalCoords = feature.getGeometry()!.getCoordinates()[0].slice(0, 4);
+             }
         });
-        setCurrentGeofenceName(selectedGeofence.name);
-        
-        const initialGeom = featureToEdit.getGeometry();
-        if (initialGeom) {
-            setHistoryStack([initialGeom.clone()]);
-            setHistoryIndex(0);
-        }
-    }, [geofences, selectedGeofenceId, mapRef, cancelCurrentAction, setMode, setActiveShapeState, setHistoryStack, setHistoryIndex, modifyInteractionRef, translateInteractionRef]);
 
-
-    const onModifyCallback = useRef<(event: any) => void>();
-    const onModifyEndCallback = useRef<(event: any) => void>();
-
-    useEffect(() => {
-        const modify = modifyInteractionRef.current;
-        if (!modify) {
-            return;
-        }
-
-        const handleModifyStart = (event: any) => {
-            const feature = event.features.getArray()[0];
-            if (feature) {
-                const originalCoords = (feature.getGeometry() as Polygon).getCoordinates()[0].slice(0, 4);
-                feature.set('originalCoordinates', originalCoords);
-            }
-        };
-
-        const handleModifying = (event: any) => {
-            try {
+        modify.on('modifying', (event) => {
+            setDebugInfo("Moviendo vértice...");
+             try {
                 const feature = event.features.getArray()[0] as Feature<Polygon>;
-                if (!feature || feature.get('geometryType') !== 'Rectangle') return;
+                if (!feature || feature.get('geometryType') !== 'Rectangle' || !originalCoords) return;
                 
-                const originalCoords = feature.get('originalCoordinates');
                 const currentCoords = feature.getGeometry()!.getCoordinates()[0];
-
-                if (!originalCoords) return;
 
                 let movedIndex = -1;
                 for (let i = 0; i < originalCoords.length; i++) {
@@ -423,28 +398,30 @@ export function GeofenceControls({
             } catch(e: any) {
                 setDebugInfo(`Error: ${e.message}`);
             }
-        };
-        
-        const handleModifyEnd = (event: any) => {
+        });
+
+        modify.on('modifyend', (event) => {
             const feature = event.features.getArray()[0];
             if (feature) {
                 pushToHistory(feature.getGeometry()!);
             }
-            feature.unset('originalCoordinates');
-        };
+            originalCoords = null; // Reset for next modification
+        });
 
-        const modifyStartKey = modify.on('modifystart', handleModifyStart);
-        const modifyingKey = modify.on('modifying', handleModifying);
-        const modifyEndKey = modify.on('modifyend', handleModifyEnd);
+
+        setActiveShapeState({
+            id: selectedGeofenceId,
+            feature: featureToEdit,
+            originalGeometry: selectedGeofence.geometry,
+        });
+        setCurrentGeofenceName(selectedGeofence.name);
         
-        return () => {
-            const { unByKey } = require('ol/Observable');
-            unByKey(modifyStartKey);
-            unByKey(modifyingKey);
-            unByKey(modifyEndKey);
+        const initialGeom = featureToEdit.getGeometry();
+        if (initialGeom) {
+            setHistoryStack([initialGeom.clone()]);
+            setHistoryIndex(0);
         }
-    }, [modifyInteractionRef.current, setDebugInfo, pushToHistory]);
-
+    }, [geofences, selectedGeofenceId, mapRef, cancelCurrentAction, setMode, setActiveShapeState, setHistoryStack, setHistoryIndex, modifyInteractionRef, translateInteractionRef, pushToHistory, setDebugInfo]);
 
     const isBusy = isSaving || isDeleting || isSettingDefault;
 
