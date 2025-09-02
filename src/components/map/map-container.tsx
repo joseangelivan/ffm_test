@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React from 'react';
@@ -47,5 +46,3 @@ const MapContainer: React.FC<MapContainerProps> = ({ children, provider, onMapLo
 }
 
 export default MapContainer;
-
-    

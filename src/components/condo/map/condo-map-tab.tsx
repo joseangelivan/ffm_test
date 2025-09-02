@@ -11,20 +11,10 @@ import {
   Loader,
   Undo,
   Redo,
-  PenSquare,
-  PlusCircle,
-  Save,
-  XCircle,
-  Settings,
-  Star,
-  Trash2,
-  Eye,
-  EyeOff,
-  Edit
 } from 'lucide-react';
 
 import type { Condominio } from '@/actions/condos';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLocale } from '@/lib/i18n';
@@ -33,30 +23,9 @@ import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 import { MapSettingsDialog } from './map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 import MapContainer from '@/components/map/map-container';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-
-import { 
-    setCondoDefaultGeofence,
-    createGeofence,
-    updateGeofence,
-    deleteGeofence,
-} from '@/actions/maps';
+import { GeofenceControls } from './geofence-controls';
 
 interface CondoMapTabProps {
   condo: Condominio;
@@ -68,6 +37,9 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const { t } = useLocale();
   const { toast } = useToast();
   const mapRef = useRef<any | null>(null);
+  const drawingManagerRef = useRef<any | null>(null);
+  
+  const mapShapesRef = useRef<Map<string, any>>(new Map());
   
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
   
@@ -85,11 +57,15 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const [condoAddressPosition] = useState(initialPosition);
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
   const [selectedModule, setSelectedModule] = useState('geofence');
-  const [isPending, startTransition] = useTransition();
 
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [shapeType, setShapeType] = useState('Polygon');
+  const [activeShapeState, setActiveShapeState] = useState<{ id: string, shape: any | null, originalGeometry?: any } | null>(null);
+  
+  const [undoStack, setUndoStack] = useState<any[]>([]);
+  const [redoStack, setRedoStack] = useState<any[]>([]);
 
+  const canUndo = undoStack.length > 1;
+  const canRedo = redoStack.length > 0;
+  
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
     try {
@@ -116,58 +92,31 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     }
   }, [condo.id, selectedGeofenceId, toast, t]);
 
+
   const centerMapOnAddress = useCallback(() => {
-    // This will need to be implemented for OpenLayers
+    // Placeholder for OpenLayers implementation
   }, [condoAddressPosition]);
 
   const applyZoomLevel = useCallback(() => {
-    // This will need to be implemented for OpenLayers
+    // Placeholder for OpenLayers implementation
   }, []);
 
   const handleMapLoad = useCallback(async (map: any) => {
-      mapRef.current = map;
-      await onDataNeedsRefresh();
+    mapRef.current = map;
+    await onDataNeedsRefresh();
   }, [onDataNeedsRefresh]);
-
-    useEffect(() => {
-        if (!isLoading && mapRef.current) {
-            applyZoomLevel();
-        }
-    }, [isLoading, applyZoomLevel]);
-
-  const handleZoomIn = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom() + 1);
-  const handleZoomOut = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom() - 1);
-
-    const getGeofenceName = (gf: DbGeofence, isDefault: boolean, t: (key: string) => string) => {
-        return `${gf.name}${isDefault ? ` (${t('common.default')})` : ''}`;
-    };
-
-    const handleSetDefault = (geofenceId: string) => {
-        startTransition(async () => {
-            const result = await setCondoDefaultGeofence(condo.id, geofenceId);
-            if (result.success) {
-                toast({ title: t('toast.successTitle'), description: result.message });
-                onDataNeedsRefresh(geofenceId);
-            } else {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
-            }
-        });
-    };
-
-    const handleDelete = (geofenceId: string) => {
-      startTransition(async () => {
-          const result = await deleteGeofence(geofenceId);
-          if (result.success) {
-              toast({ title: t('toast.successTitle'), description: result.message });
-              onDataNeedsRefresh();
-          } else {
-              toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
-          }
-      });
+    
+  const handleHistoryAction = (action: 'undo' | 'redo') => {
+      // Placeholder for OpenLayers implementation
   };
 
-  const defaultGeofenceName = dbGeofences.find(gf => gf.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
-
+  const handleShapeDrawn = (shape: any | null) => {
+      // Placeholder for OpenLayers implementation
+  };
+  
+  const handleZoomIn = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom() + 1);
+  const handleZoomOut = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom() - 1);
+  
   return (
     <>
         <Card>
@@ -200,10 +149,20 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                             <MapContainer 
                                 provider={provider}
                                 onMapLoad={handleMapLoad}
-                            >
-                                {/* Children can be used for markers in OpenLayers too */}
-                            </MapContainer>
+                            />
                         </div>
+                         {activeShapeState && (canUndo || canRedo) && (
+                            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">
+                                <Button onClick={() => handleHistoryAction('undo')} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
+                                    <Undo className="h-4 w-4"/>
+                                    {t('condoDashboard.map.undo')}
+                                </Button>
+                                <Button onClick={() => handleHistoryAction('redo')} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canRedo}>
+                                    <Redo className="h-4 w-4"/>
+                                    {t('condoDashboard.map.redo')}
+                                </Button>
+                            </div>
+                         )}
                         <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
                             <Button onClick={handleZoomIn} variant="ghost" size="icon" title="Zoom In">
                                 <ZoomIn className="h-5 w-5" />
@@ -235,78 +194,28 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                             </div>
                             
                             {selectedModule === 'geofence' && (
-                                <div className="space-y-4 pt-4 border-t mt-4 flex-grow flex flex-col">
-                                    <div className="grid grid-cols-2 gap-4 items-end">
-                                      <div>
-                                          <Label htmlFor='default-geofence-display'>{t('condoDashboard.map.geofence.defaultLabel')}</Label>
-                                          <Input id='default-geofence-display' value={defaultGeofenceName} readOnly />
-                                      </div>
-                                      <div className="flex items-center space-x-2 pb-2">
-                                          <Checkbox id="show-all" checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)} />
-                                          <Label htmlFor="show-all">{t('condoDashboard.map.geofence.viewAll')}</Label>
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="space-y-2">
-                                        <Label>{t('condoDashboard.map.geofence.selectPlaceholder')}</Label>
-                                        <Select
-                                            value={selectedGeofenceId || ''}
-                                            onValueChange={setSelectedGeofenceId}
-                                            disabled={showAllGeofences}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {dbGeofences.map((gf: DbGeofence) => (
-                                                    <SelectItem key={gf.id} value={gf.id}>{getGeofenceName(gf, gf.id === defaultGeofenceId, t)}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <Button variant="outline" disabled={isPending} onClick={() => {}}><PlusCircle className="mr-2 h-4 w-4"/>{t('common.create')}</Button>
-                                        <Button variant="outline" disabled={!selectedGeofenceId || isPending} onClick={() => {}}><Edit className="mr-2 h-4 w-4"/>{t('common.edit')}</Button>
-                                        <Button variant="secondary" onClick={() => handleSetDefault(selectedGeofenceId!)} disabled={!selectedGeofenceId || selectedGeofenceId === defaultGeofenceId || isPending}><Star className="mr-2 h-4 w-4"/>{t('condoDashboard.map.geofence.setAsDefault')}</Button>
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="destructive" disabled={!selectedGeofenceId || isPending}><Trash2 className="mr-2 h-4 w-4"/>{t('common.delete')}</Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader><AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle><AlertDialogDescription>{t('condoDashboard.users.deleteConfirmation', {name: dbGeofences.find((g: DbGeofence) => g.id === selectedGeofenceId)?.name || ''})}</AlertDialogDescription></AlertDialogHeader>
-                                                <AlertDialogFooter><AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(selectedGeofenceId!)}>{t('common.delete')}</AlertDialogAction></AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </div>
-                                    
-                                    <fieldset className="border rounded-md p-4 pt-2 space-y-4 mt-auto">
-                                        <legend className="-ml-1 px-1 text-sm font-medium flex items-center">
-                                            <Label htmlFor="enable-editing" className="ml-2 font-semibold text-foreground">{t('adminDashboard.settingsGroups.catalogs.deviceTypes.editMode')}</Label>
-                                        </legend>
-                                        <div className="flex items-center space-x-2">
-                                            <Checkbox id="enable-editing" checked={isEditMode} onCheckedChange={(checked) => setIsEditMode(!!checked)} />
-                                            <Label htmlFor="enable-editing">Habilitar edição</Label>
-                                        </div>
-                                        {isEditMode && (
-                                            <div className="space-y-4 animate-in fade-in-50">
-                                                <Select value={shapeType} onValueChange={(v) => setShapeType(v as any)}>
-                                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value='Polygon'>{t('condoDashboard.map.shapes.polygon')}</SelectItem>
-                                                        <SelectItem value='Rectangle'>{t('condoDashboard.map.shapes.rectangle')}</SelectItem>
-                                                        <SelectItem value='Circle'>{t('condoDashboard.map.shapes.circle')}</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                <div className="grid grid-cols-1 gap-2">
-                                                    <Button><PenSquare className="h-4 w-4 mr-2" />{t('condoDashboard.map.geofence.draw')} {shapeType}</Button>
-                                                    <Button><Save className="h-4 w-4 mr-2"/> {t('condoDashboard.map.geofence.saveButton')}</Button>
-                                                    <Button onClick={()=> setIsEditMode(false)} variant="ghost"><XCircle className="h-4 w-4 mr-2"/> {t('common.cancel')}</Button>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </fieldset>
-                                </div>
+                                <GeofenceControls
+                                    condoId={condo.id}
+                                    geofences={dbGeofences}
+                                    onDataNeedsRefresh={onDataNeedsRefresh}
+                                    onShapeDrawn={handleShapeDrawn}
+                                    selectedGeofenceId={selectedGeofenceId}
+                                    setSelectedGeofenceId={setSelectedGeofenceId}
+                                    defaultGeofenceId={defaultGeofenceId}
+                                    setDefaultGeofenceId={setDefaultGeofenceId}
+                                    mode={mode}
+                                    setMode={setMode}
+                                    drawingManager={drawingManagerRef.current}
+                                    showAllGeofences={showAllGeofences}
+                                    setShowAllGeofences={setShowAllGeofences}
+                                    onSettingsClick={() => setIsMapSettingsOpen(true)}
+                                    activeShapeState={activeShapeState}
+                                    setActiveShapeState={setActiveShapeState}
+                                    setUndoStack={setUndoStack}
+                                    setRedoStack={setRedoStack}
+                                    mapRef={mapRef}
+                                    mapShapesRef={mapShapesRef}
+                                />
                             )}
                             {selectedModule === 'elements' && (
                                 <ElementsControls condoId={condo.id}/>
@@ -328,5 +237,3 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     </>
   );
 }
-
-    
