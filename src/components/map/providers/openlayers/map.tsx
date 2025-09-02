@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -62,22 +61,21 @@ interface MapProps {
  */
 function readLegacyOrStandardGeoJSON(geometry: any) {
     if (!geometry || !geometry.type) {
-        console.error("Invalid geometry object:", geometry);
+        console.warn("Invalid geometry object passed to reader:", geometry);
         return null;
     }
 
     const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
 
-    // Explicitly handle our legacy 'rectangle' type from Google Maps bounds
     if (geometry.type.toLowerCase() === 'rectangle') {
         const bounds = geometry.bounds;
         if (bounds && typeof bounds.north === 'number' && typeof bounds.south === 'number' && typeof bounds.east === 'number' && typeof bounds.west === 'number') {
-             const coordinates = [
+            const coordinates = [
                 [bounds.west, bounds.south],
                 [bounds.east, bounds.south],
                 [bounds.east, bounds.north],
                 [bounds.west, bounds.north],
-                [bounds.west, bounds.south] // Close the polygon
+                [bounds.west, bounds.south]
             ];
             const polygon = new Polygon([coordinates.map(coord => fromLonLat(coord))]);
             return polygon;
@@ -87,7 +85,6 @@ function readLegacyOrStandardGeoJSON(geometry: any) {
         }
     }
     
-    // For all other types, let the GeoJSON format reader handle them.
     try {
         return format.readGeometry(geometry);
     } catch (e) {
@@ -113,7 +110,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     const vectorSourceRef = useRef<VectorSource | null>(null);
 
     useEffect(() => {
-        if (!mapContainerRef.current || !provider) return;
+        if (!mapContainerRef.current || passedMapRef.current) return;
 
         let config: any;
         try {
@@ -141,7 +138,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         
         const vectorLayer = new VectorLayer({
             source: vectorSourceRef.current,
-            style: (feature) => feature.get('style') || STYLE_VIEW_MODE, // Default style
+            style: (feature) => feature.get('style') || STYLE_VIEW_MODE,
         });
         vectorLayer.set('id', 'geofence-layer');
 
@@ -161,31 +158,34 @@ const OpenLayersMap: React.FC<MapProps> = ({
         return () => {
              if (passedMapRef.current) {
                 passedMapRef.current.setTarget(undefined);
+                passedMapRef.current = null;
             }
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [provider, initialPosition, onMapLoad]);
+    }, [provider]);
 
+
+    // Effect to synchronize dbGeofences with the map's vector source
     useEffect(() => {
         const source = vectorSourceRef.current;
         if (!source) return;
 
         const existingFeatureIds = new Set(source.getFeatures().map(f => f.getId()));
         const dbGeofenceIds = new Set(dbGeofences.map(g => g.id));
-        
+
+        // Add or update features from the database
         dbGeofences.forEach(dbGf => {
-            const geometry = readLegacyOrStandardGeoJSON(dbGf.geometry);
-            if (!geometry) {
-                console.warn(`Could not read geometry for geofence ${dbGf.id}`);
+            if (activeShapeState?.id === dbGf.id) {
+                // Skip updating the geometry of the shape being actively edited
                 return;
             }
 
+            const geometry = readLegacyOrStandardGeoJSON(dbGf.geometry);
+            if (!geometry) return;
+
             let feature = source.getFeatureById(dbGf.id);
             if (feature) {
-                // Do not update the geometry if this is the shape being actively edited
-                if (activeShapeState?.id !== dbGf.id) {
-                    feature.setGeometry(geometry);
-                }
+                feature.setGeometry(geometry);
             } else {
                 feature = new Feature({ geometry });
                 feature.setId(dbGf.id);
@@ -202,16 +202,15 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 }
             }
         });
-
-    }, [dbGeofences, activeShapeState]);
-
+    }, [dbGeofences, activeShapeState?.id]);
+    
+     // Effect to manage feature styles based on component state
      useEffect(() => {
         const source = vectorSourceRef.current;
         if (!source) return;
         
         source.forEachFeature(feature => {
             const id = feature.getId() as string;
-            // Ignore temporary new shapes
             if (!id || id.startsWith('new-shape-')) return;
 
             const isBeingEdited = activeShapeState?.id === id;
@@ -219,6 +218,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             const isDefault = id === defaultGeofenceId;
 
             let style = STYLE_BACKGROUND_GREY;
+            let visible = true;
             
             if (isBeingEdited) {
                 style = STYLE_FOCUSED_BLUE;
@@ -227,14 +227,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
                     if (showAllGeofences) {
                         style = isDefault ? STYLE_VIEW_MODE : STYLE_BACKGROUND_GREY;
                     } else {
-                        // Only show the default geofence in view mode if "show all" is off
-                        if (isDefault) {
-                            style = STYLE_VIEW_MODE;
-                        } else {
-                            // Hide non-default geofences
-                            feature.setStyle(new Style()); // Empty style makes it invisible
-                            return;
-                        }
+                        visible = isDefault;
+                        if (visible) style = STYLE_VIEW_MODE;
                     }
                 } else { // mode === 'editing'
                     if (isSelected) {
@@ -242,17 +236,14 @@ const OpenLayersMap: React.FC<MapProps> = ({
                     } else if (showAllGeofences) {
                         style = STYLE_BACKGROUND_GREY;
                     } else {
-                         // Hide all other geofences during editing unless "show all" is on
-                         feature.setStyle(new Style());
-                         return;
+                        visible = false;
                     }
                 }
             }
-
-            feature.setStyle(style);
+            feature.setStyle(visible ? style : new Style());
         });
 
-    }, [mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, activeShapeState, dbGeofences]);
+    }, [mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, activeShapeState]);
 
 
     return (
@@ -261,3 +252,5 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
+
+    
