@@ -47,6 +47,9 @@ const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: num
     const olPolygon = require('ol/geom/Polygon').default;
 
     const poligonoOriginal = new olPolygon([verticesOriginales]);
+    const indiceOpuesto = (indiceMovido + 2) % 4;
+    const verticeOpuesto = verticesOriginales[indiceOpuesto];
+    
     if (!puntoEstaDentro(poligonoOriginal, verticeMovido)) {
         const tempVertices = [...verticesOriginales];
         tempVertices[indiceMovido] = verticeMovido;
@@ -60,9 +63,6 @@ const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: num
         return [...rectanguloPerfecto, rectanguloPerfecto[0]];
     }
 
-    const indiceOpuesto = (indiceMovido + 2) % 4;
-    const verticeOpuesto = verticesOriginales[indiceOpuesto];
-    
     const nuevoRectangulo = [
         [verticeMovido[0], verticeMovido[1]],
         [verticeOpuesto[0], verticeMovido[1]],
@@ -77,13 +77,12 @@ const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: num
 
 export type DrawingMode = 'Polygon' | 'Rectangle' | 'Circle';
 
-type ActiveShapeState = { id: string, feature: Feature | null, originalGeometry?: any } | null;
+type ActiveShapeState = { id: string, feature: Feature<any> | null, originalGeometry?: any } | null;
 
 type GeofenceControlsProps = {
     condoId: string;
     geofences: DbGeofence[];
     onDataNeedsRefresh: (newSelectedId?: string) => void;
-    onShapeDrawn: (feature: Feature) => void;
     selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
     defaultGeofenceId: string | null;
@@ -96,6 +95,7 @@ type GeofenceControlsProps = {
     activeShapeState: ActiveShapeState;
     setActiveShapeState: React.Dispatch<React.SetStateAction<ActiveShapeState>>;
     mapRef: React.RefObject<OlMap | null>;
+    onShapeDrawn: (feature: Feature) => void;
     historyStack: Geometry[];
     setHistoryStack: React.Dispatch<React.SetStateAction<Geometry[]>>;
     historyIndex: number;
@@ -106,7 +106,6 @@ export function GeofenceControls({
     condoId,
     geofences,
     onDataNeedsRefresh,
-    onShapeDrawn,
     selectedGeofenceId,
     setSelectedGeofenceId,
     defaultGeofenceId,
@@ -119,6 +118,7 @@ export function GeofenceControls({
     activeShapeState,
     setActiveShapeState,
     mapRef,
+    onShapeDrawn,
     historyStack,
     setHistoryStack,
     historyIndex,
@@ -191,9 +191,12 @@ export function GeofenceControls({
         if (activeShapeState?.feature) {
              const { feature, originalGeometry } = activeShapeState;
              if (originalGeometry && feature) {
-                if(originalGeometry.type === 'rectangle') originalGeometry.type = 'Polygon';
+                const geometryObject = { ...originalGeometry };
+                if (geometryObject.type === 'rectangle') {
+                    geometryObject.type = 'Polygon'; 
+                }
                 const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-                const olGeom = format.readGeometry(originalGeometry);
+                const olGeom = format.readGeometry(geometryObject);
                 if (olGeom) feature.setGeometry(olGeom);
              } else if (feature.getId()?.toString().startsWith('new-shape-')) {
                 if (source && source.hasFeature(feature)) {
@@ -239,9 +242,9 @@ export function GeofenceControls({
         if (result?.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
             const newSelectedId = isNewShape ? result.data?.id : id;
-            await onDataNeedsRefresh(newSelectedId);
             cancelCurrentAction();
             setMode('view');
+            await onDataNeedsRefresh(newSelectedId);
 
         } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
@@ -307,10 +310,14 @@ export function GeofenceControls({
             if (drawingMode === 'Rectangle') {
                 newFeature.set('geometryType', 'Rectangle');
             }
-            onShapeDrawn(newFeature);
-            setIsDrawing(false);
+            setActiveShapeState({ id: `new-shape-${Date.now()}`, feature: newFeature, originalGeometry: null });
+            const newGeometry = newFeature.getGeometry();
+            if (newGeometry) {
+                pushToHistory(newGeometry);
+            }
             if (drawingInteractionRef.current) map.removeInteraction(drawingInteractionRef.current);
             drawingInteractionRef.current = null;
+            setIsDrawing(false);
         });
 
         map.addInteraction(newInteraction);
@@ -578,5 +585,3 @@ export function GeofenceControls({
         </div>
     );
 }
-
-  

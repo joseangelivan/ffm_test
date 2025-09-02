@@ -45,7 +45,7 @@ const STYLE_HIDDEN = new Style({
 
 
 function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
-    const geometryObject = dbGeofence.geometry;
+    const geometryObject = { ...dbGeofence.geometry };
 
     if (!geometryObject) {
         return null;
@@ -83,6 +83,10 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
         }
     }
     
+    if (geometryObject.type === 'rectangle') {
+        geometryObject.type = 'Polygon';
+    }
+
     // Standard GeoJSON handling
     if ('type' in geometryObject && 'coordinates' in geometryObject) {
        try {
