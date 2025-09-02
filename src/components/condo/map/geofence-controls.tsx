@@ -106,11 +106,12 @@ export function GeofenceControls({
 
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
+    
+    const modifyingCallbackRef = useRef<(event: any) => void>();
+    const modifyEndCallbackRef = useRef<(event: any) => void>();
 
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
-    const onModifyEndRef = useRef<(event: any) => void>();
-
     const pushToHistory = useCallback((geometry: Geometry) => {
         setHistoryStack(stack => {
             const newStack = stack.slice(0, historyIndex + 1);
@@ -119,6 +120,65 @@ export function GeofenceControls({
             return newStack;
         });
     }, [historyIndex, setHistoryStack, setHistoryIndex]);
+
+
+    useEffect(() => {
+        modifyingCallbackRef.current = (event) => {
+            setDebugInfo(`Moviendo vértice...`);
+            const feature = event.features.getArray()[0] as Feature<Polygon>;
+            if (!feature) return;
+            const geometry = feature.getGeometry();
+            if (!geometry || geometry.getType() !== 'Polygon') return;
+    
+            const coords = geometry.getCoordinates()[0];
+             if (coords.length !== 5) return;
+    
+            const movingPoint = event.mapBrowserEvent.coordinate;
+            let closestVertexIndex = -1;
+            let minDistance = Infinity;
+            for (let i = 0; i < 4; i++) {
+                const dist = Math.pow(coords[i][0] - movingPoint[0], 2) + Math.pow(coords[i][1] - movingPoint[1], 2);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    closestVertexIndex = i;
+                }
+            }
+            if (closestVertexIndex === -1) return;
+            
+            const pivotIndex = (closestVertexIndex + 2) % 4;
+            const pivot = coords[pivotIndex];
+            const moving = coords[closestVertexIndex];
+    
+            const newP1 = [pivot[0], moving[1]];
+            const newP2 = [moving[0], pivot[1]];
+            
+            let newCoords;
+            if (closestVertexIndex % 2 === 0) { // 0 or 2
+                newCoords = [moving, newP2, pivot, newP1, moving];
+            } else { // 1 or 3
+                newCoords = [newP1, moving, newP2, pivot, newP1];
+            }
+            
+            geometry.setCoordinates([newCoords]);
+
+             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+            const finalGeomForDebug = format.writeGeometryObject(geometry);
+            setDebugInfo(`Vértice corregido. Coords: ${JSON.stringify(finalGeomForDebug, null, 2)}`);
+        };
+    }, [setDebugInfo]);
+
+    useEffect(() => {
+        modifyEndCallbackRef.current = (event) => {
+            const feature = event.features.getArray()[0];
+            const finalGeometry = feature.getGeometry();
+            if (finalGeometry) {
+                pushToHistory(finalGeometry);
+                 const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+                const finalGeomForDebug = format.writeGeometryObject(finalGeometry);
+                setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(finalGeomForDebug, null, 2)}`);
+            }
+        };
+    }, [pushToHistory, setDebugInfo]);
 
     const removeInteractions = useCallback(() => {
         if (!mapRef.current) return;
@@ -203,8 +263,13 @@ export function GeofenceControls({
         const Collection = require('ol/Collection').default;
         const features = new Collection([featureToEdit]);
         
-        const modify = new Modify({ features: features, insertVertexCondition: () => !isRectangle(featureToEdit.getGeometry()), });
+        const isRect = isRectangle(featureToEdit.getGeometry());
+        const modify = new Modify({ features: features, insertVertexCondition: () => !isRect });
         const translate = new Translate({ features: features });
+
+        modify.on('modifying', (event) => modifyingCallbackRef.current?.(event));
+        modify.on('modifyend', (event) => modifyEndCallbackRef.current?.(event));
+        translate.on('translateend', (event) => modifyEndCallbackRef.current?.(event));
 
         modifyInteractionRef.current = modify;
         translateInteractionRef.current = translate;
@@ -222,68 +287,7 @@ export function GeofenceControls({
         if (initialGeom) {
             pushToHistory(initialGeom);
         }
-
-        let originalCoords: number[][] | null = null;
-        modify.on('modifystart', (event) => {
-            originalCoords = (event.features.getArray()[0].getGeometry() as Polygon).getCoordinates()[0].slice(0, 4);
-        });
-
-        modify.on('modifying', (event) => {
-            const feature = event.features.getArray()[0];
-            const geometry = feature.getGeometry() as Polygon;
-            if (!isRectangle(geometry) || !originalCoords) return;
-        
-            const currentCoords = geometry.getCoordinates()[0];
-            const movingVertex = event.mapBrowserEvent.coordinate;
-        
-            let closestVertexIndex = -1;
-            let minDistance = Infinity;
-            for (let i = 0; i < 4; i++) {
-                const dist = Math.pow(currentCoords[i][0] - movingVertex[0], 2) + Math.pow(currentCoords[i][1] - movingVertex[1], 2);
-                if (dist < minDistance) {
-                    minDistance = dist;
-                    closestVertexIndex = i;
-                }
-            }
-        
-            if (closestVertexIndex === -1) return;
-        
-            const movingPoint = currentCoords[closestVertexIndex];
-            const pivotPoint = currentCoords[(closestVertexIndex + 2) % 4];
-        
-            const newV1 = [pivotPoint[0], movingPoint[1]];
-            const newV2 = [movingPoint[0], pivotPoint[1]];
-        
-            let newCoords: number[][];
-            if (closestVertexIndex % 2 === 0) {
-                newCoords = [movingPoint, newV2, pivotPoint, newV1, movingPoint];
-            } else {
-                newCoords = [newV1, movingPoint, newV2, pivotPoint, newV1];
-            }
-            
-            geometry.setCoordinates([newCoords]);
-
-            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-            const finalGeomForDebug = format.writeGeometryObject(geometry);
-            setDebugInfo(`Moviendo vértice... Coords: ${JSON.stringify(finalGeomForDebug, null, 2)}`);
-        });
-
-        modify.on('modifyend', (event) => {
-            const feature = event.features.getArray()[0];
-            pushToHistory(feature.getGeometry()!);
-            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-            const finalGeomForDebug = format.writeGeometryObject(feature.getGeometry()!);
-            setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(finalGeomForDebug, null, 2)}`);
-            originalCoords = null;
-        });
-
-        translate.on('translateend', (event) => {
-            const feature = event.features.getArray()[0];
-            pushToHistory(feature.getGeometry()!);
-            setDebugInfo("¡Geocerca movida y guardada en el historial!");
-        });
-
-    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef, translateInteractionRef, geofenceSourceRef, pushToHistory, setDebugInfo]);
+    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef, translateInteractionRef, geofenceSourceRef, pushToHistory]);
 
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
@@ -387,11 +391,17 @@ export function GeofenceControls({
             const Collection = require('ol/Collection').default;
             const features = new Collection([newFeature]);
             
-            const modify = new Modify({ features: features, insertVertexCondition: () => !isRectangle(newFeature.getGeometry()), });
+            const isRect = isRectangle(newFeature.getGeometry());
+            const modify = new Modify({ features: features, insertVertexCondition: () => !isRect });
+            
+            modify.on('modifying', (event) => modifyingCallbackRef.current?.(event));
+            modify.on('modifyend', (event) => modifyEndCallbackRef.current?.(event));
+            
             map.addInteraction(modify);
             modifyInteractionRef.current = modify;
 
             const translate = new Translate({ features: features });
+            translate.on('translateend', (event) => modifyEndCallbackRef.current?.(event));
             map.addInteraction(translate);
             translateInteractionRef.current = translate;
 
