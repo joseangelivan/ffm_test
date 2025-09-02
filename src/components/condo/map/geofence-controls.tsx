@@ -47,24 +47,27 @@ const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: num
   nuevoRectanguloCoords[indiceMovido] = verticeMovido;
   nuevoRectanguloCoords[indiceOpuesto] = verticeOpuesto;
   
-  const indiceLateral1 = (indiceMovido + 1) % 4;
-  nuevoRectanguloCoords[indiceLateral1] = [verticeMovido[0], verticeOpuesto[1]];
+  nuevoRectanguloCoords[(indiceMovido + 1) % 4] = [verticeMovido[0], verticeOpuesto[1]];
+  nuevoRectanguloCoords[(indiceMovido + 3) % 4] = [verticeOpuesto[0], verticeMovido[1]];
   
-  const indiceLateral2 = (indiceMovido + 3) % 4;
-  nuevoRectanguloCoords[indiceLateral2] = [verticeOpuesto[0], verticeMovido[1]];
-  
-  // Reordenar para OpenLayers, asegurando un trazado correcto.
-  // El orden estándar es: [0], [1], [2], [3], [0]
-  // La corrección puede desordenarlos, así que los reordenamos explícitamente.
-  const [minX, maxX] = [Math.min(verticeMovido[0], verticeOpuesto[0]), Math.max(verticeMovido[0], verticeOpuesto[0])];
-  const [minY, maxY] = [Math.min(verticeMovido[1], verticeOpuesto[1]), Math.max(verticeMovido[1], verticeOpuesto[1])];
+  const [v0, v1, v2, v3] = [
+      nuevoRectanguloCoords[0],
+      nuevoRectanguloCoords[1],
+      nuevoRectanguloCoords[2],
+      nuevoRectanguloCoords[3],
+  ];
+
+  const minX = Math.min(v0[0], v1[0], v2[0], v3[0]);
+  const minY = Math.min(v0[1], v1[1], v2[1], v3[1]);
+  const maxX = Math.max(v0[0], v1[0], v2[0], v3[0]);
+  const maxY = Math.max(v0[1], v1[1], v2[1], v3[1]);
 
   return [
     [minX, minY],
     [maxX, minY],
     [maxX, maxY],
     [minX, maxY],
-    [minX, minY]
+    [minX, minY],
   ];
 };
 
