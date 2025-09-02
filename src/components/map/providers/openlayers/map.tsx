@@ -48,8 +48,11 @@ const STYLE_HIDDEN = new Style({
 function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
     const geometryObject = dbGeofence.geometry;
 
-    if (!geometryObject || typeof geometryObject !== 'object' || Object.keys(geometryObject).length === 0) {
-        console.warn(`Invalid geometry object passed to reader (empty or null):`, geometryObject);
+    if (!geometryObject || typeof geometryObject !== 'object') {
+        return null;
+    }
+    
+    if (Object.keys(geometryObject).length === 0 && geometryObject.constructor === Object) {
         return null;
     }
 

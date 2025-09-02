@@ -180,7 +180,7 @@ export function GeofenceControls({
         return coords.length === 5; // Rectangles drawn with ol have 5 points (first==last)
     };
 
-    const startEditingSelected = useCallback(() => {
+   const startEditingSelected = useCallback(() => {
         const source = geofenceSourceRef();
         if (!selectedGeofenceId || !source || !mapRef.current) return;
     
@@ -204,10 +204,10 @@ export function GeofenceControls({
             features: features,
             insertVertexCondition: () => !isRectangle(featureToEdit.getGeometry()),
         });
-    
+        
         modify.on('modifystart', (event) => {
             const geom = event.features.item(0).getGeometry();
-            if (geom) {
+            if (geom && isRectangle(geom)) {
                 originalCoords = (geom as Polygon).getCoordinates()[0].slice();
             }
         });
@@ -236,11 +236,12 @@ export function GeofenceControls({
                 newCoords[oppositeIndex] = oppositePoint;
                 newCoords[(movedIndex + 1) % 4] = [oppositePoint[0], movedPoint[1]];
                 newCoords[(movedIndex + 3) % 4] = [movedPoint[0], oppositePoint[1]];
-                newCoords[4] = [...newCoords[0]];
-
+                newCoords[4] = newCoords[0];
+                
                 console.log("New Coords:", newCoords);
                 const PolygonGeom = require('ol/geom/Polygon').default;
                 feature.setGeometry(new PolygonGeom([newCoords]));
+                originalCoords = feature.getGeometry().getCoordinates()[0].slice();
             }
         });
     
@@ -395,7 +396,7 @@ export function GeofenceControls({
                 id: newId,
                 condominium_id: condoId,
                 name: getNextGeofenceName(),
-                geometry: {},
+                geometry: null,
                 is_default: false,
             };
 
