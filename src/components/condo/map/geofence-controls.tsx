@@ -169,7 +169,7 @@ export function GeofenceControls({
         setMode('editing');
 
         removeInteractions();
-        const modify = new Modify({ source: source, features: new Collection(source.getFeatures()) });
+        const modify = new Modify({ source: source, features: new Collection([featureToEdit]) });
         mapRef.current.addInteraction(modify);
         modifyInteractionRef.current = modify;
 
@@ -278,32 +278,26 @@ export function GeofenceControls({
             const newId = `new-shape-${Date.now()}`;
             newFeature.setId(newId);
 
-            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-            const newGeometry = format.writeGeometryObject(newFeature.getGeometry()!);
-
             const placeholderGeofence: DbGeofence = {
                 id: newId,
                 condominium_id: condoId,
                 name: getNextGeofenceName(),
-                geometry: newGeometry,
+                geometry: {}, // Placeholder
                 is_default: false,
             };
-
             setGeofences(current => [...current, placeholderGeofence]);
             setSelectedGeofenceId(newId);
+            setCurrentGeofenceName(placeholderGeofence.name);
             setIsDrawing(false);
-            
             removeInteractions();
             
-            const featureInSource = source.getFeatureById(newId);
-            const featuresCollection = new Collection([featureInSource]);
-
-            if (featureInSource) {
-                const modify = new Modify({ features: featuresCollection });
-                map.addInteraction(modify);
-                modifyInteractionRef.current = modify;
-                setActiveShapeState({ id: newId, feature: featureInSource, originalGeometry: null });
-            }
+            // Re-activate modify on the new feature
+            const features = new Collection([newFeature]);
+            const modify = new Modify({ features: features });
+            map.addInteraction(modify);
+            modifyInteractionRef.current = modify;
+            
+            setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
         });
 
         drawingInteractionRef.current = newInteraction;
@@ -470,5 +464,3 @@ export function GeofenceControls({
         </div>
     );
 }
-
-    
