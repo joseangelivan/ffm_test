@@ -41,10 +41,6 @@ import Collection from 'ol/Collection';
 import type VectorSource from 'ol/source/Vector';
 
 
-const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
-    return poligono.intersectsCoordinate(punto);
-}
-
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
     const indiceOpuesto = (indiceMovido + 2) % 4;
     const verticeOpuesto = verticesOriginales[indiceOpuesto];
@@ -141,6 +137,8 @@ export function GeofenceControls({
     });
     
     const geofenceSourceRef = useRef<VectorSource | null>(null);
+    const originalGeometryOnModifyStart = useRef<Geometry | null>(null);
+
     useEffect(() => {
         if (mapRef.current) {
             const layer = mapRef.current.getLayers().getArray().find(l => l.get('id') === 'geofence-layer') as any;
@@ -250,11 +248,9 @@ export function GeofenceControls({
     
     const handleStartDrawing = () => {
         cancelCurrentAction();
-        const newFeature = new Feature();
         const newId = `new-shape-${Date.now()}`;
-        newFeature.setId(newId);
-        setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
         setCurrentGeofenceName(getNextGeofenceName());
+        setActiveShapeState({ id: newId, feature: null, originalGeometry: null });
         setIsDrawing(true);
     };
 
@@ -352,8 +348,7 @@ export function GeofenceControls({
                 const featureToEdit = activeShapeState.feature;
                 const features = new Collection([featureToEdit]);
                 const isRectangle = featureToEdit.get('geometryType') === 'Rectangle';
-                let originalGeometryOnModifyStart = useRef<Geometry | null>(null);
-
+                
                 const modifyInteraction = new Modify({ features, insertVertexCondition: () => !isRectangle });
 
                 modifyInteraction.on('modifystart', (e) => {
@@ -362,37 +357,45 @@ export function GeofenceControls({
                 
                 modifyInteraction.on('modifyend', (e) => {
                     const feature = e.features.getArray()[0] as Feature<Polygon>;
-                    const modifiedGeometry = feature.getGeometry();
-                
-                    if (isRectangle && modifiedGeometry && originalGeometryOnModifyStart.current) {
-                        const originalVertices = (originalGeometryOnModifyStart.current as Polygon).getCoordinates()[0].slice(0, 4);
-                        const newVertices = modifiedGeometry.getCoordinates()[0];
-                
-                        let movedIndex = -1;
-                        let newPoint: number[] | undefined;
-                
-                        // Find the new point that doesn't exist in the original vertices
-                        newPoint = newVertices.find(nv => !originalVertices.some(ov => ov[0] === nv[0] && ov[1] === nv[1]));
-                
-                        // Find the index of the vertex that was moved
-                        if(newPoint){
-                            for(let i=0; i < originalVertices.length; i++){
-                                if(!newVertices.some(nv => nv[0] === originalVertices[i][0] && nv[1] === originalVertices[i][1])){
-                                    movedIndex = i;
-                                    break;
-                                }
+                    if (!isRectangle || !originalGeometryOnModifyStart.current) {
+                        pushToHistory(feature.getGeometry()!.clone());
+                        return;
+                    };
+                    
+                    const originalVertices = (originalGeometryOnModifyStart.current as Polygon).getCoordinates()[0].slice(0, 4);
+                    const newVertices = feature.getGeometry()!.getCoordinates()[0].slice(0,4);
+                    
+                    let movedIndex = -1;
+                    let newPoint: number[] | undefined;
+
+                    for (let i = 0; i < newVertices.length; i++) {
+                        const newVertex = newVertices[i];
+                        const oldVertex = originalVertices.find(ov => ov[0] === newVertex[0] && ov[1] === newVertex[1]);
+                        if (!oldVertex) {
+                           newPoint = newVertex;
+                           break;
+                        }
+                    }
+                    if (newPoint) {
+                        let smallestDist = Infinity;
+                        for (let i = 0; i < originalVertices.length; i++) {
+                            const dist = Math.sqrt(Math.pow(newPoint[0] - originalVertices[i][0], 2) + Math.pow(newPoint[1] - originalVertices[i][1], 2));
+                            if (dist < smallestDist) {
+                                smallestDist = dist;
+                                movedIndex = i;
                             }
                         }
-                
-                        if (movedIndex !== -1 && newPoint) {
-                            const correctedCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
-                            feature.setGeometry(new Polygon([correctedCoords]));
-                        }
                     }
-                    
-                    if (feature.getGeometry()) {
-                      pushToHistory(feature.getGeometry()!.clone());
+
+                    if (movedIndex !== -1 && newPoint) {
+                        const correctedCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
+                        const newGeom = new Polygon([correctedCoords]);
+                        feature.setGeometry(newGeom);
+                        pushToHistory(newGeom);
+                    } else {
+                        pushToHistory(feature.getGeometry()!.clone());
                     }
+
                     originalGeometryOnModifyStart.current = null;
                 });
 
