@@ -15,7 +15,8 @@ import {
   X,
   Loader,
 } from 'lucide-react';
-
+import type { Map as OlMap } from 'ol';
+import Feature from 'ol/Feature';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 
@@ -31,13 +32,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { LoadingOverlay } from '@/components/admin/admin-header';
 
-import type { Map as OlMap } from 'ol';
-import Feature from 'ol/Feature';
 import { Draw, Modify, Translate } from 'ol/interaction';
 import GeoJSON from 'ol/format/GeoJSON';
 import { createBox } from 'ol/interaction/Draw';
 import type { Geometry, Polygon, SimpleGeometry } from 'ol/geom';
 import Collection from 'ol/Collection';
+import type VectorSource from 'ol/source/Vector';
 
 
 const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
@@ -175,7 +175,7 @@ export function GeofenceControls({
              const { feature, originalGeometry } = activeShapeState;
              if (originalGeometry && feature) {
                 const geometryToRestore = { ...originalGeometry };
-                if (geometryToRestore.type === 'rectangle') {
+                 if (geometryToRestore.type === 'rectangle') {
                     geometryToRestore.type = 'Polygon'; 
                 }
                 const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
@@ -332,39 +332,41 @@ export function GeofenceControls({
                 const isRectangle = featureToEdit.get('geometryType') === 'Rectangle';
 
                 if (isRectangle) {
+                    let pointerDownCoordinate: number[] | null = null;
+
+                    map.on('pointerdown', (evt) => {
+                        pointerDownCoordinate = evt.coordinate;
+                    });
+                    
                     const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
                         const originalPolygon = (featureToEdit.getGeometry() as Polygon);
                         const originalVertices = originalPolygon.getCoordinates()[0].slice(0, 4);
-                        
-                        // Find the single vertex that has changed
-                        const newVertices = coordinates[0];
-                        let changedVertex: number[] | undefined;
-                        let changedIndex = -1;
-                        
-                        for(let i=0; i<newVertices.length; i++) {
-                            const vert = newVertices[i];
-                            const matchingOriginal = originalVertices.find(ov => ov[0] === vert[0] && ov[1] === vert[1]);
-                            if(!matchingOriginal) {
-                                changedVertex = vert;
-                                // Now find its original index to know which corner was moved
-                                for(let j=0; j<originalVertices.length; j++) {
-                                     const isPointInNewCoords = newVertices.some((nv: number[]) => nv[0] === originalVertices[j][0] && nv[1] === originalVertices[j][1]);
-                                     if (!isPointInNewCoords) {
-                                         changedIndex = j;
-                                         break;
-                                     }
-                                }
-                                break;
+
+                        if (!pointerDownCoordinate) {
+                            geometry.setCoordinates(coordinates);
+                            return geometry;
+                        }
+
+                        // Find the vertex closest to where the user clicked
+                        let closestVertexIndex = -1;
+                        let minDistance = Infinity;
+                        originalVertices.forEach((vertex, index) => {
+                            const distance = Math.pow(vertex[0] - pointerDownCoordinate![0], 2) + Math.pow(vertex[1] - pointerDownCoordinate![1], 2);
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                closestVertexIndex = index;
                             }
-                        }
-                
-                        if (changedVertex && changedIndex !== -1) {
-                            const newCoords = RecalcularRectangulo(originalVertices, changedVertex, changedIndex);
-                            geometry.setCoordinates([newCoords]);
+                        });
+
+                        const draggedVertex = coordinates[0][closestVertexIndex];
+
+                        if (draggedVertex) {
+                           const newCoords = RecalcularRectangulo(originalVertices, draggedVertex, closestVertexIndex);
+                           geometry.setCoordinates([newCoords]);
                         } else {
-                             geometry.setCoordinates(coordinates);
+                           geometry.setCoordinates(coordinates);
                         }
-                
+                        
                         return geometry;
                     };
                     modifyInteraction = new Modify({ features, geometryFunction });
