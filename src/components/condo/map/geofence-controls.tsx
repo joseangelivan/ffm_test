@@ -182,45 +182,66 @@ export function GeofenceControls({
         setHistoryIndex(-1);
     }, [activeShapeState, removeInteractions, setActiveShapeState, setMode, geofences, setGeofences, geofenceSourceRef, setHistoryStack, setHistoryIndex]);
       
-    const isRectangle = (geom: Geometry | undefined): geom is Polygon => {
-        if (!geom || geom.getType() !== 'Polygon') return false;
-        const coords = (geom as Polygon).getCoordinates()[0];
-        return coords.length === 5;
-    };
-    
     // This effect ensures our callback ref always has the latest functions/state
     useEffect(() => {
         modifyingCallbackRef.current = (event) => {
-            setDebugInfo("Moviendo vértice...");
-            try {
-                const feature = event.features.getArray()[0] as Feature<Polygon>;
-                if (!feature) return;
+            const feature = event.features.getArray()[0] as Feature<Polygon>;
+            if (!feature) return;
 
-                const geometry = feature.getGeometry();
-                if (!geometry || !isRectangle(geometry)) return;
+            const geometry = feature.getGeometry();
+            if (!geometry || geometry.getType() !== 'Polygon') return;
+            
+            const movingVertex = event.target.vertex_;
+            if (!movingVertex) return;
 
-                const coords = geometry.getCoordinates()[0];
-                if (coords.length !== 5) return;
+            const coords = geometry.getCoordinates()[0];
+            if (coords.length !== 5) return; // Not a rectangle-like polygon
 
-                const startPoint = coords[0];
-                const endPoint = coords[2];
-                const newCoords = [
-                    startPoint,
-                    [endPoint[0], startPoint[1]],
-                    endPoint,
-                    [startPoint[0], endPoint[1]],
-                    startPoint
-                ];
-
-                geometry.setCoordinates([newCoords]);
-                
-                const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-                const finalGeomForDebug = format.writeGeometryObject(feature.getGeometry()!);
-                setDebugInfo(JSON.stringify(finalGeomForDebug, null, 2));
-
-            } catch (e: any) {
-                setDebugInfo(`Error en 'modifying': ${e.message}`);
+            let movingIndex = -1;
+            for (let i = 0; i < coords.length - 1; i++) {
+                if (coords[i][0] === movingVertex[0] && coords[i][1] === movingVertex[1]) {
+                    movingIndex = i;
+                    break;
+                }
             }
+
+            if (movingIndex === -1) return;
+
+            const oppositeIndex = (movingIndex + 2) % 4;
+            const anchorPoint = coords[oppositeIndex];
+            const movingPoint = movingVertex;
+
+            const p1Index = (movingIndex + 1) % 4;
+            const p2Index = (movingIndex + 3) % 4;
+
+            const newCoords = [...coords];
+            newCoords[p1Index] = [anchorPoint[0], movingPoint[1]];
+            newCoords[p2Index] = [movingPoint[0], anchorPoint[1]];
+            newCoords[movingIndex] = movingPoint;
+            newCoords[oppositeIndex] = anchorPoint;
+            
+            // Re-order to ensure correct drawing
+            const finalCoords = [
+                newCoords[0],
+                newCoords[3], // D
+                newCoords[2], // C
+                newCoords[1], // B
+                newCoords[0],
+            ].sort((a,b) => a[0] - b[0] || a[1] - b[1]); // A simple sort might not be robust enough for all cases
+            
+            const finalCorrectCoords = [
+                [movingPoint[0], movingPoint[1]],
+                [anchorPoint[0], movingPoint[1]],
+                [anchorPoint[0], anchorPoint[1]],
+                [movingPoint[0], anchorPoint[1]],
+                [movingPoint[0], movingPoint[1]],
+            ]
+
+            geometry.setCoordinates([finalCorrectCoords]);
+            
+            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+            const finalGeomForDebug = format.writeGeometryObject(feature.getGeometry()!);
+            setDebugInfo(JSON.stringify(finalGeomForDebug, null, 2));
         };
 
         modifyEndCallbackRef.current = (event) => {
@@ -253,7 +274,7 @@ export function GeofenceControls({
         const Collection = require('ol/Collection').default;
         const features = new Collection([featureToEdit]);
         
-        const modify = new Modify({ features });
+        const modify = new Modify({ features, deleteCondition: () => false });
         modify.on('modifying', (event) => modifyingCallbackRef.current?.(event));
         modify.on('modifyend', (event) => modifyEndCallbackRef.current?.(event));
         
