@@ -88,10 +88,8 @@ const CreateEditGeofenceDialog = ({ condoId, geofence, onSuccess, onOpenChange, 
             const geometry = {}; // Placeholder for OpenLayers drawn geometry
             let result;
             if (geofence) {
-                // Update logic
                 result = await updateGeofence(geofence.id, { name, geometry });
             } else {
-                // Create logic
                 result = await createGeofence({ condoId, name, geometry, isDefault });
             }
 
@@ -238,13 +236,11 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
   const handleMapLoad = useCallback(async (map: Map) => {
     mapRef.current = map;
     
-    const { hasGeofences, defaultGeofence } = await onDataNeedsRefresh();
+    const { hasGeofences } = await onDataNeedsRefresh();
 
     if (!hasGeofences) {
         await fetchAndSetCondoPosition(map, true);
     } else {
-        // We have geofences, logic to fit bounds would go here eventually.
-        // For now, center on address as a fallback if the geofence data is incomplete.
         await fetchAndSetCondoPosition(map, true); 
     }
     
