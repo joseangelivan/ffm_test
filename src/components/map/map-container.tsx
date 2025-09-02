@@ -8,10 +8,8 @@ import { Loader } from 'lucide-react';
 import { useLocale } from '@/lib/i18n';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-import type { Map as OlMap } from 'ol';
+import type { Map as OlMap, Feature } from 'ol';
 import type { Vector as VectorSource } from 'ol/source';
-import type { Draw, Modify } from 'ol/interaction';
-import type Feature from 'ol/Feature';
 
 const OpenLayersMap = dynamic(() => import('./providers/openlayers/map'), {
     ssr: false,
@@ -28,8 +26,6 @@ type MapContainerProps = {
     defaultGeofenceId: string | null;
     initialPosition: { lat: number; lng: number };
     mapRef: React.RefObject<OlMap | null>;
-    drawingInteractionRef: React.MutableRefObject<Draw | null>;
-    modifyInteractionRef: React.MutableRefObject<Modify | null>;
     activeShapeState: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     children?: React.ReactNode;
 }

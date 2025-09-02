@@ -29,7 +29,6 @@ import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 
 import type { Map as OlMap, Feature } from 'ol';
 import type { Vector as VectorSource } from 'ol/source';
-import type { Draw, Modify, Translate } from 'ol/interaction';
 import { fromLonLat } from 'ol/proj';
 import type { Geometry } from 'ol/geom';
 
@@ -46,9 +45,6 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   
   // --- Refs ---
   const mapRef = useRef<OlMap | null>(null);
-  const drawingInteractionRef = useRef<Draw | null>(null);
-  const modifyInteractionRef = useRef<Modify | null>(null);
-  const translateInteractionRef = useRef<Translate | null>(null);
   const mapInitialized = useRef(false);
 
   // --- State ---
@@ -69,15 +65,11 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const [condoAddressPosition] = useState(initialPosition);
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
   const [selectedModule, setSelectedModule] = useState('geofence');
-  const [activeShapeState, setActiveShapeState] = useState<{ id: string, feature: Feature | null, originalGeometry?: any } | null>(null);
   
-  // History State
+  // --- Active Shape & History State ---
+  const [activeShapeState, setActiveShapeState] = useState<{ id: string, feature: Feature<any> | null, originalGeometry?: any } | null>(null);
   const [historyStack, setHistoryStack] = useState<Geometry[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-
-  // Debug State
-  const [debugInfo, setDebugInfo] = useState<string>('Debug info will appear here.');
-
 
   // --- Data Fetching & Refreshing ---
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
@@ -217,6 +209,30 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
       activeShapeState?.feature?.setGeometry(geometryToRestore);
     }
   };
+
+  const onShapeDrawn = useCallback((feature: Feature<any>) => {
+    if (!feature) return;
+
+    if (activeShapeState?.feature) {
+      const source = (mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer') as any)?.getSource();
+      if(source && source.hasFeature(activeShapeState.feature)) {
+        source.removeFeature(activeShapeState.feature);
+      }
+    }
+
+    const newId = `new-shape-${Date.now()}`;
+    feature.setId(newId);
+    setActiveShapeState({ id: newId, feature, originalGeometry: null });
+    
+    const newGeometry = feature.getGeometry();
+    if(newGeometry) {
+      setHistoryStack([newGeometry.clone()]);
+      setHistoryIndex(0);
+    } else {
+      setHistoryStack([]);
+      setHistoryIndex(-1);
+    }
+  }, [activeShapeState]);
   
   return (
     <>
@@ -258,12 +274,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                 mode={mode}
                                 initialPosition={initialPosition}
                                 mapRef={mapRef}
-                                drawingInteractionRef={drawingInteractionRef}
-                                modifyInteractionRef={modifyInteractionRef}
                             />
-                            <div className="absolute bottom-2 left-2 z-10 bg-background/80 p-2 rounded-md shadow-lg text-xs font-mono max-w-sm max-h-40 overflow-auto backdrop-blur-sm">
-                                <pre>{debugInfo}</pre>
-                            </div>
                         </div>
                          {activeShapeState && (
                             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">
@@ -311,8 +322,8 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                 <GeofenceControls
                                     condoId={condo.id}
                                     geofences={dbGeofences}
-                                    setGeofences={setDbGeofences}
                                     onDataNeedsRefresh={onDataNeedsRefresh}
+                                    onShapeDrawn={onShapeDrawn}
                                     selectedGeofenceId={selectedGeofenceId}
                                     setSelectedGeofenceId={setSelectedGeofenceId}
                                     defaultGeofenceId={defaultGeofenceId}
@@ -325,14 +336,10 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                     activeShapeState={activeShapeState}
                                     setActiveShapeState={setActiveShapeState}
                                     mapRef={mapRef}
-                                    drawingInteractionRef={drawingInteractionRef}
-                                    modifyInteractionRef={modifyInteractionRef}
-                                    translateInteractionRef={translateInteractionRef}
                                     historyStack={historyStack}
                                     setHistoryStack={setHistoryStack}
                                     historyIndex={historyIndex}
                                     setHistoryIndex={setHistoryIndex}
-                                    setDebugInfo={setDebugInfo}
                                 />
                             )}
                             {selectedModule === 'elements' && (
