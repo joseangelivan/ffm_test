@@ -184,12 +184,16 @@ export function GeofenceControls({
         cancelCurrentAction();
         setMode('editing');
         removeInteractions();
+        
+        const Collection = require('ol/Collection').default;
+        const features = new Collection([featureToEdit]);
 
-        const features = new (require('ol/Collection').default)([featureToEdit]) as Collection<Feature>;
+        const geometry = featureToEdit.getGeometry();
+        const isRectangle = geometry && geometry.getType() === 'Polygon' && (geometry.getCoordinates()[0]?.length === 5);
 
         const modify = new Modify({
             features: features,
-            geometryFunction: drawingMode === 'Rectangle' ? (geometry: any) => {
+            geometryFunction: drawingMode === 'Rectangle' || isRectangle ? (geometry: any) => {
                  const coords = geometry.getCoordinates()[0];
                  const minX = Math.min(coords[0][0], coords[1][0], coords[2][0], coords[3][0]);
                  const minY = Math.min(coords[0][1], coords[1][1], coords[2][1], coords[3][1]);
@@ -215,8 +219,16 @@ export function GeofenceControls({
             originalGeometry: selectedGeofence.geometry 
         });
         setCurrentGeofenceName(selectedGeofence.name);
-        setHistoryStack([featureToEdit.getGeometry()!.clone()]);
-        setHistoryIndex(0);
+
+        const initialGeometry = featureToEdit.getGeometry();
+        if(initialGeometry) {
+            setHistoryStack([initialGeometry.clone()]);
+            setHistoryIndex(0);
+        } else {
+             setHistoryStack([]);
+            setHistoryIndex(-1);
+        }
+
     }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef, translateInteractionRef, geofenceSourceRef, pushToHistory, setHistoryStack, setHistoryIndex, drawingMode]);
       
     const saveCurrentAction = useCallback(async () => {
@@ -325,7 +337,18 @@ export function GeofenceControls({
             const Collection = require('ol/Collection').default;
             const features = new Collection([newFeature]);
             
-            const modify = new Modify({ features: features });
+            const modify = new Modify({ features: features,
+                geometryFunction: drawingMode === 'Rectangle' ? (geometry: any) => {
+                     const coords = geometry.getCoordinates()[0];
+                     const minX = Math.min(coords[0][0], coords[1][0], coords[2][0], coords[3][0]);
+                     const minY = Math.min(coords[0][1], coords[1][1], coords[2][1], coords[3][1]);
+                     const maxX = Math.max(coords[0][0], coords[1][0], coords[2][0], coords[3][0]);
+                     const maxY = Math.max(coords[0][1], coords[1][1], coords[2][1], coords[3][1]);
+                     const newCoords = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY], [minX, minY]];
+                     geometry.setCoordinates([newCoords]);
+                     return geometry;
+                } : undefined,
+             });
             modify.on('modifyend', () => pushToHistory(newFeature.getGeometry()!));
             map.addInteraction(modify);
             modifyInteractionRef.current = modify;
@@ -348,8 +371,11 @@ export function GeofenceControls({
             setCurrentGeofenceName(placeholderGeofence.name);
             setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
             setIsDrawing(false);
-            setHistoryStack([newFeature.getGeometry()!.clone()]);
-            setHistoryIndex(0);
+            const initialGeom = newFeature.getGeometry();
+            if (initialGeom) {
+                setHistoryStack([initialGeom.clone()]);
+                setHistoryIndex(0);
+            }
         });
 
         map.addInteraction(newInteraction);
