@@ -299,26 +299,26 @@ export function GeofenceControls({
         const source = geofenceSourceRef.current;
         if (!selectedGeofenceId || !source) return;
 
-        const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
-        if (!selectedGeofence) return;
+        const selectedGeofenceData = geofences.find(g => g.id === selectedGeofenceId);
+        if (!selectedGeofenceData) return;
 
-        let featureToEdit = source.getFeatureById(selectedGeofenceId) as OlFeature<Polygon>;
-        
+        cancelCurrentAction(); // Clear any previous state
+        setIsDrawing(false);
+
+        let featureToEdit = source.getFeatureById(selectedGeofenceId) as OlFeature<Polygon> | null;
+
+        // If feature not on map, create it from DB data
         if (!featureToEdit) {
             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-            const geometry = format.readGeometry(selectedGeofence.geometry);
-            if (geometry) {
-                featureToEdit = new Feature(geometry);
-                featureToEdit.setId(selectedGeofence.id);
-                source.addFeature(featureToEdit);
-            } else {
+            const geometry = format.readGeometry(selectedGeofenceData.geometry);
+            if (!geometry) {
                 toast({ title: t('toast.errorTitle'), description: "No se pudo cargar la geometría de la geocerca.", variant: 'destructive' });
                 return;
             }
+            featureToEdit = new Feature(geometry);
+            featureToEdit.setId(selectedGeofenceData.id);
+            source.addFeature(featureToEdit);
         }
-        
-        cancelCurrentAction();
-        setIsDrawing(false);
         
         const originalGeom = featureToEdit.getGeometry()?.clone();
         
@@ -327,12 +327,13 @@ export function GeofenceControls({
             feature: featureToEdit,
             originalGeometry: originalGeom ? new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(originalGeom) : null
         });
-        setCurrentGeofenceName(selectedGeofence.name);
+        setCurrentGeofenceName(selectedGeofenceData.name);
         
         if (originalGeom) {
             pushToHistory(originalGeom);
         }
-    }, [geofences, selectedGeofenceId, setActiveShapeState, pushToHistory, cancelCurrentAction, toast, t]);
+
+    }, [geofences, selectedGeofenceId, cancelCurrentAction, pushToHistory, toast, t]);
     
      useEffect(() => {
         const map = mapRef.current;
@@ -528,7 +529,7 @@ export function GeofenceControls({
                                         </Tooltip>
                                         <Tooltip>
                                              <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!selectedGeofenceId || isBusy}>
+                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!selectedGeofenceId || isBusy || !!activeShapeState}>
                                                     <Edit className="h-4 w-4"/>
                                                 </Button>
                                             </TooltipTrigger>
