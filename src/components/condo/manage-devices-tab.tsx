@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useActionState, useTransition } from 'react';
@@ -63,12 +64,11 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import type { Device } from '@/actions/devices';
 import { getProtocols, getDeviceTypes, type Protocol, type DeviceType } from '@/actions/catalogs';
-import { createOrUpdateDeviceCommunication, createDevice, deleteDevice, updateDevice, removeDeviceCommunication } from '@/actions/devices';
+import { createOrUpdateDeviceCommunication, createDevice, deleteDevice, updateDevice, removeDeviceCommunication, getDevicesByCondoId } from '@/actions/devices';
 import { Skeleton } from '../ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { cn } from '@/lib/utils';
 import { LoadingOverlay } from '../admin/admin-header';
-import { useCondoDashboard } from '../condo-dashboard-client';
 
 function ManageProtocolForm({
     device,
@@ -231,57 +231,56 @@ function DeviceForm({
 }
 
 export default function ManageDevicesTab({
+    condoId,
     initialDevices,
 }: {
+    condoId: string;
     initialDevices: Device[];
 }) {
     const { t, locale } = useLocale();
     const { toast } = useToast();
-    const { condo, onDataNeedsRefresh } = useCondoDashboard();
     
     const [devices, setDevices] = useState<Device[]>(initialDevices);
     
     const [protocols, setProtocols] = useState<Protocol[]>([]);
     const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
     
-    const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true);
+    const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, startSubmittingTransition] = useTransition();
 
     const [isProtocolDialogOpen, setIsProtocolDialogOpen] = useState(false);
     const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
 
-    const fetchCatalogs = useCallback(async () => {
-        setIsLoadingCatalogs(true);
+    const fetchAllData = useCallback(async () => {
+        setIsLoading(true);
         try {
-            const [protocolsData, deviceTypesData] = await Promise.all([
+            const [protocolsData, deviceTypesData, devicesData] = await Promise.all([
                 getProtocols(),
-                getDeviceTypes()
+                getDeviceTypes(),
+                getDevicesByCondoId(condoId),
             ]);
             setProtocols(protocolsData || []);
             setDeviceTypes(deviceTypesData || []);
+            setDevices(devicesData || []);
         } catch (error) {
             console.error("Failed to fetch device catalogs:", error);
             toast({ title: t('toast.errorTitle'), description: "Error al cargar los catálogos.", variant: 'destructive' });
         } finally {
-            setIsLoadingCatalogs(false);
+            setIsLoading(false);
         }
-    }, [toast, t]);
+    }, [condoId, toast, t]);
 
     useEffect(() => {
-        fetchCatalogs();
-    }, [fetchCatalogs]);
-
-    useEffect(() => {
-        setDevices(initialDevices);
-    }, [initialDevices]);
+        fetchAllData();
+    }, [fetchAllData]);
 
     const handleDeleteDevice = (device: Device) => {
         startSubmittingTransition(async () => {
             const result = await deleteDevice(device.id);
             if (result.success) {
                  toast({ title: t('toast.successTitle'), description: result.message });
-                 onDataNeedsRefresh();
+                 fetchAllData();
             } else {
                  toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
             }
@@ -302,11 +301,9 @@ export default function ManageDevicesTab({
         setIsProtocolDialogOpen(false);
         setIsFormDialogOpen(false);
         setSelectedDevice(null);
-        onDataNeedsRefresh();
+        fetchAllData();
     }
     
-    if (!condo) return null;
-
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -314,8 +311,8 @@ export default function ManageDevicesTab({
                     <CardTitle>{t('condoDashboard.devices.title')}</CardTitle>
                     <CardDescription>{t('condoDashboard.devices.description')}</CardDescription>
                 </div>
-                 <Button size="sm" className="gap-1" onClick={() => openFormDialog(null)} disabled={isLoadingCatalogs}>
-                    {isLoadingCatalogs ? <Loader className="h-4 w-4 animate-spin"/> : <PlusCircle className="h-4 w-4" />}
+                 <Button size="sm" className="gap-1" onClick={() => openFormDialog(null)} disabled={isLoading}>
+                    {isLoading ? <Loader className="h-4 w-4 animate-spin"/> : <PlusCircle className="h-4 w-4" />}
                     {t('condoDashboard.devices.addDeviceButton')}
                 </Button>
             </CardHeader>
@@ -330,7 +327,7 @@ export default function ManageDevicesTab({
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {!devices ? (
+                        {isLoading ? (
                              Array.from({ length: 3 }).map((_, i) => (
                                 <TableRow key={`skel-${i}`}>
                                     <TableCell colSpan={4}><Skeleton className="h-8 w-full"/></TableCell>
@@ -400,7 +397,7 @@ export default function ManageDevicesTab({
 
              <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
                 <DeviceForm
-                    condoId={condo.id}
+                    condoId={condoId}
                     device={selectedDevice}
                     deviceTypes={deviceTypes}
                     onSuccess={onDialogSuccess}

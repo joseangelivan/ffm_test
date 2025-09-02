@@ -46,7 +46,6 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   
   // --- Refs ---
   const mapRef = useRef<OlMap | null>(null);
-  const geofenceSourceRef = useRef<VectorSource | null>(null);
   const drawingInteractionRef = useRef<Draw | null>(null);
   const modifyInteractionRef = useRef<Modify | null>(null);
   const mapInitialized = useRef(false);
@@ -125,13 +124,14 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     const map = mapRef.current;
     if (!map) return;
     
-    // Defer if map is not ready
     const mapSize = map.getSize();
     if (!mapSize || mapSize.some(s => s === 0)) {
         return;
     }
     
-    const source = geofenceSourceRef.current;
+    const geofenceSource = (map.getLayers().getArray().find(l => l.get('id') === 'geofence-layer') as any)?.getSource();
+    if (!geofenceSource) return;
+
     let geofenceIdToFit: string | null;
 
     if (mode === 'view') {
@@ -140,12 +140,12 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
         geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
     }
     
-    if (!source || !geofenceIdToFit) {
+    if (!geofenceIdToFit) {
         centerMapOnAddress();
         return;
     }
 
-    const featureToFit = source.getFeatureById(geofenceIdToFit);
+    const featureToFit = geofenceSource.getFeatureById(geofenceIdToFit);
     if (!featureToFit) return;
 
     const extent = featureToFit.getGeometry()?.getExtent();
@@ -170,7 +170,6 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     mapInitialized.current = true;
     
     mapRef.current = map;
-    geofenceSourceRef.current = source;
     
     map.on('moveend', () => {
         const zoom = map.getView().getZoom();

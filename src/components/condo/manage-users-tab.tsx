@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useActionState, useTransition } from 'react';
@@ -67,7 +68,6 @@ import { getUsersByCondoId, createUser, updateUser, deleteUser, type CondoUser }
 import { Skeleton } from '../ui/skeleton';
 import { cn } from '@/lib/utils';
 import { LoadingOverlay } from '../admin/admin-header';
-import { useCondoDashboard } from '../condo-dashboard-client';
 
 function UserForm({ 
     condoId, 
@@ -159,24 +159,23 @@ function UserForm({
     );
 }
 
-export default function ManageUsersTab() {
+export default function ManageUsersTab({ condoId, initialUsers }: { condoId: string, initialUsers: CondoUser[] }) {
     const { t } = useLocale();
     const { toast } = useToast();
-    const { condo, onDataNeedsRefresh } = useCondoDashboard();
     
-    const [users, setUsers] = useState<CondoUser[]>([]);
+    const [users, setUsers] = useState<CondoUser[]>(initialUsers);
     const [isLoading, setIsLoading] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<CondoUser | null>(null);
     const [isDeleting, startDeleteTransition] = useTransition();
 
     const fetchUsers = useCallback(async () => {
-        if (!condo?.id) return;
+        if (!condoId) return;
         setIsLoading(true);
-        const fetchedUsers = await getUsersByCondoId(condo.id);
+        const fetchedUsers = await getUsersByCondoId(condoId);
         setUsers(fetchedUsers);
         setIsLoading(false);
-    }, [condo?.id]);
+    }, [condoId]);
 
     useEffect(() => {
         fetchUsers();
@@ -191,7 +190,6 @@ export default function ManageUsersTab() {
         setIsFormOpen(false);
         setSelectedUser(null);
         fetchUsers();
-        onDataNeedsRefresh();
     };
 
     const handleDeleteUser = (user: CondoUser) => {
@@ -203,7 +201,6 @@ export default function ManageUsersTab() {
                     description: t('condoDashboard.users.toast.userDeleted'),
                 });
                 fetchUsers();
-                onDataNeedsRefresh();
             } else {
                  toast({
                     title: t('toast.errorTitle'),
@@ -220,8 +217,6 @@ export default function ManageUsersTab() {
             description: t('condoDashboard.users.toast.passwordReset', { name: userName })
         });
     }
-
-    if (!condo) return null;
 
     return (
         <Card>
@@ -308,7 +303,7 @@ export default function ManageUsersTab() {
 
             {isFormOpen && (
                  <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                    <UserForm condoId={condo.id} user={selectedUser} onSuccess={onFormSuccess} />
+                    <UserForm condoId={condoId} user={selectedUser} onSuccess={onFormSuccess} />
                 </Dialog>
             )}
         </Card>

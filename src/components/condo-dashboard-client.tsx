@@ -38,7 +38,6 @@ import type { UserSettings } from '@/actions/admin';
 import { getActiveTheme, updateSettings } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
 import { type MapProvider } from '@/actions/map_providers';
-import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 
 type CondoDashboardClientProps = {
     session: SessionPayload;
@@ -48,14 +47,6 @@ type CondoDashboardClientProps = {
     mapProvider: MapProvider;
     initialPosition: { lat: number; lng: number };
 };
-
-export function useCondoDashboard() {
-    const context = React.useContext(CondoDashboardContext);
-    if (!context) {
-        throw new Error("useCondoDashboard must be used within a CondoDashboardProvider");
-    }
-    return context;
-}
 
 export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider, initialPosition }: CondoDashboardClientProps) { 
   const { t, setLocale } = useLocale();
@@ -104,6 +95,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     const themeData = await getActiveTheme({ ...initialSettings, theme: newThemeId });
     applyTheme(themeData, newThemeId);
     await updateSettings({ theme: newThemeId }, session);
+    // Force a re-render of the layout to apply new styles
     router.refresh();
   }, [applyTheme, initialSettings, session, router]);
 
@@ -113,14 +105,8 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
         applyTheme(themeData, initialSettings.theme);
     };
     setInitialTheme();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialSettings, applyTheme]);
 
-  const handleSetLocale = async (newLocale: 'es' | 'pt-BR') => {
-      setLocale(newLocale);
-      await updateSettings({ language: newLocale }, session);
-      router.refresh();
-  }
 
   const handleAccountUpdateSuccess = useCallback((data: any) => {
     if (data?.needsLogout) {
@@ -130,10 +116,6 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     }
   }, [router]);
   
-  const onDataNeedsRefresh = useCallback(() => {
-    router.refresh();
-  }, [router]);
-
   useEffect(() => {
     setLocale(initialSettings.language);
     setTheme(initialSettings.theme);
@@ -145,17 +127,8 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     router.push('/admin/login');
   };
 
-  const providerValue = useMemo(() => ({
-    handleSetLocale,
-    handleSetTheme,
-    theme,
-    condo: initialCondo,
-    onDataNeedsRefresh,
-  }), [handleSetLocale, handleSetTheme, theme, initialCondo, onDataNeedsRefresh]);
-
   return (
-    <CondoDashboardContext.Provider value={providerValue}>
-      <div className="flex min-h-screen w-full flex-col bg-muted/40">
+    <div className="flex min-h-screen w-full flex-col bg-muted/40">
         <AdminHeader 
             session={session}
             condoName={initialCondo.name}
@@ -178,10 +151,10 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
               </TabsList>
               <div className="mt-4">
                   <TabsContent value="users" forceMount className={cn(activeTab !== 'users' && 'hidden')}>
-                      <ManageUsersTab />
+                      <ManageUsersTab condoId={initialCondo.id} initialUsers={[]}/>
                   </TabsContent>
                   <TabsContent value="devices" forceMount className={cn(activeTab !== 'devices' && 'hidden')}>
-                      <ManageDevicesTab initialDevices={initialDevices} />
+                      <ManageDevicesTab condoId={initialCondo.id} initialDevices={initialDevices} />
                   </TabsContent>
                   <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
                       <CondoMapTab 
@@ -211,7 +184,6 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
             </AlertDialogContent>
         </AlertDialog>
 
-      </div>
-    </CondoDashboardContext.Provider>
+    </div>
   );
 }
