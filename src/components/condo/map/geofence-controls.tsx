@@ -168,7 +168,7 @@ export function GeofenceControls({
         setMode('editing');
 
         removeInteractions();
-        const modify = new Modify({ source: source, features: [featureToEdit] });
+        const modify = new Modify({ source: source, features: source.getFeatures() as any });
         mapRef.current.addInteraction(modify);
         modifyInteractionRef.current = modify;
 
@@ -293,13 +293,16 @@ export function GeofenceControls({
             setIsDrawing(false);
             
             removeInteractions();
+            
+            const featureInSource = source.getFeatureById(newId);
 
-            // Immediately activate modify on the new feature
-            const modify = new Modify({ source, features: [newFeature] });
-            map.addInteraction(modify);
-            modifyInteractionRef.current = modify;
-
-            setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
+            if (featureInSource) {
+                // Immediately activate modify on the new feature
+                const modify = new Modify({ source, features: [featureInSource] });
+                map.addInteraction(modify);
+                modifyInteractionRef.current = modify;
+                setActiveShapeState({ id: newId, feature: featureInSource, originalGeometry: null });
+            }
         });
 
         drawingInteractionRef.current = newInteraction;
@@ -466,3 +469,5 @@ export function GeofenceControls({
         </div>
     );
 }
+
+    
