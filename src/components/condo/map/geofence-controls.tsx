@@ -36,7 +36,7 @@ import { Draw, Modify, Translate } from 'ol/interaction';
 import GeoJSON from 'ol/format/GeoJSON';
 import { createBox } from 'ol/interaction/Draw';
 import type { Vector as VectorSource } from 'ol/source';
-import type { Geometry, Polygon } from 'ol/geom';
+import type { Geometry, Polygon, SimpleGeometry } from 'ol/geom';
 
 
 export type DrawingMode = 'Polygon' | 'Rectangle' | 'Circle';
@@ -174,7 +174,13 @@ export function GeofenceControls({
         setHistoryIndex(-1);
     }, [activeShapeState, removeInteractions, setActiveShapeState, geofences, setGeofences, geofenceSourceRef, setHistoryStack, setHistoryIndex]);
       
-     const startEditingSelected = useCallback(() => {
+    const isRectangle = (geom: Geometry | undefined): geom is Polygon => {
+        if (!geom || geom.getType() !== 'Polygon') return false;
+        const coords = (geom as Polygon).getCoordinates()[0];
+        return coords.length === 5; // Rectangles drawn with ol have 5 points (first==last)
+    };
+
+    const startEditingSelected = useCallback(() => {
         const source = geofenceSourceRef();
         if (!selectedGeofenceId || !source || !mapRef.current) return;
     
@@ -187,47 +193,40 @@ export function GeofenceControls({
         setMode('editing');
         removeInteractions();
     
-        const isRectangle = (geom: Geometry | undefined): boolean => {
-            if (!geom || geom.getType() !== 'Polygon') return false;
-            const coordinates = (geom as any).getCoordinates()[0];
-            return coordinates.length === 5 &&
-                   coordinates[0][0] === coordinates[4][0] &&
-                   coordinates[0][1] === coordinates[4][1];
-        };
-
         const Collection = require('ol/Collection').default;
         const features = new Collection([featureToEdit]);
         const geometry = featureToEdit.getGeometry();
         if (!geometry) return;
-        
+    
+        let originalCoords: number[][] | undefined;
+    
         const modify = new Modify({
             features: features,
             insertVertexCondition: () => !isRectangle(featureToEdit.getGeometry()),
         });
     
-        let originalCoords: number[][] | undefined;
-        let modifiying = false;
-
         modify.on('modifystart', (event) => {
-            modifiying = true;
-            originalCoords = (event.features.item(0).getGeometry() as Polygon).getCoordinates()[0].slice();
+            const geom = event.features.item(0).getGeometry();
+            if (geom) {
+                originalCoords = (geom as Polygon).getCoordinates()[0].slice();
+            }
         });
-    
+
         modify.on('modifying', (event) => {
-            if (!isRectangle(event.features.item(0).getGeometry())) return;
+            if (!originalCoords || !isRectangle(event.features.item(0).getGeometry())) return;
             
             const feature = event.features.item(0);
             const modifiedCoords = (feature.getGeometry() as Polygon).getCoordinates()[0];
-
             let movedIndex = -1;
+
             for (let i = 0; i < 4; i++) {
-                if (originalCoords && (originalCoords[i][0] !== modifiedCoords[i][0] || originalCoords[i][1] !== modifiedCoords[i][1])) {
+                if (originalCoords[i][0] !== modifiedCoords[i][0] || originalCoords[i][1] !== modifiedCoords[i][1]) {
                     movedIndex = i;
                     break;
                 }
             }
 
-            if (movedIndex !== -1 && originalCoords) {
+            if (movedIndex !== -1) {
                 const oppositeIndex = (movedIndex + 2) % 4;
                 const movedPoint = modifiedCoords[movedIndex];
                 const oppositePoint = originalCoords[oppositeIndex];
@@ -238,17 +237,18 @@ export function GeofenceControls({
                 newCoords[(movedIndex + 1) % 4] = [oppositePoint[0], movedPoint[1]];
                 newCoords[(movedIndex + 3) % 4] = [movedPoint[0], oppositePoint[1]];
                 newCoords[4] = [...newCoords[0]];
-                
+
+                console.log("New Coords:", newCoords);
                 const PolygonGeom = require('ol/geom/Polygon').default;
                 feature.setGeometry(new PolygonGeom([newCoords]));
             }
         });
-
+    
         modify.on('modifyend', (event) => {
-            if (modifiying) {
-                const finalGeometry = event.features.item(0).getGeometry()!;
-                pushToHistory(finalGeometry);
-                modifiying = false;
+            if (event.features.getLength() > 0) {
+                 const finalGeometry = event.features.item(0).getGeometry()!;
+                 pushToHistory(finalGeometry);
+                 originalCoords = undefined;
             }
         });
     
@@ -271,8 +271,9 @@ export function GeofenceControls({
     
         setHistoryStack([geometry.clone()]);
         setHistoryIndex(0);
+
     }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef, translateInteractionRef, geofenceSourceRef, pushToHistory, setHistoryStack, setHistoryIndex]);
-      
+
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
         const { id, feature } = activeShapeState;
@@ -380,13 +381,13 @@ export function GeofenceControls({
             const Collection = require('ol/Collection').default;
             const features = new Collection([newFeature]);
             
-            const modify = new Modify({ features: features, insertVertexCondition: () => false, });
-            modify.on('modifyend', () => pushToHistory(newFeature.getGeometry()!));
+            const modify = new Modify({ features: features, insertVertexCondition: () => !isRectangle(newFeature.getGeometry()), });
+            modify.on('modifyend', (e) => pushToHistory(e.features.item(0).getGeometry()!));
             map.addInteraction(modify);
             modifyInteractionRef.current = modify;
 
             const translate = new Translate({ features: features });
-            translate.on('translateend', () => pushToHistory(newFeature.getGeometry()!));
+            translate.on('translateend', (e) => pushToHistory(e.features.item(0).getGeometry()!));
             map.addInteraction(translate);
             translateInteractionRef.current = translate;
 
@@ -573,5 +574,7 @@ export function GeofenceControls({
         </div>
     );
 }
+
+    
 
     
