@@ -22,7 +22,6 @@ import {
   EyeOff,
   Edit
 } from 'lucide-react';
-import { isEqual, debounce } from 'lodash';
 
 import type { Condominio } from '@/actions/condos';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -237,7 +236,6 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                             
                             {selectedModule === 'geofence' && (
                                 <div className="space-y-4 pt-4 border-t mt-4 flex-grow flex flex-col">
-                                    
                                     <div className="grid grid-cols-2 gap-4 items-end">
                                       <div>
                                           <Label htmlFor='default-geofence-display'>{t('condoDashboard.map.geofence.defaultLabel')}</Label>
@@ -284,9 +282,12 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                     
                                     <fieldset className="border rounded-md p-4 pt-2 space-y-4 mt-auto">
                                         <legend className="-ml-1 px-1 text-sm font-medium flex items-center">
-                                            <Checkbox id="enable-editing" checked={isEditMode} onCheckedChange={(checked) => setIsEditMode(!!checked)} />
                                             <Label htmlFor="enable-editing" className="ml-2 font-semibold text-foreground">{t('adminDashboard.settingsGroups.catalogs.deviceTypes.editMode')}</Label>
                                         </legend>
+                                        <div className="flex items-center space-x-2">
+                                            <Checkbox id="enable-editing" checked={isEditMode} onCheckedChange={(checked) => setIsEditMode(!!checked)} />
+                                            <Label htmlFor="enable-editing">Habilitar edição</Label>
+                                        </div>
                                         {isEditMode && (
                                             <div className="space-y-4 animate-in fade-in-50">
                                                 <Select value={shapeType} onValueChange={(v) => setShapeType(v as any)}>
@@ -327,3 +328,5 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     </>
   );
 }
+
+    
