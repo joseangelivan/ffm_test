@@ -38,9 +38,6 @@ import { createBox } from 'ol/interaction/Draw';
 import type { Geometry, Polygon, SimpleGeometry } from 'ol/geom';
 import Collection from 'ol/Collection';
 import type VectorSource from 'ol/source/Vector';
-import Style from 'ol/style/Style';
-import CircleStyle from 'ol/style/Circle';
-import Fill from 'ol/style/Fill';
 
 
 const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
@@ -68,13 +65,27 @@ const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: num
     const verticeOpuesto = verticesOriginales[indiceOpuesto];
     
     const nuevoRectangulo = [
-        [verticeMovido[0], verticeMovido[1]],
-        [verticeOpuesto[0], verticeMovido[1]],
-        [verticeOpuesto[0], verticeOpuesto[1]],
         [verticeMovido[0], verticeOpuesto[1]],
+        [verticeOpuesto[0], verticeOpuesto[1]],
+        [verticeOpuesto[0], verticeMovido[1]],
+        [verticeMovido[0], verticeMovido[1]],
     ];
   
-  return [...nuevoRectangulo, nuevoRectangulo[0]];
+    // Reordenar para asegurar la forma correcta del polígono
+    const xs = nuevoRectangulo.map(v => v[0]);
+    const ys = nuevoRectangulo.map(v => v[1]);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+
+    return [
+        [minX, minY],
+        [maxX, minY],
+        [maxX, maxY],
+        [minX, maxY],
+        [minX, minY]
+    ];
 };
 
 
@@ -143,7 +154,6 @@ export function GeofenceControls({
         modify: null,
         translate: null
     });
-    const draggedVertexRef = useRef<number[] | null>(null);
     
     const geofenceSourceRef = useRef<VectorSource | null>(null);
     useEffect(() => {
@@ -356,50 +366,51 @@ export function GeofenceControls({
             } else if (activeShapeState?.feature) {
                 const featureToEdit = activeShapeState.feature;
                 const features = new Collection([featureToEdit]);
-                let modifyInteraction;
                 const isRectangle = featureToEdit.get('geometryType') === 'Rectangle';
+                let originalGeometryOnModifyStart: Geometry | undefined;
 
-                 if (isRectangle) {
-                    const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
-                        const originalVertices = (featureToEdit.getGeometry() as Polygon).getCoordinates()[0].slice(0, 4);
+                const modifyInteraction = new Modify({ features, insertVertexCondition: () => !isRectangle });
 
-                        if(draggedVertexRef.current) {
-                            const movedIndex = originalVertices.findIndex(v => v[0] === draggedVertexRef.current![0] && v[1] === draggedVertexRef.current![1]);
-                            if (movedIndex !== -1) {
-                                const newPoint = coordinates[0][movedIndex];
-                                const newCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
-                                geometry.setCoordinates([newCoords]);
+                modifyInteraction.on('modifystart', (e) => {
+                    originalGeometryOnModifyStart = (e.features.getArray()[0].getGeometry() as Geometry)?.clone();
+                });
+
+                modifyInteraction.on('modifyend', (e) => {
+                    const feature = e.features.getArray()[0] as Feature<Polygon>;
+                    const modifiedGeometry = feature.getGeometry();
+
+                    if (isRectangle && modifiedGeometry && originalGeometryOnModifyStart) {
+                        const originalVertices = (originalGeometryOnModifyStart as Polygon).getCoordinates()[0].slice(0, 4);
+                        const newVertices = modifiedGeometry.getCoordinates()[0];
+
+                        let movedIndex = -1;
+                        for (let i = 0; i < originalVertices.length; i++) {
+                            const originalVertex = originalVertices[i];
+                            const isStillPresent = newVertices.some(nv => nv[0] === originalVertex[0] && nv[1] === originalVertex[1]);
+                            if (!isStillPresent) {
+                                movedIndex = i;
+                                break;
                             }
                         }
-                        
-                        return geometry;
-                    };
-                    
-                    modifyInteraction = new Modify({ features, geometryFunction });
-                    
-                    modifyInteraction.on('modifystart', (e) => {
-                        const feature = e.features.getArray()[0] as Feature<Polygon>;
-                        const clickCoord = (e.mapBrowserEvent as any).coordinate;
-                        const geom = feature.getGeometry();
-                        if (geom) {
-                            const closestPoint = geom.getClosestPoint(clickCoord);
-                            draggedVertexRef.current = closestPoint;
+
+                        let movedVertex: number[] | undefined;
+                        for (let i = 0; i < newVertices.length; i++) {
+                           const newVertex = newVertices[i];
+                           const isOriginal = originalVertices.some(ov => ov[0] === newVertex[0] && ov[1] === newVertex[1]);
+                           if (!isOriginal && newVertices.filter(v => v[0] === newVertex[0] && v[1] === newVertex[1]).length === 1) {
+                                movedVertex = newVertex;
+                                break;
+                           }
                         }
-                    });
-                    
-                    modifyInteraction.on('modifyend', (e) => {
-                        draggedVertexRef.current = null;
-                        const feature = e.features.getArray()[0];
-                        if (feature) pushToHistory(feature.getGeometry()!.clone());
-                    });
-                } else {
-                    modifyInteraction = new Modify({ features, insertVertexCondition: () => false });
-                     modifyInteraction.on('modifyend', (event: any) => {
-                        const feature = event.features.getArray()[0];
-                        if (feature) pushToHistory(feature.getGeometry()!.clone());
-                    });
-                }
-                
+                        
+                        if (movedIndex !== -1 && movedVertex) {
+                           const correctedCoords = RecalcularRectangulo(originalVertices, movedVertex, movedIndex);
+                           feature.getGeometry()!.setCoordinates(correctedCoords);
+                        }
+                    }
+                    pushToHistory(feature.getGeometry()!.clone());
+                });
+
                 map.addInteraction(modifyInteraction);
                 interactionsRef.current.modify = modifyInteraction;
 
