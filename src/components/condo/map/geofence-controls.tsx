@@ -361,26 +361,15 @@ export function GeofenceControls({
 
                  if (isRectangle) {
                     const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
-                        if (draggedVertexRef.current) {
-                            const originalVertices = (featureToEdit.getGeometry() as Polygon).getCoordinates()[0].slice(0, 4);
-                            
-                            let movedIndex = -1;
-                            for (let i = 0; i < originalVertices.length; i++) {
-                                if (originalVertices[i][0] === draggedVertexRef.current[0] && originalVertices[i][1] === draggedVertexRef.current[1]) {
-                                    movedIndex = i;
-                                    break;
-                                }
-                            }
-                            
+                        const originalVertices = (featureToEdit.getGeometry() as Polygon).getCoordinates()[0].slice(0, 4);
+
+                        if(draggedVertexRef.current) {
+                            const movedIndex = originalVertices.findIndex(v => v[0] === draggedVertexRef.current![0] && v[1] === draggedVertexRef.current![1]);
                             if (movedIndex !== -1) {
                                 const newPoint = coordinates[0][movedIndex];
                                 const newCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
                                 geometry.setCoordinates([newCoords]);
-                            } else {
-                                geometry.setCoordinates(coordinates);
                             }
-                        } else {
-                            geometry.setCoordinates(coordinates);
                         }
                         
                         return geometry;
@@ -390,7 +379,7 @@ export function GeofenceControls({
                     
                     modifyInteraction.on('modifystart', (e) => {
                         const feature = e.features.getArray()[0] as Feature<Polygon>;
-                        const clickCoord = e.mapBrowserEvent.coordinate;
+                        const clickCoord = (e.mapBrowserEvent as any).coordinate;
                         const geom = feature.getGeometry();
                         if (geom) {
                             const closestPoint = geom.getClosestPoint(clickCoord);
