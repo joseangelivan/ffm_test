@@ -224,7 +224,15 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
             let feature = source.getFeatureById(dbGeofence.id);
             if (feature) {
-                feature.setGeometry(olGeom);
+                // To prevent issues, only update if geometry is truly different
+                const currentGeom = feature.getGeometry();
+                if (currentGeom) {
+                    const currentCoords = JSON.stringify(currentGeom.getCoordinates());
+                    const newCoords = JSON.stringify(olGeom.getCoordinates());
+                    if(currentCoords !== newCoords) {
+                         feature.setGeometry(olGeom);
+                    }
+                }
             } else {
                 feature = new Feature({ geometry: olGeom });
                 feature.setId(dbGeofence.id);
@@ -238,7 +246,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         source.getFeatures().forEach(feature => {
             const featureId = feature.getId();
             if (typeof featureId === 'string' && !dbGeofenceIds.has(featureId)) {
-                if (!activeShapeState || activeShapeState.id !== featureId) {
+                 if (!activeShapeState || activeShapeState.id !== featureId) {
                     source.removeFeature(feature);
                 }
             }
