@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef } from 'react';
@@ -69,6 +70,33 @@ type GeofenceControlsProps = {
     setDebugInfo: React.Dispatch<React.SetStateAction<string>>;
 }
 
+const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
+  const indiceOpuesto = (indiceMovido + 2) % 4;
+  const verticeOpuesto = verticesOriginales[indiceOpuesto];
+  const nuevoRectangulo = new Array(4);
+  
+  nuevoRectangulo[indiceMovido] = verticeMovido;
+  nuevoRectangulo[indiceOpuesto] = verticeOpuesto;
+  
+  const indiceLateral1 = (indiceMovido + 1) % 4;
+  nuevoRectangulo[indiceLateral1] = [verticeMovido[0], verticeOpuesto[1]];
+  
+  const indiceLateral2 = (indiceMovido + 3) % 4;
+  nuevoRectangulo[indiceLateral2] = [verticeOpuesto[0], verticeMovido[1]];
+  
+  // Reorder to ensure correct drawing path for OpenLayers
+  const finalCoords = [
+    nuevoRectangulo[0],
+    nuevoRectangulo[3],
+    nuevoRectangulo[2],
+    nuevoRectangulo[1],
+    nuevoRectangulo[0] // Close the polygon
+  ];
+
+  return finalCoords;
+};
+
+
 export function GeofenceControls({
     condoId,
     geofences,
@@ -105,10 +133,7 @@ export function GeofenceControls({
 
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
-    
-    const modifyingCallbackRef = useRef<(event: any) => void>();
-    const modifyEndCallbackRef = useRef<(event: any) => void>();
-    
+        
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
     const pushToHistory = useCallback((geometry: Geometry) => {
@@ -178,84 +203,6 @@ export function GeofenceControls({
         setHistoryIndex(-1);
     }, [activeShapeState, removeInteractions, setActiveShapeState, setMode, geofences, setGeofences, geofenceSourceRef, setHistoryStack, setHistoryIndex]);
 
-     useEffect(() => {
-        if (!activeShapeState || !modifyInteractionRef.current) return;
-
-        const modify = modifyInteractionRef.current;
-
-        const onModifyStart = (event: any) => {
-            const feature = event.features.getArray()[0] as Feature<Polygon>;
-            feature.set('originalCoordinates', feature.getGeometry()?.getCoordinates()[0].slice(0, 4));
-        };
-
-        const onModifying = (event: any) => {
-            const feature = event.features.getArray()[0] as Feature<Polygon>;
-            if (feature.get('geometryType') !== 'Rectangle') return;
-
-            const originalCoords = feature.get('originalCoordinates') as number[][];
-            const currentCoords = feature.getGeometry()?.getCoordinates()[0].slice(0, 4) as number[][];
-            if (!originalCoords || !currentCoords) return;
-            
-            let movedIndex = -1;
-            for (let i = 0; i < 4; i++) {
-                if (originalCoords[i][0] !== currentCoords[i][0] || originalCoords[i][1] !== currentCoords[i][1]) {
-                    movedIndex = i;
-                    break;
-                }
-            }
-
-            if (movedIndex === -1) return;
-
-            const movedVertex = currentCoords[movedIndex];
-            const oppositeIndex = (movedIndex + 2) % 4;
-            const oppositeVertex = originalCoords[oppositeIndex];
-
-            const newCoords = new Array(4);
-            newCoords[movedIndex] = movedVertex;
-            newCoords[oppositeIndex] = oppositeVertex;
-            newCoords[(movedIndex + 1) % 4] = [movedVertex[0], oppositeVertex[1]];
-            newCoords[(movedIndex + 3) % 4] = [oppositeVertex[0], movedVertex[1]];
-
-            // Reorder to ensure correct drawing path
-            const finalCoords = [
-                newCoords[0],
-                newCoords[3],
-                newCoords[2],
-                newCoords[1],
-                newCoords[0]
-            ];
-            
-            feature.getGeometry()?.setCoordinates([finalCoords]);
-            
-            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-            const geomForDebug = format.writeGeometryObject(feature.getGeometry()!);
-            setDebugInfo(`Corrigiendo...\nCoords: ${JSON.stringify(geomForDebug, null, 2)}`);
-        };
-        
-        const onModifyEnd = (event: any) => {
-             const feature = event.features.getArray()[0];
-             feature.unset('originalCoordinates');
-             const finalGeometry = feature.getGeometry();
-             if (finalGeometry) {
-                pushToHistory(finalGeometry);
-                 const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-                const finalGeomForDebug = format.writeGeometryObject(finalGeometry);
-                setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(finalGeomForDebug, null, 2)}`);
-             }
-        }
-
-        modify.on('modifystart', onModifyStart);
-        modify.on('modifying', onModifying);
-        modify.on('modifyend', onModifyEnd);
-
-        return () => {
-            modify.un('modifystart', onModifyStart);
-            modify.un('modifying', onModifying);
-            modify.un('modifyend', onModifyEnd);
-        }
-    }, [activeShapeState, modifyInteractionRef, pushToHistory, setDebugInfo]);
-
-
     const startEditingSelected = useCallback(() => {
         const source = geofenceSourceRef();
         const map = mapRef.current;
@@ -294,7 +241,52 @@ export function GeofenceControls({
             setHistoryStack([initialGeom.clone()]);
             setHistoryIndex(0);
         }
-    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef, translateInteractionRef, geofenceSourceRef, setHistoryStack, setHistoryIndex]);
+
+        modify.on('modifystart', (event) => {
+            const feature = event.features.getArray()[0] as Feature<Polygon>;
+            feature.set('originalCoordinates', feature.getGeometry()?.getCoordinates()[0].slice(0, 4));
+        });
+
+        modify.on('modifying', (event) => {
+            const feature = event.features.getArray()[0] as Feature<Polygon>;
+            if (feature.get('geometryType') !== 'Rectangle') return;
+
+            const originalCoords = feature.get('originalCoordinates') as number[][];
+            const currentCoords = feature.getGeometry()?.getCoordinates()[0].slice(0, 4) as number[][];
+
+            if (!originalCoords || !currentCoords || originalCoords.length !== 4 || currentCoords.length !== 4) return;
+
+            let movedIndex = -1;
+            for (let i = 0; i < 4; i++) {
+                if (originalCoords[i][0] !== currentCoords[i][0] || originalCoords[i][1] !== currentCoords[i][1]) {
+                    movedIndex = i;
+                    break;
+                }
+            }
+
+            if (movedIndex === -1) return;
+
+            const correctedCoords = RecalcularRectangulo(originalCoords, currentCoords[movedIndex], movedIndex);
+            feature.getGeometry()?.setCoordinates([correctedCoords]);
+            
+            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+            const geomForDebug = format.writeGeometryObject(feature.getGeometry()!);
+            setDebugInfo(`Corrigiendo...\nCoords: ${JSON.stringify(geomForDebug, null, 2)}`);
+        });
+
+        modify.on('modifyend', (event) => {
+            const feature = event.features.getArray()[0];
+            feature.unset('originalCoordinates');
+            const finalGeometry = feature.getGeometry();
+            if (finalGeometry) {
+                pushToHistory(finalGeometry);
+                const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+                const finalGeomForDebug = format.writeGeometryObject(finalGeometry);
+                setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(finalGeomForDebug, null, 2)}`);
+            }
+        });
+
+    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef, translateInteractionRef, geofenceSourceRef, setHistoryStack, setHistoryIndex, pushToHistory, setDebugInfo]);
 
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
