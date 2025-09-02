@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef } from 'react';
@@ -39,32 +40,33 @@ import type { Geometry, Polygon, SimpleGeometry } from 'ol/geom';
 
 
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
-  // SOLUCIÓN SIMPLE Y EFECTIVA: Recalcular basado en el vértice movido y su opuesto
+  // Estrategia: Convertir a bounding box y luego reconstruir el rectángulo
+  // Esto garantiza que siempre sea rectangular
   
-  const indiceOpuesto = (indiceMovido + 2) % 4;
-  const verticeOpuesto = verticesOriginales[indiceOpuesto];
+  // 1. Crear un array con todos los vértices incluyendo el movido
+  const todosLosVertices = verticesOriginales.map((v, i) => 
+    i === indiceMovido ? verticeMovido : v
+  );
   
-  // Los vértices adyacentes toman una coordenada de cada extremo
-  const indiceAdyacente1 = (indiceMovido + 1) % 4;
-  const indiceAdyacente2 = (indiceMovido + 3) % 4;
+  // 2. Encontrar los límites del bounding box
+  const xs = todosLosVertices.map(v => v[0]);
+  const ys = todosLosVertices.map(v => v[1]);
   
-  const nuevoRectangulo = new Array(4);
-  nuevoRectangulo[indiceMovido] = verticeMovido;
-  nuevoRectangulo[indiceOpuesto] = verticeOpuesto;
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
   
-  // Determinar qué coordenadas tomar de cada vértice
-  // basado en la posición del vértice movido
-  if (indiceMovido % 2 === 0) {
-    // Vértice en esquina (0 o 2)
-    nuevoRectangulo[indiceAdyacente1] = [verticeMovido[0], verticeOpuesto[1]];
-    nuevoRectangulo[indiceAdyacente2] = [verticeOpuesto[0], verticeMovido[1]];
-  } else {
-    // Vértice en lado (1 o 3)
-    nuevoRectangulo[indiceAdyacente1] = [verticeOpuesto[0], verticeMovido[1]];
-    nuevoRectangulo[indiceAdyacente2] = [verticeMovido[0], verticeOpuesto[1]];
-  }
+  // 3. Reconstruir el rectángulo perfecto
+  const rectanguloPerfecto = [
+    [minX, minY], // esquina inferior izquierda
+    [maxX, minY], // esquina inferior derecha
+    [maxX, maxY], // esquina superior derecha
+    [minX, maxY]  // esquina superior izquierda
+  ];
   
-  return [...nuevoRectangulo, nuevoRectangulo[0]];
+  // 4. Para OpenLayers, cerrar el polígono
+  return [...rectanguloPerfecto, rectanguloPerfecto[0]];
 };
 
 
