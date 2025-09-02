@@ -35,7 +35,8 @@ import { LoadingOverlay } from '@/components/admin/admin-header';
 import { Draw, Modify, Translate } from 'ol/interaction';
 import GeoJSON from 'ol/format/GeoJSON';
 import { createBox } from 'ol/interaction/Draw';
-import type { Geometry, Polygon, SimpleGeometry } from 'ol/geom';
+import { Polygon } from 'ol/geom';
+import type { Geometry, SimpleGeometry } from 'ol/geom';
 import Collection from 'ol/Collection';
 import type VectorSource from 'ol/source/Vector';
 
@@ -45,22 +46,6 @@ const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
 }
 
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
-    const olPolygon = require('ol/geom/Polygon').default;
-
-    const poligonoOriginal = new olPolygon([verticesOriginales]);
-    if (!puntoEstaDentro(poligonoOriginal, verticeMovido)) {
-        const tempVertices = [...verticesOriginales];
-        tempVertices[indiceMovido] = verticeMovido;
-        const xs = tempVertices.map(v => v[0]);
-        const ys = tempVertices.map(v => v[1]);
-        const minX = Math.min(...xs);
-        const maxX = Math.max(...xs);
-        const minY = Math.min(...ys);
-        const maxY = Math.max(...ys);
-        const rectanguloPerfecto = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]];
-        return [...rectanguloPerfecto, rectanguloPerfecto[0]];
-    }
-
     const indiceOpuesto = (indiceMovido + 2) % 4;
     const verticeOpuesto = verticesOriginales[indiceOpuesto];
     
@@ -367,48 +352,48 @@ export function GeofenceControls({
                 const featureToEdit = activeShapeState.feature;
                 const features = new Collection([featureToEdit]);
                 const isRectangle = featureToEdit.get('geometryType') === 'Rectangle';
-                let originalGeometryOnModifyStart: Geometry | undefined;
+                let originalGeometryOnModifyStart = useRef<Geometry | null>(null);
 
                 const modifyInteraction = new Modify({ features, insertVertexCondition: () => !isRectangle });
 
                 modifyInteraction.on('modifystart', (e) => {
-                    originalGeometryOnModifyStart = (e.features.getArray()[0].getGeometry() as Geometry)?.clone();
+                    originalGeometryOnModifyStart.current = (e.features.getArray()[0].getGeometry() as Geometry)?.clone() || null;
                 });
-
+                
                 modifyInteraction.on('modifyend', (e) => {
                     const feature = e.features.getArray()[0] as Feature<Polygon>;
                     const modifiedGeometry = feature.getGeometry();
-
-                    if (isRectangle && modifiedGeometry && originalGeometryOnModifyStart) {
-                        const originalVertices = (originalGeometryOnModifyStart as Polygon).getCoordinates()[0].slice(0, 4);
+                
+                    if (isRectangle && modifiedGeometry && originalGeometryOnModifyStart.current) {
+                        const originalVertices = (originalGeometryOnModifyStart.current as Polygon).getCoordinates()[0].slice(0, 4);
                         const newVertices = modifiedGeometry.getCoordinates()[0];
-
+                
                         let movedIndex = -1;
-                        for (let i = 0; i < originalVertices.length; i++) {
-                            const originalVertex = originalVertices[i];
-                            const isStillPresent = newVertices.some(nv => nv[0] === originalVertex[0] && nv[1] === originalVertex[1]);
-                            if (!isStillPresent) {
-                                movedIndex = i;
-                                break;
+                        let newPoint: number[] | undefined;
+                
+                        // Find the new point that doesn't exist in the original vertices
+                        newPoint = newVertices.find(nv => !originalVertices.some(ov => ov[0] === nv[0] && ov[1] === nv[1]));
+                
+                        // Find the index of the vertex that was moved
+                        if(newPoint){
+                            for(let i=0; i < originalVertices.length; i++){
+                                if(!newVertices.some(nv => nv[0] === originalVertices[i][0] && nv[1] === originalVertices[i][1])){
+                                    movedIndex = i;
+                                    break;
+                                }
                             }
                         }
-
-                        let movedVertex: number[] | undefined;
-                        for (let i = 0; i < newVertices.length; i++) {
-                           const newVertex = newVertices[i];
-                           const isOriginal = originalVertices.some(ov => ov[0] === newVertex[0] && ov[1] === newVertex[1]);
-                           if (!isOriginal && newVertices.filter(v => v[0] === newVertex[0] && v[1] === newVertex[1]).length === 1) {
-                                movedVertex = newVertex;
-                                break;
-                           }
-                        }
-                        
-                        if (movedIndex !== -1 && movedVertex) {
-                           const correctedCoords = RecalcularRectangulo(originalVertices, movedVertex, movedIndex);
-                           feature.getGeometry()!.setCoordinates(correctedCoords);
+                
+                        if (movedIndex !== -1 && newPoint) {
+                            const correctedCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
+                            feature.setGeometry(new Polygon([correctedCoords]));
                         }
                     }
-                    pushToHistory(feature.getGeometry()!.clone());
+                    
+                    if (feature.getGeometry()) {
+                      pushToHistory(feature.getGeometry()!.clone());
+                    }
+                    originalGeometryOnModifyStart.current = null;
                 });
 
                 map.addInteraction(modifyInteraction);
