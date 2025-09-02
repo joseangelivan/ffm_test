@@ -38,6 +38,9 @@ import { createBox } from 'ol/interaction/Draw';
 import type { Geometry, Polygon, SimpleGeometry } from 'ol/geom';
 import Collection from 'ol/Collection';
 import type VectorSource from 'ol/source/Vector';
+import Style from 'ol/style/Style';
+import CircleStyle from 'ol/style/Circle';
+import Fill from 'ol/style/Fill';
 
 
 const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
@@ -54,8 +57,13 @@ const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: num
         [verticeOpuesto[0], verticeOpuesto[1]],
         [verticeMovido[0], verticeOpuesto[1]],
     ];
+
+    const esValido = nuevoRectangulo.every(v => !isNaN(v[0]) && !isNaN(v[1]));
+    if (!esValido) {
+      return verticesOriginales;
+    }
   
-  return [...nuevoRectangulo, nuevoRectangulo[0]];
+    return [...nuevoRectangulo, nuevoRectangulo[0]];
 };
 
 
@@ -70,6 +78,7 @@ type GeofenceControlsProps = {
     onDataNeedsRefresh: (newSelectedId?: string) => void;
     onShapeDrawn: (feature: Feature) => void;
     activeShapeState: ActiveShapeState;
+    setActiveShapeState: React.Dispatch<React.SetStateAction<ActiveShapeState>>;
     selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
     defaultGeofenceId: string | null;
@@ -92,6 +101,7 @@ export function GeofenceControls({
     onDataNeedsRefresh,
     onShapeDrawn,
     activeShapeState,
+    setActiveShapeState,
     selectedGeofenceId,
     setSelectedGeofenceId,
     defaultGeofenceId,
@@ -189,11 +199,11 @@ export function GeofenceControls({
         }
         
         removeAllInteractions();
-        onShapeDrawn(new Feature());
+        setActiveShapeState(null);
         setCurrentGeofenceName('');
         setHistoryStack([]);
         setHistoryIndex(-1);
-    }, [activeShapeState, removeAllInteractions, onShapeDrawn, setHistoryStack, setHistoryIndex]);
+    }, [activeShapeState, removeAllInteractions, setActiveShapeState, setHistoryStack, setHistoryIndex]);
     
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
@@ -286,14 +296,19 @@ export function GeofenceControls({
         cancelCurrentAction();
         setIsDrawing(false);
         
-        onShapeDrawn(featureToEdit);
+        const originalGeom = featureToEdit.getGeometry()?.clone();
+        
+        setActiveShapeState({
+            id: selectedGeofenceId,
+            feature: featureToEdit,
+            originalGeometry: originalGeom ? new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(originalGeom) : null
+        });
         setCurrentGeofenceName(selectedGeofence.name);
         
-        const initialGeom = featureToEdit.getGeometry();
-        if (initialGeom) {
-            pushToHistory(initialGeom);
+        if (originalGeom) {
+            pushToHistory(originalGeom);
         }
-    }, [geofences, selectedGeofenceId, onShapeDrawn, pushToHistory, cancelCurrentAction]);
+    }, [geofences, selectedGeofenceId, setActiveShapeState, pushToHistory, cancelCurrentAction]);
     
      useEffect(() => {
         const map = mapRef.current;
@@ -331,37 +346,34 @@ export function GeofenceControls({
                 let modifyInteraction;
                 const isRectangle = featureToEdit.get('geometryType') === 'Rectangle';
 
-                if (isRectangle) {
-                    let pointerDownCoordinate: number[] | null = null;
-
-                    map.on('pointerdown', (evt) => {
-                        pointerDownCoordinate = evt.coordinate;
-                    });
-                    
+                 if (isRectangle) {
                     const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
                         const originalPolygon = (featureToEdit.getGeometry() as Polygon);
                         const originalVertices = originalPolygon.getCoordinates()[0].slice(0, 4);
+                        const modifiedCoordinates = coordinates[0];
 
-                        if (!pointerDownCoordinate) {
-                            geometry.setCoordinates(coordinates);
-                            return geometry;
+                        let movedVertexIndex = -1;
+                        let newVertexPosition: number[] = [];
+
+                        for (let i = 0; i < modifiedCoordinates.length; i++) {
+                            const modCoord = modifiedCoordinates[i];
+                            const isOriginal = originalVertices.some(origCoord => origCoord[0] === modCoord[0] && origCoord[1] === modCoord[1]);
+                            if (!isOriginal) {
+                                newVertexPosition = modCoord;
+                                // Find the original vertex that was replaced.
+                                for (let j=0; j<originalVertices.length; j++) {
+                                    const isStillPresent = modifiedCoordinates.some((c:number[]) => c[0] === originalVertices[j][0] && c[1] === originalVertices[j][1]);
+                                    if(!isStillPresent) {
+                                        movedVertexIndex = j;
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
                         }
 
-                        // Find the vertex closest to where the user clicked
-                        let closestVertexIndex = -1;
-                        let minDistance = Infinity;
-                        originalVertices.forEach((vertex, index) => {
-                            const distance = Math.pow(vertex[0] - pointerDownCoordinate![0], 2) + Math.pow(vertex[1] - pointerDownCoordinate![1], 2);
-                            if (distance < minDistance) {
-                                minDistance = distance;
-                                closestVertexIndex = index;
-                            }
-                        });
-
-                        const draggedVertex = coordinates[0][closestVertexIndex];
-
-                        if (draggedVertex) {
-                           const newCoords = RecalcularRectangulo(originalVertices, draggedVertex, closestVertexIndex);
+                        if (movedVertexIndex !== -1) {
+                           const newCoords = RecalcularRectangulo(originalVertices, newVertexPosition, movedVertexIndex);
                            geometry.setCoordinates([newCoords]);
                         } else {
                            geometry.setCoordinates(coordinates);
@@ -369,7 +381,16 @@ export function GeofenceControls({
                         
                         return geometry;
                     };
-                    modifyInteraction = new Modify({ features, geometryFunction });
+                    modifyInteraction = new Modify({ 
+                        features, 
+                        geometryFunction,
+                        style: new Style({
+                            image: new CircleStyle({
+                                radius: 5,
+                                fill: new Fill({ color: 'red' })
+                            })
+                        })
+                    });
                 } else {
                     modifyInteraction = new Modify({ features, insertVertexCondition: () => false });
                 }
