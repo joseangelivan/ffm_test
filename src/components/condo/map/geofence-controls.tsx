@@ -38,44 +38,41 @@ import type { Geometry, SimpleGeometry } from 'ol/geom';
 import Collection from 'ol/Collection';
 import type VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
+import { Style } from 'ol/style';
 
+
+const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
+    return poligono.intersectsCoordinate(punto);
+}
 
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
-    const PolygonClass = require('ol/geom/Polygon').default;
+    const olPolygon = require('ol/geom/Polygon').default;
 
-    const xs = verticesOriginales.map(v => v[0]);
-    const ys = verticesOriginales.map(v => v[1]);
-    let minX = Math.min(...xs);
-    let maxX = Math.max(...xs);
-    let minY = Math.min(...ys);
-    let maxY = Math.max(...ys);
-
-    // Identificar el vértice que se movió y actualizar las coordenadas del rectángulo
-    switch (indiceMovido) {
-        case 0: // bottom-left
-            minX = verticeMovido[0];
-            minY = verticeMovido[1];
-            break;
-        case 1: // bottom-right
-            maxX = verticeMovido[0];
-            minY = verticeMovido[1];
-            break;
-        case 2: // top-right
-            maxX = verticeMovido[0];
-            maxY = verticeMovido[1];
-            break;
-        case 3: // top-left
-            minX = verticeMovido[0];
-            maxY = verticeMovido[1];
-            break;
+    const poligonoOriginal = new olPolygon([verticesOriginales]);
+    if (!puntoEstaDentro(poligonoOriginal, verticeMovido)) {
+        const tempVertices = [...verticesOriginales];
+        tempVertices[indiceMovido] = verticeMovido;
+        const xs = tempVertices.map(v => v[0]);
+        const ys = tempVertices.map(v => v[1]);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        const rectanguloPerfecto = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]];
+        return [...rectanguloPerfecto, rectanguloPerfecto[0]];
     }
 
-    // Asegurarse de que min < max
-    if (minX > maxX) [minX, maxX] = [maxX, minX];
-    if (minY > maxY) [minY, maxY] = [maxY, minY];
-
-    const rectanguloFinal = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]];
-    return [...rectanguloFinal, rectanguloFinal[0]];
+    const indiceOpuesto = (indiceMovido + 2) % 4;
+    const verticeOpuesto = verticesOriginales[indiceOpuesto];
+    
+    const nuevoRectangulo = [
+        [verticeMovido[0], verticeMovido[1]],
+        [verticeOpuesto[0], verticeMovido[1]],
+        [verticeOpuesto[0], verticeOpuesto[1]],
+        [verticeMovido[0], verticeOpuesto[1]],
+    ];
+  
+  return [...nuevoRectangulo, nuevoRectangulo[0]];
 };
 
 
@@ -253,8 +250,18 @@ export function GeofenceControls({
     
     const handleStartDrawing = () => {
         cancelCurrentAction();
+        const newName = getNextGeofenceName();
+        const newId = `new-shape-${Date.now()}`;
+        const newFeature = new Feature();
+        newFeature.setId(newId);
+
+        setActiveShapeState({
+            id: newId,
+            feature: newFeature,
+            originalGeometry: null
+        });
+        setCurrentGeofenceName(newName);
         setIsDrawing(true);
-        setCurrentGeofenceName(getNextGeofenceName());
     };
 
     const handleDelete = () => {
@@ -292,11 +299,25 @@ export function GeofenceControls({
         const source = geofenceSourceRef.current;
         if (!selectedGeofenceId || !source) return;
 
-        const featureToEdit = source.getFeatureById(selectedGeofenceId) as OlFeature<Polygon>;
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
+        if (!selectedGeofence) return;
 
-        if (!selectedGeofence || !featureToEdit) return;
-
+        let featureToEdit = source.getFeatureById(selectedGeofenceId) as OlFeature<Polygon>;
+        
+        // If feature not on map, create it from DB data
+        if (!featureToEdit) {
+            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+            const geometry = format.readGeometry(selectedGeofence.geometry);
+            if(geometry) {
+                featureToEdit = new Feature(geometry);
+                featureToEdit.setId(selectedGeofence.id);
+                source.addFeature(featureToEdit);
+            } else {
+                toast({ title: t('toast.errorTitle'), description: "No se pudo cargar la geometría de la geocerca.", variant: 'destructive' });
+                return;
+            }
+        }
+        
         cancelCurrentAction();
         setIsDrawing(false);
         
@@ -312,7 +333,7 @@ export function GeofenceControls({
         if (originalGeom) {
             pushToHistory(originalGeom);
         }
-    }, [geofences, selectedGeofenceId, setActiveShapeState, pushToHistory, cancelCurrentAction]);
+    }, [geofences, selectedGeofenceId, setActiveShapeState, pushToHistory, cancelCurrentAction, toast, t]);
     
      useEffect(() => {
         const map = mapRef.current;
@@ -332,14 +353,11 @@ export function GeofenceControls({
                 interactionsRef.current.draw = newInteraction;
 
                 newInteraction.once('drawend', (event) => {
-                    const feature = new Feature({geometry: event.feature.getGeometry()});
-                    const newId = `new-shape-${Date.now()}`;
-                    feature.setId(newId);
+                    const drawnFeature = event.feature;
                     if (drawingMode === 'Rectangle') {
-                        feature.set('geometryType', 'Rectangle');
+                        drawnFeature.set('geometryType', 'Rectangle');
                     }
-                    source.addFeature(feature);
-                    onShapeDrawn(feature);
+                    onShapeDrawn(drawnFeature);
                     setIsDrawing(false);
                 });
 
@@ -350,7 +368,7 @@ export function GeofenceControls({
                 
                  const modifyInteraction = new Modify({ 
                     features: features,
-                    style: new Style({ // Style for the vertex being dragged
+                    style: new Style({
                         image: new (require('ol/style').Circle)({
                             radius: 7,
                             fill: new (require('ol/style').Fill)({ color: 'rgba(255, 0, 0, 0.8)' }),
@@ -382,18 +400,14 @@ export function GeofenceControls({
                     let movedIndex = -1;
                     let newPoint: number[] | undefined;
                     
-                    // Find which vertex was moved
                     for (let i = 0; i < newVertices.length; i++) {
                         const newVertex = newVertices[i];
                         const oldVertexIndex = originalVertices.findIndex(ov => ov[0] === newVertex[0] && ov[1] === newVertex[1]);
                         if (oldVertexIndex === -1) {
                             newPoint = newVertex;
-                            // Find the original vertex that is no longer in the new list
-                            let oldVertexThatMoved;
                             for(let j=0; j<originalVertices.length; j++){
                                 const found = newVertices.find(nv => nv[0] === originalVertices[j][0] && nv[1] === originalVertices[j][1]);
                                 if(!found){
-                                    oldVertexThatMoved = originalVertices[j];
                                     movedIndex = j;
                                     break;
                                 }
@@ -510,7 +524,7 @@ export function GeofenceControls({
                                     <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" disabled={!!activeShapeState?.feature || isBusy || defaultGeofenceId === selectedGeofenceId || !selectedGeofenceId} onClick={handleSetAsDefault}>
+                                                <Button variant="ghost" size="icon" disabled={isBusy || defaultGeofenceId === selectedGeofenceId || !selectedGeofenceId} onClick={handleSetAsDefault}>
                                                     {isSettingDefault ? <Loader className="h-4 w-4 animate-spin"/> : <Star className="h-4 w-4" />}
                                                 </Button>
                                             </TooltipTrigger>
@@ -518,7 +532,7 @@ export function GeofenceControls({
                                         </Tooltip>
                                         <Tooltip>
                                              <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!selectedGeofenceId || isBusy}>
+                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!selectedGeofenceId || isBusy || !!activeShapeState?.feature}>
                                                     <Edit className="h-4 w-4"/>
                                                 </Button>
                                             </TooltipTrigger>
