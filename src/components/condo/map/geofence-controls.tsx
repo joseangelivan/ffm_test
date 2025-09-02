@@ -304,11 +304,10 @@ export function GeofenceControls({
 
         let featureToEdit = source.getFeatureById(selectedGeofenceId) as OlFeature<Polygon>;
         
-        // If feature not on map, create it from DB data
         if (!featureToEdit) {
             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
             const geometry = format.readGeometry(selectedGeofence.geometry);
-            if(geometry) {
+            if (geometry) {
                 featureToEdit = new Feature(geometry);
                 featureToEdit.setId(selectedGeofence.id);
                 source.addFeature(featureToEdit);
@@ -400,20 +399,17 @@ export function GeofenceControls({
                     let movedIndex = -1;
                     let newPoint: number[] | undefined;
                     
-                    for (let i = 0; i < newVertices.length; i++) {
-                        const newVertex = newVertices[i];
-                        const oldVertexIndex = originalVertices.findIndex(ov => ov[0] === newVertex[0] && ov[1] === newVertex[1]);
-                        if (oldVertexIndex === -1) {
-                            newPoint = newVertex;
-                            for(let j=0; j<originalVertices.length; j++){
-                                const found = newVertices.find(nv => nv[0] === originalVertices[j][0] && nv[1] === originalVertices[j][1]);
-                                if(!found){
-                                    movedIndex = j;
-                                    break;
-                                }
-                            }
+                    for (let i = 0; i < originalVertices.length; i++) {
+                        const oldVertex = originalVertices[i];
+                        const newVertexIndex = newVertices.findIndex(nv => nv[0] === oldVertex[0] && nv[1] === oldVertex[1]);
+                        if (newVertexIndex === -1) {
+                            movedIndex = i;
                             break;
                         }
+                    }
+
+                    if (movedIndex !== -1) {
+                        newPoint = newVertices.find(nv => !originalVertices.some(ov => ov[0] === nv[0] && ov[1] === nv[1]));
                     }
 
                     if (movedIndex !== -1 && newPoint) {
@@ -532,7 +528,7 @@ export function GeofenceControls({
                                         </Tooltip>
                                         <Tooltip>
                                              <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!selectedGeofenceId || isBusy || !!activeShapeState?.feature}>
+                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!selectedGeofenceId || isBusy}>
                                                     <Edit className="h-4 w-4"/>
                                                 </Button>
                                             </TooltipTrigger>
