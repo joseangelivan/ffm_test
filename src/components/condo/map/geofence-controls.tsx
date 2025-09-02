@@ -61,7 +61,7 @@ const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: num
     }
 
     const indiceOpuesto = (indiceMovido + 2) % 4;
-    const verticeOpuesto = verticesOriginales[indiceOpuesto];
+    const verticeOpuesto = verticesOriginales[indiceMovido];
     
     const nuevoRectangulo = [
         [verticeMovido[0], verticeMovido[1]],
@@ -287,7 +287,7 @@ export function GeofenceControls({
 
         if (!map || !source) return;
         
-        cancelCurrentAction(); // Clean up before starting a new drawing
+        removeInteractions(); 
         setMode('editing');
         
         const drawOptions: any = { source: source };
