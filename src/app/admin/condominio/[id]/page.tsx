@@ -15,15 +15,13 @@ import { geocodeAddress } from '@/actions/geocoding';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CondominioDashboardPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CondominioDashboardPage({ params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
     notFound();
   }
-
-  const awaitedParams = await params;
-  const condoId = awaitedParams.id;
-
+  
+  const condoId = params.id;
   const condoResult = await getCondominioById(condoId);
 
   if (!condoResult.success || !condoResult.data) {
