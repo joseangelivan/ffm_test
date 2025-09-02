@@ -68,12 +68,9 @@ function readLegacyOrStandardGeoJSON(geometry: any) {
 
     const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
 
-    // Explicitly handle the legacy "rectangle" type by converting it to a Polygon
     if (geometry.type.toLowerCase() === 'rectangle') {
         if (Array.isArray(geometry.coordinates) && geometry.coordinates.length > 0 && Array.isArray(geometry.coordinates[0])) {
             try {
-                // The coordinates for a polygon are an array of linear rings.
-                // The first linear ring defines the exterior boundary.
                 const transformedCoords = geometry.coordinates[0].map((coord: number[]) => fromLonLat(coord));
                 return new Polygon([transformedCoords]);
             } catch(e) {
@@ -86,7 +83,6 @@ function readLegacyOrStandardGeoJSON(geometry: any) {
         }
     }
     
-    // Handle standard GeoJSON types
     try {
         return format.readGeometry(geometry);
     } catch (e) {
@@ -112,7 +108,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     const vectorSourceRef = useRef<VectorSource | null>(null);
 
     useEffect(() => {
-        if (!mapContainerRef.current || !provider || passedMapRef.current) return;
+        if (!mapContainerRef.current || !provider) return;
 
         let config: any;
         try {
@@ -160,11 +156,11 @@ const OpenLayersMap: React.FC<MapProps> = ({
         return () => {
             if (passedMapRef.current) {
                 passedMapRef.current.setTarget(undefined);
-                // Don't dispose, let parent component manage lifecycle
+                passedMapRef.current = null;
             }
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [provider, initialPosition, onMapLoad, passedMapRef]);
+    }, [provider, initialPosition, onMapLoad]);
 
     useEffect(() => {
         const source = vectorSourceRef.current;
@@ -173,7 +169,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
         const existingFeatureIds = new Set(source.getFeatures().map(f => f.getId()));
         const dbGeofenceIds = new Set(dbGeofences.map(g => g.id));
         
-        // Add or update features from DB
         dbGeofences.forEach(dbGf => {
             const geometry = readLegacyOrStandardGeoJSON(dbGf.geometry);
             if (!geometry) {
@@ -183,7 +178,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
             let feature = source.getFeatureById(dbGf.id);
             if (feature) {
-                // Update geometry only if not being edited
                 if (activeShapeState?.id !== dbGf.id) {
                     feature.setGeometry(geometry);
                 }
@@ -194,7 +188,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
             }
         });
 
-        // Remove features that are no longer in the DB
         existingFeatureIds.forEach(id => {
             if (id && !dbGeofenceIds.has(id.toString()) && id !== activeShapeState?.id) {
                 const featureToRemove = source.getFeatureById(id);
@@ -230,7 +223,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                         if (isDefault) {
                             style = STYLE_VIEW_MODE;
                         } else {
-                            feature.setStyle(new Style()); // Hide it
+                            feature.setStyle(new Style()); 
                             return;
                         }
                     }
@@ -240,7 +233,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                     } else if (showAllGeofences) {
                         style = STYLE_BACKGROUND_GREY;
                     } else {
-                         feature.setStyle(new Style()); // Hide it
+                         feature.setStyle(new Style()); 
                          return;
                     }
                 }

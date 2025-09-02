@@ -142,7 +142,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const handleMapLoad = useCallback(async (map: OlMap, source: VectorSource) => {
     if (mapInitialized.current) return;
     mapInitialized.current = true;
-    // Do not set mapRef here, it's passed as a ref to the container
+    
     geofenceSourceRef.current = source;
     
     map.on('moveend', () => {
