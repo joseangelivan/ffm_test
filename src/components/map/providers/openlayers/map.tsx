@@ -88,7 +88,8 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
        try {
             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
             const geometry = format.readGeometry(geometryObject);
-            if (geometryObject.type === 'Polygon' && geometryObject.coordinates[0].length === 5) {
+            // If it's a polygon and has 5 coordinates (4 vertices + closing point), it's a rectangle
+            if (geometry.getType() === 'Polygon' && (geometry as any).getCoordinates()[0].length === 5) {
                 geometry.set('geometryType', 'Rectangle');
             }
             return geometry;
@@ -269,3 +270,5 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
+
+  

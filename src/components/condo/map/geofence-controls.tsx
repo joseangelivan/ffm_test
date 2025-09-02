@@ -216,8 +216,8 @@ export function GeofenceControls({
     
         const geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(feature.getGeometry()!);
         
-        if(feature.get('geometryType') === 'Rectangle'){
-            (geometryToSave as any).type = 'rectangle';
+        if (feature.get('geometryType') === 'Rectangle') {
+            (geometryToSave as any).type = 'Polygon';
         }
         
         if (!currentGeofenceName) {
@@ -579,3 +579,4 @@ export function GeofenceControls({
     );
 }
 
+  
