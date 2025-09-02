@@ -64,15 +64,10 @@ interface MapProps {
  * @returns An OpenLayers Geometry or null.
  */
 function readLegacyOrStandardGeoJSON(geometry: any) {
-    if (!geometry || typeof geometry !== 'object') {
+    if (!geometry || typeof geometry !== 'object' || Object.keys(geometry).length === 0) {
         return null;
     }
     
-    if (Object.keys(geometry).length === 0) {
-        console.warn("Invalid geometry object passed to reader (empty object):", geometry);
-        return null;
-    }
-
     if (!geometry.type) {
          console.warn("Invalid geometry object passed to reader (no type):", geometry);
          return null;
@@ -159,7 +154,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         
         const vectorLayer = new VectorLayer({
             source: vectorSourceRef.current,
-            style: (feature) => feature.get('style') || STYLE_VIEW_MODE,
+            style: (feature) => feature.get('style'),
         });
         vectorLayer.set('id', 'geofence-layer');
 
