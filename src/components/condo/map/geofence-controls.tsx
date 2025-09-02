@@ -1,8 +1,7 @@
 
-
 "use client";
 
-import React, { useState, useEffect, useCallback, useTransition, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useTransition, useMemo, useRef } from 'react';
 import {
   PencilRuler,
   ChevronDown,
@@ -104,7 +103,7 @@ type GeofenceControlsProps = {
 
 export function GeofenceControls({
     condoId,
-    geofences: geofencesFromProps,
+    geofences,
     onDataNeedsRefresh,
     onShapeDrawn,
     selectedGeofenceId,
@@ -138,10 +137,6 @@ export function GeofenceControls({
     const drawingInteractionRef = useRef<Draw | null>(null);
     const modifyInteractionRef = useRef<Modify | null>(null);
     const translateInteractionRef = useRef<Translate | null>(null);
-
-    const geofences = useMemo(() => {
-        return geofencesFromProps;
-    }, [geofencesFromProps]);
     
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
@@ -283,11 +278,10 @@ export function GeofenceControls({
     }
     
     const handleStartDrawing = () => {
+        cancelCurrentAction();
         const map = mapRef.current;
         const source = geofenceSourceRef();
-        if (!map || !source || isDrawing) return;
-
-        removeInteractions();
+        if (!map || !source) return;
         
         const drawOptions: any = { source: source };
         if (drawingMode === 'Rectangle') {
@@ -306,16 +300,11 @@ export function GeofenceControls({
                 newFeature.set('geometryType', 'Rectangle');
             }
             onShapeDrawn(newFeature);
-            setMode('editing');
-            setCurrentGeofenceName(getNextGeofenceName());
-            setIsDrawing(false);
             if (drawingInteractionRef.current) map.removeInteraction(drawingInteractionRef.current);
             drawingInteractionRef.current = null;
         });
 
         map.addInteraction(newInteraction);
-        setIsDrawing(true);
-        setMode('editing');
     };
     
     const startEditingSelected = useCallback(() => {
@@ -344,12 +333,12 @@ export function GeofenceControls({
     }, [geofences, selectedGeofenceId, setMode, setActiveShapeState, pushToHistory, cancelCurrentAction, geofenceSourceRef]);
 
     useEffect(() => {
-        const map = mapRef.current;
-        if (!map) return;
-        
         removeInteractions();
 
         if (mode === 'editing' && activeShapeState?.feature) {
+            const map = mapRef.current;
+            if (!map) return;
+            
             const featureToEdit = activeShapeState.feature;
             const Collection = require('ol/Collection').default;
             const features = new Collection([featureToEdit]);
@@ -403,7 +392,7 @@ export function GeofenceControls({
 
             const translateInteraction = new Translate({ features: features });
             map.addInteraction(translateInteraction);
-            translateInteraction.current = translateInteraction;
+            translateInteractionRef.current = translateInteraction;
 
             const onTranslateEnd = (e: any) => {
                 const feature = e.features.getArray()[0];
@@ -576,3 +565,5 @@ export function GeofenceControls({
         </div>
     );
 }
+
+    
