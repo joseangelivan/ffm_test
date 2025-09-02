@@ -217,42 +217,40 @@ const OpenLayersMap: React.FC<MapProps> = ({
         const source = vectorSourceRef.current;
         if (!source) return;
 
-        const featuresOnMap = new Set(source.getFeatures().map(f => f.getId()));
-        const geofencesInProps = new Set(dbGeofences.map(g => g.id));
+        const dbGeofenceIds = new Set(dbGeofences.map(g => g.id));
 
-        // Sync: Add/Update features from props
+        // Add or update features from the database
         dbGeofences.forEach(dbGeofence => {
             const olGeom = readLegacyOrStandardGeoJSON(dbGeofence);
             if (!olGeom) return;
-            
+
             let feature = source.getFeatureById(dbGeofence.id);
             if (feature) {
-                // Only update geometry if it's different to avoid unnecessary re-renders
-                 const currentGeom = feature.getGeometry();
-                 if (currentGeom && JSON.stringify(currentGeom.getCoordinates()) !== JSON.stringify(olGeom.getCoordinates())) {
-                    feature.setGeometry(olGeom);
-                 }
+                // If feature exists, update its geometry
+                feature.setGeometry(olGeom);
             } else {
+                // If feature doesn't exist, create and add it
                 feature = new Feature({ geometry: olGeom });
                 feature.setId(dbGeofence.id);
                 feature.set('geometryType', olGeom.get('geometryType'));
                 source.addFeature(feature);
             }
         });
-
-        // Sync: Remove features not in props anymore
-        featuresOnMap.forEach(featureId => {
-            if (typeof featureId === 'string' && !geofencesInProps.has(featureId)) {
-                // IMPORTANT FIX: Do not remove the feature if it's the one currently being edited.
+        
+        // Remove features from map that are no longer in the DB,
+        // UNLESS it's the shape currently being edited.
+        source.getFeatures().forEach(feature => {
+            const featureId = feature.getId();
+            if (typeof featureId === 'string' && !dbGeofenceIds.has(featureId)) {
                 if (activeShapeState && activeShapeState.id === featureId) {
-                    return; 
+                    // This is the active temporary shape, do not remove it.
+                } else {
+                    source.removeFeature(feature);
                 }
-                const featureToRemove = source.getFeatureById(featureId);
-                if (featureToRemove) source.removeFeature(featureToRemove);
             }
         });
-        
-        // Apply styles
+
+        // Apply styles to all features
         source.getFeatures().forEach(feature => {
             const featureId = feature.getId();
             if (typeof featureId === 'string') {
@@ -260,6 +258,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 feature.set('style', style);
             }
         });
+
         source.changed();
 
     }, [dbGeofences, mode, showAllGeofences, selectedGeofenceId, defaultGeofenceId, getFeatureStyle, activeShapeState]);
