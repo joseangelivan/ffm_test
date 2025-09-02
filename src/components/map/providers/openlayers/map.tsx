@@ -13,8 +13,8 @@ import 'ol/ol.css';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { fromLonLat, transform } from 'ol/proj';
 import GeoJSON from 'ol/format/GeoJSON';
-import type { Geometry, Polygon } from 'ol/geom';
-import type Feature from 'ol/Feature';
+import type { Geometry } from 'ol/geom';
+import Feature from 'ol/Feature';
 import { Style, Fill, Stroke } from 'ol/style';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 import type { Draw, Modify } from 'ol/interaction';
@@ -46,19 +46,23 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
         return null;
     }
 
-    if ('type' in geometryObject && geometryObject.type === 'rectangle' && 'bounds' in geometryObject && geometryObject.bounds) {
+    // Handle legacy Google Maps rectangle format
+    if ('bounds' in geometryObject && typeof (geometryObject as any).bounds === 'object') {
         const bounds = (geometryObject as any).bounds;
-        if (bounds.north && bounds.south && bounds.east && bounds.west) {
-            const coords = [
+        if (bounds && bounds.north && bounds.south && bounds.east && bounds.west) {
+             const coords = [
                 [bounds.west, bounds.south],
                 [bounds.east, bounds.south],
                 [bounds.east, bounds.north],
                 [bounds.west, bounds.north],
                 [bounds.west, bounds.south]
-            ].map(coord => transform(coord, 'EPSG:4326', 'EPSG:3857'));
+            ].map(coord => fromLonLat(coord));
             
-            const polygon = new (require('ol/geom/Polygon').default)([coords]);
-            return polygon;
+            const Polygon = require('ol/geom/Polygon').default;
+            return new Polygon([coords]);
+        } else {
+            console.warn(`Invalid coordinate structure for legacy Rectangle geometry:`, bounds);
+            return null;
         }
     }
     
@@ -119,9 +123,16 @@ const OpenLayersMap: React.FC<MapProps> = ({
             return featureId === selectedGeofenceId ? STYLE_EDIT_MODE_SELECTED : STYLE_EDIT_MODE_UNSELECTED;
         }
     }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId]);
-
+    
     useEffect(() => {
-        if (!mapContainerRef.current || mapRef.current) return;
+        if (!mapContainerRef.current) return;
+        
+        // Prevent re-initialization
+        if (mapRef.current) {
+            // If map exists, just update the target div
+            mapRef.current.setTarget(mapContainerRef.current);
+            return;
+        }
 
         let config: any;
         try {
@@ -167,7 +178,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         return () => {
             if (mapRef.current) {
                 mapRef.current.setTarget(undefined);
-                (mapRef as React.MutableRefObject<Map | null>).current = null;
+                // Do not dispose, just detatch
             }
         };
     }, [provider, onMapLoad, initialPosition, mapRef]);
