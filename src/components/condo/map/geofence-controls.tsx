@@ -106,6 +106,7 @@ export function GeofenceControls({
     condoId,
     geofences,
     onDataNeedsRefresh,
+    onShapeDrawn,
     selectedGeofenceId,
     setSelectedGeofenceId,
     defaultGeofenceId,
@@ -118,7 +119,6 @@ export function GeofenceControls({
     activeShapeState,
     setActiveShapeState,
     mapRef,
-    onShapeDrawn,
     historyStack,
     setHistoryStack,
     historyIndex,
@@ -130,8 +130,7 @@ export function GeofenceControls({
     const [isSaving, startSavingTransition] = useTransition();
     const [isDeleting, startDeletingTransition] = useTransition();
     const [isSettingDefault, startSettingDefaultTransition] = useTransition();
-    const [isDrawing, setIsDrawing] = useState(false);
-
+    
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
     
@@ -208,7 +207,6 @@ export function GeofenceControls({
         removeInteractions();
         setActiveShapeState(null);
         setCurrentGeofenceName('');
-        setIsDrawing(false);
         setHistoryStack([]);
         setHistoryIndex(-1);
     }, [activeShapeState, removeInteractions, setActiveShapeState, setHistoryStack, setHistoryIndex]);
@@ -243,13 +241,12 @@ export function GeofenceControls({
             toast({ title: t('toast.successTitle'), description: result.message });
             const newSelectedId = isNewShape ? result.data?.id : id;
             cancelCurrentAction();
-            setMode('view');
             await onDataNeedsRefresh(newSelectedId);
 
         } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
         }
-    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, cancelCurrentAction, setMode]);
+    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, cancelCurrentAction]);
 
     const handleSaveGeofence = () => {
         startSavingTransition(async () => {
@@ -289,7 +286,7 @@ export function GeofenceControls({
     }
     
     const handleStartDrawing = () => {
-        removeInteractions();
+        cancelCurrentAction();
         const map = mapRef.current;
         const source = geofenceSourceRef.current;
         if (!map || !source) return;
@@ -303,26 +300,18 @@ export function GeofenceControls({
         }
 
         const newInteraction = new Draw(drawOptions);
-        drawingInteractionRef.current = newInteraction;
-
+        
         newInteraction.once('drawend', (event) => {
-            const newFeature = event.feature;
-            if (drawingMode === 'Rectangle') {
-                newFeature.set('geometryType', 'Rectangle');
+            if (drawingInteractionRef.current) {
+                map.removeInteraction(drawingInteractionRef.current);
+                drawingInteractionRef.current = null;
             }
-            setActiveShapeState({ id: `new-shape-${Date.now()}`, feature: newFeature, originalGeometry: null });
-            const newGeometry = newFeature.getGeometry();
-            if (newGeometry) {
-                pushToHistory(newGeometry);
-            }
-            if (drawingInteractionRef.current) map.removeInteraction(drawingInteractionRef.current);
-            drawingInteractionRef.current = null;
-            setIsDrawing(false);
+            onShapeDrawn(event.feature);
         });
-
+        
+        drawingInteractionRef.current = newInteraction;
         map.addInteraction(newInteraction);
         setCurrentGeofenceName(getNextGeofenceName());
-        setIsDrawing(true);
     };
     
     const startEditingSelected = useCallback(() => {
@@ -347,8 +336,7 @@ export function GeofenceControls({
         if (initialGeom) {
             pushToHistory(initialGeom);
         }
-        setMode('editing');
-    }, [geofences, selectedGeofenceId, setMode, setActiveShapeState, pushToHistory, cancelCurrentAction]);
+    }, [geofences, selectedGeofenceId, setActiveShapeState, pushToHistory, cancelCurrentAction]);
 
     useEffect(() => {
         removeInteractions();
@@ -483,7 +471,7 @@ export function GeofenceControls({
 
                     <fieldset disabled={isBusy || mode === 'view'} className="space-y-4 disabled:opacity-50">
                             <div className="flex items-center gap-2">
-                                <Select value={selectedGeofenceId || ''} onValueChange={setSelectedGeofenceId} disabled={!!activeShapeState || isDrawing || isBusy}>
+                                <Select value={selectedGeofenceId || ''} onValueChange={setSelectedGeofenceId} disabled={!!activeShapeState || isBusy}>
                                     <SelectTrigger className={cn("flex-1", selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-') && "text-blue-600 border-blue-400 font-bold")}>
                                         <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
                                     </SelectTrigger>
@@ -529,7 +517,7 @@ export function GeofenceControls({
                             </div>
                         
                         
-                            {activeShapeState || isDrawing ? (
+                            {activeShapeState ? (
                                 <div className='relative space-y-4 p-4 border border-blue-300 rounded-md bg-blue-50/30 dark:border-blue-700 dark:bg-blue-900/20'>
                                      {isSaving && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
                                     <div className="space-y-2">
@@ -542,13 +530,10 @@ export function GeofenceControls({
                                         />
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <Button onClick={() => {
-                                            cancelCurrentAction();
-                                            setMode('view');
-                                        }} variant="ghost" disabled={isSaving}>
+                                        <Button onClick={cancelCurrentAction} variant="ghost" disabled={isSaving}>
                                             <X className="mr-2 h-4 w-4" /> {t('common.cancel')}
                                         </Button>
-                                        <Button onClick={handleSaveGeofence} disabled={isSaving || (!activeShapeState?.feature && !isDrawing)}>
+                                        <Button onClick={handleSaveGeofence} disabled={isSaving || !activeShapeState?.feature}>
                                             {isSaving ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                             {activeShapeState?.id.startsWith('new-shape-') ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
                                         </Button>
@@ -585,3 +570,4 @@ export function GeofenceControls({
         </div>
     );
 }
+
