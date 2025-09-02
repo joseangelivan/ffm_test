@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -18,7 +19,8 @@ import {
   Star,
   Trash2,
   Eye,
-  EyeOff
+  EyeOff,
+  Edit
 } from 'lucide-react';
 import { isEqual, debounce } from 'lodash';
 
@@ -34,7 +36,7 @@ import { MapSettingsDialog } from './map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import MapContainer from '@/components/map/map-container';
-
+import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -57,8 +59,13 @@ import {
     deleteGeofence,
 } from '@/actions/maps';
 
+interface CondoMapTabProps {
+  condo: Condominio;
+  initialPosition: { lat: number; lng: number };
+  provider: DbMapProvider;
+}
 
-export default function CondoMapTab({ condo, initialPosition }: { condo: Condominio, initialPosition: { lat: number; lng: number } }) {
+export default function CondoMapTab({ condo, initialPosition, provider }: CondoMapTabProps) {
   const { t } = useLocale();
   const { toast } = useToast();
   const mapRef = useRef<any | null>(null);
@@ -83,7 +90,6 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [shapeType, setShapeType] = useState('Polygon');
-
 
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -139,7 +145,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
 
     const handleSetDefault = (geofenceId: string) => {
         startTransition(async () => {
-            const result = await setCondoDefaultGeofence(condoId, geofenceId);
+            const result = await setCondoDefaultGeofence(condo.id, geofenceId);
             if (result.success) {
                 toast({ title: t('toast.successTitle'), description: result.message });
                 onDataNeedsRefresh(geofenceId);
@@ -191,6 +197,7 @@ export default function CondoMapTab({ condo, initialPosition }: { condo: Condomi
                                 </div>
                             )}
                             <MapContainer 
+                                provider={provider}
                                 onMapLoad={handleMapLoad}
                             >
                                 {/* Children can be used for markers in OpenLayers too */}

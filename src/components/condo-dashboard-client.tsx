@@ -142,7 +142,10 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   if (!mapProvider) {
     return (
         <div className="flex items-center justify-center h-full bg-muted">
-            <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="text-center p-4">
+                <p className="font-semibold">Nenhum provedor de mapa padrão encontrado.</p>
+                <p className="text-sm text-muted-foreground">Por favor, configure um provedor de mapas no painel de administração.</p>
+            </div>
         </div>
     )
   }
@@ -178,7 +181,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                       <ManageDevicesTab condoId={initialCondo.id} devices={initialDevices} onDataNeedsRefresh={onDataNeedsRefresh} />
                   </TabsContent>
                   <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
-                      <CondoMapTab condo={initialCondo} initialPosition={initialPosition} />
+                      <CondoMapTab condo={initialCondo} initialPosition={initialPosition} provider={mapProvider} />
                   </TabsContent>
               </div>
             </Tabs>
