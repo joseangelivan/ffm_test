@@ -57,7 +57,6 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
     }
 
     if (Object.keys(geometryObject).length === 0 && geometryObject.constructor === Object) {
-        console.warn(`Invalid geometry object passed to reader (empty object):`, geometryObject);
         return null;
     }
 
@@ -215,8 +214,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
         // Sync: Add/Update features from props
         dbGeofences.forEach(dbGeofence => {
-            if (!dbGeofence.geometry) return; // Skip geofences with null geometry
-
             const olGeom = readLegacyOrStandardGeoJSON(dbGeofence);
             if (!olGeom) return;
 

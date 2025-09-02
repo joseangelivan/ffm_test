@@ -180,7 +180,7 @@ export function GeofenceControls({
         return coords.length === 5; // Rectangles drawn with ol have 5 points (first==last)
     };
 
-   const startEditingSelected = useCallback(() => {
+    const startEditingSelected = useCallback(() => {
         const source = geofenceSourceRef();
         if (!selectedGeofenceId || !source || !mapRef.current) return;
 
@@ -199,51 +199,51 @@ export function GeofenceControls({
         if (!geometry) return;
 
         let originalCoords: number[][] | undefined;
+        let isCurrentlyRectangle = isRectangle(geometry);
 
         const modify = new Modify({
             features: features,
-            insertVertexCondition: () => !isRectangle(featureToEdit.getGeometry()),
+            insertVertexCondition: () => !isCurrentlyRectangle,
         });
-
+        
         modify.on('modifystart', (event) => {
-            const geom = event.features.item(0).getGeometry();
-            if (geom && isRectangle(geom)) {
-                originalCoords = (geom as Polygon).getCoordinates()[0].slice();
+            const feature = event.features.item(0);
+            isCurrentlyRectangle = isRectangle(feature.getGeometry());
+            if (isCurrentlyRectangle) {
+                originalCoords = (feature.getGeometry() as Polygon).getCoordinates()[0].slice();
             }
         });
 
         modify.on('modifying', (event) => {
-            console.log("Modify event detected.");
-            if (!originalCoords || !isRectangle(event.features.item(0).getGeometry())) return;
-            
-            const feature = event.features.item(0);
-            const modifiedCoords = (feature.getGeometry() as Polygon).getCoordinates()[0];
-            let movedIndex = -1;
+             if (!isCurrentlyRectangle || !originalCoords) return;
 
-            for (let i = 0; i < 4; i++) {
-                if (originalCoords[i][0] !== modifiedCoords[i][0] || originalCoords[i][1] !== modifiedCoords[i][1]) {
-                    movedIndex = i;
-                    break;
-                }
-            }
-            
-            if (movedIndex !== -1) {
-                const oppositeIndex = (movedIndex + 2) % 4;
-                const movedPoint = modifiedCoords[movedIndex];
-                const oppositePoint = originalCoords[oppositeIndex];
+             const feature = event.features.item(0);
+             const modifiedCoords = (feature.getGeometry() as Polygon).getCoordinates()[0];
+             let movedIndex = -1;
 
-                const newCoords = new Array(5);
-                newCoords[movedIndex] = movedPoint;
-                newCoords[oppositeIndex] = oppositePoint;
-                newCoords[(movedIndex + 1) % 4] = [oppositePoint[0], movedPoint[1]];
-                newCoords[(movedIndex + 3) % 4] = [movedPoint[0], oppositePoint[1]];
-                newCoords[4] = newCoords[0];
-                
-                console.log("New Coords:", newCoords);
-                const PolygonGeom = require('ol/geom/Polygon').default;
-                feature.setGeometry(new PolygonGeom([newCoords]));
-                originalCoords = feature.getGeometry().getCoordinates()[0].slice();
-            }
+             for (let i = 0; i < 4; i++) {
+                 if (originalCoords[i][0] !== modifiedCoords[i][0] || originalCoords[i][1] !== modifiedCoords[i][1]) {
+                     movedIndex = i;
+                     break;
+                 }
+             }
+             
+             if (movedIndex !== -1) {
+                 const oppositeIndex = (movedIndex + 2) % 4;
+                 const movedPoint = modifiedCoords[movedIndex];
+                 const oppositePoint = originalCoords[oppositeIndex];
+
+                 const newCoords = new Array(5);
+                 newCoords[movedIndex] = movedPoint;
+                 newCoords[oppositeIndex] = oppositePoint;
+                 newCoords[(movedIndex + 1) % 4] = [oppositePoint[0], movedPoint[1]];
+                 newCoords[(movedIndex + 3) % 4] = [movedPoint[0], oppositePoint[1]];
+                 newCoords[4] = newCoords[0];
+                 
+                 const PolygonGeom = require('ol/geom/Polygon').default;
+                 feature.setGeometry(new PolygonGeom([newCoords]));
+                 originalCoords = feature.getGeometry()!.getCoordinates()[0].slice();
+             }
         });
 
         modify.on('modifyend', (event) => {
@@ -259,7 +259,9 @@ export function GeofenceControls({
 
         const translate = new Translate({ features: features });
         translate.on('translateend', (event) => {
-            pushToHistory(event.features.item(0).getGeometry()!);
+            if (event.features.getLength() > 0) {
+                pushToHistory(event.features.item(0).getGeometry()!);
+            }
         });
         mapRef.current.addInteraction(translate);
         translateInteractionRef.current = translate;
