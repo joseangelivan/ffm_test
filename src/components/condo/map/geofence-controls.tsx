@@ -115,10 +115,7 @@ export function GeofenceControls({
         setHistoryStack(newStack);
         const newIndex = newStack.length - 1;
         setHistoryIndex(newIndex);
-        
-        const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-        setDebugInfo(`¡Cambio guardado en el historial! Total: ${newStack.length}. Coords: ${JSON.stringify(format.writeGeometryObject(geometry), null, 2)}`);
-    }, [historyStack, historyIndex, setHistoryStack, setHistoryIndex, setDebugInfo]);
+    }, [historyStack, historyIndex, setHistoryStack, setHistoryIndex]);
 
     const removeInteractions = useCallback(() => {
         if (!mapRef.current) return;
@@ -190,112 +187,113 @@ export function GeofenceControls({
         const source = geofenceSourceRef();
         const map = mapRef.current;
         if (!selectedGeofenceId || !source || !map) return;
-    
+
         const featureToEdit = source.getFeatureById(selectedGeofenceId) as Feature;
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
-    
+
         if (!selectedGeofence || !featureToEdit) return;
-    
+
         cancelCurrentAction();
         setMode('editing');
         removeInteractions();
-    
+
         const Collection = require('ol/Collection').default;
         const features = new Collection([featureToEdit]);
-    
-        let originalCoords: number[][] | undefined;
-        const modify = new Modify({ 
+
+        const modify = new Modify({
             features: features,
             insertVertexCondition: () => !isRectangle(featureToEdit.getGeometry()),
         });
         
+        let originalCoords: number[][] | undefined;
         modify.on('modifystart', (event) => {
             const feature = event.features.item(0);
-            if (isRectangle(feature.getGeometry())) {
-                originalCoords = (feature.getGeometry() as Polygon).getCoordinates()[0].slice();
+            const geom = feature.getGeometry();
+            if (geom) {
+                 if (isRectangle(geom)) {
+                    originalCoords = (geom as Polygon).getCoordinates()[0].slice();
+                 }
+                 pushToHistory(geom);
             }
         });
-    
+
         modify.on('modifying', (event) => {
             const feature = event.features.item(0);
-            setDebugInfo(`Moviendo vértice...`);
+            const geometry = feature.getGeometry();
+            
+            if (!geometry || !isRectangle(geometry) || !originalCoords) return;
 
-            if (!isRectangle(feature.getGeometry()) || !originalCoords) return;
-    
-            const modifiedCoords = (feature.getGeometry() as Polygon).getCoordinates()[0];
+            const currentCoords = (geometry as Polygon).getCoordinates()[0];
+            
+            // Find moved vertex
             let movedIndex = -1;
             for (let i = 0; i < 4; i++) {
-                if (originalCoords[i][0] !== modifiedCoords[i][0] || originalCoords[i][1] !== modifiedCoords[i][1]) {
+                if (originalCoords[i][0] !== currentCoords[i][0] || originalCoords[i][1] !== currentCoords[i][1]) {
                     movedIndex = i;
                     break;
                 }
             }
-    
-            if (movedIndex !== -1) {
-                const movedPoint = modifiedCoords[movedIndex];
-                const oppositePoint = originalCoords[(movedIndex + 2) % 4];
-    
-                const newCoords = new Array(5);
-                newCoords[0] = [oppositePoint[0], movedPoint[1]]; // Top-left or bottom-left
-                newCoords[1] = movedPoint; // The point being dragged
-                newCoords[2] = [movedPoint[0], oppositePoint[1]]; // Top-right or bottom-right
-                newCoords[3] = oppositePoint; // The anchor point
-                newCoords[4] = newCoords[0]; // Close the polygon
 
-                const corner1 = newCoords[0];
-                const corner2 = newCoords[2];
+            if (movedIndex === -1) return;
 
-                newCoords[0] = [Math.min(corner1[0], corner2[0]), Math.min(corner1[1], corner2[1])];
-                newCoords[1] = [Math.max(corner1[0], corner2[0]), Math.min(corner1[1], corner2[1])];
-                newCoords[2] = [Math.max(corner1[0], corner2[0]), Math.max(corner1[1], corner2[1])];
-                newCoords[3] = [Math.min(corner1[0], corner2[0]), Math.max(corner1[1], corner2[1])];
-                newCoords[4] = newCoords[0];
-    
-                const PolygonGeom = require('ol/geom/Polygon').default;
-                const newGeom = new PolygonGeom([newCoords]);
-                feature.setGeometry(newGeom);
-            }
+            const oppositeIndex = (movedIndex + 2) % 4;
+            const oppositePoint = originalCoords[oppositeIndex];
+            const movedPoint = currentCoords[movedIndex];
+            
+            // Corrected rectangle coordinates
+            const newCoords = [
+                [oppositePoint[0], oppositePoint[1]],
+                [movedPoint[0], oppositePoint[1]],
+                [movedPoint[0], movedPoint[1]],
+                [oppositePoint[0], movedPoint[1]],
+                [oppositePoint[0], oppositePoint[1]]
+            ];
+
+            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+            const correctedGeometryForDebug = format.writeGeometryObject(new (require('ol/geom/Polygon').default)([newCoords]));
+            setDebugInfo(`Moviendo vértice...\nCoordenadas corregidas:\n${JSON.stringify(correctedGeometryForDebug.coordinates, null, 2)}`);
+
+            const PolygonGeom = require('ol/geom/Polygon').default;
+            const newGeom = new PolygonGeom([newCoords]);
+            feature.setGeometry(newGeom);
         });
-    
+
         modify.on('modifyend', (event) => {
             if (event.features.getLength() > 0) {
                 const feature = event.features.item(0);
-                const finalGeometry = feature.getGeometry()!;
-                if (isRectangle(finalGeometry) && originalCoords) {
-                     // The 'modifying' event already handled the geometry update.
-                     // The logic could be moved here entirely if preferred, but doing it in 'modifying' gives real-time feedback.
-                }
-                pushToHistory(finalGeometry);
-                originalCoords = undefined; // Reset for next modification
+                pushToHistory(feature.getGeometry()!);
+                setDebugInfo(`¡Cambio guardado en el historial! Total: ${historyStack.length + 1}.`);
             }
+            originalCoords = undefined;
         });
-    
+
         map.addInteraction(modify);
         modifyInteractionRef.current = modify;
-    
+
         const translate = new Translate({ features: features });
         translate.on('translateend', (event) => {
             if (event.features.getLength() > 0) {
                 pushToHistory(event.features.item(0).getGeometry()!);
+                 setDebugInfo(`¡Geocerca movida y guardada en el historial! Total: ${historyStack.length + 1}.`);
             }
         });
         map.addInteraction(translate);
         translateInteractionRef.current = translate;
-    
+
         setActiveShapeState({
             id: selectedGeofenceId,
             feature: featureToEdit,
             originalGeometry: selectedGeofence.geometry,
         });
         setCurrentGeofenceName(selectedGeofence.name);
-    
+
         const initialGeom = featureToEdit.getGeometry();
         if (initialGeom) {
             setHistoryStack([initialGeom.clone()]);
             setHistoryIndex(0);
         }
-        setDebugInfo(`Iniciando edición para: ${selectedGeofence.name}. Historial inicializado.`);
-    
+        setDebugInfo(`Iniciando edición para: ${selectedGeofence.name}.`);
+
     }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef, translateInteractionRef, geofenceSourceRef, pushToHistory, setHistoryStack, setHistoryIndex, setDebugInfo]);
 
     const saveCurrentAction = useCallback(async () => {
@@ -419,7 +417,7 @@ export function GeofenceControls({
                 id: newId,
                 condominium_id: condoId,
                 name: getNextGeofenceName(),
-                geometry: null, // Placeholder
+                geometry: null, 
                 is_default: false,
             };
 
