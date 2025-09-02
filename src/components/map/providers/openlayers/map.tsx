@@ -68,15 +68,8 @@ function readLegacyOrStandardGeoJSON(geometry: any) {
         return null;
     }
     
-    if (!geometry.type) {
-         console.warn("Invalid geometry object passed to reader (no type):", geometry);
-         return null;
-    }
-
-    const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-
-    // Handle legacy Rectangle type
-    if (geometry.type.toLowerCase() === 'rectangle') {
+    // Handle legacy Rectangle type from Google Maps
+    if (geometry.type && geometry.type.toLowerCase() === 'rectangle') {
         const bounds = geometry.bounds;
         if (bounds && typeof bounds.north === 'number' && typeof bounds.south === 'number' && typeof bounds.east === 'number' && typeof bounds.west === 'number') {
             const coordinates = [
@@ -94,8 +87,14 @@ function readLegacyOrStandardGeoJSON(geometry: any) {
         }
     }
     
+    if (!geometry.type) {
+         console.warn("Invalid geometry object passed to reader (no type):", geometry);
+         return null;
+    }
+    
     // Handle standard GeoJSON types
     try {
+        const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
         const olGeom = format.readGeometry(geometry);
         // A simple check to see if the geometry is valid (has coordinates)
         if (olGeom && olGeom.getCoordinates() && olGeom.getCoordinates().length > 0) {
@@ -127,6 +126,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
     useEffect(() => {
         if (!mapContainerRef.current) return;
+        if (mapRef.current) return; // Prevent re-initialization
 
         let config: any;
         try {
@@ -174,18 +174,19 @@ const OpenLayersMap: React.FC<MapProps> = ({
         return () => {
             if (mapRef.current) {
                 mapRef.current.setTarget(undefined);
-                mapRef.current = null;
+                // Do not nullify ref here to allow re-attaching
             }
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [provider]);
 
 
-    // Effect to synchronize dbGeofences with the map's vector source
+    // Effect to synchronize dbGeofences with the map's vector source and apply styles
     useEffect(() => {
         const source = vectorSourceRef.current;
         if (!source) return;
 
+        // --- 1. Synchronize Features ---
         const featuresToProcess = dbGeofences
             .map(dbGf => {
                 // Don't touch the shape being actively edited
@@ -224,13 +225,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 }
             }
         });
-    }, [dbGeofences, activeShapeState?.id]);
-    
-     // Effect to manage feature styles based on component state
-     useEffect(() => {
-        const source = vectorSourceRef.current;
-        if (!source) return;
-        
+
+        // --- 2. Apply Styles ---
         source.forEachFeature(feature => {
             const id = feature.getId() as string;
             if (!id || id.startsWith('new-shape-')) return;
@@ -265,7 +261,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             feature.setStyle(visible ? style : undefined);
         });
 
-    }, [mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, activeShapeState]);
+    }, [dbGeofences, mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, activeShapeState]);
 
 
     return (
