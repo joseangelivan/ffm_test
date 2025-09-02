@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from 'react';
@@ -26,6 +27,7 @@ type MapContainerProps = {
     defaultGeofenceId: string | null;
     mode: 'view' | 'editing';
     initialPosition: { lat: number, lng: number };
+    mapRef: React.MutableRefObject<OlMap | null>;
 }
 
 const MapContainer: React.FC<MapContainerProps> = (props) => {

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -141,7 +142,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const handleMapLoad = useCallback(async (map: OlMap, source: VectorSource) => {
     if (mapInitialized.current) return;
     mapInitialized.current = true;
-    mapRef.current = map;
+    // Do not set mapRef here, it's passed as a ref to the container
     geofenceSourceRef.current = source;
     
     map.on('moveend', () => {
@@ -200,6 +201,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                 defaultGeofenceId={defaultGeofenceId}
                                 mode={mode}
                                 initialPosition={initialPosition}
+                                mapRef={mapRef}
                             />
                         </div>
                          {activeShapeState && (

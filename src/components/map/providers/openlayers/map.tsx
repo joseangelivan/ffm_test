@@ -51,6 +51,7 @@ interface MapProps {
     defaultGeofenceId: string | null;
     mode: 'view' | 'editing';
     initialPosition: { lat: number; lng: number };
+    mapRef: React.MutableRefObject<Map | null>;
 }
 
 /**
@@ -104,14 +105,14 @@ const OpenLayersMap: React.FC<MapProps> = ({
     selectedGeofenceId,
     defaultGeofenceId,
     mode,
-    initialPosition
+    initialPosition,
+    mapRef: passedMapRef
 }) => {
-    const mapRef = useRef<HTMLDivElement>(null);
-    const mapInstanceRef = useRef<Map | null>(null);
+    const mapContainerRef = useRef<HTMLDivElement>(null);
     const vectorSourceRef = useRef<VectorSource | null>(null);
 
     useEffect(() => {
-        if (!mapRef.current || !provider || mapInstanceRef.current) return;
+        if (!mapContainerRef.current || !provider || passedMapRef.current) return;
 
         let config: any;
         try {
@@ -144,7 +145,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         vectorLayer.set('id', 'geofence-layer');
 
         const map = new Map({
-            target: mapRef.current!,
+            target: mapContainerRef.current!,
             layers: [initialLayer, vectorLayer],
             view: new View({
                 center: fromLonLat([initialPosition.lng, initialPosition.lat]),
@@ -153,21 +154,17 @@ const OpenLayersMap: React.FC<MapProps> = ({
             controls: [],
         });
 
-        mapInstanceRef.current = map;
+        passedMapRef.current = map;
         onMapLoad(map, vectorSourceRef.current);
 
         return () => {
-            if (mapInstanceRef.current) {
-                mapInstanceRef.current.setTarget(undefined);
-                mapInstanceRef.current.dispose();
-                mapInstanceRef.current = null;
-            }
-            if (mapRef.current) {
-                mapRef.current.innerHTML = '';
+            if (passedMapRef.current) {
+                passedMapRef.current.setTarget(undefined);
+                // Don't dispose, let parent component manage lifecycle
             }
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [provider, initialPosition]);
+    }, [provider, initialPosition, onMapLoad, passedMapRef]);
 
     useEffect(() => {
         const source = vectorSourceRef.current;
@@ -256,7 +253,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
 
     return (
-       <div ref={mapRef} className="w-full h-full" />
+       <div ref={mapContainerRef} className="w-full h-full" />
     );
 };
 
