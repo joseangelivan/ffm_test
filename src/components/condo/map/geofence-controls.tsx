@@ -43,11 +43,9 @@ const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
     return poligono.intersectsCoordinate(punto);
 }
 
-// FUNCIÓN CORRECTA que SÍ actualiza todos los vértices
-const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number) => {
+const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
     const Polygon = require('ol/geom/Polygon').default;
 
-    // Caso 1: Vértice movido hacia AFUERA del rectángulo original
     const poligonoOriginal = new Polygon([verticesOriginales]);
     if (!puntoEstaDentro(poligonoOriginal, verticeMovido)) {
         const tempVertices = [...verticesOriginales];
@@ -62,8 +60,6 @@ const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: num
         return [...rectanguloPerfecto, rectanguloPerfecto[0]];
     }
 
-    // Caso 2: Vértice movido hacia ADENTRO del rectángulo original
-    // Esquina opuesta al vértice que se mueve
     const indiceOpuesto = (indiceMovido + 2) % 4;
     const verticeOpuesto = verticesOriginales[indiceOpuesto];
     
@@ -154,13 +150,11 @@ export function GeofenceControls({
     }
 
     const pushToHistory = useCallback((geometry: Geometry) => {
-        setHistoryStack(prev => {
-            const newStack = prev.slice(0, historyIndex + 1);
-            newStack.push(geometry.clone());
-            setHistoryIndex(newStack.length - 1);
-            return newStack;
-        });
-    }, [historyIndex, setHistoryIndex, setHistoryStack]);
+        const newStack = historyStack.slice(0, historyIndex + 1);
+        newStack.push(geometry.clone());
+        setHistoryStack(newStack);
+        setHistoryIndex(newStack.length - 1);
+    }, [historyIndex, historyStack, setHistoryStack, setHistoryIndex]);
 
     const getNextGeofenceName = useCallback(() => {
         const baseName = t('condoDashboard.map.geofence.defaultName');
@@ -316,27 +310,6 @@ export function GeofenceControls({
             map.removeInteraction(newInteraction);
             drawingInteractionRef.current = null;
             
-            const Collection = require('ol/Collection').default;
-            const features = new Collection([newFeature]);
-            
-            const modifyInteraction = new Modify({ features, insertVertexCondition: () => false });
-            modifyInteractionRef.current = modifyInteraction;
-            map.addInteraction(modifyInteraction);
-
-            modifyInteraction.on('modifyend', (e) => {
-                const feature = e.features.getArray()[0];
-                if (feature) pushToHistory(feature.getGeometry()!.clone());
-            });
-            
-            const translateInteraction = new Translate({ features: features });
-            translateInteractionRef.current = translateInteraction;
-            map.addInteraction(translateInteraction);
-
-            translateInteraction.on('translateend', (e) => {
-                const feature = e.features.getArray()[0];
-                if (feature) pushToHistory(feature.getGeometry()!.clone());
-            });
-            
             const placeholderGeofence: DbGeofence = {
                 id: newId,
                 condominium_id: condoId,
@@ -384,10 +357,9 @@ export function GeofenceControls({
         
         const initialGeom = featureToEdit.getGeometry();
         if (initialGeom) {
-            setHistoryStack([initialGeom.clone()]);
-            setHistoryIndex(0);
+            pushToHistory(initialGeom);
         }
-    }, [geofences, selectedGeofenceId, cancelCurrentAction, setMode, setActiveShapeState, setHistoryStack, setHistoryIndex, mapRef]);
+    }, [geofences, selectedGeofenceId, cancelCurrentAction, setMode, setActiveShapeState, mapRef, pushToHistory]);
 
     useEffect(() => {
         const map = mapRef.current;
@@ -467,9 +439,6 @@ export function GeofenceControls({
                 try { map.removeInteraction(modifyInteraction); } catch(e) {}
                 try { map.removeInteraction(translateInteraction); } catch(e) {}
             }
-            modifyInteraction.un('modifystart', onModifyStart);
-            modifyInteraction.un('modifyend', onModifyEnd);
-            translateInteraction.un('translateend', onTranslateEnd);
         };
     }, [activeShapeState, mapRef, pushToHistory, setDebugInfo, removeInteractions]);
 

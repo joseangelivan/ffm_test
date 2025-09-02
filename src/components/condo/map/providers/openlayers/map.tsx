@@ -158,7 +158,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
         
         // Prevent re-initialization
         if (mapRef.current) {
-            // If map exists, just update the target div
             mapRef.current.setTarget(mapContainerRef.current);
             return;
         }
@@ -207,7 +206,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
         return () => {
             if (mapRef.current) {
                 mapRef.current.setTarget(undefined);
-                // Do not dispose, just detatch
             }
         };
     }, [provider, onMapLoad, initialPosition, mapRef]);
@@ -226,10 +224,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
             let feature = source.getFeatureById(dbGeofence.id);
             if (feature) {
-                // If feature exists, update its geometry
                 feature.setGeometry(olGeom);
             } else {
-                // If feature doesn't exist, create and add it
                 feature = new Feature({ geometry: olGeom });
                 feature.setId(dbGeofence.id);
                 feature.set('geometryType', olGeom.get('geometryType'));
@@ -242,9 +238,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         source.getFeatures().forEach(feature => {
             const featureId = feature.getId();
             if (typeof featureId === 'string' && !dbGeofenceIds.has(featureId)) {
-                if (activeShapeState && activeShapeState.id === featureId) {
-                    // This is the active temporary shape, do not remove it.
-                } else {
+                if (!activeShapeState || activeShapeState.id !== featureId) {
                     source.removeFeature(feature);
                 }
             }
@@ -266,7 +260,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
     return (
        <div ref={mapContainerRef} className="w-full h-full">
-         {/* Children can be rendered here if they are designed to be map overlays */}
        </div>
     );
 };
