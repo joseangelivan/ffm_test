@@ -43,55 +43,33 @@ const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
     return poligono.intersectsCoordinate(punto);
 }
 
+// FUNCIÓN CORRECTA que SÍ actualiza todos los vértices
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number) => {
-    const PolygonClass = require('ol/geom/Polygon').default;
-    const estaDentro = puntoEstaDentro(new PolygonClass([verticesOriginales]), verticeMovido);
-
-  if (estaDentro) {
-    // Caso 2: Vértice se mueve hacia adentro
-    const verticeAdyacente1 = verticesOriginales[(indiceMovido + 3) % 4];
-    const verticeAdyacente2 = verticesOriginales[(indiceMovido + 1) % 4];
-
-    // Proyectar el punto movido sobre los lados opuestos para encontrar el nuevo vértice opuesto
-    const nuevoOpuestoX = verticeAdyacente1[0] === verticesOriginales[indiceMovido][0] ? verticeAdyacente2[0] : verticeAdyacente1[0];
-    const nuevoOpuestoY = verticeAdyacente1[1] === verticesOriginales[indiceMovido][1] ? verticeAdyacente2[1] : verticeAdyacente1[1];
-    
-    const nuevoVerticeOpuesto = [
-        (nuevoOpuestoX - verticeMovido[0]) + verticeMovido[0],
-        (nuevoOpuestoY - verticeMovido[1]) + verticeMovido[1]
-    ];
-    
-    const nuevoRectangulo = new Array(4);
-    nuevoRectangulo[indiceMovido] = verticeMovido;
-    nuevoRectangulo[(indiceMovido + 2) % 4] = nuevoVerticeOpuesto;
-    nuevoRectangulo[(indiceMovido + 1) % 4] = [nuevoVerticeOpuesto[0], verticeMovido[1]];
-    nuevoRectangulo[(indiceMovido + 3) % 4] = [verticeMovido[0], nuevoVerticeOpuesto[1]];
-    
-    return [...nuevoRectangulo, nuevoRectangulo[0]];
-
-  } else {
-    // Caso 1: Vértice se mueve hacia afuera (usa bounding box)
-    const tempVertices = [...verticesOriginales];
-    tempVertices[indiceMovido] = verticeMovido;
-    
-    const xs = tempVertices.map(v => v[0]);
-    const ys = tempVertices.map(v => v[1]);
-    
-    const minX = Math.min(...xs);
-    const maxX = Math.max(...xs);
-    const minY = Math.min(...ys);
-    const maxY = Math.max(...ys);
-    
-    const rectanguloPerfecto = [
-        [minX, minY],
-        [maxX, minY],
-        [maxX, maxY],
-        [minX, maxY]
-    ];
-    
-    return [...rectanguloPerfecto, rectanguloPerfecto[0]];
-  }
+  // 1. Crear una copia temporal con el vértice movido
+  const tempVertices = [...verticesOriginales];
+  tempVertices[indiceMovido] = verticeMovido;
+  
+  // 2. Encontrar el bounding box de todos los vértices
+  const xs = tempVertices.map(v => v[0]);
+  const ys = tempVertices.map(v => v[1]);
+  
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  
+  // 3. Crear un rectángulo perfecto con el bounding box
+  const rectanguloPerfecto = [
+    [minX, minY], // esquina inferior izquierda
+    [maxX, minY], // esquina inferior derecha
+    [maxX, maxY], // esquina superior derecha
+    [minX, maxY]  // esquina superior izquierda
+  ];
+  
+  // 4. Para OpenLayers, cerrar el polígono
+  return [...rectanguloPerfecto, rectanguloPerfecto[0]];
 };
+
 
 
 export type DrawingMode = 'Polygon' | 'Rectangle' | 'Circle';
@@ -101,7 +79,6 @@ type ActiveShapeState = { id: string, feature: Feature | null, originalGeometry?
 type GeofenceControlsProps = {
     condoId: string;
     geofences: DbGeofence[];
-    setGeofences: React.Dispatch<React.SetStateAction<DbGeofence[]>>;
     onDataNeedsRefresh: (newSelectedId?: string) => void;
     selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -128,7 +105,6 @@ type GeofenceControlsProps = {
 export function GeofenceControls({
     condoId,
     geofences,
-    setGeofences,
     onDataNeedsRefresh,
     selectedGeofenceId,
     setSelectedGeofenceId,
@@ -359,8 +335,7 @@ export function GeofenceControls({
                 geometry: null, 
                 is_default: false,
             };
-
-            setGeofences(current => [...current, placeholderGeofence]);
+            
             setSelectedGeofenceId(newId);
             setCurrentGeofenceName(placeholderGeofence.name);
             setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
