@@ -1,70 +1,104 @@
 
-
 "use client";
 
 import React, { useEffect, useRef } from 'react';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
+import VectorLayer from 'ol/layer/Vector';
+import VectorSource from 'ol/source/Vector';
 import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
+import GeoJSON from 'ol/format/GeoJSON';
 import { fromLonLat } from 'ol/proj';
+import { Style, Fill, Stroke } from 'ol/style';
 import 'ol/ol.css';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
+import type { Geofence as DbGeofence } from '@/actions/maps';
+import type Feature from 'ol/Feature';
+
+// --- STYLES ---
+const STYLE_VIEW_MODE = new Style({
+  stroke: new Stroke({ color: 'rgba(74, 144, 226, 0.8)', width: 2 }),
+  fill: new Fill({ color: 'rgba(74, 144, 226, 0.2)' }),
+});
+
+const STYLE_BACKGROUND_GREY = new Style({
+  stroke: new Stroke({ color: 'rgba(128, 128, 128, 0.8)', width: 2 }),
+  fill: new Fill({ color: 'rgba(128, 128, 128, 0.1)' }),
+});
+
+const STYLE_REFERENCE_GREEN = new Style({
+  stroke: new Stroke({ color: 'rgba(52, 168, 83, 0.6)', width: 2 }),
+  fill: new Fill({ color: 'rgba(52, 168, 83, 0.2)' }),
+});
+
+const STYLE_FOCUSED_BLUE = new Style({
+  stroke: new Stroke({ color: 'rgba(74, 144, 226, 1.0)', width: 3 }),
+  fill: new Fill({ color: 'rgba(74, 144, 226, 0.35)' }),
+});
 
 interface MapProps {
-    children?: React.ReactNode;
     provider: DbMapProvider;
-    onMapLoad: (map: Map) => void;
+    onMapLoad: (map: Map, source: VectorSource) => void;
+    dbGeofences: DbGeofence[];
+    activeShapeState: { id: string, feature: Feature | null } | null;
+    showAllGeofences: boolean;
+    selectedGeofenceId: string | null;
+    defaultGeofenceId: string | null;
+    mode: 'view' | 'editing';
 }
 
-const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) => {
+const OpenLayersMap: React.FC<MapProps> = ({ 
+    provider, 
+    onMapLoad, 
+    dbGeofences,
+    activeShapeState,
+    showAllGeofences,
+    selectedGeofenceId,
+    defaultGeofenceId,
+    mode 
+}) => {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<Map | null>(null);
+    const vectorSourceRef = useRef<VectorSource | null>(null);
+    const geojsonFormatRef = useRef(new GeoJSON({ featureProjection: 'EPSG:3857' }));
 
     useEffect(() => {
         if (!mapRef.current || !provider || mapInstanceRef.current) return;
 
         let config: any;
-        if (typeof provider.config_json === 'string') {
-            try {
-                config = JSON.parse(provider.config_json);
-            } catch (e) {
-                console.error("Failed to parse map provider config_json:", e);
-                config = {};
-            }
-        } else {
-            config = provider.config_json || {};
+        try {
+            config = typeof provider.config_json === 'string' 
+                ? JSON.parse(provider.config_json) 
+                : provider.config_json || {};
+        } catch (e) {
+            console.error("Failed to parse map provider config_json:", e);
+            config = {};
         }
         
         const apiConfig = config.api_config || {};
-        const uiConfig = config.ui_config || {};
         const parameters = apiConfig.parameters || {};
-        
-        const apiKey = parameters.apiKey;
-        const attribution = uiConfig.attribution;
-        let baseUrl = apiConfig.base_url;
+        const baseUrl = apiConfig.base_url;
 
-        if (provider.provider_type === 'google' && apiKey) {
-            baseUrl = `https://mt.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${apiKey}`;
-        }
-        
         let source;
         if (baseUrl) {
-            source = new XYZ({
-                url: baseUrl,
-                attributions: attribution || undefined,
-                attributionsCollapsible: false,
-                maxZoom: 20,
-            });
+            source = new XYZ({ url: baseUrl, maxZoom: 20 });
         } else {
             source = new OSM();
         }
         
         const initialLayer = new TileLayer({ source });
+        vectorSourceRef.current = new VectorSource();
+        
+        const vectorLayer = new VectorLayer({
+            source: vectorSourceRef.current,
+            style: (feature) => feature.get('style') || STYLE_VIEW_MODE, // Default style
+        });
+        vectorLayer.set('id', 'geofence-layer');
 
         const map = new Map({
             target: mapRef.current!,
-            layers: [initialLayer],
+            layers: [initialLayer, vectorLayer],
             view: new View({
                 center: fromLonLat([-49.2, -25.4]),
                 zoom: 4,
@@ -73,7 +107,7 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
         });
 
         mapInstanceRef.current = map;
-        onMapLoad(map);
+        onMapLoad(map, vectorSourceRef.current);
 
         return () => {
             if (mapInstanceRef.current) {
@@ -85,15 +119,93 @@ const OpenLayersMap: React.FC<MapProps> = ({ children, provider, onMapLoad }) =>
                 mapRef.current.innerHTML = '';
             }
         };
-    // We only want this to run ONCE when the component mounts.
-    // Provider and onMapLoad are stable props from the parent.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [provider]);
+
+    useEffect(() => {
+        const source = vectorSourceRef.current;
+        if (!source) return;
+
+        const existingFeatures = new Set(source.getFeatures().map(f => f.getId()));
+
+        dbGeofences.forEach(dbGf => {
+            let feature = source.getFeatureById(dbGf.id);
+            const geometry = geojsonFormatRef.current.readGeometry(dbGf.geometry);
+            
+            if (!feature) {
+                feature = new Feature({ geometry });
+                feature.setId(dbGf.id);
+                source.addFeature(feature);
+            } else {
+                 if (activeShapeState?.id !== dbGf.id) {
+                    feature.setGeometry(geometry);
+                 }
+            }
+            existingFeatures.delete(dbGf.id);
+        });
+
+        existingFeatures.forEach(id => {
+            if (id !== activeShapeState?.id) {
+                const featureToRemove = source.getFeatureById(id!);
+                if (featureToRemove) source.removeFeature(featureToRemove);
+            }
+        });
+
+    }, [dbGeofences, activeShapeState]);
+
+     useEffect(() => {
+        const source = vectorSourceRef.current;
+        if (!source) return;
+        
+        source.forEachFeature(feature => {
+            const id = feature.getId() as string;
+            const isBeingEdited = activeShapeState?.id === id;
+            const isSelected = id === selectedGeofenceId;
+            const isDefault = id === defaultGeofenceId;
+
+            let style = STYLE_BACKGROUND_GREY;
+            let zIndex = 1;
+            
+            if (isBeingEdited) {
+                style = STYLE_FOCUSED_BLUE;
+                zIndex = 3;
+            } else {
+                 if (mode === 'view') {
+                    if (showAllGeofences) {
+                        style = isDefault ? STYLE_VIEW_MODE : STYLE_BACKGROUND_GREY;
+                        zIndex = isDefault ? 2 : 1;
+                    } else {
+                        if (isDefault) {
+                            style = STYLE_VIEW_MODE;
+                            zIndex = 2;
+                        } else {
+                            feature.setStyle(new Style()); // Hide it
+                            return;
+                        }
+                    }
+                } else { // mode === 'editing'
+                    if (isSelected) {
+                        style = STYLE_REFERENCE_GREEN;
+                        zIndex = 2;
+                    } else if (showAllGeofences) {
+                        style = STYLE_BACKGROUND_GREY;
+                        zIndex = 1;
+                    } else {
+                         feature.setStyle(new Style()); // Hide it
+                         return;
+                    }
+                }
+            }
+
+            feature.setStyle(style);
+            feature.get('layer')?.setZIndex(zIndex);
+        });
+
+    }, [mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, activeShapeState]);
+
 
     return (
-       <div ref={mapRef} className="w-full h-full">
-            {children}
-       </div>
+       <div ref={mapRef} className="w-full h-full" />
     );
 };
 

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition } from 'react';
@@ -29,54 +30,52 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { LoadingOverlay } from '@/components/admin/admin-header';
 
-export type DrawingMode = 'polygon' | 'rectangle' | 'circle';
+import type { Map as OlMap } from 'ol';
+import type Feature from 'ol/Feature';
+import { Draw } from 'ol/interaction';
+import GeoJSON from 'ol/format/GeoJSON';
 
-type ActiveShapeState = { id: string, shape: any | null, originalGeometry?: any } | null;
+
+export type DrawingMode = 'Polygon' | 'Rectangle' | 'Circle';
+
+type ActiveShapeState = { id: string, feature: Feature | null, originalGeometry?: any } | null;
 
 type GeofenceControlsProps = {
     condoId: string;
     geofences: DbGeofence[];
     onDataNeedsRefresh: (newSelectedId?: string) => void;
-    onShapeDrawn: (shape: any | null) => void;
     selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
     defaultGeofenceId: string | null;
     setDefaultGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
     mode: 'view' | 'editing';
     setMode: React.Dispatch<React.SetStateAction<'view' | 'editing'>>;
-    drawingManager: any | null; // This will be the OpenLayers Interaction
     showAllGeofences: boolean;
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
     activeShapeState: ActiveShapeState;
     setActiveShapeState: React.Dispatch<React.SetStateAction<ActiveShapeState>>;
-    setUndoStack: React.Dispatch<React.SetStateAction<any[]>>;
-    setRedoStack: React.Dispatch<React.SetStateAction<any[]>>;
-    mapRef: React.RefObject<any | null>;
-    mapShapesRef: React.RefObject<Map<string, any>>;
+    mapRef: React.RefObject<OlMap | null>;
+    drawingInteractionRef: React.MutableRefObject<Draw | null>;
 }
 
 export function GeofenceControls({
     condoId,
     geofences,
     onDataNeedsRefresh,
-    onShapeDrawn,
     selectedGeofenceId,
     setSelectedGeofenceId,
     defaultGeofenceId,
     setDefaultGeofenceId,
     mode,
     setMode,
-    drawingManager,
     showAllGeofences,
     setShowAllGeofences,
     onSettingsClick,
     activeShapeState,
     setActiveShapeState,
-    setUndoStack,
-    setRedoStack,
     mapRef,
-    mapShapesRef,
+    drawingInteractionRef,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -86,7 +85,7 @@ export function GeofenceControls({
     const [isSettingDefault, startSettingDefaultTransition] = useTransition();
     const [isDrawing, setIsDrawing] = useState(false);
 
-    const [drawingMode, setDrawingMode] = useState<DrawingMode>('polygon');
+    const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
 
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
@@ -109,35 +108,79 @@ export function GeofenceControls({
         return `${baseName}_${String(nextNumber).padStart(2, '0')}`;
     }, [geofences, t]);
 
-    // This needs to be adapted to OpenLayers
     const cancelCurrentAction = useCallback(() => {
+        const source = mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer')?.getSource();
+        if (activeShapeState?.feature) {
+             const id = activeShapeState.id;
+             if(id.startsWith('new-shape-') && source) {
+                source.removeFeature(activeShapeState.feature);
+             }
+        }
+        
+        if (drawingInteractionRef.current) {
+            mapRef.current?.removeInteraction(drawingInteractionRef.current);
+            drawingInteractionRef.current = null;
+        }
+
         setActiveShapeState(null);
         setCurrentGeofenceName('');
-        setUndoStack([]);
-        setRedoStack([]);
         setIsDrawing(false);
-    }, [setActiveShapeState, setUndoStack, setRedoStack]);
+    }, [activeShapeState, drawingInteractionRef, mapRef, setActiveShapeState]);
       
-    // This needs to be adapted to OpenLayers
     const startEditingSelected = useCallback(() => {
-        if (!selectedGeofenceId || !mapShapesRef.current) return;
+        const source = mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer')?.getSource();
+        if (!selectedGeofenceId || !source) return;
+        
+        const featureToEdit = source.getFeatureById(selectedGeofenceId);
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
         
-        if (!selectedGeofence) return;
+        if (!selectedGeofence || !featureToEdit) return;
     
         cancelCurrentAction();
         setMode('editing');
-        // Placeholder for setting active shape
-        setActiveShapeState({ id: selectedGeofenceId, shape: {}, originalGeometry: selectedGeofence.geometry });
-        setUndoStack([{}]);
-        setRedoStack([]);
+        setActiveShapeState({ 
+            id: selectedGeofenceId, 
+            feature: featureToEdit, 
+            originalGeometry: selectedGeofence.geometry 
+        });
         setCurrentGeofenceName(selectedGeofence.name);
-    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, setUndoStack, setRedoStack, mapShapesRef]);
+    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, mapRef, setActiveShapeState]);
       
     const saveCurrentAction = useCallback(async () => {
-        // This needs to be adapted to OpenLayers
-        toast({ title: t('toast.errorTitle'), description: "La función de guardado aún no está implementada para OpenLayers.", variant: "destructive" });
-    }, []);
+        if (!activeShapeState?.feature) return;
+        const { id, feature } = activeShapeState;
+    
+        const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+        const geometryToSave = format.writeGeometryObject(feature.getGeometry()!);
+        
+        if (!currentGeofenceName) {
+            toast({ title: t('toast.errorTitle'), description: "El nombre de la geocerca es obligatorio.", variant: "destructive" });
+            return;
+        }
+        
+        let result: { success: boolean; message: string; data?: any; } | null = null;
+        const isNewShape = id.startsWith('new-shape-');
+    
+        if (isNewShape) { 
+            result = await createGeofence({
+                condoId: condoId, name: currentGeofenceName, geometry: geometryToSave, isDefault: geofences.length === 0,
+            });
+        } else {
+            result = await updateGeofence(id, { name: currentGeofenceName, geometry: geometryToSave });
+        }
+    
+        if (result?.success) {
+            toast({ title: t('toast.successTitle'), description: result.message });
+            const newSelectedId = isNewShape ? result.data?.id : id;
+            await onDataNeedsRefresh(newSelectedId);
+            setMode('view');
+            setActiveShapeState(null);
+            setCurrentGeofenceName('');
+
+        } else if (result) {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+        }
+    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, setActiveShapeState, setMode]);
 
     const handleSaveGeofence = () => {
         startSavingTransition(async () => {
@@ -177,14 +220,42 @@ export function GeofenceControls({
     }
     
     const handleStartDrawing = () => {
-        // This needs to be adapted to OpenLayers
-        toast({ title: t('toast.errorTitle'), description: "La función de dibujo aún no está implementada para OpenLayers.", variant: "destructive" });
+        const map = mapRef.current;
+        const source = map?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer')?.getSource();
+
+        if (!map || !source) return;
+
+        if(drawingInteractionRef.current) {
+            map.removeInteraction(drawingInteractionRef.current);
+        }
+
+        const newInteraction = new Draw({
+            source: source,
+            type: drawingMode,
+        });
+
+        newInteraction.on('drawend', (event) => {
+            const newFeature = event.feature;
+            const newId = `new-shape-${Date.now()}`;
+            newFeature.setId(newId);
+            
+            setIsDrawing(false);
+            setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
+            
+            map.removeInteraction(newInteraction);
+            drawingInteractionRef.current = null;
+        });
+
+        drawingInteractionRef.current = newInteraction;
+        map.addInteraction(newInteraction);
+        setIsDrawing(true);
+        setCurrentGeofenceName(getNextGeofenceName());
     };
     
     const isBusy = isSaving || isDeleting || isSettingDefault;
 
     return (
-        <div className="space-y-4 pt-2 border-t mt-4">
+        <div className="space-y-4 pt-2 border-t">
             <div className="flex flex-col gap-4">
                  <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -302,7 +373,7 @@ export function GeofenceControls({
                                         <Button onClick={cancelCurrentAction} variant="ghost" disabled={isSaving}>
                                             <X className="mr-2 h-4 w-4" /> {t('common.cancel')}
                                         </Button>
-                                        <Button onClick={handleSaveGeofence} disabled={isSaving || !activeShapeState?.shape}>
+                                        <Button onClick={handleSaveGeofence} disabled={isSaving || !activeShapeState?.feature}>
                                             {isSaving ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                             {activeShapeState?.id.startsWith('new-shape-') ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
                                         </Button>
@@ -318,17 +389,17 @@ export function GeofenceControls({
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="outline" className="w-40 justify-between" disabled={!!activeShapeState || isBusy}>
                                                 <span>
-                                                    {drawingMode === 'polygon' && t('condoDashboard.map.shapes.polygon')}
-                                                    {drawingMode === 'rectangle' && t('condoDashboard.map.shapes.rectangle')}
-                                                    {drawingMode === 'circle' && t('condoDashboard.map.shapes.circle')}
+                                                    {drawingMode === 'Polygon' && t('condoDashboard.map.shapes.polygon')}
+                                                    {drawingMode === 'Rectangle' && t('condoDashboard.map.shapes.rectangle')}
+                                                    {drawingMode === 'Circle' && t('condoDashboard.map.shapes.circle')}
                                                 </span>
                                                 <ChevronDown className="h-4 w-4"/>
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
-                                            <DropdownMenuItem onSelect={() => setDrawingMode('polygon')}>{t('condoDashboard.map.shapes.polygon')}</DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setDrawingMode('rectangle')}>{t('condoDashboard.map.shapes.rectangle')}</DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setDrawingMode('circle')}>{t('condoDashboard.map.shapes.circle')}</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setDrawingMode('Polygon')}>{t('condoDashboard.map.shapes.polygon')}</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setDrawingMode('Rectangle')}>{t('condoDashboard.map.shapes.rectangle')}</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setDrawingMode('Circle')}>{t('condoDashboard.map.shapes.circle')}</DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </div>

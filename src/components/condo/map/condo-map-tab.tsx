@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
@@ -17,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLocale } from '@/lib/i18n';
+import { GeofenceControls } from './geofence-controls';
 import { ElementsControls } from './elements-controls';
 import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
@@ -24,7 +26,13 @@ import { MapSettingsDialog } from './map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
 import MapContainer from '@/components/map/map-container';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
-import { GeofenceControls } from './geofence-controls';
+
+import type { Map as OlMap } from 'ol';
+import type { Vector as VectorSource } from 'ol/source';
+import type { Draw } from 'ol/interaction';
+import type Feature from 'ol/Feature';
+import { fromLonLat } from 'ol/proj';
+
 
 interface CondoMapTabProps {
   condo: Condominio;
@@ -35,36 +43,28 @@ interface CondoMapTabProps {
 export default function CondoMapTab({ condo, initialPosition, provider }: CondoMapTabProps) {
   const { t } = useLocale();
   const { toast } = useToast();
-  const mapRef = useRef<any | null>(null);
-  const drawingManagerRef = useRef<any | null>(null);
   
-  const mapShapesRef = useRef<Map<string, any>>(new Map());
-  
+  // --- Refs ---
+  const mapRef = useRef<OlMap | null>(null);
+  const geofenceSourceRef = useRef<VectorSource | null>(null);
+  const drawingInteractionRef = useRef<Draw | null>(null);
+  const mapInitialized = useRef(false);
+
+  // --- State ---
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
-  
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
   const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
-  
   const [mode, setMode] = useState<'view' | 'editing'>('view');
-  
   const [showAllGeofences, setShowAllGeofences] = useState(false);
-
   const [zoomLevel, setZoomLevel] = useState(15);
   const [fitLevel, setFitLevel] = useState<'1' | '2' | '3'>('2');
   const [isLoading, setIsLoading] = useState(true);
-  
   const [condoAddressPosition] = useState(initialPosition);
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
   const [selectedModule, setSelectedModule] = useState('geofence');
-
-  const [activeShapeState, setActiveShapeState] = useState<{ id: string, shape: any | null, originalGeometry?: any } | null>(null);
+  const [activeShapeState, setActiveShapeState] = useState<{ id: string, feature: Feature | null, originalGeometry?: any } | null>(null);
   
-  const [undoStack, setUndoStack] = useState<any[]>([]);
-  const [redoStack, setRedoStack] = useState<any[]>([]);
-
-  const canUndo = undoStack.length > 1;
-  const canRedo = redoStack.length > 0;
-  
+  // --- Data Fetching & Refreshing ---
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
     try {
@@ -91,30 +91,75 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     }
   }, [condo.id, selectedGeofenceId, toast, t]);
 
-
+  // --- Map Interactions ---
   const centerMapOnAddress = useCallback(() => {
-    // Placeholder for OpenLayers implementation
+    const map = mapRef.current;
+    if(!map || !condoAddressPosition) return;
+    map.getView().animate({
+        center: fromLonLat([condoAddressPosition.lng, condoAddressPosition.lat]),
+        zoom: 17,
+        duration: 800,
+    });
   }, [condoAddressPosition]);
 
   const applyZoomLevel = useCallback(() => {
-    // Placeholder for OpenLayers implementation
-  }, []);
+    const map = mapRef.current;
+    const source = geofenceSourceRef.current;
+    let geofenceIdToFit: string | null;
 
-  const handleMapLoad = useCallback(async (map: any) => {
+    if (mode === 'view') {
+        geofenceIdToFit = defaultGeofenceId;
+    } else {
+        geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
+    }
+    
+    if (!map || !source || !geofenceIdToFit) {
+        if(map) centerMapOnAddress();
+        return;
+    }
+
+    const featureToFit = source.getFeatureById(geofenceIdToFit);
+    if (!featureToFit) return;
+
+    const extent = featureToFit.getGeometry()?.getExtent();
+    if (extent) {
+        let paddingPercentage = 0.1; // 10% padding (normal)
+        if (fitLevel === '1') paddingPercentage = 0.05; // 5% padding (tight)
+        if (fitLevel === '3') paddingPercentage = 0.2; // 20% padding (wide)
+
+        const padding = map.getSize()!.map(s => s * paddingPercentage);
+
+        map.getView().fit(extent, {
+            padding: [padding[1], padding[0], padding[1], padding[0]],
+            duration: 800,
+            maxZoom: 20
+        });
+    }
+}, [mode, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress]);
+
+
+  const handleMapLoad = useCallback(async (map: OlMap, source: VectorSource) => {
+    if (mapInitialized.current) return;
+    mapInitialized.current = true;
     mapRef.current = map;
+    geofenceSourceRef.current = source;
+    
+    map.on('moveend', () => {
+        const zoom = map.getView().getZoom();
+        if (zoom) setZoomLevel(Math.round(zoom));
+    });
+
     await onDataNeedsRefresh();
   }, [onDataNeedsRefresh]);
-    
-  const handleHistoryAction = (action: 'undo' | 'redo') => {
-      // Placeholder for OpenLayers implementation
-  };
 
-  const handleShapeDrawn = (shape: any | null) => {
-      // Placeholder for OpenLayers implementation
-  };
-  
-  const handleZoomIn = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom() + 1);
-  const handleZoomOut = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom() - 1);
+  useEffect(() => {
+      if (!isLoading && mapRef.current) {
+          applyZoomLevel();
+      }
+  }, [isLoading, applyZoomLevel]);
+    
+  const handleZoomIn = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom()! + 1);
+  const handleZoomOut = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom()! - 1);
   
   return (
     <>
@@ -145,18 +190,24 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                     </div>
                                 </div>
                             )}
-                            <MapContainer 
+                             <MapContainer 
                                 provider={provider}
                                 onMapLoad={handleMapLoad}
+                                dbGeofences={dbGeofences}
+                                activeShapeState={activeShapeState}
+                                showAllGeofences={showAllGeofences}
+                                selectedGeofenceId={selectedGeofenceId}
+                                defaultGeofenceId={defaultGeofenceId}
+                                mode={mode}
                             />
                         </div>
-                         {activeShapeState && (canUndo || canRedo) && (
+                         {activeShapeState && (
                             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">
-                                <Button onClick={() => handleHistoryAction('undo')} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canUndo}>
+                                <Button variant="ghost" size="sm" className="flex items-center gap-2" disabled={true}>
                                     <Undo className="h-4 w-4"/>
                                     {t('condoDashboard.map.undo')}
                                 </Button>
-                                <Button onClick={() => handleHistoryAction('redo')} variant="ghost" size="sm" className="flex items-center gap-2" disabled={!canRedo}>
+                                <Button variant="ghost" size="sm" className="flex items-center gap-2" disabled={true}>
                                     <Redo className="h-4 w-4"/>
                                     {t('condoDashboard.map.redo')}
                                 </Button>
@@ -197,23 +248,19 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                     condoId={condo.id}
                                     geofences={dbGeofences}
                                     onDataNeedsRefresh={onDataNeedsRefresh}
-                                    onShapeDrawn={handleShapeDrawn}
                                     selectedGeofenceId={selectedGeofenceId}
                                     setSelectedGeofenceId={setSelectedGeofenceId}
                                     defaultGeofenceId={defaultGeofenceId}
                                     setDefaultGeofenceId={setDefaultGeofenceId}
                                     mode={mode}
                                     setMode={setMode}
-                                    drawingManager={drawingManagerRef.current}
                                     showAllGeofences={showAllGeofences}
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
                                     activeShapeState={activeShapeState}
                                     setActiveShapeState={setActiveShapeState}
-                                    setUndoStack={setUndoStack}
-                                    setRedoStack={setRedoStack}
                                     mapRef={mapRef}
-                                    mapShapesRef={mapShapesRef}
+                                    drawingInteractionRef={drawingInteractionRef}
                                 />
                             )}
                             {selectedModule === 'elements' && (
@@ -229,10 +276,14 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
             onOpenChange={setIsMapSettingsOpen}
             zoomLevel={zoomLevel}
             initialFitLevel={fitLevel}
-            onApplyFit={(level) => setFitLevel(level)}
+            onApplyFit={(level) => {
+                setFitLevel(level);
+                applyZoomLevel();
+            }}
             isGeofenceAvailable={!!defaultGeofenceId}
             onCenterAddress={centerMapOnAddress}
         />
     </>
   );
 }
+
