@@ -39,21 +39,21 @@ import type { Geometry, Polygon, SimpleGeometry } from 'ol/geom';
 
 
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
-    if (verticesOriginales.length < 4 || indiceMovido < 0 || indiceMovido > 3) {
-      return verticesOriginales;
-    }
-    const indiceOpuesto = (indiceMovido + 2) % 4;
-    const verticeOpuesto = verticesOriginales[indiceOpuesto];
+  const indiceOpuesto = (indiceMovido + 2) % 4;
+  const verticeOpuesto = verticesOriginales[indiceOpuesto];
   
-    const nuevoRectangulo = new Array(4);
-    nuevoRectangulo[indiceMovido] = verticeMovido;
-    nuevoRectangulo[indiceOpuesto] = verticeOpuesto;
-    
-    // Proyectar los otros dos vértices
-    nuevoRectangulo[(indiceMovido + 1) % 4] = [verticeOpuesto[0], verticeMovido[1]];
-    nuevoRectangulo[(indiceMovido + 3) % 4] = [verticeMovido[0], verticeOpuesto[1]];
+  const nuevoRectangulo = new Array(4);
   
-    return [...nuevoRectangulo, nuevoRectangulo[0]];
+  nuevoRectangulo[indiceMovido] = verticeMovido;
+  nuevoRectangulo[indiceOpuesto] = verticeOpuesto;
+  
+  const indiceLateral1 = (indiceMovido + 1) % 4;
+  nuevoRectangulo[indiceLateral1] = [verticeMovido[0], verticeOpuesto[1]];
+  
+  const indiceLateral2 = (indiceMovido + 3) % 4;
+  nuevoRectangulo[indiceLateral2] = [verticeOpuesto[0], verticeMovido[1]];
+  
+  return [...nuevoRectangulo, nuevoRectangulo[0]];
 };
 
 
@@ -127,74 +127,19 @@ export function GeofenceControls({
         
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
-    const onModifyCallback = useRef<(event: any) => void>();
-    const onModifyEndCallback = useRef<(event: any) => void>();
-
-    useEffect(() => {
-        onModifyCallback.current = (event) => {
-             try {
-                setDebugInfo("Moviendo vértice...");
-                const feature = event.features.getArray()[0] as Feature<Polygon>;
-                if (!feature || feature.get('geometryType') !== 'Rectangle') return;
-
-                const originalCoords = (feature.get('originalCoords') as number[][])?.slice(0, 4);
-                const currentCoords = feature.getGeometry()?.getCoordinates()[0].slice(0, 4) as number[][];
-                
-                if (!originalCoords || !currentCoords || originalCoords.length !== 4 || currentCoords.length !== 4) return;
-                
-                let movedIndex = -1;
-                for (let i = 0; i < 4; i++) {
-                    if (originalCoords[i][0] !== currentCoords[i][0] || originalCoords[i][1] !== currentCoords[i][1]) {
-                        movedIndex = i;
-                        break;
-                    }
-                }
-                
-                if (movedIndex === -1) return;
-                
-                const correctedCoords = RecalcularRectangulo(originalCoords, currentCoords[movedIndex], movedIndex);
-                
-                if(correctedCoords.length === 5) {
-                    feature.getGeometry()?.setCoordinates([correctedCoords]);
-                    const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-                    const geomForDebug = format.writeGeometryObject(feature.getGeometry()!);
-                    setDebugInfo(`Coords: ${JSON.stringify(geomForDebug, null, 2)}`);
-                }
-             } catch(e: any) {
-                setDebugInfo(`Error: ${e.message}`);
-             }
-        };
-    }, [setDebugInfo]);
-    
-    useEffect(() => {
-        onModifyEndCallback.current = (event) => {
-            const feature = event.features.getArray()[0];
-            const finalGeometry = feature.getGeometry();
-            if (finalGeometry) {
-                const newStack = historyStack.slice(0, historyIndex + 1);
-                newStack.push(finalGeometry.clone());
-                setHistoryStack(newStack);
-                setHistoryIndex(newStack.length - 1);
-                setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(finalGeometry), null, 2)}`);
-            }
-            feature.unset('originalCoords');
-        };
-    }, [historyStack, historyIndex, setHistoryStack, setHistoryIndex, setDebugInfo]);
-
-    const removeInteractions = useCallback(() => {
-        if (!mapRef.current) return;
-        if (drawingInteractionRef.current) mapRef.current.removeInteraction(drawingInteractionRef.current);
-        if (modifyInteractionRef.current) mapRef.current.removeInteraction(modifyInteractionRef.current);
-        if (translateInteractionRef.current) mapRef.current.removeInteraction(translateInteractionRef.current);
-        drawingInteractionRef.current = null;
-        modifyInteractionRef.current = null;
-        translateInteractionRef.current = null;
-    }, [mapRef, drawingInteractionRef, modifyInteractionRef, translateInteractionRef]);
-
     const geofenceSourceRef = (): VectorSource | null => {
         const layer = mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer');
         return (layer as any)?.getSource() || null;
     }
+
+    const pushToHistory = useCallback((geometry: Geometry) => {
+        setHistoryStack(prev => {
+            const newStack = prev.slice(0, historyIndex + 1);
+            newStack.push(geometry.clone());
+            setHistoryIndex(newStack.length - 1);
+            return newStack;
+        });
+    }, [historyIndex, setHistoryIndex, setHistoryStack]);
 
     const getNextGeofenceName = useCallback(() => {
         const baseName = t('condoDashboard.map.geofence.defaultName');
@@ -214,11 +159,17 @@ export function GeofenceControls({
         return `${baseName}_${String(nextNumber).padStart(2, '0')}`;
     }, [geofences, t]);
 
-    const cancelCurrentAction = useCallback(() => {
-        if (activeShapeState?.id?.startsWith('new-shape-')) {
-            setGeofences(geofences.filter(g => g.id !== activeShapeState.id));
-        }
+    const removeInteractions = useCallback(() => {
+        if (!mapRef.current) return;
+        if (drawingInteractionRef.current) mapRef.current.removeInteraction(drawingInteractionRef.current);
+        if (modifyInteractionRef.current) mapRef.current.removeInteraction(modifyInteractionRef.current);
+        if (translateInteractionRef.current) mapRef.current.removeInteraction(translateInteractionRef.current);
+        drawingInteractionRef.current = null;
+        modifyInteractionRef.current = null;
+        translateInteractionRef.current = null;
+    }, [mapRef, drawingInteractionRef, modifyInteractionRef, translateInteractionRef]);
 
+    const cancelCurrentAction = useCallback(() => {
         const source = geofenceSourceRef();
         if (activeShapeState?.feature) {
              const feature = activeShapeState.feature;
@@ -239,61 +190,8 @@ export function GeofenceControls({
         setIsDrawing(false);
         setHistoryStack([]);
         setHistoryIndex(-1);
-    }, [activeShapeState, removeInteractions, setActiveShapeState, setMode, geofences, setGeofences, geofenceSourceRef, setHistoryStack, setHistoryIndex]);
+    }, [activeShapeState, removeInteractions, setActiveShapeState, setMode, geofenceSourceRef, setHistoryStack, setHistoryIndex]);
     
-     const startEditingSelected = useCallback(() => {
-        const source = geofenceSourceRef();
-        const map = mapRef.current;
-        if (!selectedGeofenceId || !source || !map) return;
-
-        const featureToEdit = source.getFeatureById(selectedGeofenceId) as Feature<Polygon>;
-        const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
-
-        if (!selectedGeofence || !featureToEdit) return;
-
-        cancelCurrentAction();
-        setMode('editing');
-        
-        const Collection = require('ol/Collection').default;
-        const features = new Collection([featureToEdit]);
-        
-        const modify = new Modify({ features, deleteCondition: () => false });
-        modifyInteractionRef.current = modify;
-        
-        translateInteractionRef.current = new Translate({ features: features });
-        
-        map.addInteraction(modify);
-        map.addInteraction(translateInteractionRef.current);
-        
-        setActiveShapeState({
-            id: selectedGeofenceId,
-            feature: featureToEdit,
-            originalGeometry: selectedGeofence.geometry,
-        });
-        setCurrentGeofenceName(selectedGeofence.name);
-        
-        const initialGeom = featureToEdit.getGeometry();
-        if (initialGeom) {
-            setHistoryStack([initialGeom.clone()]);
-            setHistoryIndex(0);
-        }
-
-        modify.on('modifystart', (event) => {
-            const feature = event.features.getArray()[0] as Feature<Polygon>;
-            feature.set('originalCoords', feature.getGeometry()?.getCoordinates()[0]);
-        });
-        
-        modify.on('modifying', (event) => {
-            onModifyCallback.current?.(event);
-        });
-
-        modify.on('modifyend', (event) => {
-            onModifyEndCallback.current?.(event);
-        });
-
-    }, [geofences, selectedGeofenceId, mapRef, cancelCurrentAction, setMode, setActiveShapeState, setHistoryStack, setHistoryIndex, modifyInteractionRef, translateInteractionRef]);
-
-
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
         const { id, feature } = activeShapeState;
@@ -430,6 +328,113 @@ export function GeofenceControls({
         setCurrentGeofenceName(getNextGeofenceName());
     };
     
+    const startEditingSelected = useCallback(() => {
+        const source = geofenceSourceRef();
+        const map = mapRef.current;
+        if (!selectedGeofenceId || !source || !map) return;
+
+        const featureToEdit = source.getFeatureById(selectedGeofenceId) as Feature<Polygon>;
+        const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
+
+        if (!selectedGeofence || !featureToEdit) return;
+
+        cancelCurrentAction();
+        setMode('editing');
+        
+        const Collection = require('ol/Collection').default;
+        const features = new Collection([featureToEdit]);
+        
+        const modify = new Modify({ features, deleteCondition: () => false });
+        modifyInteractionRef.current = modify;
+        
+        translateInteractionRef.current = new Translate({ features: features });
+        
+        map.addInteraction(modify);
+        map.addInteraction(translateInteractionRef.current);
+        
+        setActiveShapeState({
+            id: selectedGeofenceId,
+            feature: featureToEdit,
+            originalGeometry: selectedGeofence.geometry,
+        });
+        setCurrentGeofenceName(selectedGeofence.name);
+        
+        const initialGeom = featureToEdit.getGeometry();
+        if (initialGeom) {
+            setHistoryStack([initialGeom.clone()]);
+            setHistoryIndex(0);
+        }
+    }, [geofences, selectedGeofenceId, mapRef, cancelCurrentAction, setMode, setActiveShapeState, setHistoryStack, setHistoryIndex, modifyInteractionRef, translateInteractionRef]);
+
+
+    useEffect(() => {
+        const modify = modifyInteractionRef.current;
+        if (!modify) return;
+
+        let originalCoords: number[][] | null = null;
+        
+        const handleModifyStart = (event: any) => {
+            const feature = event.features.getArray()[0];
+            if (feature) {
+                 originalCoords = (feature.getGeometry() as SimpleGeometry).getCoordinates()[0].slice(0, 4);
+            }
+        };
+
+        const handleModifying = (event: any) => {
+            try {
+                setDebugInfo("Moviendo vértice...");
+                const feature = event.features.getArray()[0] as Feature<Polygon>;
+                if (!feature || feature.get('geometryType') !== 'Rectangle' || !originalCoords) return;
+
+                const currentCoords = feature.getGeometry()?.getCoordinates()[0].slice(0, 4) as number[][];
+                if (!currentCoords || currentCoords.length !== 4) return;
+                
+                let movedIndex = -1;
+                for (let i = 0; i < 4; i++) {
+                    if (originalCoords[i][0] !== currentCoords[i][0] || originalCoords[i][1] !== currentCoords[i][1]) {
+                        movedIndex = i;
+                        break;
+                    }
+                }
+                
+                if (movedIndex === -1) return;
+                
+                const correctedCoords = RecalcularRectangulo(originalCoords, currentCoords[movedIndex], movedIndex);
+                
+                if(correctedCoords.length === 5) {
+                    feature.getGeometry()?.setCoordinates([correctedCoords]);
+                    const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+                    const geomForDebug = format.writeGeometryObject(feature.getGeometry()!);
+                    setDebugInfo(`Coords: ${JSON.stringify(geomForDebug, null, 2)}`);
+                }
+             } catch(e: any) {
+                setDebugInfo(`Error: ${e.message}`);
+             }
+        };
+
+        const handleModifyEnd = (event: any) => {
+            const feature = event.features.getArray()[0];
+            if (feature) {
+                pushToHistory(feature.getGeometry()!);
+                setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(feature.getGeometry()!), null, 2)}`);
+            }
+            originalCoords = null;
+        };
+
+        const modifyStartKey = modify.on('modifystart', handleModifyStart);
+        const modifyingKey = modify.on('modifying', handleModifying);
+        const modifyEndKey = modify.on('modifyend', handleModifyEnd);
+
+        return () => {
+            const { unByKey } = require('ol/Observable');
+            unByKey(modifyStartKey);
+            unByKey(modifyingKey);
+            unByKey(modifyEndKey);
+        }
+
+    }, [modifyInteractionRef.current, setDebugInfo, pushToHistory]);
+
+
     const isBusy = isSaving || isDeleting || isSettingDefault;
 
     return (
