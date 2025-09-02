@@ -68,20 +68,19 @@ function readLegacyOrStandardGeoJSON(geometry: any) {
 
     const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
 
-    // Explicitly handle our legacy 'rectangle' type
+    // Explicitly handle our legacy 'rectangle' type from Google Maps bounds
     if (geometry.type.toLowerCase() === 'rectangle') {
-        // The coordinates are expected to be an array of points for the polygon shell.
-        const shell = geometry.coordinates?.[0];
-        if (Array.isArray(shell) && shell.length > 0) {
-            try {
-                // Transform each coordinate pair from LonLat to the map's projection.
-                const transformedCoords = shell.map((coord: number[]) => fromLonLat(coord));
-                // Create a new Polygon with the transformed coordinates.
-                return new Polygon([transformedCoords]);
-            } catch(e) {
-                console.error("Error transforming legacy Rectangle geometry coordinates:", e);
-                return null;
-            }
+        const bounds = geometry.bounds;
+        if (bounds && typeof bounds.north === 'number' && typeof bounds.south === 'number' && typeof bounds.east === 'number' && typeof bounds.west === 'number') {
+             const coordinates = [
+                [bounds.west, bounds.south],
+                [bounds.east, bounds.south],
+                [bounds.east, bounds.north],
+                [bounds.west, bounds.north],
+                [bounds.west, bounds.south] // Close the polygon
+            ];
+            const polygon = new Polygon([coordinates.map(coord => fromLonLat(coord))]);
+            return polygon;
         } else {
              console.error("Invalid coordinate structure for legacy Rectangle geometry:", geometry);
              return null;
@@ -160,7 +159,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         onMapLoad(map, vectorSourceRef.current);
 
         return () => {
-            if (passedMapRef.current) {
+             if (passedMapRef.current) {
                 passedMapRef.current.setTarget(undefined);
             }
         };
