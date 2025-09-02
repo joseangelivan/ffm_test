@@ -191,22 +191,15 @@ export function GeofenceControls({
         const features = new Collection([featureToEdit]);
 
         const geometry = featureToEdit.getGeometry();
-        const isRectangle = (geom: Geometry | undefined) => {
-            return geom && geom.getType() === 'Polygon' && (geom.getCoordinates()[0]?.length === 5);
-        }
+        const isRectangle = (geom: Geometry | undefined): boolean => {
+            if (!geom || geom.getType() !== 'Polygon') return false;
+            const coordinates = geom.getCoordinates()[0];
+            return coordinates.length === 5;
+        };
 
         const modify = new Modify({
             features: features,
-            geometryFunction: isRectangle(geometry) ? (geometry: any) => {
-                 const coords = geometry.getCoordinates()[0];
-                 const minX = Math.min(coords[0][0], coords[1][0], coords[2][0], coords[3][0]);
-                 const minY = Math.min(coords[0][1], coords[1][1], coords[2][1], coords[3][1]);
-                 const maxX = Math.max(coords[0][0], coords[1][0], coords[2][0], coords[3][0]);
-                 const maxY = Math.max(coords[0][1], coords[1][1], coords[2][1], coords[3][1]);
-                 const newCoords = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY], [minX, minY]];
-                 geometry.setCoordinates([newCoords]);
-                 return geometry;
-            } : undefined,
+            geometryFunction: isRectangle(geometry) ? createBox() : undefined,
         });
         modify.on('modifyend', () => pushToHistory(featureToEdit.getGeometry()!));
         mapRef.current.addInteraction(modify);
@@ -341,17 +334,9 @@ export function GeofenceControls({
             const Collection = require('ol/Collection').default;
             const features = new Collection([newFeature]);
             
-            const modify = new Modify({ features: features,
-                geometryFunction: drawingMode === 'Rectangle' ? (geometry: any) => {
-                     const coords = geometry.getCoordinates()[0];
-                     const minX = Math.min(coords[0][0], coords[1][0], coords[2][0], coords[3][0]);
-                     const minY = Math.min(coords[0][1], coords[1][1], coords[2][1], coords[3][1]);
-                     const maxX = Math.max(coords[0][0], coords[1][0], coords[2][0], coords[3][0]);
-                     const maxY = Math.max(coords[0][1], coords[1][1], coords[2][1], coords[3][1]);
-                     const newCoords = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY], [minX, minY]];
-                     geometry.setCoordinates([newCoords]);
-                     return geometry;
-                } : undefined,
+            const modify = new Modify({ 
+                features: features,
+                geometryFunction: drawingMode === 'Rectangle' ? createBox() : undefined,
              });
             modify.on('modifyend', () => pushToHistory(newFeature.getGeometry()!));
             map.addInteraction(modify);
@@ -417,7 +402,7 @@ export function GeofenceControls({
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>Configuración de Vista del Mapa</p>
+                                    <p>Configuração de Vista do Mapa</p>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
