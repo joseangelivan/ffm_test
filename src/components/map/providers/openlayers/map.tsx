@@ -68,10 +68,15 @@ function readLegacyOrStandardGeoJSON(geometry: any) {
 
     const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
 
+    // Explicitly handle our legacy 'rectangle' type
     if (geometry.type.toLowerCase() === 'rectangle') {
-        if (Array.isArray(geometry.coordinates) && geometry.coordinates.length > 0 && Array.isArray(geometry.coordinates[0])) {
+        // The coordinates are expected to be an array of points for the polygon shell.
+        const shell = geometry.coordinates?.[0];
+        if (Array.isArray(shell) && shell.length > 0) {
             try {
-                const transformedCoords = geometry.coordinates[0].map((coord: number[]) => fromLonLat(coord));
+                // Transform each coordinate pair from LonLat to the map's projection.
+                const transformedCoords = shell.map((coord: number[]) => fromLonLat(coord));
+                // Create a new Polygon with the transformed coordinates.
                 return new Polygon([transformedCoords]);
             } catch(e) {
                 console.error("Error transforming legacy Rectangle geometry coordinates:", e);
@@ -83,6 +88,7 @@ function readLegacyOrStandardGeoJSON(geometry: any) {
         }
     }
     
+    // For all other types, let the GeoJSON format reader handle them.
     try {
         return format.readGeometry(geometry);
     } catch (e) {
@@ -156,7 +162,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
         return () => {
             if (passedMapRef.current) {
                 passedMapRef.current.setTarget(undefined);
-                passedMapRef.current = null;
             }
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -178,6 +183,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
             let feature = source.getFeatureById(dbGf.id);
             if (feature) {
+                // Do not update the geometry if this is the shape being actively edited
                 if (activeShapeState?.id !== dbGf.id) {
                     feature.setGeometry(geometry);
                 }
@@ -188,6 +194,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             }
         });
 
+        // Clean up features that are no longer in the DB
         existingFeatureIds.forEach(id => {
             if (id && !dbGeofenceIds.has(id.toString()) && id !== activeShapeState?.id) {
                 const featureToRemove = source.getFeatureById(id);
@@ -205,6 +212,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         
         source.forEachFeature(feature => {
             const id = feature.getId() as string;
+            // Ignore temporary new shapes
             if (!id || id.startsWith('new-shape-')) return;
 
             const isBeingEdited = activeShapeState?.id === id;
@@ -220,10 +228,12 @@ const OpenLayersMap: React.FC<MapProps> = ({
                     if (showAllGeofences) {
                         style = isDefault ? STYLE_VIEW_MODE : STYLE_BACKGROUND_GREY;
                     } else {
+                        // Only show the default geofence in view mode if "show all" is off
                         if (isDefault) {
                             style = STYLE_VIEW_MODE;
                         } else {
-                            feature.setStyle(new Style()); 
+                            // Hide non-default geofences
+                            feature.setStyle(new Style()); // Empty style makes it invisible
                             return;
                         }
                     }
@@ -233,7 +243,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
                     } else if (showAllGeofences) {
                         style = STYLE_BACKGROUND_GREY;
                     } else {
-                         feature.setStyle(new Style()); 
+                         // Hide all other geofences during editing unless "show all" is on
+                         feature.setStyle(new Style());
                          return;
                     }
                 }
