@@ -17,7 +17,7 @@ import {
   Star,
   XCircle,
   Eye,
-  EyeOff
+  EyeOff,
 } from 'lucide-react';
 import { fromLonLat } from 'ol/proj';
 import type { Map } from 'ol';
