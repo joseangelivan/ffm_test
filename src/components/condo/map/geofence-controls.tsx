@@ -138,12 +138,16 @@ export function GeofenceControls({
     const modifyInteractionRef = useRef<Modify | null>(null);
     const translateInteractionRef = useRef<Translate | null>(null);
     
-    const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
+    const defaultGeofenceName = useMemo(() => 
+        geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none'),
+    [geofences, defaultGeofenceId, t]);
     
-    const geofenceSourceRef = (): VectorSource | null => {
+    const geofenceSourceRef = useRef<VectorSource | null>(null);
+    useEffect(() => {
         const layer = mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer');
-        return (layer as any)?.getSource() || null;
-    }
+        geofenceSourceRef.current = (layer as any)?.getSource() || null;
+    }, [mapRef, mapRef.current?.getLayers().getArray()]);
+
 
     const pushToHistory = useCallback((geometry: Geometry) => {
         const newStack = historyStack.slice(0, historyIndex + 1);
@@ -182,7 +186,7 @@ export function GeofenceControls({
     }, [mapRef]);
 
     const cancelCurrentAction = useCallback(() => {
-        const source = geofenceSourceRef();
+        const source = geofenceSourceRef.current;
         if (activeShapeState?.feature) {
              const feature = activeShapeState.feature;
              const originalGeometry = activeShapeState.originalGeometry;
@@ -198,13 +202,12 @@ export function GeofenceControls({
         }
         
         removeInteractions();
-        setMode('view');
         setActiveShapeState(null);
         setCurrentGeofenceName('');
         setIsDrawing(false);
         setHistoryStack([]);
         setHistoryIndex(-1);
-    }, [activeShapeState, removeInteractions, setActiveShapeState, setMode, geofenceSourceRef, setHistoryStack, setHistoryIndex]);
+    }, [activeShapeState, removeInteractions, setActiveShapeState, setHistoryStack, setHistoryIndex]);
     
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
@@ -234,11 +237,12 @@ export function GeofenceControls({
             const newSelectedId = isNewShape ? result.data?.id : id;
             await onDataNeedsRefresh(newSelectedId);
             cancelCurrentAction();
+            setMode('view');
 
         } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
         }
-    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, cancelCurrentAction]);
+    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, cancelCurrentAction, setMode]);
 
     const handleSaveGeofence = () => {
         startSavingTransition(async () => {
@@ -278,9 +282,9 @@ export function GeofenceControls({
     }
     
     const handleStartDrawing = () => {
-        cancelCurrentAction();
+        removeInteractions();
         const map = mapRef.current;
-        const source = geofenceSourceRef();
+        const source = geofenceSourceRef.current;
         if (!map || !source) return;
         
         const drawOptions: any = { source: source };
@@ -300,15 +304,18 @@ export function GeofenceControls({
                 newFeature.set('geometryType', 'Rectangle');
             }
             onShapeDrawn(newFeature);
+            setIsDrawing(false);
             if (drawingInteractionRef.current) map.removeInteraction(drawingInteractionRef.current);
             drawingInteractionRef.current = null;
         });
 
         map.addInteraction(newInteraction);
+        setCurrentGeofenceName(getNextGeofenceName());
+        setIsDrawing(true);
     };
     
     const startEditingSelected = useCallback(() => {
-        const source = geofenceSourceRef();
+        const source = geofenceSourceRef.current;
         if (!selectedGeofenceId || !source) return;
 
         const featureToEdit = source.getFeatureById(selectedGeofenceId) as Feature<Polygon>;
@@ -330,7 +337,7 @@ export function GeofenceControls({
             pushToHistory(initialGeom);
         }
         setMode('editing');
-    }, [geofences, selectedGeofenceId, setMode, setActiveShapeState, pushToHistory, cancelCurrentAction, geofenceSourceRef]);
+    }, [geofences, selectedGeofenceId, setMode, setActiveShapeState, pushToHistory, cancelCurrentAction]);
 
     useEffect(() => {
         removeInteractions();
@@ -434,7 +441,7 @@ export function GeofenceControls({
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>Configuração de Vista do Mapa</p>
+                                    <p>Configuración de Vista del Mapa</p>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
@@ -451,9 +458,8 @@ export function GeofenceControls({
                             onCheckedChange={(checked) => {
                                 if (!checked) {
                                     cancelCurrentAction();
-                                } else {
-                                    setMode('editing');
                                 }
+                                setMode(checked ? 'editing' : 'view');
                             }}
                         />
                         <label
@@ -525,7 +531,10 @@ export function GeofenceControls({
                                         />
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <Button onClick={cancelCurrentAction} variant="ghost" disabled={isSaving}>
+                                        <Button onClick={() => {
+                                            cancelCurrentAction();
+                                            setMode('view');
+                                        }} variant="ghost" disabled={isSaving}>
                                             <X className="mr-2 h-4 w-4" /> {t('common.cancel')}
                                         </Button>
                                         <Button onClick={handleSaveGeofence} disabled={isSaving || (!activeShapeState?.feature && !isDrawing)}>
