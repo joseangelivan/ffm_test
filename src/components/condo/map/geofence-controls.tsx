@@ -39,50 +39,54 @@ import type { Geometry, Polygon, SimpleGeometry } from 'ol/geom';
 
 
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
-  const indiceOpuesto = (indiceMovido + 2) % 4;
-  const verticeOpuesto = verticesOriginales[indiceOpuesto];
-  
-  const indiceAdyacente1 = (indiceMovido + 3) % 4;
-  const indiceAdyacente2 = (indiceMovido + 1) % 4;
-  
-  const verticeAdyacente1 = verticesOriginales[indiceAdyacente1];
-  const verticeAdyacente2 = verticesOriginales[indiceAdyacente2];
-  
-  // Calcular vectores de dirección desde el vértice movido original
-  const vectorLado1 = [
-    verticeAdyacente1[0] - verticesOriginales[indiceMovido][0],
-    verticeAdyacente1[1] - verticesOriginales[indiceMovido][1]
-  ];
-  
-  const vectorLado2 = [
-    verticeAdyacente2[0] - verticesOriginales[indiceMovido][0],
-    verticeAdyacente2[1] - verticesOriginales[indiceMovido][1]
-  ];
-  
-  // Calcular nuevos vértices adyacentes
-  const nuevoVerticeAdyacente1 = [
-    verticeMovido[0] + vectorLado1[0],
-    verticeMovido[1] + vectorLado1[1]
-  ];
-  
-  const nuevoVerticeAdyacente2 = [
-    verticeMovido[0] + vectorLado2[0],
-    verticeMovido[1] + vectorLado2[1]
-  ];
-  
-  // Calcular nuevo vértice opuesto
-  const nuevoVerticeOpuesto = [
-    nuevoVerticeAdyacente1[0] + vectorLado2[0],
-    nuevoVerticeAdyacente1[1] + vectorLado2[1]
-  ];
-  
-  const nuevoRectangulo = new Array(4);
-  nuevoRectangulo[indiceMovido] = verticeMovido;
-  nuevoRectangulo[indiceAdyacente1] = nuevoVerticeAdyacente1;
-  nuevoRectangulo[indiceAdyacente2] = nuevoVerticeAdyacente2;
-  nuevoRectangulo[indiceOpuesto] = nuevoVerticeOpuesto;
-  
-  return [...nuevoRectangulo, nuevoRectangulo[0]];
+    const indiceOpuesto = (indiceMovido + 2) % 4;
+    const verticeOpuesto = verticesOriginales[indiceOpuesto];
+    
+    const indiceAdyacente1 = (indiceMovido + 3) % 4;
+    const indiceAdyacente2 = (indiceMovido + 1) % 4;
+    
+    const verticeAdyacente1Original = verticesOriginales[indiceAdyacente1];
+    const verticeAdyacente2Original = verticesOriginales[indiceAdyacente2];
+
+    const vectorLado1 = [
+        verticeAdyacente1Original[0] - verticesOriginales[indiceMovido][0],
+        verticeAdyacente1Original[1] - verticesOriginales[indiceMovido][1]
+    ];
+    
+    const vectorLado2 = [
+        verticeAdyacente2Original[0] - verticesOriginales[indiceMovido][0],
+        verticeAdyacente2Original[1] - verticesOriginales[indiceMovido][1]
+    ];
+    
+    const nuevoVerticeAdyacente1 = [
+        verticeMovido[0] + vectorLado1[0],
+        verticeMovido[1] + vectorLado1[1]
+    ];
+    
+    const nuevoVerticeAdyacente2 = [
+        verticeMovido[0] + vectorLado2[0],
+        verticeMovido[1] + vectorLado2[1]
+    ];
+    
+    const nuevoVerticeOpuestoCalculado = [
+        nuevoVerticeAdyacente1[0] + vectorLado2[0],
+        nuevoVerticeAdyacente1[1] + vectorLado2[1]
+    ];
+    
+    const nuevoRectangulo = new Array(4);
+    nuevoRectangulo[indiceMovido] = verticeMovido;
+    nuevoRectangulo[indiceAdyacente1] = [verticeOpuesto[0], verticeMovido[1]];
+    nuevoRectangulo[indiceAdyacente2] = [verticeMovido[0], verticeOpuesto[1]];
+    nuevoRectangulo[indiceOpuesto] = verticeOpuesto;
+
+    // Reorder based on adjacent indices
+    const finalRect = new Array(4);
+    finalRect[indiceMovido] = verticeMovido;
+    finalRect[indiceOpuesto] = verticeOpuesto;
+    finalRect[(indiceMovido + 1) % 4] = [verticeMovido[0], verticeOpuesto[1]];
+    finalRect[(indiceMovido + 3) % 4] = [verticeOpuesto[0], verticeMovido[1]];
+    
+    return [...finalRect, finalRect[0]];
 };
 
 
@@ -223,9 +227,7 @@ export function GeofenceControls({
         setHistoryIndex(-1);
     }, [activeShapeState, removeInteractions, setActiveShapeState, setMode, geofences, setGeofences, geofenceSourceRef, setHistoryStack, setHistoryIndex]);
     
-     // --- Start of robust event handling logic ---
-
-    const startEditingSelected = useCallback(() => {
+     const startEditingSelected = useCallback(() => {
         const source = geofenceSourceRef();
         const map = mapRef.current;
         if (!selectedGeofenceId || !source || !map) return;
@@ -241,10 +243,12 @@ export function GeofenceControls({
         const Collection = require('ol/Collection').default;
         const features = new Collection([featureToEdit]);
         
-        modifyInteractionRef.current = new Modify({ features, deleteCondition: () => false });
+        const modify = new Modify({ features, deleteCondition: () => false });
+        modifyInteractionRef.current = modify;
+        
         translateInteractionRef.current = new Translate({ features: features });
         
-        map.addInteraction(modifyInteractionRef.current);
+        map.addInteraction(modify);
         map.addInteraction(translateInteractionRef.current);
         
         setActiveShapeState({
@@ -260,21 +264,14 @@ export function GeofenceControls({
             setHistoryIndex(0);
         }
 
-    }, [geofences, selectedGeofenceId, mapRef, cancelCurrentAction, setMode, setActiveShapeState, setHistoryStack, setHistoryIndex, modifyInteractionRef, translateInteractionRef]);
-
-
-    useEffect(() => {
-        const modify = modifyInteractionRef.current;
-        if (!modify) return;
-
         let originalCoordinates: number[][] | undefined;
 
-        const onModifyStart = (event: any) => {
+        modify.on('modifystart', (event) => {
             const feature = event.features.getArray()[0] as Feature<Polygon>;
             originalCoordinates = feature.getGeometry()?.getCoordinates()[0].slice(0, 4);
-        };
+        });
         
-        const onModifying = (event: any) => {
+        modify.on('modifying', (event) => {
             setDebugInfo("Moviendo vértice...");
             const feature = event.features.getArray()[0] as Feature<Polygon>;
             if (feature.get('geometryType') !== 'Rectangle' || !originalCoordinates) return;
@@ -290,16 +287,16 @@ export function GeofenceControls({
                 }
             }
             if (movedIndex === -1) return;
-
+            
             const correctedCoords = RecalcularRectangulo(originalCoordinates, currentCoords[movedIndex], movedIndex);
             feature.getGeometry()?.setCoordinates([correctedCoords]);
             
             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
             const geomForDebug = format.writeGeometryObject(feature.getGeometry()!);
             setDebugInfo(`Coords: ${JSON.stringify(geomForDebug, null, 2)}`);
-        };
+        });
 
-        const onModifyEnd = (event: any) => {
+        modify.on('modifyend', (event) => {
             const feature = event.features.getArray()[0];
             const finalGeometry = feature.getGeometry();
             if (finalGeometry) {
@@ -309,22 +306,9 @@ export function GeofenceControls({
                  setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(finalGeomForDebug, null, 2)}`);
             }
             originalCoordinates = undefined;
-        };
+        });
 
-        const startKey = modify.on('modifystart', onModifyStart);
-        const modifyingKey = modify.on('modifying', onModifying);
-        const endKey = modify.on('modifyend', onModifyEnd);
-
-        return () => {
-            const { unByKey } = require('ol/Observable');
-            unByKey(startKey);
-            unByKey(modifyingKey);
-            unByKey(endKey);
-        }
-
-    }, [modifyInteractionRef, pushToHistory, setDebugInfo]);
-
-    // --- End of robust event handling logic ---
+    }, [geofences, selectedGeofenceId, mapRef, cancelCurrentAction, setMode, setActiveShapeState, setHistoryStack, setHistoryIndex, modifyInteractionRef, translateInteractionRef, pushToHistory, setDebugInfo]);
 
 
     const saveCurrentAction = useCallback(async () => {
@@ -625,5 +609,4 @@ export function GeofenceControls({
     );
 }
 
-    
     
