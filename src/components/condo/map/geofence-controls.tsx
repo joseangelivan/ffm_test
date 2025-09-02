@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useTransition, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useTransition, useMemo } from 'react';
 import {
   PencilRuler,
   ChevronDown,
@@ -60,7 +60,7 @@ const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: num
     }
 
     const indiceOpuesto = (indiceMovido + 2) % 4;
-    const verticeOpuesto = verticesOriginales[indiceMovido];
+    const verticeOpuesto = verticesOriginales[indiceOpuesto];
     
     const nuevoRectangulo = [
         [verticeMovido[0], verticeMovido[1]],
@@ -134,15 +134,15 @@ export function GeofenceControls({
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
     
-    const drawingInteractionRef = useRef<Draw | null>(null);
-    const modifyInteractionRef = useRef<Modify | null>(null);
-    const translateInteractionRef = useRef<Translate | null>(null);
+    const drawingInteractionRef = React.useRef<Draw | null>(null);
+    const modifyInteractionRef = React.useRef<Modify | null>(null);
+    const translateInteractionRef = React.useRef<Translate | null>(null);
     
     const defaultGeofenceName = useMemo(() => 
         geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none'),
     [geofences, defaultGeofenceId, t]);
     
-    const geofenceSourceRef = useRef<VectorSource | null>(null);
+    const geofenceSourceRef = React.useRef<VectorSource | null>(null);
     useEffect(() => {
         const layer = mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer');
         geofenceSourceRef.current = (layer as any)?.getSource() || null;
@@ -574,5 +574,3 @@ export function GeofenceControls({
         </div>
     );
 }
-
-    
