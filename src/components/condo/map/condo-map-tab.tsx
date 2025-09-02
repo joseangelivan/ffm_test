@@ -36,7 +36,7 @@ import { fromLonLat } from 'ol/proj';
 
 
 interface CondoMapTabProps {
-  condo: Condominio;
+  condo: Condominio & { geofences: DbGeofence[] };
   initialPosition: { lat: number; lng: number };
   provider: DbMapProvider;
 }
@@ -52,9 +52,15 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const mapInitialized = useRef(false);
 
   // --- State ---
-  const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
-  const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
-  const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
+  const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>(condo.geofences);
+  
+  const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(() => 
+    condo.geofences.find(g => g.is_default)?.id || (condo.geofences.length > 0 ? condo.geofences[0].id : null)
+  );
+  const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(() => 
+    condo.geofences.find(g => g.is_default)?.id || (condo.geofences.length > 0 ? condo.geofences[0].id : null)
+  );
+
   const [mode, setMode] = useState<'view' | 'editing'>('view');
   const [showAllGeofences, setShowAllGeofences] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(15);
@@ -143,15 +149,16 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     if (mapInitialized.current) return;
     mapInitialized.current = true;
     
+    mapRef.current = map;
     geofenceSourceRef.current = source;
     
     map.on('moveend', () => {
         const zoom = map.getView().getZoom();
         if (zoom) setZoomLevel(Math.round(zoom));
     });
-
-    await onDataNeedsRefresh();
-  }, [onDataNeedsRefresh]);
+    
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
       if (!isLoading && mapRef.current) {

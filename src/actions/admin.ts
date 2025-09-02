@@ -12,6 +12,7 @@ import { sendAdminFirstLoginEmail, sendEmailChangePin } from '@/lib/mailer';
 import { getThemeById, getThemes } from '@/actions/themes';
 import { getAppSetting } from '@/actions/settings';
 import { getDefaultMapProvider } from '@/actions/map_providers';
+import { getGeofencesByCondoId } from '@/actions/maps';
 
 import es from '@/locales/es.json';
 import pt from '@/locales/pt-BR.json';
@@ -864,5 +865,5 @@ export async function getActiveTheme(settings: UserSettings | null) {
     return customTheme;
 }
 
-export { getDefaultMapProvider };
+export { getDefaultMapProvider, getGeofencesByCondoId };
     

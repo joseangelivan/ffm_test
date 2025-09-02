@@ -35,14 +35,14 @@ import { cn } from '@/lib/utils';
 import type { SessionPayload } from '@/lib/session';
 import { handleLogoutAction } from '@/lib/session';
 import type { UserSettings } from '@/actions/admin';
-import { getActiveTheme, updateSettings } from '@/actions/admin';
+import { getActiveTheme, updateSettings, getGeofencesByCondoId } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
 import { type MapProvider } from '@/actions/map_providers';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 
 type CondoDashboardClientProps = {
     session: SessionPayload;
-    initialCondo: Condominio;
+    initialCondo: Condominio & { geofences: any[] };
     initialDevices: Device[];
     initialSettings: UserSettings;
     mapProvider: MapProvider | null;
@@ -99,14 +99,15 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     router.refresh();
   }, [applyTheme, initialSettings, session, router]);
 
-  useEffect(() => {
+   useEffect(() => {
     // This effect should only run once on mount to set the initial theme based on settings
     const setInitialTheme = async () => {
         const themeData = await getActiveTheme(initialSettings);
         applyTheme(themeData, initialSettings.theme);
     };
     setInitialTheme();
-  }, []); // Empty dependency array ensures it runs only once
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSetLocale = async (newLocale: 'es' | 'pt-BR') => {
       setLocale(newLocale);

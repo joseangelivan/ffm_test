@@ -1,4 +1,5 @@
 
+
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 
@@ -7,7 +8,7 @@ import CondoDashboardClient from '@/components/condo-dashboard-client';
 import { getCondominioById } from '@/actions/condos';
 import { getDevicesByCondoId } from '@/actions/devices';
 import { getSession } from '@/lib/auth';
-import { getSettings, getDefaultMapProvider } from '@/actions/admin';
+import { getSettings, getDefaultMapProvider, getGeofencesByCondoId } from '@/actions/admin';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
 import { geocodeAddress } from '@/actions/geocoding';
@@ -55,11 +56,12 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
   }
 
   // Fetch all other data needed for the dashboard in parallel
-  const [devices, settings, mapProvider, initialPosition] = await Promise.all([
+  const [devices, settings, mapProvider, initialPosition, geofences] = await Promise.all([
     getDevicesByCondoId(condoId),
     getSettings(session),
     getDefaultMapProvider(),
-    fetchAndSetCondoPosition()
+    fetchAndSetCondoPosition(),
+    getGeofencesByCondoId(condoId)
   ]);
 
   if (!settings) {
@@ -75,12 +77,14 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
       </div>
     );
   }
+  
+  const condoWithGeofences = { ...condo, geofences: geofences || [] };
 
   return (
     <Suspense fallback={<Loading />}>
         <CondoDashboardClient
           session={session}
-          initialCondo={condo}
+          initialCondo={condoWithGeofences}
           initialDevices={devices}
           initialSettings={settings}
           mapProvider={mapProvider}

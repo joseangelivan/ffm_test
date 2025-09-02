@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -61,12 +62,13 @@ interface MapProps {
  */
 function readLegacyOrStandardGeoJSON(geometry: any) {
     if (!geometry || !geometry.type) {
-        console.warn("Invalid geometry object passed to reader:", geometry);
+        console.warn("Invalid geometry object passed to reader (no type):", geometry);
         return null;
     }
 
     const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
 
+    // Handle legacy Rectangle type
     if (geometry.type.toLowerCase() === 'rectangle') {
         const bounds = geometry.bounds;
         if (bounds && typeof bounds.north === 'number' && typeof bounds.south === 'number' && typeof bounds.east === 'number' && typeof bounds.west === 'number') {
@@ -85,8 +87,15 @@ function readLegacyOrStandardGeoJSON(geometry: any) {
         }
     }
     
+    // Handle standard GeoJSON types
     try {
-        return format.readGeometry(geometry);
+        const olGeom = format.readGeometry(geometry);
+        // A simple check to see if the geometry is valid (has coordinates)
+        if (olGeom && olGeom.getCoordinates().length > 0) {
+            return olGeom;
+        }
+        console.warn("Invalid geometry object (empty coordinates):", geometry);
+        return null;
     } catch (e) {
         console.error(`Unsupported GeoJSON type or malformed geometry: ${geometry.type}`, e);
         return null;
@@ -110,7 +119,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     const vectorSourceRef = useRef<VectorSource | null>(null);
 
     useEffect(() => {
-        if (!mapContainerRef.current || passedMapRef.current) return;
+        if (!mapContainerRef.current) return;
 
         let config: any;
         try {
@@ -151,15 +160,11 @@ const OpenLayersMap: React.FC<MapProps> = ({
             }),
             controls: [],
         });
-
-        passedMapRef.current = map;
+        
         onMapLoad(map, vectorSourceRef.current);
 
         return () => {
-             if (passedMapRef.current) {
-                passedMapRef.current.setTarget(undefined);
-                passedMapRef.current = null;
-            }
+            map.setTarget(undefined);
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [provider]);
