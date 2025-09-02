@@ -202,17 +202,19 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   
   const handleUndo = () => {
     if (historyIndex > 0) {
-        const newIndex = historyIndex - 1;
-        setHistoryIndex(newIndex);
-        activeShapeState?.feature?.setGeometry(historyStack[newIndex]);
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      const geometryToRestore = historyStack[newIndex].clone();
+      activeShapeState?.feature?.setGeometry(geometryToRestore);
     }
   };
 
   const handleRedo = () => {
     if (historyIndex < historyStack.length - 1) {
-        const newIndex = historyIndex + 1;
-        setHistoryIndex(newIndex);
-        activeShapeState?.feature?.setGeometry(historyStack[newIndex]);
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      const geometryToRestore = historyStack[newIndex].clone();
+      activeShapeState?.feature?.setGeometry(geometryToRestore);
     }
   };
   
