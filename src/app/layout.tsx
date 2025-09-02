@@ -62,13 +62,13 @@ export default async function RootLayout({
   const bodyStyle = getThemeStyle(themeData);
 
   return (
-    <LocaleProvider initialLocale={initialLocale}>
-        <html lang={initialLocale.split('-')[0]} className={cn('h-full', bodyClassName)} style={bodyStyle}>
+    <html lang={initialLocale.split('-')[0]} className={cn('h-full', bodyClassName)} style={bodyStyle}>
         <body className={cn("h-full font-body antialiased", inter.variable)}>
-            {children}
-            <Toaster />
+             <LocaleProvider initialLocale={initialLocale}>
+                {children}
+                <Toaster />
+            </LocaleProvider>
         </body>
-        </html>
-    </LocaleProvider>
+    </html>
   );
 }

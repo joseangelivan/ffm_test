@@ -189,7 +189,6 @@ export function GeofenceControls({
     
         const Collection = require('ol/Collection').default;
         const features = new Collection([featureToEdit]);
-    
         const geometry = featureToEdit.getGeometry();
         if (!geometry) return;
         
@@ -207,43 +206,49 @@ export function GeofenceControls({
         });
     
         let originalCoords: number[][] | undefined;
+        let modifiying = false;
+
         modify.on('modifystart', (event) => {
-            const feature = event.features.item(0);
-            originalCoords = (feature.getGeometry() as Polygon).getCoordinates()[0].slice();
+            modifiying = true;
+            originalCoords = (event.features.item(0).getGeometry() as Polygon).getCoordinates()[0].slice();
         });
     
-        modify.on('modifyend', (event) => {
+        modify.on('modifying', (event) => {
+            if (!isRectangle(event.features.item(0).getGeometry())) return;
+            
             const feature = event.features.item(0);
-            const modifiedGeom = feature.getGeometry() as Polygon;
-            if (!originalCoords || !isRectangle(modifiedGeom)) {
-                pushToHistory(modifiedGeom);
-                return;
-            }
-            const modifiedCoords = modifiedGeom.getCoordinates()[0];
+            const modifiedCoords = (feature.getGeometry() as Polygon).getCoordinates()[0];
+
             let movedIndex = -1;
             for (let i = 0; i < 4; i++) {
-                if (originalCoords[i][0] !== modifiedCoords[i][0] || originalCoords[i][1] !== modifiedCoords[i][1]) {
+                if (originalCoords && (originalCoords[i][0] !== modifiedCoords[i][0] || originalCoords[i][1] !== modifiedCoords[i][1])) {
                     movedIndex = i;
                     break;
                 }
             }
-            if (movedIndex !== -1) {
+
+            if (movedIndex !== -1 && originalCoords) {
                 const oppositeIndex = (movedIndex + 2) % 4;
                 const movedPoint = modifiedCoords[movedIndex];
                 const oppositePoint = originalCoords[oppositeIndex];
-    
+
                 const newCoords = new Array(5);
                 newCoords[movedIndex] = movedPoint;
                 newCoords[oppositeIndex] = oppositePoint;
                 newCoords[(movedIndex + 1) % 4] = [oppositePoint[0], movedPoint[1]];
                 newCoords[(movedIndex + 3) % 4] = [movedPoint[0], oppositePoint[1]];
                 newCoords[4] = [...newCoords[0]];
-    
-                const Polygon = require('ol/geom/Polygon').default;
-                const newPolygon = new Polygon([newCoords]);
-                feature.setGeometry(newPolygon);
+                
+                const PolygonGeom = require('ol/geom/Polygon').default;
+                feature.setGeometry(new PolygonGeom([newCoords]));
             }
-            pushToHistory(feature.getGeometry()!);
+        });
+
+        modify.on('modifyend', (event) => {
+            if (modifiying) {
+                pushToHistory(event.features.item(0).getGeometry()!);
+                modifiying = false;
+            }
         });
     
         mapRef.current.addInteraction(modify);
