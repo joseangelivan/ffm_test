@@ -51,23 +51,27 @@ const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: num
     const olPolygon = require('ol/geom/Polygon').default;
 
     const poligonoOriginal = new olPolygon([verticesOriginales]);
-    // This logic seems flawed, if the vertex is dragged "inwards" it will be inside.
-    // The original logic was probably better. Let's try to combine.
-    // The key is to find the diagonally opposite vertex.
-    
+    if (!puntoEstaDentro(poligonoOriginal, verticeMovido)) {
+        const tempVertices = [...verticesOriginales];
+        tempVertices[indiceMovido] = verticeMovido;
+        const xs = tempVertices.map(v => v[0]);
+        const ys = tempVertices.map(v => v[1]);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        const rectanguloPerfecto = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]];
+        return [...rectanguloPerfecto, rectanguloPerfecto[0]];
+    }
+
     const indiceOpuesto = (indiceMovido + 2) % 4;
     const verticeOpuesto = verticesOriginales[indiceOpuesto];
-
-    const minX = Math.min(verticeMovido[0], verticeOpuesto[0]);
-    const maxX = Math.max(verticeMovido[0], verticeOpuesto[0]);
-    const minY = Math.min(verticeMovido[1], verticeOpuesto[1]);
-    const maxY = Math.max(verticeMovido[1], verticeOpuesto[1]);
     
     const nuevoRectangulo = [
-        [minX, minY],
-        [maxX, minY],
-        [maxX, maxY],
-        [minX, maxY],
+        [verticeMovido[0], verticeMovido[1]],
+        [verticeOpuesto[0], verticeMovido[1]],
+        [verticeOpuesto[0], verticeOpuesto[1]],
+        [verticeMovido[0], verticeOpuesto[1]],
     ];
   
   return [...nuevoRectangulo, nuevoRectangulo[0]];
@@ -194,12 +198,8 @@ export function GeofenceControls({
         if (activeShapeState?.feature) {
              const { feature, originalGeometry } = activeShapeState;
              if (originalGeometry && feature) {
-                const geometryToRestore = { ...originalGeometry };
-                 if (geometryToRestore.type === 'rectangle') {
-                    geometryToRestore.type = 'Polygon'; 
-                }
                 const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-                const olGeom = format.readGeometry(geometryToRestore);
+                const olGeom = format.readGeometry(originalGeometry);
                 if (olGeom) feature.setGeometry(olGeom);
              } else if (feature.getId()?.toString().startsWith('new-shape-')) {
                 if (source && source.hasFeature(feature)) {
@@ -256,8 +256,9 @@ export function GeofenceControls({
     const handleStartDrawing = () => {
         cancelCurrentAction();
         const newFeature = new Feature();
-        newFeature.setId(`new-shape-${Date.now()}`);
-        setActiveShapeState({ id: newFeature.getId() as string, feature: newFeature, originalGeometry: null });
+        const newId = `new-shape-${Date.now()}`;
+        newFeature.setId(newId);
+        setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
         setCurrentGeofenceName(getNextGeofenceName());
         setIsDrawing(true);
     };
@@ -360,10 +361,17 @@ export function GeofenceControls({
 
                  if (isRectangle) {
                     const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
-                        const originalVertices = (featureToEdit.getGeometry() as Polygon).getCoordinates()[0].slice(0, 4);
-
-                        if(draggedVertexRef.current){
-                           const movedIndex = originalVertices.findIndex(v => v[0] === draggedVertexRef.current![0] && v[1] === draggedVertexRef.current![1]);
+                        if (draggedVertexRef.current) {
+                            const originalVertices = (featureToEdit.getGeometry() as Polygon).getCoordinates()[0].slice(0, 4);
+                            
+                            let movedIndex = -1;
+                            for (let i = 0; i < originalVertices.length; i++) {
+                                if (originalVertices[i][0] === draggedVertexRef.current[0] && originalVertices[i][1] === draggedVertexRef.current[1]) {
+                                    movedIndex = i;
+                                    break;
+                                }
+                            }
+                            
                             if (movedIndex !== -1) {
                                 const newPoint = coordinates[0][movedIndex];
                                 const newCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
@@ -372,31 +380,22 @@ export function GeofenceControls({
                                 geometry.setCoordinates(coordinates);
                             }
                         } else {
-                           geometry.setCoordinates(coordinates);
+                            geometry.setCoordinates(coordinates);
                         }
                         
                         return geometry;
                     };
                     
                     modifyInteraction = new Modify({ features, geometryFunction });
-
+                    
                     modifyInteraction.on('modifystart', (e) => {
-                        draggedVertexRef.current = e.mapBrowserEvent.coordinate;
-                        const geom = (e.features.getArray()[0].getGeometry() as Polygon);
-                        const coords = geom.getCoordinates()[0];
-                        const clickCoord = map.getCoordinateFromPixel(e.mapBrowserEvent.pixel);
-                        
-                        let closestDist = Infinity;
-                        let closestVertex: number[] | null = null;
-                        
-                        coords.forEach(c => {
-                            const dist = Math.sqrt(Math.pow(c[0] - clickCoord[0], 2) + Math.pow(c[1] - clickCoord[1], 2));
-                            if (dist < closestDist) {
-                                closestDist = dist;
-                                closestVertex = c;
-                            }
-                        });
-                        draggedVertexRef.current = closestVertex;
+                        const feature = e.features.getArray()[0] as Feature<Polygon>;
+                        const clickCoord = e.mapBrowserEvent.coordinate;
+                        const geom = feature.getGeometry();
+                        if (geom) {
+                            const closestPoint = geom.getClosestPoint(clickCoord);
+                            draggedVertexRef.current = closestPoint;
+                        }
                     });
                     
                     modifyInteraction.on('modifyend', (e) => {
@@ -460,7 +459,7 @@ export function GeofenceControls({
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>Configuración de Vista del Mapa</p>
+                                    <p>Configuração de Vista do Mapa</p>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
