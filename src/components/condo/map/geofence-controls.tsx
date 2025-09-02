@@ -109,6 +109,11 @@ export function GeofenceControls({
         }
     }, [mapRef, drawingInteractionRef, modifyInteractionRef]);
 
+    const geofenceSourceRef = (): VectorSource | null => {
+        const layer = mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer');
+        return (layer as any)?.getSource() || null;
+    }
+
     const getNextGeofenceName = useCallback(() => {
         const baseName = t('condoDashboard.map.geofence.defaultName');
         const existingNumbers = geofences.map(g => {
@@ -148,13 +153,8 @@ export function GeofenceControls({
         setActiveShapeState(null);
         setCurrentGeofenceName('');
         setIsDrawing(false);
-    }, [activeShapeState, removeInteractions, setActiveShapeState, geofences, setGeofences]);
+    }, [activeShapeState, removeInteractions, setActiveShapeState, geofences, setGeofences, geofenceSourceRef]);
       
-    const geofenceSourceRef = (): VectorSource | null => {
-        const layer = mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer');
-        return (layer as any)?.getSource() || null;
-    }
-
     const startEditingSelected = useCallback(() => {
         const source = geofenceSourceRef();
         if (!selectedGeofenceId || !source || !mapRef.current) return;
@@ -178,7 +178,7 @@ export function GeofenceControls({
             originalGeometry: selectedGeofence.geometry 
         });
         setCurrentGeofenceName(selectedGeofence.name);
-    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef]);
+    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef, geofenceSourceRef]);
       
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
@@ -292,9 +292,14 @@ export function GeofenceControls({
             setSelectedGeofenceId(newId);
             setIsDrawing(false);
             
-            setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
-            
             removeInteractions();
+
+            // Immediately activate modify on the new feature
+            const modify = new Modify({ source, features: [newFeature] });
+            map.addInteraction(modify);
+            modifyInteractionRef.current = modify;
+
+            setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
         });
 
         drawingInteractionRef.current = newInteraction;
