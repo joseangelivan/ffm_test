@@ -10,13 +10,15 @@ import VectorSource from 'ol/source/Vector';
 import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
 import GeoJSON from 'ol/format/GeoJSON';
-import { fromLonLat } from 'ol/proj';
-import { Style, Fill, Stroke } from 'ol/style';
+import { fromLonLat, toLonLat } from 'ol/proj';
+import { Style, Fill, Stroke, Circle as CircleStyle } from 'ol/style';
 import 'ol/ol.css';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 import Feature from 'ol/Feature';
 import { fromCircle } from 'ol/geom/Polygon';
+import Polygon from 'ol/geom/Polygon';
+import Circle from 'ol/geom/Circle';
 
 // --- STYLES ---
 const STYLE_VIEW_MODE = new Style({
@@ -57,19 +59,24 @@ interface MapProps {
  * @returns An OpenLayers Geometry or null.
  */
 function readLegacyOrStandardGeoJSON(geometry: any) {
+    if (!geometry || !geometry.type) {
+        console.error("Invalid geometry object:", geometry);
+        return null;
+    }
+
     const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-    
+
     // Handle legacy, non-standard geometry types
     if (geometry.type === 'Rectangle' && geometry.bounds) {
         const { south, west, north, east } = geometry.bounds;
         // GeoJSON polygon coordinates are in [longitude, latitude]
-        const coordinates = [[[west, south], [east, south], [east, north], [west, north], [west, south]]];
-        return format.readGeometry({ type: 'Polygon', coordinates });
+        const corner1 = fromLonLat([west, south]);
+        const corner2 = fromLonLat([east, north]);
+        return Polygon.fromExtent([corner1[0], corner1[1], corner2[0], corner2[1]]);
+
     } else if (geometry.type === 'Circle' && geometry.center && geometry.radius) {
-        // OpenLayers doesn't have a standard GeoJSON representation for Circle.
-        // We'll treat it as a point and buffer it, or convert it to a polygon approximation.
-        // Here, we convert it to a polygon.
-        const circleGeom = new ol.geom.Circle(fromLonLat([geometry.center.lng, geometry.center.lat]), geometry.radius);
+        const centerCoords = fromLonLat([geometry.center.lng, geometry.center.lat]);
+        const circleGeom = new Circle(centerCoords, geometry.radius);
         return fromCircle(circleGeom, 64); // 64 vertices for a smooth circle
     }
     
@@ -161,7 +168,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         if (!source) return;
 
         const existingFeatures = new Set(source.getFeatures().map(f => f.getId()));
-
+        
         dbGeofences.forEach(dbGf => {
             let feature = source.getFeatureById(dbGf.id);
             const geometry = readLegacyOrStandardGeoJSON(dbGf.geometry);
@@ -184,6 +191,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         });
 
         existingFeatures.forEach(id => {
+            if (typeof id === 'string' && id.startsWith('new-shape-')) return;
             if (id !== activeShapeState?.id) {
                 const featureToRemove = source.getFeatureById(id!);
                 if (featureToRemove) source.removeFeature(featureToRemove);
