@@ -187,112 +187,109 @@ export function GeofenceControls({
         const source = geofenceSourceRef();
         const map = mapRef.current;
         if (!selectedGeofenceId || !source || !map) return;
-
+    
         const featureToEdit = source.getFeatureById(selectedGeofenceId) as Feature;
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
-
+    
         if (!selectedGeofence || !featureToEdit) return;
-
+    
         cancelCurrentAction();
         setMode('editing');
         removeInteractions();
-
+    
         const Collection = require('ol/Collection').default;
         const features = new Collection([featureToEdit]);
-        let originalCoords: number[][] | undefined;
-
+        let startGeometry: Geometry | undefined;
+    
         const modify = new Modify({
             features: features,
             insertVertexCondition: () => !isRectangle(featureToEdit.getGeometry()),
         });
-        
+    
         modify.on('modifystart', (event) => {
             const feature = event.features.item(0);
-            const geom = feature.getGeometry();
-            if (geom) {
-                 if (isRectangle(geom)) {
-                    originalCoords = (geom as Polygon).getCoordinates()[0].slice();
-                 }
-                 pushToHistory(geom);
-            }
+            startGeometry = feature.getGeometry()?.clone();
         });
-
+    
         modify.on('modifying', (event) => {
             const feature = event.features.item(0);
             const geometry = feature.getGeometry();
-            if (!geometry || !isRectangle(geometry) || !originalCoords) return;
-
-            const currentCoords = (geometry as Polygon).getCoordinates()[0];
-            let movedIndex = -1;
-            for (let i = 0; i < 4; i++) {
-                if (originalCoords[i][0] !== currentCoords[i][0] || originalCoords[i][1] !== currentCoords[i][1]) {
-                    movedIndex = i;
-                    break;
+    
+            if (isRectangle(geometry) && startGeometry && isRectangle(startGeometry)) {
+                const startCoords = (startGeometry as Polygon).getCoordinates()[0];
+                const currentCoords = (geometry as Polygon).getCoordinates()[0];
+                let movedIndex = -1;
+    
+                for (let i = 0; i < 4; i++) {
+                    if (startCoords[i][0] !== currentCoords[i][0] || startCoords[i][1] !== currentCoords[i][1]) {
+                        movedIndex = i;
+                        break;
+                    }
+                }
+    
+                if (movedIndex !== -1) {
+                    const oppositeIndex = (movedIndex + 2) % 4;
+                    const oppositePoint = startCoords[oppositeIndex];
+                    const movedPoint = currentCoords[movedIndex];
+                    
+                    const newCoords = [
+                        [oppositePoint[0], oppositePoint[1]],
+                        [movedPoint[0], oppositePoint[1]],
+                        [movedPoint[0], movedPoint[1]],
+                        [oppositePoint[0], movedPoint[1]],
+                        [oppositePoint[0], oppositePoint[1]]
+                    ];
+    
+                    const PolygonGeom = require('ol/geom/Polygon').default;
+                    const newGeom = new PolygonGeom([newCoords]);
+                    feature.setGeometry(newGeom);
+    
+                    // Debug output
+                    const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+                    const correctedGeometryForDebug = format.writeGeometryObject(newGeom);
+                    setDebugInfo(`Moviendo vértice...\nCoordenadas corregidas:\n${JSON.stringify(correctedGeometryForDebug.coordinates, null, 2)}`);
                 }
             }
-
-            if (movedIndex === -1) return;
-
-            const oppositeIndex = (movedIndex + 2) % 4;
-            const oppositePoint = originalCoords[oppositeIndex];
-            const movedPoint = currentCoords[movedIndex];
-            
-            const newCoords = [
-                [oppositePoint[0], oppositePoint[1]],
-                [movedPoint[0], oppositePoint[1]],
-                [movedPoint[0], movedPoint[1]],
-                [oppositePoint[0], movedPoint[1]],
-                [oppositePoint[0], oppositePoint[1]]
-            ];
-
-            const PolygonGeom = require('ol/geom/Polygon').default;
-            const newGeom = new PolygonGeom([newCoords]);
-            feature.setGeometry(newGeom);
-            originalCoords = newGeom.getCoordinates()[0].slice();
-
-             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-             const correctedGeometryForDebug = format.writeGeometryObject(newGeom);
-             setDebugInfo(`Moviendo vértice...\nCoordenadas corregidas:\n${JSON.stringify(correctedGeometryForDebug.coordinates, null, 2)}`);
         });
-
+    
         modify.on('modifyend', (event) => {
-            if (event.features.getLength() > 0) {
-                const feature = event.features.item(0);
-                pushToHistory(feature.getGeometry()!);
-                const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-                const finalGeom = format.writeGeometryObject(feature.getGeometry()!);
-                setDebugInfo(`¡Cambio guardado en el historial! Total: ${historyStack.length + 1}. Coords: ${JSON.stringify(finalGeom, null, 2)}`);
+            const feature = event.features.item(0);
+            const finalGeometry = feature.getGeometry();
+            if (finalGeometry) {
+                pushToHistory(finalGeometry);
+                 const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+                const finalGeomForDebug = format.writeGeometryObject(finalGeometry);
+                setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(finalGeomForDebug, null, 2)}`);
             }
-            originalCoords = undefined;
         });
-
+    
         map.addInteraction(modify);
         modifyInteractionRef.current = modify;
-
+    
         const translate = new Translate({ features: features });
         translate.on('translateend', (event) => {
             if (event.features.getLength() > 0) {
                 pushToHistory(event.features.item(0).getGeometry()!);
-                setDebugInfo(`¡Geocerca movida y guardada en el historial! Total: ${historyStack.length + 1}.`);
+                setDebugInfo(`¡Geocerca movida y guardada en el historial!`);
             }
         });
         map.addInteraction(translate);
         translateInteractionRef.current = translate;
-
+    
         setActiveShapeState({
             id: selectedGeofenceId,
             feature: featureToEdit,
             originalGeometry: selectedGeofence.geometry,
         });
         setCurrentGeofenceName(selectedGeofence.name);
-
+    
         const initialGeom = featureToEdit.getGeometry();
         if (initialGeom) {
             setHistoryStack([initialGeom.clone()]);
             setHistoryIndex(0);
         }
         setDebugInfo(`Iniciando edición para: ${selectedGeofence.name}.`);
-
+    
     }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef, translateInteractionRef, geofenceSourceRef, pushToHistory, setHistoryStack, setHistoryIndex, setDebugInfo]);
 
     const saveCurrentAction = useCallback(async () => {
