@@ -180,42 +180,6 @@ export function GeofenceControls({
         setHistoryStack([]);
         setHistoryIndex(-1);
     }, [activeShapeState, removeInteractions, setActiveShapeState, setMode, geofences, setGeofences, geofenceSourceRef, setHistoryStack, setHistoryIndex]);
-      
-    useEffect(() => {
-        modifyingCallbackRef.current = (event) => {
-            const feature = event.features.getArray()[0] as Feature<Polygon>;
-            if (!feature) return;
-
-            const geometry = feature.getGeometry();
-            if (!geometry || geometry.getType() !== 'Polygon') return;
-            
-            const coords = geometry.getCoordinates()[0];
-            if (coords.length < 4) return;
-
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            for(const coord of coords) {
-                minX = Math.min(minX, coord[0]);
-                minY = Math.min(minY, coord[1]);
-                maxX = Math.max(maxX, coord[0]);
-                maxY = Math.max(maxY, coord[1]);
-            }
-
-            const newCoords = [
-                [minX, minY],
-                [maxX, minY],
-                [maxX, maxY],
-                [minX, maxY],
-                [minX, minY]
-            ];
-
-            geometry.setCoordinates([newCoords]);
-            
-            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-            const finalGeomForDebug = format.writeGeometryObject(feature.getGeometry()!);
-            setDebugInfo(JSON.stringify(finalGeomForDebug, null, 2));
-        };
-    }, [setDebugInfo]);
-
 
     const startEditingSelected = useCallback(() => {
         const source = geofenceSourceRef();
@@ -235,7 +199,41 @@ export function GeofenceControls({
         const features = new Collection([featureToEdit]);
         
         const modify = new Modify({ features, deleteCondition: () => false });
-        modify.on('modifying', (event) => modifyingCallbackRef.current?.(event));
+        
+        modify.on('modifying', (event) => {
+            const feature = event.features.getArray()[0] as Feature<Polygon>;
+            if (!feature) return;
+
+            const geometry = feature.getGeometry();
+            if (!geometry) return;
+            
+            // For rectangles, force right angles
+            const geometryType = feature.get('geometryType');
+            if (geometryType === 'Rectangle') {
+                const coords = geometry.getCoordinates()[0];
+                if (coords.length !== 5) return;
+
+                const minX = Math.min(coords[0][0], coords[1][0], coords[2][0], coords[3][0]);
+                const minY = Math.min(coords[0][1], coords[1][1], coords[2][1], coords[3][1]);
+                const maxX = Math.max(coords[0][0], coords[1][0], coords[2][0], coords[3][0]);
+                const maxY = Math.max(coords[0][1], coords[1][1], coords[2][1], coords[3][1]);
+
+                const newCoords = [
+                    [minX, minY],
+                    [maxX, minY],
+                    [maxX, maxY],
+                    [minX, maxY],
+                    [minX, minY]
+                ];
+                
+                geometry.setCoordinates([newCoords]);
+                
+                const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+                const finalGeomForDebug = format.writeGeometryObject(feature.getGeometry()!);
+                setDebugInfo(`Moviendo vértice... Coords: ${JSON.stringify(finalGeomForDebug, null, 2)}`);
+            }
+        });
+        
         modify.on('modifyend', (event) => {
             const feature = event.features.getArray()[0];
             const finalGeometry = feature.getGeometry();
@@ -370,6 +368,9 @@ export function GeofenceControls({
 
         newInteraction.on('drawend', (event) => {
             const newFeature = event.feature;
+            if (drawingMode === 'Rectangle') {
+                newFeature.set('geometryType', 'Rectangle');
+            }
             const newId = `new-shape-${Date.now()}`;
             newFeature.setId(newId);
             
@@ -380,7 +381,38 @@ export function GeofenceControls({
             const features = new Collection([newFeature]);
             
             const modify = new Modify({ features: features });
-            modify.on('modifying', (event) => modifyingCallbackRef.current?.(event));
+            modify.on('modifying', (event) => {
+                const feature = event.features.getArray()[0] as Feature<Polygon>;
+                if (!feature) return;
+
+                const geometry = feature.getGeometry();
+                if (!geometry) return;
+                
+                const geometryType = feature.get('geometryType');
+                if (geometryType === 'Rectangle') {
+                    const coords = geometry.getCoordinates()[0];
+                    if (coords.length !== 5) return;
+
+                    const minX = Math.min(coords[0][0], coords[1][0], coords[2][0], coords[3][0]);
+                    const minY = Math.min(coords[0][1], coords[1][1], coords[2][1], coords[3][1]);
+                    const maxX = Math.max(coords[0][0], coords[1][0], coords[2][0], coords[3][0]);
+                    const maxY = Math.max(coords[0][1], coords[1][1], coords[2][1], coords[3][1]);
+
+                    const newCoords = [
+                        [minX, minY],
+                        [maxX, minY],
+                        [maxX, maxY],
+                        [minX, maxY],
+                        [minX, minY]
+                    ];
+                    
+                    geometry.setCoordinates([newCoords]);
+                    
+                    const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+                    const finalGeomForDebug = format.writeGeometryObject(feature.getGeometry()!);
+                    setDebugInfo(`Moviendo vértice... Coords: ${JSON.stringify(finalGeomForDebug, null, 2)}`);
+                }
+            });
             modify.on('modifyend', (event) => {
                 const feature = event.features.getArray()[0];
                 const finalGeometry = feature.getGeometry();

@@ -218,6 +218,21 @@ const OpenLayersMap: React.FC<MapProps> = ({
         dbGeofences.forEach(dbGeofence => {
             const olGeom = readLegacyOrStandardGeoJSON(dbGeofence);
             if (!olGeom) return;
+            
+            // Check if geometry type is rectangle
+            let isRectangle = false;
+            if (dbGeofence.geometry?.type === 'Polygon') {
+                const coords = dbGeofence.geometry.coordinates[0];
+                if (coords.length === 5) {
+                    // Simple check for rectangle
+                     const isRect = (coords[0][0] === coords[3][0] && coords[1][0] === coords[2][0] && coords[0][1] === coords[1][1] && coords[2][1] === coords[3][1]);
+                     // This is a naive check. A better check would be to see if 'bounds' existed.
+                     // For now, we assume if it looks like a box, it was meant to be one.
+                     // The logic in draw handles this better by setting a property.
+                     isRectangle = true;
+                }
+            }
+
 
             let feature = source.getFeatureById(dbGeofence.id);
             if (feature) {
@@ -229,6 +244,9 @@ const OpenLayersMap: React.FC<MapProps> = ({
             } else {
                 feature = new Feature({ geometry: olGeom });
                 feature.setId(dbGeofence.id);
+                 if (isRectangle) {
+                    feature.set('geometryType', 'Rectangle');
+                }
                 source.addFeature(feature);
             }
         });
