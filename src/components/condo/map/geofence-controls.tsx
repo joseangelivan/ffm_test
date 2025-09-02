@@ -191,19 +191,23 @@ export function GeofenceControls({
         const features = new Collection([featureToEdit]);
 
         const geometry = featureToEdit.getGeometry();
+        
         const isRectangle = (geom: Geometry | undefined): boolean => {
             if (!geom || geom.getType() !== 'Polygon') return false;
             const coordinates = (geom as any).getCoordinates()[0];
             return coordinates.length === 5;
         };
-
-        const modify = new Modify({ features: features });
+        
+        const modify = new Modify({ 
+            features: features,
+            insertVertexCondition: () => false, // Prevents adding new vertices
+        });
         
         let originalCoords: number[][] | undefined;
         modify.on('modifystart', (event) => {
             const feature = event.features.item(0);
             const geom = feature.getGeometry() as Polygon;
-            if (isRectangle(geom)) {
+             if (isRectangle(geom)) {
                 originalCoords = geom.getCoordinates()[0].slice();
             } else {
                 originalCoords = undefined;
@@ -380,7 +384,7 @@ export function GeofenceControls({
             const Collection = require('ol/Collection').default;
             const features = new Collection([newFeature]);
             
-            const modify = new Modify({ features: features });
+            const modify = new Modify({ features: features, insertVertexCondition: () => false, });
             modify.on('modifyend', () => pushToHistory(newFeature.getGeometry()!));
             map.addInteraction(modify);
             modifyInteractionRef.current = modify;
@@ -573,3 +577,5 @@ export function GeofenceControls({
         </div>
     );
 }
+
+    
