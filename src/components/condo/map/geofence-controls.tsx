@@ -39,25 +39,22 @@ import type { Vector as VectorSource } from 'ol/source';
 import type { Geometry, Polygon, SimpleGeometry } from 'ol/geom';
 
 
+// FUNCIÓN CORRECTA que SÍ actualiza todos los vértices
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
-  // Estrategia: Convertir a bounding box y luego reconstruir el rectángulo
-  // Esto garantiza que siempre sea rectangular
+  // 1. Crear una copia temporal con el vértice movido
+  const tempVertices = [...verticesOriginales];
+  tempVertices[indiceMovido] = verticeMovido;
   
-  // 1. Crear un array con todos los vértices incluyendo el movido
-  const todosLosVertices = verticesOriginales.map((v, i) => 
-    i === indiceMovido ? verticeMovido : v
-  );
-  
-  // 2. Encontrar los límites del bounding box
-  const xs = todosLosVertices.map(v => v[0]);
-  const ys = todosLosVertices.map(v => v[1]);
+  // 2. Encontrar el bounding box de todos los vértices
+  const xs = tempVertices.map(v => v[0]);
+  const ys = tempVertices.map(v => v[1]);
   
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs);
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
   
-  // 3. Reconstruir el rectángulo perfecto
+  // 3. Crear un rectángulo perfecto con el bounding box
   const rectanguloPerfecto = [
     [minX, minY], // esquina inferior izquierda
     [maxX, minY], // esquina inferior derecha
@@ -397,16 +394,18 @@ export function GeofenceControls({
                 const currentCoords = feature.getGeometry()!.getCoordinates()[0].slice(0, 4);
                 
                 let movedIndex = -1;
+                let movedCoord: number[] | null = null;
                 for (let i = 0; i < 4; i++) {
                     if (originalCoords[i][0] !== currentCoords[i][0] || originalCoords[i][1] !== currentCoords[i][1]) {
                         movedIndex = i;
+                        movedCoord = currentCoords[i];
                         break;
                     }
                 }
                 
-                if (movedIndex === -1) return;
-
-                const correctedCoords = RecalcularRectangulo(originalCoords, currentCoords[movedIndex], movedIndex);
+                if (movedIndex === -1 || !movedCoord) return;
+                
+                const correctedCoords = RecalcularRectangulo(originalCoords, movedCoord, movedIndex);
                 feature.getGeometry()!.setCoordinates([correctedCoords]);
                 
                 const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
