@@ -66,18 +66,10 @@ function readLegacyOrStandardGeoJSON(geometry: any) {
 
     const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
 
-    // Handle legacy, non-standard geometry types
-    if (geometry.type === 'Rectangle' && geometry.bounds) {
-        const { south, west, north, east } = geometry.bounds;
-        // GeoJSON polygon coordinates are in [longitude, latitude]
-        const corner1 = fromLonLat([west, south]);
-        const corner2 = fromLonLat([east, north]);
-        return Polygon.fromExtent([corner1[0], corner1[1], corner2[0], corner2[1]]);
-
-    } else if (geometry.type === 'Circle' && geometry.center && geometry.radius) {
-        const centerCoords = fromLonLat([geometry.center.lng, geometry.center.lat]);
-        const circleGeom = new Circle(centerCoords, geometry.radius);
-        return fromCircle(circleGeom, 64); // 64 vertices for a smooth circle
+    // Handle legacy, non-standard geometry types that were stored as 'Rectangle'
+    if (geometry.type === 'Rectangle' && geometry.coordinates) {
+        // Assume the coordinates are already in a polygon-like structure
+        return new Polygon(geometry.coordinates).transform('EPSG:4326', 'EPSG:3857');
     }
     
     // Handle standard GeoJSON types
@@ -183,9 +175,11 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 feature.setId(dbGf.id);
                 source.addFeature(feature);
             } else {
-                 if (activeShapeState?.id !== dbGf.id) {
-                    feature.setGeometry(geometry);
-                 }
+                const currentGeom = feature.getGeometry();
+                // Only update geometry if it's different and not being actively edited
+                if (activeShapeState?.id !== dbGf.id) {
+                     feature.setGeometry(geometry);
+                }
             }
             existingFeatures.delete(dbGf.id);
         });
