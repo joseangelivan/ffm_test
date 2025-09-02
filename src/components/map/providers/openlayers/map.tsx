@@ -50,6 +50,7 @@ interface MapProps {
     selectedGeofenceId: string | null;
     defaultGeofenceId: string | null;
     mode: 'view' | 'editing';
+    initialPosition: { lat: number, lng: number };
 }
 
 /**
@@ -68,8 +69,14 @@ function readLegacyOrStandardGeoJSON(geometry: any) {
 
     // Handle legacy, non-standard geometry types that were stored as 'Rectangle'
     if (geometry.type === 'Rectangle' && geometry.coordinates) {
-        // Assume the coordinates are already in a polygon-like structure
-        return new Polygon(geometry.coordinates).transform('EPSG:4326', 'EPSG:3857');
+        try {
+            // Assume the coordinates are already in a polygon-like structure
+            const transformedCoords = geometry.coordinates[0].map((coord: number[]) => fromLonLat(coord));
+            return new Polygon([transformedCoords]);
+        } catch(e) {
+            console.error("Error transforming legacy Rectangle geometry:", e);
+            return null;
+        }
     }
     
     // Handle standard GeoJSON types
@@ -90,7 +97,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
     showAllGeofences,
     selectedGeofenceId,
     defaultGeofenceId,
-    mode 
+    mode,
+    initialPosition
 }) => {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<Map | null>(null);
@@ -133,8 +141,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
             target: mapRef.current!,
             layers: [initialLayer, vectorLayer],
             view: new View({
-                center: fromLonLat([-49.2, -25.4]),
-                zoom: 4,
+                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+                zoom: 17,
             }),
             controls: [],
         });
@@ -153,7 +161,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             }
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [provider]);
+    }, [provider, initialPosition]);
 
     useEffect(() => {
         const source = vectorSourceRef.current;
@@ -200,6 +208,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
         
         source.forEachFeature(feature => {
             const id = feature.getId() as string;
+            if (!id || id.startsWith('new-shape-')) return;
+
             const isBeingEdited = activeShapeState?.id === id;
             const isSelected = id === selectedGeofenceId;
             const isDefault = id === defaultGeofenceId;
@@ -239,12 +249,9 @@ const OpenLayersMap: React.FC<MapProps> = ({
             }
 
             feature.setStyle(style);
-            // Z-index on layers is more reliable than on features,
-            // but for simplicity here we'll just set the style.
-            // For real z-indexing, multiple layers would be better.
         });
 
-    }, [mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, activeShapeState]);
+    }, [mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, activeShapeState, dbGeofences]);
 
 
     return (

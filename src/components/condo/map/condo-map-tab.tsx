@@ -199,6 +199,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                 selectedGeofenceId={selectedGeofenceId}
                                 defaultGeofenceId={defaultGeofenceId}
                                 mode={mode}
+                                initialPosition={initialPosition}
                             />
                         </div>
                          {activeShapeState && (
@@ -286,4 +287,3 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     </>
   );
 }
-

@@ -25,6 +25,7 @@ type MapContainerProps = {
     selectedGeofenceId: string | null;
     defaultGeofenceId: string | null;
     mode: 'view' | 'editing';
+    initialPosition: { lat: number, lng: number };
 }
 
 const MapContainer: React.FC<MapContainerProps> = (props) => {
