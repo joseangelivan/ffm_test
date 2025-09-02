@@ -64,11 +64,18 @@ interface MapProps {
  * @returns An OpenLayers Geometry or null.
  */
 function readLegacyOrStandardGeoJSON(geometry: any) {
-    if (!geometry || typeof geometry !== 'object' || !geometry.type) {
-        if (Object.keys(geometry || {}).length > 0) {
-            console.warn("Invalid geometry object passed to reader (no type):", geometry);
-        }
+    if (!geometry || typeof geometry !== 'object') {
         return null;
+    }
+    
+    if (Object.keys(geometry).length === 0) {
+        console.warn("Invalid geometry object passed to reader (empty object):", geometry);
+        return null;
+    }
+
+    if (!geometry.type) {
+         console.warn("Invalid geometry object passed to reader (no type):", geometry);
+         return null;
     }
 
     const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
@@ -96,10 +103,10 @@ function readLegacyOrStandardGeoJSON(geometry: any) {
     try {
         const olGeom = format.readGeometry(geometry);
         // A simple check to see if the geometry is valid (has coordinates)
-        if (olGeom && olGeom.getCoordinates().length > 0) {
+        if (olGeom && olGeom.getCoordinates() && olGeom.getCoordinates().length > 0) {
             return olGeom;
         }
-        console.warn("Invalid geometry object (empty coordinates):", geometry);
+        console.warn("Invalid geometry object (empty coordinates or malformed):", geometry);
         return null;
     } catch (e) {
         console.error(`Unsupported GeoJSON type or malformed geometry: ${geometry.type}`, e);
@@ -196,7 +203,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 }
                 return { id: dbGf.id, geometry };
             })
-            .filter(Boolean) as { id: string, geometry: any }[];
+            .filter((item): item is { id: string, geometry: any } => item !== null);
         
         const existingFeatureIds = new Set(source.getFeatures().map(f => f.getId()));
         const dbGeofenceIds = new Set(featuresToProcess.map(g => g.id));
