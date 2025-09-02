@@ -127,9 +127,12 @@ const OpenLayersMap: React.FC<MapProps> = ({
             }
             return featureId === defaultGeofenceId ? STYLE_VIEW_MODE : STYLE_HIDDEN;
         } else { // mode === 'editing'
+            const isNewShape = featureId.startsWith('new-shape-') && featureId === selectedGeofenceId;
+            if (isNewShape) {
+                return STYLE_NEW_SHAPE;
+            }
             if (featureId === selectedGeofenceId) {
-                // If it's a new shape, style it green, otherwise red for editing existing
-                return featureId.startsWith('new-shape-') ? STYLE_NEW_SHAPE : STYLE_EDIT_MODE_SELECTED;
+                return STYLE_EDIT_MODE_SELECTED;
             }
             return STYLE_EDIT_MODE_UNSELECTED;
         }

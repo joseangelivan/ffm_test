@@ -136,10 +136,12 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     if (mode === 'view') {
         geofenceIdToFit = defaultGeofenceId;
     } else {
-        // In editing mode, only fit if it's not a new, unsaved geofence
-        geofenceIdToFit = (selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-')) 
-            ? selectedGeofenceId 
-            : defaultGeofenceId;
+        // In editing mode, only fit if it's an existing, saved geofence being selected for edit
+        const isEditingNewShape = selectedGeofenceId?.startsWith('new-shape-');
+        if (isEditingNewShape) {
+            return; // Do not zoom when a new shape is drawn
+        }
+        geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
     }
     
     if (!geofenceIdToFit) {
