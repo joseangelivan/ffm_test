@@ -70,6 +70,7 @@ type GeofenceControlsProps = {
     onDataNeedsRefresh: (newSelectedId?: string) => void;
     onShapeDrawn: (feature: Feature) => void;
     activeShapeState: ActiveShapeState;
+    selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
     defaultGeofenceId: string | null;
     setDefaultGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -78,6 +79,7 @@ type GeofenceControlsProps = {
     showAllGeofences: boolean;
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
+    mapRef: React.RefObject<OlMap | null>;
     historyStack: Geometry[];
     setHistoryStack: React.Dispatch<React.SetStateAction<Geometry[]>>;
     historyIndex: number;
@@ -90,6 +92,7 @@ export function GeofenceControls({
     onDataNeedsRefresh,
     onShapeDrawn,
     activeShapeState,
+    selectedGeofenceId,
     setSelectedGeofenceId,
     defaultGeofenceId,
     setDefaultGeofenceId,
@@ -98,6 +101,7 @@ export function GeofenceControls({
     showAllGeofences,
     setShowAllGeofences,
     onSettingsClick,
+    mapRef,
     historyStack,
     setHistoryStack,
     historyIndex,
@@ -122,10 +126,13 @@ export function GeofenceControls({
     
     const geofenceSourceRef = useRef<VectorSource | null>(null);
     useEffect(() => {
-        if (activeShapeState?.feature?.get('source_ref')) {
-            geofenceSourceRef.current = activeShapeState.feature.get('source_ref');
+        if (mapRef.current) {
+            const layer = mapRef.current.getLayers().getArray().find(l => l.get('id') === 'geofence-layer') as any;
+            if (layer) {
+                geofenceSourceRef.current = layer.getSource();
+            }
         }
-    }, [activeShapeState]);
+    }, [mapRef, activeShapeState]);
 
 
     const pushToHistory = useCallback((geometry: Geometry) => {
@@ -154,13 +161,13 @@ export function GeofenceControls({
     }, [geofences, t]);
 
     const removeAllInteractions = useCallback(() => {
-        if (!interactionsRef.current.draw?.getMap()) return;
-        const map = interactionsRef.current.draw.getMap();
+        const map = mapRef.current;
+        if (!map) return;
         if (interactionsRef.current.draw) map.removeInteraction(interactionsRef.current.draw);
         if (interactionsRef.current.modify) map.removeInteraction(interactionsRef.current.modify);
         if (interactionsRef.current.translate) map.removeInteraction(interactionsRef.current.translate);
         interactionsRef.current = { draw: null, modify: null, translate: null };
-    }, []);
+    }, [mapRef]);
 
     const cancelCurrentAction = useCallback(() => {
         const source = geofenceSourceRef.current;
@@ -193,10 +200,6 @@ export function GeofenceControls({
         const { id, feature } = activeShapeState;
     
         const geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(feature.getGeometry()!);
-        
-        if (geometryToSave.type === 'rectangle') {
-            geometryToSave.type = 'Polygon';
-        }
         
         if (!currentGeofenceName) {
             toast({ title: t('toast.errorTitle'), description: "El nombre de la geocerca es obligatorio.", variant: "destructive" });
@@ -289,8 +292,8 @@ export function GeofenceControls({
     }, [geofences, selectedGeofenceId, onShapeDrawn, pushToHistory, cancelCurrentAction]);
     
      useEffect(() => {
-        if (!activeShapeState?.feature?.getMap()) return;
-        const map = activeShapeState.feature.getMap();
+        const map = mapRef.current;
+        if (!map) return;
 
         removeAllInteractions();
 
@@ -325,7 +328,7 @@ export function GeofenceControls({
                 const isRectangle = featureToEdit.get('geometryType') === 'Rectangle';
 
                 if (isRectangle) {
-                    const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
+                     const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
                         const originalPolygon = (featureToEdit.getGeometry() as Polygon);
                         const originalVertices = originalPolygon.getCoordinates()[0].slice(0, 4);
                         
@@ -384,7 +387,7 @@ export function GeofenceControls({
         
         return () => removeAllInteractions();
 
-    }, [mode, isDrawing, activeShapeState, drawingMode, pushToHistory, removeAllInteractions, onShapeDrawn]);
+    }, [mode, isDrawing, activeShapeState, drawingMode, pushToHistory, removeAllInteractions, onShapeDrawn, mapRef]);
 
     const isBusy = isSaving || isDeleting || isSettingDefault;
 
@@ -546,4 +549,3 @@ export function GeofenceControls({
         </div>
     );
 }
-
