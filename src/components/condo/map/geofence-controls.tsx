@@ -31,11 +31,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { LoadingOverlay } from '@/components/admin/admin-header';
 
-import type { Map as OlMap, Feature } from 'ol';
+import type { Map as OlMap } from 'ol';
+import Feature from 'ol/Feature';
 import { Draw, Modify, Translate } from 'ol/interaction';
 import GeoJSON from 'ol/format/GeoJSON';
 import { createBox } from 'ol/interaction/Draw';
-import type { Vector as VectorSource } from 'ol/source';
 import type { Geometry, Polygon, SimpleGeometry } from 'ol/geom';
 import Collection from 'ol/Collection';
 
@@ -336,6 +336,7 @@ export function GeofenceControls({
                         const originalPolygon = (featureToEdit.getGeometry() as Polygon);
                         const originalVertices = originalPolygon.getCoordinates()[0].slice(0, 4);
                         
+                        // Find the single vertex that has changed
                         const newVertices = coordinates[0];
                         let changedVertex: number[] | undefined;
                         let changedIndex = -1;
@@ -345,6 +346,7 @@ export function GeofenceControls({
                             const matchingOriginal = originalVertices.find(ov => ov[0] === vert[0] && ov[1] === vert[1]);
                             if(!matchingOriginal) {
                                 changedVertex = vert;
+                                // Now find its original index to know which corner was moved
                                 for(let j=0; j<originalVertices.length; j++) {
                                      const isPointInNewCoords = newVertices.some((nv: number[]) => nv[0] === originalVertices[j][0] && nv[1] === originalVertices[j][1]);
                                      if (!isPointInNewCoords) {
