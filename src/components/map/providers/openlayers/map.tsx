@@ -115,6 +115,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     defaultGeofenceId,
     initialPosition,
     mapRef,
+    activeShapeState,
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -127,16 +128,15 @@ const OpenLayersMap: React.FC<MapProps> = ({
             }
             return featureId === defaultGeofenceId ? STYLE_VIEW_MODE : STYLE_HIDDEN;
         } else { // mode === 'editing'
-            const isNewShape = featureId.startsWith('new-shape-') && featureId === selectedGeofenceId;
-            if (isNewShape) {
-                return STYLE_NEW_SHAPE;
-            }
-            if (featureId === selectedGeofenceId) {
+             if (activeShapeState && featureId === activeShapeState.id) {
+                if (activeShapeState.id.startsWith('new-shape-')) {
+                    return STYLE_NEW_SHAPE;
+                }
                 return STYLE_EDIT_MODE_SELECTED;
             }
             return STYLE_EDIT_MODE_UNSELECTED;
         }
-    }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId]);
+    }, [mode, showAllGeofences, defaultGeofenceId, activeShapeState]);
     
     useEffect(() => {
         if (!mapContainerRef.current) return;
