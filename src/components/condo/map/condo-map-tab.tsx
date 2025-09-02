@@ -97,6 +97,18 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
         setIsLoading(false);
     }
   }, [condo.id, selectedGeofenceId, toast, t]);
+  
+  useEffect(() => {
+    setDbGeofences(condo.geofences);
+    const defaultGf = condo.geofences.find(g => g.is_default);
+    const newDefaultId = defaultGf ? defaultGf.id : (condo.geofences.length > 0 ? condo.geofences[0].id : null);
+    setDefaultGeofenceId(newDefaultId);
+
+    const currentSelectionExists = condo.geofences.some(g => g.id === selectedGeofenceId);
+    if (!currentSelectionExists) {
+        setSelectedGeofenceId(newDefaultId);
+    }
+  }, [condo.geofences, selectedGeofenceId]);
 
   // --- Map Interactions ---
   const centerMapOnAddress = useCallback(() => {
@@ -111,6 +123,14 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
 
   const applyZoomLevel = useCallback(() => {
     const map = mapRef.current;
+    if (!map) return;
+    
+    // Defer if map is not ready
+    const mapSize = map.getSize();
+    if (!mapSize || mapSize.some(s => s === 0)) {
+        return;
+    }
+    
     const source = geofenceSourceRef.current;
     let geofenceIdToFit: string | null;
 
@@ -120,8 +140,8 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
         geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
     }
     
-    if (!map || !source || !geofenceIdToFit) {
-        if(map) centerMapOnAddress();
+    if (!source || !geofenceIdToFit) {
+        centerMapOnAddress();
         return;
     }
 

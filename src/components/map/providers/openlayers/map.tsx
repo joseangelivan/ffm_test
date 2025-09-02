@@ -62,7 +62,9 @@ interface MapProps {
  */
 function readLegacyOrStandardGeoJSON(geometry: any) {
     if (!geometry || !geometry.type) {
-        console.warn("Invalid geometry object passed to reader (no type):", geometry);
+        if (Object.keys(geometry || {}).length > 0) {
+            console.warn("Invalid geometry object passed to reader (no type):", geometry);
+        }
         return null;
     }
 
@@ -175,25 +177,31 @@ const OpenLayersMap: React.FC<MapProps> = ({
         const source = vectorSourceRef.current;
         if (!source) return;
 
+        const featuresToProcess = dbGeofences
+            .map(dbGf => {
+                // Don't touch the shape being actively edited
+                if (activeShapeState?.id === dbGf.id) {
+                    return null;
+                }
+                const geometry = readLegacyOrStandardGeoJSON(dbGf.geometry);
+                if (!geometry) {
+                    return null; // Skip geofences with invalid/missing geometry
+                }
+                return { id: dbGf.id, geometry };
+            })
+            .filter(Boolean) as { id: string, geometry: any }[];
+        
         const existingFeatureIds = new Set(source.getFeatures().map(f => f.getId()));
-        const dbGeofenceIds = new Set(dbGeofences.map(g => g.id));
+        const dbGeofenceIds = new Set(featuresToProcess.map(g => g.id));
 
         // Add or update features from the database
-        dbGeofences.forEach(dbGf => {
-            if (activeShapeState?.id === dbGf.id) {
-                // Skip updating the geometry of the shape being actively edited
-                return;
-            }
-
-            const geometry = readLegacyOrStandardGeoJSON(dbGf.geometry);
-            if (!geometry) return;
-
-            let feature = source.getFeatureById(dbGf.id);
+        featuresToProcess.forEach(({ id, geometry }) => {
+            let feature = source.getFeatureById(id);
             if (feature) {
                 feature.setGeometry(geometry);
             } else {
                 feature = new Feature({ geometry });
-                feature.setId(dbGf.id);
+                feature.setId(id);
                 source.addFeature(feature);
             }
         });
@@ -245,7 +253,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                     }
                 }
             }
-            feature.setStyle(visible ? style : new Style());
+            feature.setStyle(visible ? style : undefined);
         });
 
     }, [mode, selectedGeofenceId, defaultGeofenceId, showAllGeofences, activeShapeState]);
