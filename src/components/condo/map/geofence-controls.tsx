@@ -44,25 +44,52 @@ const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
 }
 
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number) => {
-  const indiceOpuesto = (indiceMovido + 2) % 4;
-  const verticeOpuesto = verticesOriginales[indiceOpuesto];
-  
-  const indiceAdyacente1 = (indiceMovido + 1) % 4;
-  const indiceAdyacente2 = (indiceMovido + 3) % 4;
-  
-  const nuevoRectangulo = new Array(4);
-  nuevoRectangulo[indiceMovido] = verticeMovido;
-  nuevoRectangulo[indiceOpuesto] = verticeOpuesto;
-  
-  if (indiceMovido % 2 === 0) {
-    nuevoRectangulo[indiceAdyacente1] = [verticeMovido[0], verticeOpuesto[1]];
-    nuevoRectangulo[indiceAdyacente2] = [verticeOpuesto[0], verticeMovido[1]];
+  const estaDentro = puntoEstaDentro(new (require('ol/geom/Polygon').default)([verticesOriginales]), verticeMovido);
+
+  if (estaDentro) {
+    // Caso 2: Vértice se mueve hacia adentro
+    const verticeAdyacente1 = verticesOriginales[(indiceMovido + 3) % 4];
+    const verticeAdyacente2 = verticesOriginales[(indiceMovido + 1) % 4];
+
+    // Proyectar el punto movido sobre los lados opuestos para encontrar el nuevo vértice opuesto
+    const nuevoOpuestoX = verticeAdyacente1[0] === verticesOriginales[indiceMovido][0] ? verticeAdyacente2[0] : verticeAdyacente1[0];
+    const nuevoOpuestoY = verticeAdyacente1[1] === verticesOriginales[indiceMovido][1] ? verticeAdyacente2[1] : verticeAdyacente1[1];
+    
+    const nuevoVerticeOpuesto = [
+        (nuevoOpuestoX - verticeMovido[0]) + verticeMovido[0],
+        (nuevoOpuestoY - verticeMovido[1]) + verticeMovido[1]
+    ];
+    
+    const nuevoRectangulo = new Array(4);
+    nuevoRectangulo[indiceMovido] = verticeMovido;
+    nuevoRectangulo[(indiceMovido + 2) % 4] = nuevoVerticeOpuesto;
+    nuevoRectangulo[(indiceMovido + 1) % 4] = [nuevoVerticeOpuesto[0], verticeMovido[1]];
+    nuevoRectangulo[(indiceMovido + 3) % 4] = [verticeMovido[0], nuevoVerticeOpuesto[1]];
+    
+    return [...nuevoRectangulo, nuevoRectangulo[0]];
+
   } else {
-    nuevoRectangulo[indiceAdyacente1] = [verticeOpuesto[0], verticeMovido[1]];
-    nuevoRectangulo[indiceAdyacente2] = [verticeMovido[0], verticeOpuesto[1]];
+    // Caso 1: Vértice se mueve hacia afuera (usa bounding box)
+    const tempVertices = [...verticesOriginales];
+    tempVertices[indiceMovido] = verticeMovido;
+    
+    const xs = tempVertices.map(v => v[0]);
+    const ys = tempVertices.map(v => v[1]);
+    
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    
+    const rectanguloPerfecto = [
+        [minX, minY],
+        [maxX, minY],
+        [maxX, maxY],
+        [minX, maxY]
+    ];
+    
+    return [...rectanguloPerfecto, rectanguloPerfecto[0]];
   }
-  
-  return [...nuevoRectangulo, nuevoRectangulo[0]];
 };
 
 
@@ -391,7 +418,7 @@ export function GeofenceControls({
             }
             setDebugInfo("Moviendo vértice...");
         });
-
+        
         modifyInteraction.on('modifyend', (event: any) => {
             const feature = event.features.getArray()[0] as Feature<Polygon>;
             if (!feature) return;
@@ -411,6 +438,8 @@ export function GeofenceControls({
                         const verticeMovido = currentCoords[movedIndex];
                         const correctedCoords = RecalcularRectangulo(originalCoords, verticeMovido, movedIndex);
                         feature.getGeometry()!.setCoordinates([correctedCoords]);
+                         const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+                         setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(format.writeGeometryObject(feature.getGeometry()!), null, 2)}`);
                     } catch(e: any) {
                         setDebugInfo(`Error: ${e.message}`);
                     }
@@ -418,10 +447,8 @@ export function GeofenceControls({
             }
             
             pushToHistory(feature.getGeometry()!);
-            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-            setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(format.writeGeometryObject(feature.getGeometry()!), null, 2)}`);
         });
-
+        
         const translateInteraction = new Translate({ features: features });
         translateInteractionRef.current = translateInteraction;
         map.addInteraction(translateInteraction);
