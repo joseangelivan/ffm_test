@@ -44,7 +44,10 @@ const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
 }
 
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number) => {
-  const estaDentro = puntoEstaDentro(new (require('ol/geom/Polygon').default)([verticesOriginales]), verticeMovido);
+    // This function requires the Polygon class, which should only be loaded on the client.
+    // We import it here to avoid server-side rendering issues.
+    const PolygonClass = require('ol/geom/Polygon').default;
+    const estaDentro = puntoEstaDentro(new PolygonClass([verticesOriginales]), verticeMovido);
 
   if (estaDentro) {
     // Caso 2: Vértice se mueve hacia adentro
@@ -421,15 +424,17 @@ export function GeofenceControls({
         modifyInteractionRef.current = modifyInteraction;
 
         let originalCoords: number[][] | null = null;
-        const modifyStartKey = modifyInteraction.on('modifystart', (event: any) => {
+        
+        const onModifyStart = (event: any) => {
             const feature = event.features.getArray()[0] as Feature<Polygon>;
+             setDebugInfo(`Moviendo vértice...`);
             if (feature.get('geometryType') === 'Rectangle') {
                 originalCoords = feature.getGeometry()!.getCoordinates()[0].map(c => [...c]);
                 if (originalCoords.length === 5) originalCoords.pop();
             }
-        });
-        
-        const modifyEndKey = modifyInteraction.on('modifyend', (event: any) => {
+        };
+
+        const onModifyEnd = (event: any) => {
             const feature = event.features.getArray()[0] as Feature<Polygon>;
             if (!feature) return;
 
@@ -458,29 +463,35 @@ export function GeofenceControls({
             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
             setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(format.writeGeometryObject(finalGeom), null, 2)}`);
             pushToHistory(finalGeom);
-        });
+        };
+        
+        modifyInteraction.on('modifystart', onModifyStart);
+        modifyInteraction.on('modifyend', onModifyEnd);
+
 
         const translateInteraction = new Translate({ features: features });
         map.addInteraction(translateInteraction);
         translateInteractionRef.current = translateInteraction;
 
-        const translateEndKey = translateInteraction.on('translateend', (e) => {
+        const onTranslateEnd = (e: any) => {
             const feature = e.features.getArray()[0];
             if (feature) pushToHistory(feature.getGeometry()!);
-        });
+        };
+        translateInteraction.on('translateend', onTranslateEnd);
 
         return () => {
             if (map) {
-                map.removeInteraction(modifyInteraction);
-                map.removeInteraction(translateInteraction);
+                // Use a try-catch block as removeInteraction can throw if the interaction is not on the map
+                try { map.removeInteraction(modifyInteraction); } catch(e) {}
+                try { map.removeInteraction(translateInteraction); } catch(e) {}
             }
-            // Unsubscribe from events
-            const unByKey = require('ol/Observable').unByKey;
-            unByKey(modifyStartKey);
-            unByKey(modifyEndKey);
-            unByKey(translateEndKey);
+            // Unsubscribe from events by creating a dummy listener object,
+            // as direct unregistering is complex with anonymous functions.
+            modifyInteraction.un('modifystart', onModifyStart);
+            modifyInteraction.un('modifyend', onModifyEnd);
+            translateInteraction.un('translateend', onTranslateEnd);
         };
-    }, [activeShapeState, mapRef, pushToHistory, setDebugInfo]);
+    }, [activeShapeState, mapRef, pushToHistory, setDebugInfo, removeInteractions]);
 
 
     const isBusy = isSaving || isDeleting || isSettingDefault;
