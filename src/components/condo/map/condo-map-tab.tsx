@@ -479,3 +479,4 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
     </>
   );
 }
+
