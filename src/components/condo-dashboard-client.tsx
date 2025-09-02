@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils';
 import type { SessionPayload } from '@/lib/session';
 import { handleLogoutAction } from '@/lib/session';
 import type { UserSettings } from '@/actions/admin';
-import { getActiveTheme, updateSettings, getGeofencesByCondoId } from '@/actions/admin';
+import { getActiveTheme, updateSettings } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
 import { type MapProvider } from '@/actions/map_providers';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
@@ -45,7 +45,7 @@ type CondoDashboardClientProps = {
     initialCondo: Condominio & { geofences: any[] };
     initialDevices: Device[];
     initialSettings: UserSettings;
-    mapProvider: MapProvider | null;
+    mapProvider: MapProvider;
     initialPosition: { lat: number; lng: number };
 };
 
@@ -100,7 +100,6 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   }, [applyTheme, initialSettings, session, router]);
 
    useEffect(() => {
-    // This effect should only run once on mount to set the initial theme based on settings
     const setInitialTheme = async () => {
         const themeData = await getActiveTheme(initialSettings);
         applyTheme(themeData, initialSettings.theme);
@@ -145,17 +144,6 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     condo: initialCondo,
   }), [handleSetLocale, handleSetTheme, theme, initialCondo]);
 
-  if (!mapProvider) {
-    return (
-        <div className="flex items-center justify-center h-full bg-muted">
-            <div className="text-center p-4">
-                <p className="font-semibold">Nenhum provedor de mapa padrão encontrado.</p>
-                <p className="text-sm text-muted-foreground">Por favor, configure um provedor de mapas no painel de administração.</p>
-            </div>
-        </div>
-    )
-  }
-
   return (
     <CondoDashboardContext.Provider value={providerValue}>
       <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -187,7 +175,11 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                       <ManageDevicesTab condoId={initialCondo.id} devices={initialDevices} onDataNeedsRefresh={onDataNeedsRefresh} />
                   </TabsContent>
                   <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
-                      <CondoMapTab condo={initialCondo} initialPosition={initialPosition} provider={mapProvider} />
+                      <CondoMapTab 
+                        condo={initialCondo} 
+                        initialPosition={initialPosition} 
+                        provider={mapProvider} 
+                      />
                   </TabsContent>
               </div>
             </Tabs>

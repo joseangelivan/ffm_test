@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Locate,
   ZoomIn,
@@ -21,23 +21,46 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useLocale } from '@/lib/i18n';
 import MapContainer from '@/components/map/map-container';
 import { ElementsControls } from './map/elements-controls';
-import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 import { MapSettingsDialog } from './map/map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
+
+import type { Map as OlMap } from 'ol';
+import type { Vector as VectorSource } from 'ol/source';
+import type { Draw, Modify } from 'ol/interaction';
+import type Feature from 'ol/Feature';
+import { fromLonLat } from 'ol/proj';
 
 
-export default function CondoMapTab({ condo }: { condo: Condominio }) {
+interface CondoMapTabProps {
+  condo: Condominio & { geofences: DbGeofence[] };
+  initialPosition: { lat: number; lng: number };
+  provider: DbMapProvider;
+}
+
+export default function CondoMapTab({ condo, initialPosition, provider }: CondoMapTabProps) {
   const { t } = useLocale();
   const { toast } = useToast();
-  const mapRef = useRef<any | null>(null);
   
-  const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
+  // --- Refs ---
+  const mapRef = useRef<OlMap | null>(null);
+  const geofenceSourceRef = useRef<VectorSource | null>(null);
+  const drawingInteractionRef = useRef<Draw | null>(null);
+  const modifyInteractionRef = useRef<Modify | null>(null);
+  const mapInitialized = useRef(false);
+
+  // --- State ---
+  const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>(condo.geofences);
   
-  const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
-  const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
-  
+  const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(() => 
+    condo.geofences.find(g => g.is_default)?.id || (condo.geofences.length > 0 ? condo.geofences[0].id : null)
+  );
+  const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(() => 
+    condo.geofences.find(g => g.is_default)?.id || (condo.geofences.length > 0 ? condo.geofences[0].id : null)
+  );
+
   const [mode, setMode] = useState<'view' | 'editing'>('view');
   
   const [showAllGeofences, setShowAllGeofences] = useState(false);
@@ -65,49 +88,37 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
   }, [historyIndex, history]);
 
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
-    setIsLoading(true);
-    try {
-        const freshDbGeofences = await getGeofencesByCondoId(condo.id);
-        setDbGeofences(freshDbGeofences);
-        
-        const defaultGfDb = freshDbGeofences.find(g => g.is_default);
-        const newDefaultId = defaultGfDb ? defaultGfDb.id : (freshDbGeofences.length > 0 ? freshDbGeofences[0].id : null);
-        setDefaultGeofenceId(newDefaultId);
-        
-        if (newSelectedId) {
-            setSelectedGeofenceId(newSelectedId);
-        } else {
-            const currentSelectionExists = freshDbGeofences.some(g => g.id === selectedGeofenceId);
-            if (!currentSelectionExists) {
-                setSelectedGeofenceId(newDefaultId);
-            }
-        }
-    } catch (e) {
-        console.error("Failed to refresh data", e);
-        toast({ title: t('toast.errorTitle'), description: "Error al recargar los datos del mapa.", variant: 'destructive' });
-    } finally {
-        setIsLoading(false);
-    }
-  }, [condo.id, selectedGeofenceId, toast, t]);
+      // This function will be replaced by a router.refresh() or similar
+      // For now, we simulate a data refresh
+  }, []);
 
 
   const centerMapOnAddress = useCallback(() => {
     const map = mapRef.current;
-    if(!map || !condo.address) return;
-    // This function will need to be provider-agnostic
-    // For now, it assumes a Google-like map object
-    if(map.setCenter && map.setZoom) {
-        // Here we would need to geocode the address if we don't have lat/lng
-        // For simplicity, let's assume we get lat/lng with the condo data
-    }
-  }, [condo.address]);
+    if(!map || !initialPosition) return;
+    
+    map.getView().animate({
+        center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+        zoom: 17,
+        duration: 800,
+    });
+  }, [initialPosition]);
 
 
-  const handleMapLoad = useCallback(async (map: any) => {
+  const handleMapLoad = useCallback(async (map: any, source: any) => {
+    if (mapInitialized.current) return;
+    mapInitialized.current = true;
+    
     mapRef.current = map;
-    await onDataNeedsRefresh();
-  }, [onDataNeedsRefresh]);
-
+    geofenceSourceRef.current = source;
+    
+    map.on('moveend', () => {
+        const zoom = map.getView().getZoom();
+        if (zoom) setZoomLevel(Math.round(zoom));
+    });
+    
+    setIsLoading(false);
+  }, []);
     
   const handleHistoryAction = (action: 'undo' | 'redo') => {
     // This logic will need to be implemented within the specific map provider component
@@ -134,15 +145,8 @@ export default function CondoMapTab({ condo }: { condo: Condominio }) {
                 <div className="grid grid-cols-1 md:grid-cols-3 h-[70vh]">
                     <div className="col-span-1 md:col-span-2 relative p-1">
                         <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
-                            {isLoading && (
-                                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                        <Loader className="h-5 w-5 animate-spin" />
-                                        <span>{t('condoDashboard.map.loadingMap')}</span>
-                                    </div>
-                                </div>
-                            )}
                             <MapContainer 
+                                provider={provider} 
                                 onMapLoad={handleMapLoad}
                             >
                                 <Building className="h-8 w-8 text-slate-700 drop-shadow-lg" />

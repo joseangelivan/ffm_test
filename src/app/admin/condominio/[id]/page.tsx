@@ -10,7 +10,7 @@ import { getDevicesByCondoId } from '@/actions/devices';
 import { getSession } from '@/lib/auth';
 import { getSettings, getDefaultMapProvider, getGeofencesByCondoId } from '@/actions/admin';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Map } from 'lucide-react';
 import { geocodeAddress } from '@/actions/geocoding';
 
 export const dynamic = 'force-dynamic';
@@ -22,7 +22,14 @@ export default async function CondominioDashboardPage({ params }: { params: { id
   }
   
   const condoId = params.id;
-  const condoResult = await getCondominioById(condoId);
+
+  const [condoResult, devices, settings, mapProvider, geofences] = await Promise.all([
+    getCondominioById(condoId),
+    getDevicesByCondoId(condoId),
+    getSettings(session),
+    getDefaultMapProvider(),
+    getGeofencesByCondoId(condoId)
+  ]);
 
   if (!condoResult.success || !condoResult.data) {
     return (
@@ -38,30 +45,6 @@ export default async function CondominioDashboardPage({ params }: { params: { id
     );
   }
 
-  const condo = condoResult.data;
-
-  const fetchAndSetCondoPosition = async () => {
-    const geoResult = await geocodeAddress({
-        street: `${condo.street}, ${condo.number}`,
-        city: condo.city,
-        state: condo.state,
-        country: condo.country,
-    });
-    if (geoResult.success && geoResult.data && geoResult.data.length > 0) {
-        return geoResult.data[0].geometry.location
-    }
-    return { lat: 0, lng: 0 };
-  }
-
-  // Fetch all other data needed for the dashboard in parallel
-  const [devices, settings, mapProvider, initialPosition, geofences] = await Promise.all([
-    getDevicesByCondoId(condoId),
-    getSettings(session),
-    getDefaultMapProvider(),
-    fetchAndSetCondoPosition(),
-    getGeofencesByCondoId(condoId)
-  ]);
-
   if (!settings) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-muted/40">
@@ -75,6 +58,38 @@ export default async function CondominioDashboardPage({ params }: { params: { id
       </div>
     );
   }
+
+  if (!mapProvider) {
+    return (
+        <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
+            <div className="flex flex-col items-center gap-4 text-center">
+                 <div className="rounded-full border border-dashed p-4 bg-background">
+                    <Map className="h-12 w-12 text-muted-foreground" />
+                </div>
+                <Alert variant="default" className="max-w-lg text-left">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>No se encontró un proveedor de mapas</AlertTitle>
+                    <AlertDescription>
+                        No hay un proveedor de mapas predeterminado configurado en el sistema. Por favor, vaya al panel de administración y configure uno para continuar.
+                    </AlertDescription>
+                </Alert>
+            </div>
+        </div>
+    );
+  }
+
+  const condo = condoResult.data;
+  
+  const geoResult = await geocodeAddress({
+    street: `${condo.street}, ${condo.number}`,
+    city: condo.city,
+    state: condo.state,
+    country: condo.country,
+  });
+
+  const initialPosition = (geoResult.success && geoResult.data && geoResult.data.length > 0)
+    ? geoResult.data[0].geometry.location
+    : { lat: 0, lng: 0 };
   
   const condoWithGeofences = { ...condo, geofences: geofences || [] };
 
