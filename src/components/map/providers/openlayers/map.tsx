@@ -24,10 +24,17 @@ const STYLE_VIEW_MODE = new Style({
     fill: new Fill({ color: 'rgba(67, 133, 245, 0.1)' }),
     stroke: new Stroke({ color: '#4385F5', width: 2 }),
 });
+
 const STYLE_EDIT_MODE_SELECTED = new Style({
     fill: new Fill({ color: 'rgba(234, 67, 53, 0.2)' }),
     stroke: new Stroke({ color: '#EA4335', width: 3 }),
 });
+
+const STYLE_NEW_SHAPE = new Style({
+    fill: new Fill({ color: 'rgba(52, 168, 83, 0.2)' }), // Green fill
+    stroke: new Stroke({ color: '#34A853', width: 3 }), // Green stroke
+});
+
 const STYLE_EDIT_MODE_UNSELECTED = new Style({
     fill: new Fill({ color: 'rgba(100, 100, 100, 0.1)' }),
     stroke: new Stroke({ color: '#646464', width: 1.5, lineDash: [5, 5] }),
@@ -113,14 +120,18 @@ const OpenLayersMap: React.FC<MapProps> = ({
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const vectorSourceRef = useRef<VectorSource>(new VectorSource());
 
-    const getFeatureStyle = useCallback((featureId: string): Style => {
+   const getFeatureStyle = useCallback((featureId: string): Style => {
         if (mode === 'view') {
             if (showAllGeofences) {
                 return featureId === defaultGeofenceId ? STYLE_VIEW_MODE : STYLE_EDIT_MODE_UNSELECTED;
             }
             return featureId === defaultGeofenceId ? STYLE_VIEW_MODE : STYLE_HIDDEN;
         } else { // mode === 'editing'
-            return featureId === selectedGeofenceId ? STYLE_EDIT_MODE_SELECTED : STYLE_EDIT_MODE_UNSELECTED;
+            if (featureId === selectedGeofenceId) {
+                // If it's a new shape, style it green, otherwise red for editing existing
+                return featureId.startsWith('new-shape-') ? STYLE_NEW_SHAPE : STYLE_EDIT_MODE_SELECTED;
+            }
+            return STYLE_EDIT_MODE_UNSELECTED;
         }
     }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId]);
     
@@ -158,7 +169,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
         const vectorLayer = new VectorLayer({
             source: vectorSourceRef.current,
-            style: (feature) => (feature as Feature<Geometry>).get('style'),
+            style: (feature) => feature.get('style'),
         });
         vectorLayer.set('id', 'geofence-layer');
 
@@ -198,7 +209,11 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
             let feature = source.getFeatureById(dbGeofence.id);
             if (feature) {
-                feature.setGeometry(olGeom);
+                // Only update geometry if it's different to avoid unnecessary re-renders
+                 const currentGeom = feature.getGeometry();
+                 if (currentGeom && JSON.stringify(currentGeom.getCoordinates()) !== JSON.stringify(olGeom.getCoordinates())) {
+                    feature.setGeometry(olGeom);
+                 }
             } else {
                 feature = new Feature({ geometry: olGeom });
                 feature.setId(dbGeofence.id);

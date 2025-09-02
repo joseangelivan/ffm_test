@@ -119,15 +119,15 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     });
   }, [condoAddressPosition]);
 
-  const applyZoomLevel = useCallback(() => {
+ const applyZoomLevel = useCallback(() => {
     const map = mapRef.current;
     if (!map) return;
-    
+
     const mapSize = map.getSize();
     if (!mapSize || mapSize.some(s => s === 0)) {
         return;
     }
-    
+
     const geofenceSource = (map.getLayers().getArray().find(l => l.get('id') === 'geofence-layer') as any)?.getSource();
     if (!geofenceSource) return;
 
@@ -136,7 +136,10 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     if (mode === 'view') {
         geofenceIdToFit = defaultGeofenceId;
     } else {
-        geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
+        // In editing mode, only fit if it's not a new, unsaved geofence
+        geofenceIdToFit = (selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-')) 
+            ? selectedGeofenceId 
+            : defaultGeofenceId;
     }
     
     if (!geofenceIdToFit) {
@@ -318,4 +321,3 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     </>
   );
 }
-
