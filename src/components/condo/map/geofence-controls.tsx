@@ -107,7 +107,7 @@ type GeofenceControlsProps = {
 
 export function GeofenceControls({
     condoId,
-    geofences,
+    geofences: geofencesFromProps,
     onDataNeedsRefresh,
     selectedGeofenceId,
     setSelectedGeofenceId,
@@ -140,6 +140,11 @@ export function GeofenceControls({
 
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
+    const [newGeofencePlaceholder, setNewGeofencePlaceholder] = useState<DbGeofence | null>(null);
+
+    const geofences = useMemo(() => {
+        return newGeofencePlaceholder ? [...geofencesFromProps, newGeofencePlaceholder] : geofencesFromProps;
+    }, [geofencesFromProps, newGeofencePlaceholder]);
     
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
@@ -204,6 +209,7 @@ export function GeofenceControls({
         setActiveShapeState(null);
         setCurrentGeofenceName('');
         setIsDrawing(false);
+        setNewGeofencePlaceholder(null);
         setHistoryStack([]);
         setHistoryIndex(-1);
     }, [activeShapeState, removeInteractions, setActiveShapeState, setMode, geofenceSourceRef, setHistoryStack, setHistoryIndex]);
@@ -285,7 +291,6 @@ export function GeofenceControls({
 
         if (!map || !source || isDrawing) return;
         
-        cancelCurrentAction();
         setMode('editing');
         
         const drawOptions: any = { source: source };
@@ -307,13 +312,23 @@ export function GeofenceControls({
             const newId = `new-shape-${Date.now()}`;
             newFeature.setId(newId);
             
-            map.removeInteraction(newInteraction);
-            drawingInteractionRef.current = null;
+            const newName = getNextGeofenceName();
             
-            setSelectedGeofenceId(newId);
-            setCurrentGeofenceName(getNextGeofenceName());
             setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
+            setSelectedGeofenceId(newId);
+            setCurrentGeofenceName(newName);
+            
+            setNewGeofencePlaceholder({
+                id: newId,
+                condominium_id: condoId,
+                name: newName,
+                geometry: {}, // temp
+                is_default: false
+            });
+
             setIsDrawing(false);
+            if(drawingInteractionRef.current) map.removeInteraction(drawingInteractionRef.current);
+            
             const initialGeom = newFeature.getGeometry();
             if (initialGeom) {
                 setHistoryStack([initialGeom.clone()]);
@@ -334,7 +349,6 @@ export function GeofenceControls({
 
         if (!selectedGeofence || !featureToEdit) return;
 
-        cancelCurrentAction();
         setMode('editing');
         
         setActiveShapeState({
@@ -348,7 +362,7 @@ export function GeofenceControls({
         if (initialGeom) {
             pushToHistory(initialGeom);
         }
-    }, [geofences, selectedGeofenceId, cancelCurrentAction, setMode, setActiveShapeState, pushToHistory]);
+    }, [geofences, selectedGeofenceId, setMode, setActiveShapeState, pushToHistory]);
 
     useEffect(() => {
         const map = mapRef.current;
@@ -507,13 +521,6 @@ export function GeofenceControls({
                                                 </div>
                                             </SelectItem>
                                         ))}
-                                         {activeShapeState?.id.startsWith('new-shape-') && (
-                                            <SelectItem value={activeShapeState.id} disabled>
-                                                <div className='flex items-center gap-2'>
-                                                    <span>{currentGeofenceName}</span>
-                                                </div>
-                                            </SelectItem>
-                                        )}
                                     </SelectContent>
                                 </Select>
                                 <div className="flex items-center">
@@ -528,7 +535,7 @@ export function GeofenceControls({
                                         </Tooltip>
                                         <Tooltip>
                                              <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!!activeShapeState || !selectedGeofenceId || isBusy || selectedGeofenceId.startsWith('new-shape-')}>
+                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!!activeShapeState || !selectedGeofenceId || isBusy || (selectedGeofenceId !== null && selectedGeofenceId.startsWith('new-shape-'))}>
                                                     <Edit className="h-4 w-4"/>
                                                 </Button>
                                             </TooltipTrigger>
@@ -536,7 +543,7 @@ export function GeofenceControls({
                                         </Tooltip>
                                          <Tooltip>
                                              <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={!!activeShapeState || !selectedGeofenceId || isBusy || selectedGeofenceId.startsWith('new-shape-')}>
+                                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={!!activeShapeState || !selectedGeofenceId || isBusy || (selectedGeofenceId !== null && selectedGeofenceId.startsWith('new-shape-'))}>
                                                     {isDeleting ? <Loader className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4 text-destructive"/>}
                                                 </Button>
                                             </TooltipTrigger>
@@ -600,3 +607,5 @@ export function GeofenceControls({
         </div>
     );
 }
+
+    
