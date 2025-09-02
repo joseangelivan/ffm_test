@@ -401,25 +401,35 @@ export function GeofenceControls({
             setHistoryStack([initialGeom.clone()]);
             setHistoryIndex(0);
         }
+    }, [geofences, selectedGeofenceId, cancelCurrentAction, setMode, setActiveShapeState, setHistoryStack, setHistoryIndex, mapRef]);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!activeShapeState || !map) {
+            removeInteractions();
+            return;
+        }
+
+        const featureToEdit = activeShapeState.feature;
+        if (!featureToEdit) return;
         
         const Collection = require('ol/Collection').default;
         const features = new Collection([featureToEdit]);
 
         const modifyInteraction = new Modify({ features, insertVertexCondition: () => false });
-        modifyInteractionRef.current = modifyInteraction;
         map.addInteraction(modifyInteraction);
+        modifyInteractionRef.current = modifyInteraction;
 
         let originalCoords: number[][] | null = null;
-        modifyInteraction.on('modifystart', (event: any) => {
+        const modifyStartKey = modifyInteraction.on('modifystart', (event: any) => {
             const feature = event.features.getArray()[0] as Feature<Polygon>;
             if (feature.get('geometryType') === 'Rectangle') {
-                 originalCoords = feature.getGeometry()!.getCoordinates()[0].map(c => [...c]);
-                 if (originalCoords.length === 5) originalCoords.pop();
+                originalCoords = feature.getGeometry()!.getCoordinates()[0].map(c => [...c]);
+                if (originalCoords.length === 5) originalCoords.pop();
             }
-            setDebugInfo("Moviendo vértice...");
         });
         
-        modifyInteraction.on('modifyend', (event: any) => {
+        const modifyEndKey = modifyInteraction.on('modifyend', (event: any) => {
             const feature = event.features.getArray()[0] as Feature<Polygon>;
             if (!feature) return;
 
@@ -438,27 +448,40 @@ export function GeofenceControls({
                         const verticeMovido = currentCoords[movedIndex];
                         const correctedCoords = RecalcularRectangulo(originalCoords, verticeMovido, movedIndex);
                         feature.getGeometry()!.setCoordinates([correctedCoords]);
-                         const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-                         setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(format.writeGeometryObject(feature.getGeometry()!), null, 2)}`);
                     } catch(e: any) {
                         setDebugInfo(`Error: ${e.message}`);
                     }
                 }
             }
             
-            pushToHistory(feature.getGeometry()!);
+            const finalGeom = feature.getGeometry()!;
+            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+            setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(format.writeGeometryObject(finalGeom), null, 2)}`);
+            pushToHistory(finalGeom);
         });
-        
-        const translateInteraction = new Translate({ features: features });
-        translateInteractionRef.current = translateInteraction;
-        map.addInteraction(translateInteraction);
 
-        translateInteraction.on('translateend', (e) => {
+        const translateInteraction = new Translate({ features: features });
+        map.addInteraction(translateInteraction);
+        translateInteractionRef.current = translateInteraction;
+
+        const translateEndKey = translateInteraction.on('translateend', (e) => {
             const feature = e.features.getArray()[0];
             if (feature) pushToHistory(feature.getGeometry()!);
         });
-    
-    }, [geofences, selectedGeofenceId, cancelCurrentAction, setMode, setActiveShapeState, setHistoryStack, setHistoryIndex, mapRef, modifyInteractionRef, pushToHistory, setDebugInfo, translateInteractionRef]);
+
+        return () => {
+            if (map) {
+                map.removeInteraction(modifyInteraction);
+                map.removeInteraction(translateInteraction);
+            }
+            // Unsubscribe from events
+            const unByKey = require('ol/Observable').unByKey;
+            unByKey(modifyStartKey);
+            unByKey(modifyEndKey);
+            unByKey(translateEndKey);
+        };
+    }, [activeShapeState, mapRef, pushToHistory, setDebugInfo]);
+
 
     const isBusy = isSaving || isDeleting || isSettingDefault;
 
