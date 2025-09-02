@@ -133,6 +133,7 @@ export function GeofenceControls({
         modify: null,
         translate: null
     });
+    const draggedVertexRef = useRef<number[] | null>(null);
     
     const geofenceSourceRef = useRef<VectorSource | null>(null);
     useEffect(() => {
@@ -213,10 +214,6 @@ export function GeofenceControls({
         const { id, feature } = activeShapeState;
     
         const geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(feature.getGeometry()!);
-        
-        if (feature.get('geometryType') === 'Rectangle') {
-            (geometryToSave as any).type = "Polygon"; 
-        }
         
         if (!currentGeofenceName) {
             toast({ title: t('toast.errorTitle'), description: "El nombre de la geocerca es obligatorio.", variant: "destructive" });
@@ -348,42 +345,38 @@ export function GeofenceControls({
 
                 let modifyInteraction;
                 const isRectangle = featureToEdit.get('geometryType') === 'Rectangle';
-                let draggedVertex: number[] | null = null;
 
                  if (isRectangle) {
                     const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
                         const originalVertices = (featureToEdit.getGeometry() as Polygon).getCoordinates()[0].slice(0, 4);
-                        
-                        if (!draggedVertex) {
-                           geometry.setCoordinates(coordinates);
-                           return geometry;
-                        }
+                        const newVertices = coordinates[0];
 
-                        let movedIndex = -1;
-                        for(let i=0; i<originalVertices.length; i++) {
-                            if(originalVertices[i][0] === draggedVertex[0] && originalVertices[i][1] === draggedVertex[1]){
-                                movedIndex = i;
-                                break;
-                            }
-                        }
+                        const movedIndex = originalVertices.findIndex(
+                            (v) => v[0] === draggedVertexRef.current?.[0] && v[1] === draggedVertexRef.current?.[1]
+                        );
 
                         if (movedIndex !== -1) {
-                            const newPoint = coordinates[0][movedIndex];
-                            const newCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
+                            const movedVertex = newVertices[movedIndex];
+                            const newCoords = RecalcularRectangulo(originalVertices, movedVertex, movedIndex);
                             geometry.setCoordinates([newCoords]);
                         } else {
                              geometry.setCoordinates(coordinates);
                         }
                         return geometry;
                     };
-                    modifyInteraction = new Modify({ features, geometryFunction });
-                    
-                    modifyInteraction.on('modifystart', function (e) {
-                         draggedVertex = e.mapBrowserEvent.coordinate;
+
+                    modifyInteraction = new Modify({ 
+                        features, 
+                        style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({ color: '#FF0000' }) }) }),
+                        geometryFunction 
                     });
                     
-                    modifyInteraction.on('modifyend', function (e) {
-                        draggedVertex = null;
+                    modifyInteraction.on('modifystart', (e) => {
+                        draggedVertexRef.current = e.mapBrowserEvent.coordinate;
+                    });
+                    
+                    modifyInteraction.on('modifyend', (e) => {
+                        draggedVertexRef.current = null;
                         const feature = e.features.getArray()[0];
                         if (feature) pushToHistory(feature.getGeometry()!.clone());
                     });
