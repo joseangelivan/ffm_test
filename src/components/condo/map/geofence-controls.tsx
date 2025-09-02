@@ -193,12 +193,13 @@ export function GeofenceControls({
         const geometry = featureToEdit.getGeometry();
         const isRectangle = (geom: Geometry | undefined): boolean => {
             if (!geom || geom.getType() !== 'Polygon') return false;
-            const coordinates = geom.getCoordinates()[0];
+            const coordinates = (geom as any).getCoordinates()[0];
             return coordinates.length === 5;
         };
 
         const modify = new Modify({
             features: features,
+            // Only apply the box geometry function if it's a rectangle
             geometryFunction: isRectangle(geometry) ? createBox() : undefined,
         });
         modify.on('modifyend', () => pushToHistory(featureToEdit.getGeometry()!));
@@ -219,6 +220,7 @@ export function GeofenceControls({
 
         const initialGeometry = featureToEdit.getGeometry();
         if(initialGeometry) {
+            // Start history with the original shape
             setHistoryStack([initialGeometry.clone()]);
             setHistoryIndex(0);
         } else {
