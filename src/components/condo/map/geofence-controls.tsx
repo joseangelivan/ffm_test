@@ -183,28 +183,28 @@ export function GeofenceControls({
    const startEditingSelected = useCallback(() => {
         const source = geofenceSourceRef();
         if (!selectedGeofenceId || !source || !mapRef.current) return;
-    
+
         const featureToEdit = source.getFeatureById(selectedGeofenceId) as Feature;
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
-    
+
         if (!selectedGeofence || !featureToEdit) return;
-    
+
         cancelCurrentAction();
         setMode('editing');
         removeInteractions();
-    
+
         const Collection = require('ol/Collection').default;
         const features = new Collection([featureToEdit]);
         const geometry = featureToEdit.getGeometry();
         if (!geometry) return;
-    
+
         let originalCoords: number[][] | undefined;
-    
+
         const modify = new Modify({
             features: features,
             insertVertexCondition: () => !isRectangle(featureToEdit.getGeometry()),
         });
-        
+
         modify.on('modifystart', (event) => {
             const geom = event.features.item(0).getGeometry();
             if (geom && isRectangle(geom)) {
@@ -213,6 +213,7 @@ export function GeofenceControls({
         });
 
         modify.on('modifying', (event) => {
+            console.log("Modify event detected.");
             if (!originalCoords || !isRectangle(event.features.item(0).getGeometry())) return;
             
             const feature = event.features.item(0);
@@ -225,7 +226,7 @@ export function GeofenceControls({
                     break;
                 }
             }
-
+            
             if (movedIndex !== -1) {
                 const oppositeIndex = (movedIndex + 2) % 4;
                 const movedPoint = modifiedCoords[movedIndex];
@@ -244,7 +245,7 @@ export function GeofenceControls({
                 originalCoords = feature.getGeometry().getCoordinates()[0].slice();
             }
         });
-    
+
         modify.on('modifyend', (event) => {
             if (event.features.getLength() > 0) {
                  const finalGeometry = event.features.item(0).getGeometry()!;
@@ -252,24 +253,24 @@ export function GeofenceControls({
                  originalCoords = undefined;
             }
         });
-    
+
         mapRef.current.addInteraction(modify);
         modifyInteractionRef.current = modify;
-    
+
         const translate = new Translate({ features: features });
         translate.on('translateend', (event) => {
             pushToHistory(event.features.item(0).getGeometry()!);
         });
         mapRef.current.addInteraction(translate);
         translateInteractionRef.current = translate;
-    
+
         setActiveShapeState({
             id: selectedGeofenceId,
             feature: featureToEdit,
             originalGeometry: selectedGeofence.geometry,
         });
         setCurrentGeofenceName(selectedGeofence.name);
-    
+
         setHistoryStack([geometry.clone()]);
         setHistoryIndex(0);
 
@@ -575,7 +576,3 @@ export function GeofenceControls({
         </div>
     );
 }
-
-    
-
-    
