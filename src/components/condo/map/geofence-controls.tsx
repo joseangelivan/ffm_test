@@ -44,9 +44,9 @@ const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
 }
 
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
-    const Polygon = require('ol/geom/Polygon').default;
+    const olPolygon = require('ol/geom/Polygon').default;
 
-    const poligonoOriginal = new Polygon([verticesOriginales]);
+    const poligonoOriginal = new olPolygon([verticesOriginales]);
     if (!puntoEstaDentro(poligonoOriginal, verticeMovido)) {
         const tempVertices = [...verticesOriginales];
         tempVertices[indiceMovido] = verticeMovido;
@@ -194,7 +194,9 @@ export function GeofenceControls({
                 const olGeom = format.readGeometry(originalGeometry);
                 if (olGeom) feature.setGeometry(olGeom);
              } else if (feature.getId()?.toString().startsWith('new-shape-')) {
-                source?.removeFeature(feature);
+                if (source && source.hasFeature(feature)) {
+                    source.removeFeature(feature);
+                }
              }
         }
         
@@ -285,7 +287,7 @@ export function GeofenceControls({
 
         if (!map || !source) return;
         
-        removeInteractions(); // Clean up before starting a new drawing
+        cancelCurrentAction(); // Clean up before starting a new drawing
         setMode('editing');
         
         const drawOptions: any = { source: source };
