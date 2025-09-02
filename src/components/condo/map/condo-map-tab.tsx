@@ -75,6 +75,10 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const [historyStack, setHistoryStack] = useState<Geometry[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
+  // Debug State
+  const [debugInfo, setDebugInfo] = useState<string>('Debug info will appear here.');
+
+
   // --- Data Fetching & Refreshing ---
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -255,6 +259,9 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                 drawingInteractionRef={drawingInteractionRef}
                                 modifyInteractionRef={modifyInteractionRef}
                             />
+                            <div className="absolute bottom-2 left-2 z-10 bg-background/80 p-2 rounded-md shadow-lg text-xs font-mono max-w-sm max-h-40 overflow-auto backdrop-blur-sm">
+                                <pre>{debugInfo}</pre>
+                            </div>
                         </div>
                          {activeShapeState && (
                             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">
@@ -323,6 +330,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                     setHistoryStack={setHistoryStack}
                                     historyIndex={historyIndex}
                                     setHistoryIndex={setHistoryIndex}
+                                    setDebugInfo={setDebugInfo}
                                 />
                             )}
                             {selectedModule === 'elements' && (
