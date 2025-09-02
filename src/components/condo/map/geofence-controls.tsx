@@ -40,47 +40,40 @@ import type VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
 
 
-const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
-    return poligono.intersectsCoordinate(punto);
-}
-
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
     const PolygonClass = require('ol/geom/Polygon').default;
-    const poligonoOriginal = new PolygonClass([verticesOriginales]);
-    
-    // Si el vértice movido está fuera del polígono original, es una expansión.
-    if (!puntoEstaDentro(poligonoOriginal, verticeMovido)) {
-        const tempVertices = [...verticesOriginales];
-        tempVertices[indiceMovido] = verticeMovido;
-        const xs = tempVertices.map(v => v[0]);
-        const ys = tempVertices.map(v => v[1]);
-        const minX = Math.min(...xs);
-        const maxX = Math.max(...xs);
-        const minY = Math.min(...ys);
-        const maxY = Math.max(...ys);
-        // Devolvemos el nuevo rectángulo perfecto y su punto de cierre
-        const rectanguloPerfecto = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]];
-        return [...rectanguloPerfecto, rectanguloPerfecto[0]];
+
+    const xs = verticesOriginales.map(v => v[0]);
+    const ys = verticesOriginales.map(v => v[1]);
+    let minX = Math.min(...xs);
+    let maxX = Math.max(...xs);
+    let minY = Math.min(...ys);
+    let maxY = Math.max(...ys);
+
+    // Identificar el vértice que se movió y actualizar las coordenadas del rectángulo
+    switch (indiceMovido) {
+        case 0: // bottom-left
+            minX = verticeMovido[0];
+            minY = verticeMovido[1];
+            break;
+        case 1: // bottom-right
+            maxX = verticeMovido[0];
+            minY = verticeMovido[1];
+            break;
+        case 2: // top-right
+            maxX = verticeMovido[0];
+            maxY = verticeMovido[1];
+            break;
+        case 3: // top-left
+            minX = verticeMovido[0];
+            maxY = verticeMovido[1];
+            break;
     }
 
-    // Si el punto está adentro, es una contracción.
-    const indiceOpuesto = (indiceMovido + 2) % 4;
-    const verticeOpuesto = verticesOriginales[indiceOpuesto];
-    
-    const nuevoRectangulo = [
-        [verticeMovido[0], verticeOpuesto[1]],
-        [verticeOpuesto[0], verticeOpuesto[1]],
-        [verticeOpuesto[0], verticeMovido[1]],
-        [verticeMovido[0], verticeMovido[1]],
-    ];
-  
-    // Reordenar para asegurar la forma correcta del polígono y añadir punto de cierre
-    const xs = nuevoRectangulo.map(v => v[0]);
-    const ys = nuevoRectangulo.map(v => v[1]);
-    const minX = Math.min(...xs);
-    const maxX = Math.max(...xs);
-    const minY = Math.min(...ys);
-    const maxY = Math.max(...ys);
+    // Asegurarse de que min < max
+    if (minX > maxX) [minX, maxX] = [maxX, minX];
+    if (minY > maxY) [minY, maxY] = [maxY, minY];
+
     const rectanguloFinal = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]];
     return [...rectanguloFinal, rectanguloFinal[0]];
 };
@@ -260,12 +253,8 @@ export function GeofenceControls({
     
     const handleStartDrawing = () => {
         cancelCurrentAction();
-        const newFeature = new Feature();
-        const newId = `new-shape-${Date.now()}`;
-        newFeature.setId(newId);
-        setCurrentGeofenceName(getNextGeofenceName());
-        setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
         setIsDrawing(true);
+        setCurrentGeofenceName(getNextGeofenceName());
     };
 
     const handleDelete = () => {
@@ -343,14 +332,14 @@ export function GeofenceControls({
                 interactionsRef.current.draw = newInteraction;
 
                 newInteraction.once('drawend', (event) => {
-                    const feature = activeShapeState?.feature;
-                    if(feature) {
-                        feature.setGeometry(event.feature.getGeometry());
-                        if (drawingMode === 'Rectangle') {
-                            feature.set('geometryType', 'Rectangle');
-                        }
-                        onShapeDrawn(feature);
+                    const feature = new Feature({geometry: event.feature.getGeometry()});
+                    const newId = `new-shape-${Date.now()}`;
+                    feature.setId(newId);
+                    if (drawingMode === 'Rectangle') {
+                        feature.set('geometryType', 'Rectangle');
                     }
+                    source.addFeature(feature);
+                    onShapeDrawn(feature);
                     setIsDrawing(false);
                 });
 
@@ -359,10 +348,19 @@ export function GeofenceControls({
                 const features = new Collection([featureToEdit]);
                 const isRectangle = featureToEdit.get('geometryType') === 'Rectangle';
                 
-                const modifyInteraction = new Modify({ 
-                    features, 
+                 const modifyInteraction = new Modify({ 
+                    features: features,
+                    style: new Style({ // Style for the vertex being dragged
+                        image: new (require('ol/style').Circle)({
+                            radius: 7,
+                            fill: new (require('ol/style').Fill)({ color: 'rgba(255, 0, 0, 0.8)' }),
+                            stroke: new (require('ol/style').Stroke)({ color: 'white', width: 2 })
+                        }),
+                    }),
                     insertVertexCondition: () => !isRectangle,
                 });
+                map.addInteraction(modifyInteraction);
+                interactionsRef.current.modify = modifyInteraction;
 
                 modifyInteraction.on('modifystart', (e) => {
                     originalGeometryOnModifyStart.current = (e.features.getArray()[0].getGeometry() as Geometry)?.clone() || null;
@@ -370,31 +368,37 @@ export function GeofenceControls({
                 
                 modifyInteraction.on('modifyend', (e) => {
                     const feature = e.features.getArray()[0] as OlFeature<Polygon>;
+                    const finalGeometry = feature.getGeometry();
+                    if (!finalGeometry) return;
+
                     if (!isRectangle || !originalGeometryOnModifyStart.current) {
-                        pushToHistory(feature.getGeometry()!.clone());
+                        pushToHistory(finalGeometry.clone());
                         return;
-                    };
+                    }
                     
                     const originalVertices = (originalGeometryOnModifyStart.current as Polygon).getCoordinates()[0].slice(0, 4);
-                    const newVertices = feature.getGeometry()!.getCoordinates()[0].slice(0,4);
+                    const newVertices = finalGeometry.getCoordinates()[0].slice(0, 4);
                     
                     let movedIndex = -1;
                     let newPoint: number[] | undefined;
-
+                    
+                    // Find which vertex was moved
                     for (let i = 0; i < newVertices.length; i++) {
                         const newVertex = newVertices[i];
-                        const oldVertex = originalVertices.find(ov => ov[0] === newVertex[0] && ov[1] === newVertex[1]);
-                        if (!oldVertex) {
-                           newPoint = newVertex;
-                           let smallestDist = Infinity;
-                           for (let j = 0; j < originalVertices.length; j++) {
-                               const dist = Math.sqrt(Math.pow(newPoint[0] - originalVertices[j][0], 2) + Math.pow(newPoint[1] - originalVertices[j][1], 2));
-                               if (dist < smallestDist) {
-                                   smallestDist = dist;
-                                   movedIndex = j;
-                               }
-                           }
-                           break;
+                        const oldVertexIndex = originalVertices.findIndex(ov => ov[0] === newVertex[0] && ov[1] === newVertex[1]);
+                        if (oldVertexIndex === -1) {
+                            newPoint = newVertex;
+                            // Find the original vertex that is no longer in the new list
+                            let oldVertexThatMoved;
+                            for(let j=0; j<originalVertices.length; j++){
+                                const found = newVertices.find(nv => nv[0] === originalVertices[j][0] && nv[1] === originalVertices[j][1]);
+                                if(!found){
+                                    oldVertexThatMoved = originalVertices[j];
+                                    movedIndex = j;
+                                    break;
+                                }
+                            }
+                            break;
                         }
                     }
 
@@ -404,14 +408,12 @@ export function GeofenceControls({
                         feature.setGeometry(newGeom);
                         pushToHistory(newGeom);
                     } else {
-                        pushToHistory(feature.getGeometry()!.clone());
+                        pushToHistory(finalGeometry.clone());
                     }
 
                     originalGeometryOnModifyStart.current = null;
                 });
 
-                map.addInteraction(modifyInteraction);
-                interactionsRef.current.modify = modifyInteraction;
 
                 const translate = new Translate({ features });
                 map.addInteraction(translate);
@@ -508,7 +510,7 @@ export function GeofenceControls({
                                     <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" disabled={!!activeShapeState?.feature || !selectedGeofenceId || isBusy || defaultGeofenceId === selectedGeofenceId} onClick={handleSetAsDefault}>
+                                                <Button variant="ghost" size="icon" disabled={!!activeShapeState?.feature || isBusy || defaultGeofenceId === selectedGeofenceId || !selectedGeofenceId} onClick={handleSetAsDefault}>
                                                     {isSettingDefault ? <Loader className="h-4 w-4 animate-spin"/> : <Star className="h-4 w-4" />}
                                                 </Button>
                                             </TooltipTrigger>
@@ -516,7 +518,7 @@ export function GeofenceControls({
                                         </Tooltip>
                                         <Tooltip>
                                              <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!selectedGeofenceId || isBusy || (selectedGeofenceId !== null && selectedGeofenceId.startsWith('new-shape-'))}>
+                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!selectedGeofenceId || isBusy}>
                                                     <Edit className="h-4 w-4"/>
                                                 </Button>
                                             </TooltipTrigger>
@@ -524,7 +526,7 @@ export function GeofenceControls({
                                         </Tooltip>
                                          <Tooltip>
                                              <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={!!activeShapeState?.feature || !selectedGeofenceId || isBusy || (selectedGeofenceId !== null && selectedGeofenceId.startsWith('new-shape-'))}>
+                                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={!!activeShapeState?.feature || !selectedGeofenceId || isBusy}>
                                                     {isDeleting ? <Loader className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4 text-destructive"/>}
                                                 </Button>
                                             </TooltipTrigger>
