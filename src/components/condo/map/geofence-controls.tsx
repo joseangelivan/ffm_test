@@ -174,7 +174,10 @@ export function GeofenceControls({
         const map = mapRef.current;
         if (!map) return;
         if (interactionsRef.current.draw) map.removeInteraction(interactionsRef.current.draw);
-        if (interactionsRef.current.modify) map.removeInteraction(interactionsRef.current.modify);
+        if (interactionsRef.current.modify) {
+            interactionsRef.current.modify.dispose();
+            map.removeInteraction(interactionsRef.current.modify);
+        }
         if (interactionsRef.current.translate) map.removeInteraction(interactionsRef.current.translate);
         interactionsRef.current = { draw: null, modify: null, translate: null };
     }, [mapRef]);
@@ -234,8 +237,8 @@ export function GeofenceControls({
         if (result?.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
             const newSelectedId = isNewShape ? result.data?.id : id;
-            await onDataNeedsRefresh(newSelectedId);
             cancelCurrentAction();
+            await onDataNeedsRefresh(newSelectedId);
         } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
         }
@@ -345,63 +348,55 @@ export function GeofenceControls({
 
                 let modifyInteraction;
                 const isRectangle = featureToEdit.get('geometryType') === 'Rectangle';
+                let draggedVertex: number[] | null = null;
 
                  if (isRectangle) {
                     const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
-                        const originalPolygon = (featureToEdit.getGeometry() as Polygon);
-                        const originalVertices = originalPolygon.getCoordinates()[0].slice(0, 4);
-                        const modifiedCoordinates = coordinates[0];
+                        const originalVertices = (featureToEdit.getGeometry() as Polygon).getCoordinates()[0].slice(0, 4);
+                        
+                        if (!draggedVertex) {
+                           geometry.setCoordinates(coordinates);
+                           return geometry;
+                        }
 
-                        let movedVertexIndex = -1;
-                        let newVertexPosition: number[] = [];
-
-                        for (let i = 0; i < modifiedCoordinates.length; i++) {
-                            const modCoord = modifiedCoordinates[i];
-                            const isOriginal = originalVertices.some(origCoord => origCoord[0] === modCoord[0] && origCoord[1] === modCoord[1]);
-                            if (!isOriginal) {
-                                newVertexPosition = modCoord;
-                                // Find the original vertex that was replaced.
-                                for (let j=0; j<originalVertices.length; j++) {
-                                    const isStillPresent = modifiedCoordinates.some((c:number[]) => c[0] === originalVertices[j][0] && c[1] === originalVertices[j][1]);
-                                    if(!isStillPresent) {
-                                        movedVertexIndex = j;
-                                        break;
-                                    }
-                                }
+                        let movedIndex = -1;
+                        for(let i=0; i<originalVertices.length; i++) {
+                            if(originalVertices[i][0] === draggedVertex[0] && originalVertices[i][1] === draggedVertex[1]){
+                                movedIndex = i;
                                 break;
                             }
                         }
 
-                        if (movedVertexIndex !== -1) {
-                           const newCoords = RecalcularRectangulo(originalVertices, newVertexPosition, movedVertexIndex);
-                           geometry.setCoordinates([newCoords]);
+                        if (movedIndex !== -1) {
+                            const newPoint = coordinates[0][movedIndex];
+                            const newCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
+                            geometry.setCoordinates([newCoords]);
                         } else {
-                           geometry.setCoordinates(coordinates);
+                             geometry.setCoordinates(coordinates);
                         }
-                        
                         return geometry;
                     };
-                    modifyInteraction = new Modify({ 
-                        features, 
-                        geometryFunction,
-                        style: new Style({
-                            image: new CircleStyle({
-                                radius: 5,
-                                fill: new Fill({ color: 'red' })
-                            })
-                        })
+                    modifyInteraction = new Modify({ features, geometryFunction });
+                    
+                    modifyInteraction.on('modifystart', function (e) {
+                         draggedVertex = e.mapBrowserEvent.coordinate;
+                    });
+                    
+                    modifyInteraction.on('modifyend', function (e) {
+                        draggedVertex = null;
+                        const feature = e.features.getArray()[0];
+                        if (feature) pushToHistory(feature.getGeometry()!.clone());
                     });
                 } else {
                     modifyInteraction = new Modify({ features, insertVertexCondition: () => false });
+                     modifyInteraction.on('modifyend', (event: any) => {
+                        const feature = event.features.getArray()[0];
+                        if (feature) pushToHistory(feature.getGeometry()!.clone());
+                    });
                 }
                 
                 map.addInteraction(modifyInteraction);
                 interactionsRef.current.modify = modifyInteraction;
-
-                modifyInteraction.on('modifyend', (event: any) => {
-                    const feature = event.features.getArray()[0];
-                    if (feature) pushToHistory(feature.getGeometry()!.clone());
-                });
 
                 const translate = new Translate({ features });
                 map.addInteraction(translate);
