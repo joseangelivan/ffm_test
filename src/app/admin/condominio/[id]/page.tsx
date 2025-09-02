@@ -10,34 +10,29 @@ import { getSession } from '@/lib/auth';
 import { getSettings, getDefaultMapProvider } from '@/actions/admin';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
+import { geocodeAddress } from '@/actions/geocoding';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CondominioDashboardPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session) {
-    // This case should be handled by middleware, but as a safeguard.
     notFound();
   }
 
   const awaitedParams = await params;
+  const condoId = awaitedParams.id;
 
-  // Fetch all data needed for the dashboard in parallel
-  const [condoResult, devices, settings, mapProvider] = await Promise.all([
-    getCondominioById(awaitedParams.id),
-    getDevicesByCondoId(awaitedParams.id),
-    getSettings(session),
-    getDefaultMapProvider()
-  ]);
+  const condoResult = await getCondominioById(condoId);
 
-  if (!condoResult.success || !condoResult.data || !settings) {
+  if (!condoResult.success || !condoResult.data) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-muted/40">
         <Alert variant="destructive" className="max-w-lg">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Error de Conexión</AlertTitle>
+          <AlertTitle>Error de Carga</AlertTitle>
           <AlertDescription>
-            No se pudo cargar la información del condominio o la configuración del usuario. Es posible que haya un problema con la conexión a la base de datos. Por favor, recarga la página.
+            No se pudo encontrar el condominio especificado.
           </AlertDescription>
         </Alert>
       </div>
@@ -45,7 +40,38 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
   }
 
   const condo = condoResult.data;
-  const initialSettings = settings || { theme: 'light', language: 'pt-BR' };
+
+  // Fetch all other data needed for the dashboard in parallel
+  const [devices, settings, mapProvider, geoResult] = await Promise.all([
+    getDevicesByCondoId(condoId),
+    getSettings(session),
+    getDefaultMapProvider(),
+    geocodeAddress({
+        street: `${condo.street}, ${condo.number}`,
+        city: condo.city,
+        state: condo.state,
+        country: condo.country,
+    })
+  ]);
+
+  if (!settings) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-muted/40">
+        <Alert variant="destructive" className="max-w-lg">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error de Conexión</AlertTitle>
+          <AlertDescription>
+            No se pudo cargar la configuración del usuario. Es posible que haya un problema con la conexión a la base de datos. Por favor, recarga la página.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+  
+  const initialPosition = (geoResult.success && geoResult.data && geoResult.data.length > 0)
+    ? geoResult.data[0].geometry.location
+    : { lat: 0, lng: 0 }; // Fallback position
+
 
   return (
     <Suspense fallback={<Loading />}>
@@ -53,8 +79,9 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
           session={session}
           initialCondo={condo}
           initialDevices={devices}
-          initialSettings={initialSettings}
+          initialSettings={settings}
           mapProvider={mapProvider}
+          initialPosition={initialPosition}
         />
     </Suspense>
   );

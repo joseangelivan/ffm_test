@@ -46,9 +46,10 @@ type CondoDashboardClientProps = {
     initialDevices: Device[];
     initialSettings: UserSettings;
     mapProvider: MapProvider | null;
+    initialPosition: { lat: number; lng: number };
 };
 
-export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider }: CondoDashboardClientProps) { 
+export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider, initialPosition }: CondoDashboardClientProps) { 
   const { t, setLocale } = useLocale();
   const router = useRouter();
 
@@ -177,7 +178,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                       <ManageDevicesTab condoId={initialCondo.id} devices={initialDevices} onDataNeedsRefresh={onDataNeedsRefresh} />
                   </TabsContent>
                   <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
-                      <CondoMapTab condo={initialCondo} mapProvider={mapProvider} />
+                      <CondoMapTab condo={initialCondo} initialPosition={initialPosition} />
                   </TabsContent>
               </div>
             </Tabs>
