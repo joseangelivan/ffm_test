@@ -243,6 +243,10 @@ const OpenLayersMap: React.FC<MapProps> = ({
         // Sync: Remove features not in props anymore
         featuresOnMap.forEach(featureId => {
             if (typeof featureId === 'string' && !geofencesInProps.has(featureId)) {
+                // IMPORTANT FIX: Do not remove the feature if it's the one currently being edited.
+                if (activeShapeState && activeShapeState.id === featureId) {
+                    return; 
+                }
                 const featureToRemove = source.getFeatureById(featureId);
                 if (featureToRemove) source.removeFeature(featureToRemove);
             }
@@ -258,7 +262,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         });
         source.changed();
 
-    }, [dbGeofences, mode, showAllGeofences, selectedGeofenceId, defaultGeofenceId, getFeatureStyle]);
+    }, [dbGeofences, mode, showAllGeofences, selectedGeofenceId, defaultGeofenceId, getFeatureStyle, activeShapeState]);
 
 
     return (
