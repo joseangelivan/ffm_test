@@ -284,8 +284,8 @@ export function GeofenceControls({
         const source = geofenceSourceRef();
 
         if (!map || !source) return;
-
-        cancelCurrentAction();
+        
+        removeInteractions(); // Clean up before starting a new drawing
         setMode('editing');
         
         const drawOptions: any = { source: source };
