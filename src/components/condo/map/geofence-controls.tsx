@@ -188,18 +188,22 @@ export function GeofenceControls({
              }
         }
         
-        setIsDrawing(false);
+        removeAllInteractions();
         onShapeDrawn(new Feature());
         setCurrentGeofenceName('');
         setHistoryStack([]);
         setHistoryIndex(-1);
-    }, [activeShapeState, onShapeDrawn, setHistoryStack, setHistoryIndex]);
+    }, [activeShapeState, removeAllInteractions, onShapeDrawn, setHistoryStack, setHistoryIndex]);
     
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
         const { id, feature } = activeShapeState;
     
         const geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(feature.getGeometry()!);
+        
+        if (feature.get('geometryType') === 'Rectangle') {
+            (geometryToSave as any).type = "Polygon"; 
+        }
         
         if (!currentGeofenceName) {
             toast({ title: t('toast.errorTitle'), description: "El nombre de la geocerca es obligatorio.", variant: "destructive" });
@@ -328,7 +332,7 @@ export function GeofenceControls({
                 const isRectangle = featureToEdit.get('geometryType') === 'Rectangle';
 
                 if (isRectangle) {
-                     const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
+                    const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
                         const originalPolygon = (featureToEdit.getGeometry() as Polygon);
                         const originalVertices = originalPolygon.getCoordinates()[0].slice(0, 4);
                         
