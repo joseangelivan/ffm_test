@@ -15,8 +15,7 @@ import {
   X,
   Loader,
 } from 'lucide-react';
-import type { Map as OlMap } from 'ol';
-import Feature from 'ol/Feature';
+import type { Map as OlMap, Feature } from 'ol';
 import { createGeofence, updateGeofence, deleteGeofence, setCondoDefaultGeofence } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 
@@ -244,12 +243,8 @@ export function GeofenceControls({
     
     const handleStartDrawing = () => {
         cancelCurrentAction();
-        
         const newId = `new-shape-${Date.now()}`;
-        const newFeature = new Feature();
-        newFeature.setId(newId);
-
-        setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
+        setActiveShapeState({ id: newId, feature: new Feature(), originalGeometry: null });
         setCurrentGeofenceName(getNextGeofenceName());
         setIsDrawing(true);
     };
@@ -349,16 +344,18 @@ export function GeofenceControls({
                  if (isRectangle) {
                     const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
                         const originalVertices = (featureToEdit.getGeometry() as Polygon).getCoordinates()[0].slice(0, 4);
-                        
-                        let movedIndex = -1;
-                        if(draggedVertexRef.current) {
-                            movedIndex = originalVertices.findIndex(v => v[0] === draggedVertexRef.current![0] && v[1] === draggedVertexRef.current![1]);
-                        }
-                        
-                        if (movedIndex !== -1) {
-                            const newPoint = coordinates[0][movedIndex];
-                            const newCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
-                            geometry.setCoordinates([newCoords]);
+
+                        if (draggedVertexRef.current) {
+                             const movedIndex = originalVertices.findIndex(v => 
+                                v[0] === draggedVertexRef.current![0] && v[1] === draggedVertexRef.current![1]
+                            );
+                            if (movedIndex !== -1) {
+                                const newPoint = coordinates[0][movedIndex];
+                                const newCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
+                                geometry.setCoordinates([newCoords]);
+                            } else {
+                                 geometry.setCoordinates(coordinates);
+                            }
                         } else {
                              geometry.setCoordinates(coordinates);
                         }
