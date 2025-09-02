@@ -19,6 +19,7 @@ import Feature from 'ol/Feature';
 import { fromCircle } from 'ol/geom/Polygon';
 import Polygon from 'ol/geom/Polygon';
 import Circle from 'ol/geom/Circle';
+import type { Draw, Modify } from 'ol/interaction';
 
 // --- STYLES ---
 const STYLE_VIEW_MODE = new Style({
@@ -52,6 +53,8 @@ interface MapProps {
     mode: 'view' | 'editing';
     initialPosition: { lat: number; lng: number };
     mapRef: React.MutableRefObject<Map | null>;
+    drawingInteractionRef: React.MutableRefObject<Draw | null>;
+    modifyInteractionRef: React.MutableRefObject<Modify | null>;
 }
 
 /**
@@ -61,7 +64,7 @@ interface MapProps {
  * @returns An OpenLayers Geometry or null.
  */
 function readLegacyOrStandardGeoJSON(geometry: any) {
-    if (!geometry || !geometry.type) {
+    if (!geometry || typeof geometry !== 'object' || !geometry.type) {
         if (Object.keys(geometry || {}).length > 0) {
             console.warn("Invalid geometry object passed to reader (no type):", geometry);
         }
@@ -115,7 +118,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     defaultGeofenceId,
     mode,
     initialPosition,
-    mapRef: passedMapRef
+    mapRef
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const vectorSourceRef = useRef<VectorSource | null>(null);
@@ -163,10 +166,14 @@ const OpenLayersMap: React.FC<MapProps> = ({
             controls: [],
         });
         
+        mapRef.current = map;
         onMapLoad(map, vectorSourceRef.current);
 
         return () => {
-            map.setTarget(undefined);
+            if (mapRef.current) {
+                mapRef.current.setTarget(undefined);
+                mapRef.current = null;
+            }
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [provider]);
@@ -265,5 +272,3 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
-
-    

@@ -11,6 +11,7 @@ import type { Geofence as DbGeofence } from '@/actions/maps';
 import type Feature from 'ol/Feature';
 import type { Map as OlMap } from 'ol';
 import type { Vector as VectorSource } from 'ol/source';
+import type { Draw, Modify } from 'ol/interaction';
 
 const OpenLayersMap = dynamic(() => import('./providers/openlayers/map'), {
     ssr: false,
@@ -26,8 +27,10 @@ type MapContainerProps = {
     selectedGeofenceId: string | null;
     defaultGeofenceId: string | null;
     mode: 'view' | 'editing';
-    initialPosition: { lat: number, lng: number };
+    initialPosition: { lat: number; lng: number };
     mapRef: React.MutableRefObject<OlMap | null>;
+    drawingInteractionRef: React.MutableRefObject<Draw | null>;
+    modifyInteractionRef: React.MutableRefObject<Modify | null>;
 }
 
 const MapContainer: React.FC<MapContainerProps> = (props) => {

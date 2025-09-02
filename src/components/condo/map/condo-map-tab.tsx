@@ -8,7 +8,6 @@ import {
   ZoomIn,
   ZoomOut,
   Frame,
-  Building,
   Loader,
   Undo,
   Redo,
@@ -30,7 +29,7 @@ import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 
 import type { Map as OlMap } from 'ol';
 import type { Vector as VectorSource } from 'ol/source';
-import type { Draw } from 'ol/interaction';
+import type { Draw, Modify } from 'ol/interaction';
 import type Feature from 'ol/Feature';
 import { fromLonLat } from 'ol/proj';
 
@@ -49,6 +48,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const mapRef = useRef<OlMap | null>(null);
   const geofenceSourceRef = useRef<VectorSource | null>(null);
   const drawingInteractionRef = useRef<Draw | null>(null);
+  const modifyInteractionRef = useRef<Modify | null>(null);
   const mapInitialized = useRef(false);
 
   // --- State ---
@@ -229,6 +229,8 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                 mode={mode}
                                 initialPosition={initialPosition}
                                 mapRef={mapRef}
+                                drawingInteractionRef={drawingInteractionRef}
+                                modifyInteractionRef={modifyInteractionRef}
                             />
                         </div>
                          {activeShapeState && (
@@ -291,6 +293,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                     setActiveShapeState={setActiveShapeState}
                                     mapRef={mapRef}
                                     drawingInteractionRef={drawingInteractionRef}
+                                    modifyInteractionRef={modifyInteractionRef}
                                 />
                             )}
                             {selectedModule === 'elements' && (

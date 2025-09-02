@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition } from 'react';
@@ -32,8 +33,10 @@ import { LoadingOverlay } from '@/components/admin/admin-header';
 
 import type { Map as OlMap } from 'ol';
 import type Feature from 'ol/Feature';
-import { Draw } from 'ol/interaction';
+import { Draw, Modify } from 'ol/interaction';
 import GeoJSON from 'ol/format/GeoJSON';
+import { createBox } from 'ol/interaction/Draw';
+import type { Vector as VectorSource } from 'ol/source';
 
 
 export type DrawingMode = 'Polygon' | 'Rectangle' | 'Circle';
@@ -57,6 +60,7 @@ type GeofenceControlsProps = {
     setActiveShapeState: React.Dispatch<React.SetStateAction<ActiveShapeState>>;
     mapRef: React.RefObject<OlMap | null>;
     drawingInteractionRef: React.MutableRefObject<Draw | null>;
+    modifyInteractionRef: React.MutableRefObject<Modify | null>;
 }
 
 export function GeofenceControls({
@@ -76,6 +80,7 @@ export function GeofenceControls({
     setActiveShapeState,
     mapRef,
     drawingInteractionRef,
+    modifyInteractionRef
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -90,6 +95,18 @@ export function GeofenceControls({
 
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
+    const removeInteractions = useCallback(() => {
+        if (!mapRef.current) return;
+        if (drawingInteractionRef.current) {
+            mapRef.current.removeInteraction(drawingInteractionRef.current);
+            drawingInteractionRef.current = null;
+        }
+        if (modifyInteractionRef.current) {
+            mapRef.current.removeInteraction(modifyInteractionRef.current);
+            modifyInteractionRef.current = null;
+        }
+    }, [mapRef, drawingInteractionRef, modifyInteractionRef]);
+
     const getNextGeofenceName = useCallback(() => {
         const baseName = t('condoDashboard.map.geofence.defaultName');
         const existingNumbers = geofences.map(g => {
@@ -109,27 +126,35 @@ export function GeofenceControls({
     }, [geofences, t]);
 
     const cancelCurrentAction = useCallback(() => {
-        const source = mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer')?.getSource();
+        const source = geofenceSourceRef();
         if (activeShapeState?.feature) {
              const id = activeShapeState.id;
+             const feature = activeShapeState.feature;
+             const originalGeometry = activeShapeState.originalGeometry;
              if(id.startsWith('new-shape-') && source) {
-                source.removeFeature(activeShapeState.feature);
+                source.removeFeature(feature);
+             } else if (originalGeometry && feature) {
+                const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+                const olGeom = format.readGeometry(originalGeometry);
+                if (olGeom) feature.setGeometry(olGeom);
              }
         }
         
-        if (drawingInteractionRef.current) {
-            mapRef.current?.removeInteraction(drawingInteractionRef.current);
-            drawingInteractionRef.current = null;
-        }
+        removeInteractions();
 
         setActiveShapeState(null);
         setCurrentGeofenceName('');
         setIsDrawing(false);
-    }, [activeShapeState, drawingInteractionRef, mapRef, setActiveShapeState]);
+    }, [activeShapeState, removeInteractions, setActiveShapeState]);
       
+    const geofenceSourceRef = (): VectorSource | null => {
+        const layer = mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer');
+        return (layer as any)?.getSource() || null;
+    }
+
     const startEditingSelected = useCallback(() => {
-        const source = mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer')?.getSource();
-        if (!selectedGeofenceId || !source) return;
+        const source = geofenceSourceRef();
+        if (!selectedGeofenceId || !source || !mapRef.current) return;
         
         const featureToEdit = source.getFeatureById(selectedGeofenceId);
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
@@ -138,13 +163,19 @@ export function GeofenceControls({
     
         cancelCurrentAction();
         setMode('editing');
+
+        removeInteractions();
+        const modify = new Modify({ source: source, features: [featureToEdit] });
+        mapRef.current.addInteraction(modify);
+        modifyInteractionRef.current = modify;
+
         setActiveShapeState({ 
             id: selectedGeofenceId, 
             feature: featureToEdit, 
             originalGeometry: selectedGeofence.geometry 
         });
         setCurrentGeofenceName(selectedGeofence.name);
-    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, mapRef, setActiveShapeState]);
+    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef]);
       
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
@@ -173,6 +204,7 @@ export function GeofenceControls({
             toast({ title: t('toast.successTitle'), description: result.message });
             const newSelectedId = isNewShape ? result.data?.id : id;
             await onDataNeedsRefresh(newSelectedId);
+            removeInteractions();
             setMode('view');
             setActiveShapeState(null);
             setCurrentGeofenceName('');
@@ -180,7 +212,7 @@ export function GeofenceControls({
         } else if (result) {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
         }
-    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, setActiveShapeState, setMode]);
+    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, setActiveShapeState, setMode, removeInteractions]);
 
     const handleSaveGeofence = () => {
         startSavingTransition(async () => {
@@ -221,18 +253,21 @@ export function GeofenceControls({
     
     const handleStartDrawing = () => {
         const map = mapRef.current;
-        const source = map?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer')?.getSource();
+        const source = geofenceSourceRef();
 
         if (!map || !source) return;
 
-        if(drawingInteractionRef.current) {
-            map.removeInteraction(drawingInteractionRef.current);
+        removeInteractions();
+        
+        const drawOptions: any = { source: source };
+        if (drawingMode === 'Rectangle') {
+            drawOptions.type = 'Circle';
+            drawOptions.geometryFunction = createBox();
+        } else {
+            drawOptions.type = drawingMode;
         }
 
-        const newInteraction = new Draw({
-            source: source,
-            type: drawingMode,
-        });
+        const newInteraction = new Draw(drawOptions);
 
         newInteraction.on('drawend', (event) => {
             const newFeature = event.feature;
@@ -242,8 +277,7 @@ export function GeofenceControls({
             setIsDrawing(false);
             setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
             
-            map.removeInteraction(newInteraction);
-            drawingInteractionRef.current = null;
+            removeInteractions();
         });
 
         drawingInteractionRef.current = newInteraction;
@@ -373,7 +407,7 @@ export function GeofenceControls({
                                         <Button onClick={cancelCurrentAction} variant="ghost" disabled={isSaving}>
                                             <X className="mr-2 h-4 w-4" /> {t('common.cancel')}
                                         </Button>
-                                        <Button onClick={handleSaveGeofence} disabled={isSaving || !activeShapeState?.feature}>
+                                        <Button onClick={handleSaveGeofence} disabled={isSaving || (!activeShapeState?.feature && !isDrawing)}>
                                             {isSaving ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                             {activeShapeState?.id.startsWith('new-shape-') ? t('condoDashboard.map.geofence.saveButton') : t('common.saveChanges')}
                                         </Button>
