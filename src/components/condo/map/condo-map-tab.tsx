@@ -112,7 +112,6 @@ const CreateEditGeofenceDialog = ({ condoId, geofence, onSuccess, onOpenChange, 
                     {isPending && <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-50"><Loader className="animate-spin" /></div>}
                     <DialogHeader>
                         <DialogTitle>{geofence ? t('common.edit') : t('common.create')} {t('condoDashboard.map.modules.geofence')}</DialogTitle>
-                        <DialogDescription>{t('condoDashboard.users.createDialog.description')}</DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
@@ -239,11 +238,13 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
   const handleMapLoad = useCallback(async (map: Map) => {
     mapRef.current = map;
     
-    const { hasGeofences } = await onDataNeedsRefresh();
+    const { hasGeofences, defaultGeofence } = await onDataNeedsRefresh();
 
     if (!hasGeofences) {
         await fetchAndSetCondoPosition(map, true);
     } else {
+        // We have geofences, logic to fit bounds would go here eventually.
+        // For now, center on address as a fallback if the geofence data is incomplete.
         await fetchAndSetCondoPosition(map, true); 
     }
     
@@ -417,11 +418,11 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
                                     </div>
                                     
                                     <fieldset className="border rounded-md p-4 pt-2 space-y-4">
-                                        <legend className="-ml-1 px-1 text-sm font-medium text-muted-foreground flex items-center">
+                                        <legend className="-ml-1 px-1 text-sm font-medium flex items-center">
                                              <Checkbox id="enable-edit-mode" checked={isEditModeEnabled} onCheckedChange={setIsEditModeEnabled} />
                                              <Label htmlFor="enable-edit-mode" className="ml-2 font-semibold text-foreground">{t('adminDashboard.settingsGroups.catalogs.deviceTypes.editMode')}</Label>
                                         </legend>
-                                        <div className="space-y-4" hidden={!isEditModeEnabled}>
+                                        <div className={cn("space-y-4", !isEditModeEnabled && 'hidden')}>
                                             <Select value={shapeType} onValueChange={(v) => setShapeType(v as any)} disabled={mode !== 'view'}>
                                                 <SelectTrigger>
                                                     <SelectValue />
@@ -479,4 +480,3 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
     </>
   );
 }
-
