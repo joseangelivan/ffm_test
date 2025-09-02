@@ -2,22 +2,55 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
 import {
   Locate,
   ZoomIn,
   ZoomOut,
   Frame,
   Loader,
-  Building
+  Building,
+  PlusCircle,
+  Edit,
+  Trash2,
+  Save,
+  Star,
+  XCircle,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { fromLonLat } from 'ol/proj';
 import type { Map } from 'ol';
 
 import type { Condominio } from '@/actions/condos';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+
 import { useLocale } from '@/lib/i18n';
 import MapContainer from '@/components/map/map-container';
 import { ElementsControls } from './elements-controls';
@@ -25,8 +58,84 @@ import { geocodeAddress } from '@/actions/geocoding';
 import { MapSettingsDialog } from './map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { MapProvider } from '@/actions/map_providers';
-import { GeofenceControls } from './geofence-controls';
-import { getGeofencesByCondoId, type Geofence as DbGeofence } from '@/actions/maps';
+import { 
+    getGeofencesByCondoId,
+    setCondoDefaultGeofence,
+    createGeofence,
+    updateGeofence,
+    deleteGeofence,
+    type Geofence as DbGeofence 
+} from '@/actions/maps';
+import { cn } from '@/lib/utils';
+
+const CreateEditGeofenceDialog = ({ condoId, geofence, onSuccess, onOpenChange, isOpen }: { condoId: string, geofence?: DbGeofence | null, onSuccess: (newId?: string) => void, onOpenChange: (isOpen: boolean) => void, isOpen: boolean }) => {
+    const { t } = useLocale();
+    const { toast } = useToast();
+    const [name, setName] = useState(geofence?.name || '');
+    const [isDefault, setIsDefault] = useState(geofence?.is_default || false);
+    const [isPending, startTransition] = useTransition();
+
+    useEffect(() => {
+        if(isOpen) {
+            setName(geofence?.name || '');
+            setIsDefault(geofence?.is_default || false);
+        }
+    }, [isOpen, geofence]);
+
+    const handleSubmit = () => {
+        startTransition(async () => {
+            const geometry = {}; // Placeholder for OpenLayers drawn geometry
+            let result;
+            if (geofence) {
+                // Update logic
+                result = await updateGeofence(geofence.id, { name, geometry });
+            } else {
+                // Create logic
+                result = await createGeofence({ condoId, name, geometry, isDefault });
+            }
+
+            if (result.success) {
+                toast({ title: t('toast.successTitle'), description: result.message });
+                onSuccess(result.data?.id);
+                onOpenChange(false);
+            } else {
+                 toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            }
+        });
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                 <div className={cn('relative', isPending && 'opacity-50 pointer-events-none')}>
+                    {isPending && <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-50"><Loader className="animate-spin" /></div>}
+                    <DialogHeader>
+                        <DialogTitle>{geofence ? t('common.edit') : t('common.create')} {t('condoDashboard.map.modules.geofence')}</DialogTitle>
+                        <DialogDescription>{t('condoDashboard.users.createDialog.description')}</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="name">{t('addDeviceDialog.nameLabel')}</Label>
+                            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('condoDashboard.map.geofence.defaultName')} />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <Checkbox id="is-default" checked={isDefault} onCheckedChange={(checked) => setIsDefault(!!checked)} />
+                            <Label htmlFor="is-default">{t('condoDashboard.map.geofence.setAsDefault')}</Label>
+                        </div>
+                         <div className="pt-4 border-t text-center text-muted-foreground text-sm">
+                            <p>{t('condoDashboard.map.wipDescription')}</p>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="outline">{t('common.cancel')}</Button></DialogClose>
+                        <Button onClick={handleSubmit} disabled={!name || isPending}>{t('common.save')}</Button>
+                    </DialogFooter>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
 
 export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio, mapProvider: MapProvider | null }) {
   const { t } = useLocale();
@@ -42,6 +151,15 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
   
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>([]);
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
+  
+  const [mode, setMode] = useState<'view' | 'editing'>('view');
+  const [shapeType, setShapeType] = useState<'polygon' | 'rectangle' | 'circle'>('polygon');
+  const [showAllGeofences, setShowAllGeofences] = useState(false);
+  
+  const [isSubmitting, startSubmittingTransition] = useTransition();
+
+  const [isCreateGeofenceDialogOpen, setIsCreateGeofenceDialogOpen] = useState(false);
+  const [isEditGeofenceDialogOpen, setIsEditGeofenceDialogOpen] = useState(false);
   
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -85,23 +203,15 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
             map.getView().setCenter(fromLonLat([location.lng, location.lat]));
             map.getView().setZoom(17);
         } else {
-            if (!suppressToast) {
-                toast({
-                    title: t('toast.errorTitle'),
-                    description: geoResult.message || 'Geocoding failed.',
-                    variant: 'destructive'
-                });
-            } else {
+             if (!suppressToast) {
+                toast({ title: t('toast.errorTitle'), description: geoResult.message || 'Geocoding failed.', variant: 'destructive' });
+             } else {
                 console.warn("Silent geocoding failure:", geoResult.message);
             }
         }
     } catch (error) {
-         if (!suppressToast) {
-            toast({
-                title: t('toast.errorTitle'),
-                description: "An error occurred during geocoding.",
-                variant: 'destructive'
-            });
+        if (!suppressToast) {
+            toast({ title: t('toast.errorTitle'), description: "An error occurred during geocoding.", variant: 'destructive'});
         } else {
             console.error("Silent geocoding error:", error);
         }
@@ -129,11 +239,12 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
     
     const { hasGeofences, defaultGeofence } = await onDataNeedsRefresh();
 
-    if (hasGeofences && defaultGeofence) {
-        console.log("TODO: Fit map to geofence bounds", defaultGeofence);
+    if (!hasGeofences) {
         await fetchAndSetCondoPosition(map, true);
-    } else if (!hasGeofences) {
-        await fetchAndSetCondoPosition(map, true);
+    } else {
+        // If there's a geofence, we assume its geometry will be used to center the map.
+        // For now, we still fetch the condo position for the "center on address" button to work.
+        await fetchAndSetCondoPosition(map, true); 
     }
     
     map.getView().on('change:resolution', () => {
@@ -155,6 +266,32 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
     const view = mapRef.current?.getView();
     if(view) view.animate({ zoom: view.getZoom()! - 1, duration: 250 });
   };
+
+  const handleSetDefault = (geofenceId: string) => {
+    startSubmittingTransition(async () => {
+        const result = await setCondoDefaultGeofence(condoId, geofenceId);
+        if (result.success) {
+            toast({ title: t('toast.successTitle'), description: result.message });
+            onDataNeedsRefresh(geofenceId);
+        } else {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+        }
+    });
+  };
+
+  const handleDelete = (geofenceId: string) => {
+      startSubmittingTransition(async () => {
+          const result = await deleteGeofence(geofenceId);
+          if (result.success) {
+              toast({ title: t('toast.successTitle'), description: result.message });
+              onDataNeedsRefresh();
+          } else {
+              toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+          }
+      });
+  }
+
+  const isActionBusy = isSubmitting;
   
   return (
     <>
@@ -220,11 +357,91 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
                             </div>
                             
                             {selectedModule === 'geofence' && (
-                                <GeofenceControls 
-                                    condoId={condo.id}
-                                    dbGeofences={dbGeofences}
-                                    onDataNeedsRefresh={onDataNeedsRefresh}
-                                />
+                               <div className="space-y-4 pt-2 border-t mt-4 flex-grow flex flex-col">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-base font-semibold">{t('condoDashboard.map.modules.geofence')}</h3>
+                                        <div className="flex items-center space-x-2">
+                                            <Checkbox id="show-all" checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)} />
+                                            <Label htmlFor="show-all" className="text-xs">{t('condoDashboard.map.geofence.viewAll')}</Label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                        <Label>{t('condoDashboard.map.geofence.selectPlaceholder')}</Label>
+                                        <Select
+                                            value={selectedGeofenceId || ''}
+                                            onValueChange={setSelectedGeofenceId}
+                                            disabled={showAllGeofences}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {dbGeofences.map(gf => (
+                                                    <SelectItem key={gf.id} value={gf.id}>{gf.name}{gf.is_default ? ` (${t('common.default')})` : ''}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="flex-grow space-y-4">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <Button variant="outline" disabled={isActionBusy} onClick={() => setIsCreateGeofenceDialogOpen(true)}>
+                                                <PlusCircle className="mr-2 h-4 w-4"/>{t('common.create')}
+                                            </Button>
+                                            <Button variant="outline" disabled={!selectedGeofenceId || isActionBusy} onClick={() => setIsEditGeofenceDialogOpen(true)}>
+                                                <Edit className="mr-2 h-4 w-4"/>{t('common.edit')}
+                                            </Button>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="destructive" disabled={!selectedGeofenceId || isActionBusy}>
+                                                        <Trash2 className="mr-2 h-4 w-4"/>{t('common.delete')}
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            {t('condoDashboard.users.deleteConfirmation', {name: dbGeofences.find(g => g.id === selectedGeofenceId)?.name || ''})}
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDelete(selectedGeofenceId!)}>{t('common.delete')}</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                            <Button variant="secondary" onClick={() => handleSetDefault(selectedGeofenceId!)} disabled={!selectedGeofenceId || dbGeofences.find(g => g.id === selectedGeofenceId)?.is_default || isActionBusy}>
+                                                <Star className="mr-2 h-4 w-4"/>{t('condoDashboard.map.geofence.setAsDefault')}
+                                            </Button>
+                                        </div>
+                                        
+                                        <fieldset className="border rounded-md p-4 pt-2 space-y-4" disabled={isActionBusy}>
+                                            <legend className="text-sm font-semibold tracking-tight px-1 -ml-1">
+                                                Modo de Edición
+                                            </legend>
+                                            <Select value={shapeType} onValueChange={(v) => setShapeType(v as any)}>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="polygon">{t('condoDashboard.map.shapes.polygon')}</SelectItem>
+                                                    <SelectItem value="rectangle">{t('condoDashboard.map.shapes.rectangle')}</SelectItem>
+                                                    <SelectItem value="circle">{t('condoDashboard.map.shapes.circle')}</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <Button><Save className="h-4 w-4 mr-2"/> {t('condoDashboard.map.geofence.saveButton')}</Button>
+                                                <Button variant="ghost"><XCircle className="h-4 w-4 mr-2"/> {t('common.cancel')}</Button>
+                                            </div>
+                                        </fieldset>
+                                    </div>
+                                    <div className="pt-4 border-t">
+                                        <p className="text-sm text-muted-foreground">{t('condoDashboard.map.wipDescription')}</p>
+                                    </div>
+                                </div>
                             )}
                             {selectedModule === 'elements' && (
                                 <ElementsControls condoId={condo.id}/>
@@ -234,7 +451,7 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
                 </div>
             </CardContent>
         </Card>
-         <MapSettingsDialog
+        <MapSettingsDialog
             isOpen={isMapSettingsOpen}
             onOpenChange={setIsMapSettingsOpen}
             zoomLevel={zoomLevel}
@@ -243,6 +460,21 @@ export default function CondoMapTab({ condo, mapProvider }: { condo: Condominio,
             isGeofenceAvailable={false}
             onCenterAddress={centerMapOnStoredPosition}
         />
+        <CreateEditGeofenceDialog 
+            condoId={condo.id}
+            isOpen={isCreateGeofenceDialogOpen}
+            onOpenChange={setIsCreateGeofenceDialogOpen}
+            onSuccess={(newId) => { onDataNeedsRefresh(newId); }}
+        />
+        <CreateEditGeofenceDialog 
+            condoId={condo.id}
+            geofence={dbGeofences.find(g => g.id === selectedGeofenceId)}
+            isOpen={isEditGeofenceDialogOpen}
+            onOpenChange={setIsEditGeofenceDialogOpen}
+            onSuccess={() => onDataNeedsRefresh(selectedGeofenceId!)}
+        />
     </>
   );
 }
+
+    
