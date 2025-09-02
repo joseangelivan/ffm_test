@@ -187,11 +187,6 @@ export function GeofenceControls({
         setMode('editing');
         removeInteractions();
     
-        const Collection = require('ol/Collection').default;
-        const features = new Collection([featureToEdit]);
-        const geometry = featureToEdit.getGeometry();
-        if (!geometry) return;
-        
         const isRectangle = (geom: Geometry | undefined): boolean => {
             if (!geom || geom.getType() !== 'Polygon') return false;
             const coordinates = (geom as any).getCoordinates()[0];
@@ -199,7 +194,12 @@ export function GeofenceControls({
                    coordinates[0][0] === coordinates[4][0] &&
                    coordinates[0][1] === coordinates[4][1];
         };
-    
+
+        const Collection = require('ol/Collection').default;
+        const features = new Collection([featureToEdit]);
+        const geometry = featureToEdit.getGeometry();
+        if (!geometry) return;
+        
         const modify = new Modify({
             features: features,
             insertVertexCondition: () => !isRectangle(featureToEdit.getGeometry()),
@@ -246,7 +246,8 @@ export function GeofenceControls({
 
         modify.on('modifyend', (event) => {
             if (modifiying) {
-                pushToHistory(event.features.item(0).getGeometry()!);
+                const finalGeometry = event.features.item(0).getGeometry()!;
+                pushToHistory(finalGeometry);
                 modifiying = false;
             }
         });
