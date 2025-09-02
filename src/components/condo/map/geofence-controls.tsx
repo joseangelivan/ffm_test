@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useTransition, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useTransition, useRef, useMemo } from 'react';
 import {
   PencilRuler,
   ChevronDown,
@@ -291,6 +291,7 @@ export function GeofenceControls({
 
         if (!map || !source || isDrawing) return;
         
+        cancelCurrentAction();
         setMode('editing');
         
         const drawOptions: any = { source: source };
@@ -349,6 +350,7 @@ export function GeofenceControls({
 
         if (!selectedGeofence || !featureToEdit) return;
 
+        cancelCurrentAction();
         setMode('editing');
         
         setActiveShapeState({
@@ -362,7 +364,7 @@ export function GeofenceControls({
         if (initialGeom) {
             pushToHistory(initialGeom);
         }
-    }, [geofences, selectedGeofenceId, setMode, setActiveShapeState, pushToHistory]);
+    }, [geofences, selectedGeofenceId, setMode, setActiveShapeState, pushToHistory, cancelCurrentAction]);
 
     useEffect(() => {
         const map = mapRef.current;
@@ -607,5 +609,3 @@ export function GeofenceControls({
         </div>
     );
 }
-
-    
