@@ -192,13 +192,13 @@ export function GeofenceControls({
 
         const geometry = featureToEdit.getGeometry();
         if (!geometry) return;
-        
+
         const isRectangle = (geom: Geometry | undefined): boolean => {
             if (!geom || geom.getType() !== 'Polygon') return false;
             const coordinates = (geom as any).getCoordinates()[0];
             return coordinates.length === 5 &&
-                coordinates[0][0] === coordinates[4][0] &&
-                coordinates[0][1] === coordinates[4][1];
+                   coordinates[0][0] === coordinates[4][0] &&
+                   coordinates[0][1] === coordinates[4][1];
         };
         
         const modify = new Modify({ 
@@ -210,7 +210,6 @@ export function GeofenceControls({
         modify.on('modifystart', (event) => {
             const feature = event.features.item(0);
             originalCoords = (feature.getGeometry() as Polygon).getCoordinates()[0].slice();
-            pushToHistory(feature.getGeometry()!);
         });
 
         modify.on('modifyend', (event) => {
@@ -222,7 +221,7 @@ export function GeofenceControls({
             }
 
             const modifiedCoords = modifiedGeom.getCoordinates()[0];
-             let movedIndex = -1;
+            let movedIndex = -1;
             for (let i = 0; i < 4; i++) {
                 if (originalCoords[i][0] !== modifiedCoords[i][0] || originalCoords[i][1] !== modifiedCoords[i][1]) {
                     movedIndex = i;
@@ -240,7 +239,7 @@ export function GeofenceControls({
                 newCoords[oppositeIndex] = oppositePoint;
                 newCoords[(movedIndex + 1) % 4] = [oppositePoint[0], movedPoint[1]];
                 newCoords[(movedIndex + 3) % 4] = [movedPoint[0], oppositePoint[1]];
-                newCoords[4] = newCoords[0];
+                newCoords[4] = [...newCoords[0]];
                 
                 const Polygon = require('ol/geom/Polygon').default;
                 const newPolygon = new Polygon([newCoords]);
@@ -571,3 +570,5 @@ export function GeofenceControls({
         </div>
     );
 }
+
+    
