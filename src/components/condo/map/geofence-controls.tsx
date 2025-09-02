@@ -45,29 +45,36 @@ const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
 
 // FUNCIÓN CORRECTA que SÍ actualiza todos los vértices
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number) => {
-  // 1. Crear una copia temporal con el vértice movido
-  const tempVertices = [...verticesOriginales];
-  tempVertices[indiceMovido] = verticeMovido;
+    const Polygon = require('ol/geom/Polygon').default;
+
+    // Caso 1: Vértice movido hacia AFUERA del rectángulo original
+    const poligonoOriginal = new Polygon([verticesOriginales]);
+    if (!puntoEstaDentro(poligonoOriginal, verticeMovido)) {
+        const tempVertices = [...verticesOriginales];
+        tempVertices[indiceMovido] = verticeMovido;
+        const xs = tempVertices.map(v => v[0]);
+        const ys = tempVertices.map(v => v[1]);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        const rectanguloPerfecto = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]];
+        return [...rectanguloPerfecto, rectanguloPerfecto[0]];
+    }
+
+    // Caso 2: Vértice movido hacia ADENTRO del rectángulo original
+    // Esquina opuesta al vértice que se mueve
+    const indiceOpuesto = (indiceMovido + 2) % 4;
+    const verticeOpuesto = verticesOriginales[indiceOpuesto];
+    
+    const nuevoRectangulo = [
+        [verticeMovido[0], verticeMovido[1]],
+        [verticeOpuesto[0], verticeMovido[1]],
+        [verticeOpuesto[0], verticeOpuesto[1]],
+        [verticeMovido[0], verticeOpuesto[1]],
+    ];
   
-  // 2. Encontrar el bounding box de todos los vértices
-  const xs = tempVertices.map(v => v[0]);
-  const ys = tempVertices.map(v => v[1]);
-  
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  
-  // 3. Crear un rectángulo perfecto con el bounding box
-  const rectanguloPerfecto = [
-    [minX, minY], // esquina inferior izquierda
-    [maxX, minY], // esquina inferior derecha
-    [maxX, maxY], // esquina superior derecha
-    [minX, maxY]  // esquina superior izquierda
-  ];
-  
-  // 4. Para OpenLayers, cerrar el polígono
-  return [...rectanguloPerfecto, rectanguloPerfecto[0]];
+  return [...nuevoRectangulo, nuevoRectangulo[0]];
 };
 
 
@@ -137,6 +144,7 @@ export function GeofenceControls({
 
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
+    const [newGeofencePlaceholder, setNewGeofencePlaceholder] = useState<DbGeofence | null>(null);
         
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
@@ -148,7 +156,7 @@ export function GeofenceControls({
     const pushToHistory = useCallback((geometry: Geometry) => {
         setHistoryStack(prev => {
             const newStack = prev.slice(0, historyIndex + 1);
-            newStack.push(geometry.clone()); // CLONE the geometry
+            newStack.push(geometry.clone());
             setHistoryIndex(newStack.length - 1);
             return newStack;
         });
@@ -203,6 +211,7 @@ export function GeofenceControls({
         setIsDrawing(false);
         setHistoryStack([]);
         setHistoryIndex(-1);
+        setNewGeofencePlaceholder(null);
     }, [activeShapeState, removeInteractions, setActiveShapeState, setMode, geofenceSourceRef, setHistoryStack, setHistoryIndex]);
     
     const saveCurrentAction = useCallback(async () => {
@@ -316,7 +325,7 @@ export function GeofenceControls({
 
             modifyInteraction.on('modifyend', (e) => {
                 const feature = e.features.getArray()[0];
-                if (feature) pushToHistory(feature.getGeometry()!);
+                if (feature) pushToHistory(feature.getGeometry()!.clone());
             });
             
             const translateInteraction = new Translate({ features: features });
@@ -325,7 +334,7 @@ export function GeofenceControls({
 
             translateInteraction.on('translateend', (e) => {
                 const feature = e.features.getArray()[0];
-                if (feature) pushToHistory(feature.getGeometry()!);
+                if (feature) pushToHistory(feature.getGeometry()!.clone());
             });
             
             const placeholderGeofence: DbGeofence = {
@@ -335,7 +344,8 @@ export function GeofenceControls({
                 geometry: null, 
                 is_default: false,
             };
-            
+
+            setNewGeofencePlaceholder(placeholderGeofence);
             setSelectedGeofenceId(newId);
             setCurrentGeofenceName(placeholderGeofence.name);
             setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
@@ -399,8 +409,8 @@ export function GeofenceControls({
         let originalCoords: number[][] | null = null;
         
         const onModifyStart = (event: any) => {
+            setDebugInfo(`Moviendo vértice...`);
             const feature = event.features.getArray()[0] as Feature<Polygon>;
-             setDebugInfo(`Moviendo vértice...`);
             if (feature.get('geometryType') === 'Rectangle') {
                 originalCoords = feature.getGeometry()!.getCoordinates()[0].map(c => [...c]);
                 if (originalCoords.length === 5) originalCoords.pop();
@@ -448,18 +458,15 @@ export function GeofenceControls({
 
         const onTranslateEnd = (e: any) => {
             const feature = e.features.getArray()[0];
-            if (feature) pushToHistory(feature.getGeometry()!);
+            if (feature) pushToHistory(feature.getGeometry()!.clone());
         };
         translateInteraction.on('translateend', onTranslateEnd);
 
         return () => {
             if (map) {
-                // Use a try-catch block as removeInteraction can throw if the interaction is not on the map
                 try { map.removeInteraction(modifyInteraction); } catch(e) {}
                 try { map.removeInteraction(translateInteraction); } catch(e) {}
             }
-            // Unsubscribe from events by creating a dummy listener object,
-            // as direct unregistering is complex with anonymous functions.
             modifyInteraction.un('modifystart', onModifyStart);
             modifyInteraction.un('modifyend', onModifyEnd);
             translateInteraction.un('translateend', onTranslateEnd);
@@ -468,6 +475,7 @@ export function GeofenceControls({
 
 
     const isBusy = isSaving || isDeleting || isSettingDefault;
+    const combinedGeofences = newGeofencePlaceholder ? [...geofences, newGeofencePlaceholder] : geofences;
 
     return (
         <div className="space-y-4 pt-2 border-t">
@@ -534,7 +542,7 @@ export function GeofenceControls({
                                         <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {geofences.map(gf => (
+                                        {combinedGeofences.map(gf => (
                                             <SelectItem key={gf.id} value={gf.id}>
                                                 <div className='flex items-center gap-2'>
                                                     {gf.id === defaultGeofenceId && <Star className="h-4 w-4 text-orange-500 fill-orange-400" />}
@@ -556,7 +564,7 @@ export function GeofenceControls({
                                         </Tooltip>
                                         <Tooltip>
                                              <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!!activeShapeState || !selectedGeofenceId || isBusy}>
+                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!!activeShapeState || !selectedGeofenceId || isBusy || selectedGeofenceId.startsWith('new-shape-')}>
                                                     <Edit className="h-4 w-4"/>
                                                 </Button>
                                             </TooltipTrigger>
@@ -564,7 +572,7 @@ export function GeofenceControls({
                                         </Tooltip>
                                          <Tooltip>
                                              <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={!!activeShapeState || !selectedGeofenceId || isBusy}>
+                                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={!!activeShapeState || !selectedGeofenceId || isBusy || selectedGeofenceId.startsWith('new-shape-')}>
                                                     {isDeleting ? <Loader className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4 text-destructive"/>}
                                                 </Button>
                                             </TooltipTrigger>
