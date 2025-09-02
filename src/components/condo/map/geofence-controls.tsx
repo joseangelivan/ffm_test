@@ -46,6 +46,7 @@ type ActiveShapeState = { id: string, feature: Feature | null, originalGeometry?
 type GeofenceControlsProps = {
     condoId: string;
     geofences: DbGeofence[];
+    setGeofences: React.Dispatch<React.SetStateAction<DbGeofence[]>>;
     onDataNeedsRefresh: (newSelectedId?: string) => void;
     selectedGeofenceId: string | null;
     setSelectedGeofenceId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -66,6 +67,7 @@ type GeofenceControlsProps = {
 export function GeofenceControls({
     condoId,
     geofences,
+    setGeofences,
     onDataNeedsRefresh,
     selectedGeofenceId,
     setSelectedGeofenceId,
@@ -126,14 +128,15 @@ export function GeofenceControls({
     }, [geofences, t]);
 
     const cancelCurrentAction = useCallback(() => {
+        if (activeShapeState?.id?.startsWith('new-shape-')) {
+            setGeofences(geofences.filter(g => g.id !== activeShapeState.id));
+        }
+
         const source = geofenceSourceRef();
         if (activeShapeState?.feature) {
-             const id = activeShapeState.id;
              const feature = activeShapeState.feature;
              const originalGeometry = activeShapeState.originalGeometry;
-             if(id.startsWith('new-shape-') && source) {
-                source.removeFeature(feature);
-             } else if (originalGeometry && feature) {
+             if (originalGeometry && feature) {
                 const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
                 const olGeom = format.readGeometry(originalGeometry);
                 if (olGeom) feature.setGeometry(olGeom);
@@ -145,7 +148,7 @@ export function GeofenceControls({
         setActiveShapeState(null);
         setCurrentGeofenceName('');
         setIsDrawing(false);
-    }, [activeShapeState, removeInteractions, setActiveShapeState]);
+    }, [activeShapeState, removeInteractions, setActiveShapeState, geofences, setGeofences]);
       
     const geofenceSourceRef = (): VectorSource | null => {
         const layer = mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer');
@@ -273,8 +276,22 @@ export function GeofenceControls({
             const newFeature = event.feature;
             const newId = `new-shape-${Date.now()}`;
             newFeature.setId(newId);
-            
+
+            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+            const newGeometry = format.writeGeometryObject(newFeature.getGeometry()!);
+
+            const placeholderGeofence: DbGeofence = {
+                id: newId,
+                condominium_id: condoId,
+                name: getNextGeofenceName(),
+                geometry: newGeometry,
+                is_default: false,
+            };
+
+            setGeofences(current => [...current, placeholderGeofence]);
+            setSelectedGeofenceId(newId);
             setIsDrawing(false);
+            
             setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
             
             removeInteractions();
@@ -444,3 +461,4 @@ export function GeofenceControls({
         </div>
     );
 }
+

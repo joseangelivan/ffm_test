@@ -98,7 +98,6 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   }, [condo.id, selectedGeofenceId, toast, t]);
   
   useEffect(() => {
-    setDbGeofences(condo.geofences);
     const defaultGf = condo.geofences.find(g => g.is_default);
     const newDefaultId = defaultGf ? defaultGf.id : (condo.geofences.length > 0 ? condo.geofences[0].id : null);
     setDefaultGeofenceId(newDefaultId);
@@ -278,6 +277,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                 <GeofenceControls
                                     condoId={condo.id}
                                     geofences={dbGeofences}
+                                    setGeofences={setDbGeofences}
                                     onDataNeedsRefresh={onDataNeedsRefresh}
                                     selectedGeofenceId={selectedGeofenceId}
                                     setSelectedGeofenceId={setSelectedGeofenceId}
@@ -318,3 +318,4 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     </>
   );
 }
+
