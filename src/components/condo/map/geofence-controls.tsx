@@ -43,10 +43,6 @@ import CircleStyle from 'ol/style/Circle';
 import Fill from 'ol/style/Fill';
 
 
-const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
-    return poligono.intersectsCoordinate(punto);
-}
-
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
     const indiceOpuesto = (indiceMovido + 2) % 4;
     const verticeOpuesto = verticesOriginales[indiceOpuesto];
@@ -65,7 +61,6 @@ const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: num
   
     return [...nuevoRectangulo, nuevoRectangulo[0]];
 };
-
 
 
 export type DrawingMode = 'Polygon' | 'Rectangle' | 'Circle';
@@ -249,6 +244,12 @@ export function GeofenceControls({
     
     const handleStartDrawing = () => {
         cancelCurrentAction();
+        
+        const newId = `new-shape-${Date.now()}`;
+        const newFeature = new Feature();
+        newFeature.setId(newId);
+
+        setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
         setCurrentGeofenceName(getNextGeofenceName());
         setIsDrawing(true);
     };
@@ -317,7 +318,7 @@ export function GeofenceControls({
         removeAllInteractions();
 
         if (mode === 'editing') {
-            if (isDrawing) {
+            if (isDrawing && activeShapeState?.feature) {
                 const drawOptions: any = { source: geofenceSourceRef.current };
                 if (drawingMode === 'Rectangle') {
                     drawOptions.type = 'Circle';
@@ -331,11 +332,10 @@ export function GeofenceControls({
                 interactionsRef.current.draw = newInteraction;
 
                 newInteraction.once('drawend', (event) => {
-                    const feature = event.feature;
                     if (drawingMode === 'Rectangle') {
-                        feature.set('geometryType', 'Rectangle');
+                        event.feature.set('geometryType', 'Rectangle');
                     }
-                    onShapeDrawn(feature);
+                    onShapeDrawn(event.feature);
                     setIsDrawing(false);
                 });
 
@@ -349,15 +349,15 @@ export function GeofenceControls({
                  if (isRectangle) {
                     const geometryFunction = (coordinates: any[], geometry: any): Geometry => {
                         const originalVertices = (featureToEdit.getGeometry() as Polygon).getCoordinates()[0].slice(0, 4);
-                        const newVertices = coordinates[0];
-
-                        const movedIndex = originalVertices.findIndex(
-                            (v) => v[0] === draggedVertexRef.current?.[0] && v[1] === draggedVertexRef.current?.[1]
-                        );
-
+                        
+                        let movedIndex = -1;
+                        if(draggedVertexRef.current) {
+                            movedIndex = originalVertices.findIndex(v => v[0] === draggedVertexRef.current![0] && v[1] === draggedVertexRef.current![1]);
+                        }
+                        
                         if (movedIndex !== -1) {
-                            const movedVertex = newVertices[movedIndex];
-                            const newCoords = RecalcularRectangulo(originalVertices, movedVertex, movedIndex);
+                            const newPoint = coordinates[0][movedIndex];
+                            const newCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
                             geometry.setCoordinates([newCoords]);
                         } else {
                              geometry.setCoordinates(coordinates);
@@ -365,11 +365,7 @@ export function GeofenceControls({
                         return geometry;
                     };
 
-                    modifyInteraction = new Modify({ 
-                        features, 
-                        style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({ color: '#FF0000' }) }) }),
-                        geometryFunction 
-                    });
+                    modifyInteraction = new Modify({ features, geometryFunction });
                     
                     modifyInteraction.on('modifystart', (e) => {
                         draggedVertexRef.current = e.mapBrowserEvent.coordinate;
@@ -513,7 +509,7 @@ export function GeofenceControls({
                             </div>
                         
                         
-                            {activeShapeState?.feature ? (
+                            {activeShapeState ? (
                                 <div className='relative space-y-4 p-4 border border-blue-300 rounded-md bg-blue-50/30 dark:border-blue-700 dark:bg-blue-900/20'>
                                      {isSaving && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
                                     <div className="space-y-2">
