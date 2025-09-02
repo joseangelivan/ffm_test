@@ -2,7 +2,6 @@
 "use client";
 
 import React from 'react';
-import type { SessionPayload } from '@/lib/session';
 import type { Condominio } from '@/actions/condos';
 
 export const CondoDashboardContext = React.createContext<{
@@ -10,4 +9,5 @@ export const CondoDashboardContext = React.createContext<{
   handleSetTheme: (theme: string) => void;
   theme: string;
   condo: Condominio | null;
+  onDataNeedsRefresh: () => void;
 } | null>(null);

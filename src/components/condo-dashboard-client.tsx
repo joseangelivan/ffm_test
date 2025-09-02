@@ -49,6 +49,14 @@ type CondoDashboardClientProps = {
     initialPosition: { lat: number; lng: number };
 };
 
+export function useCondoDashboard() {
+    const context = React.useContext(CondoDashboardContext);
+    if (!context) {
+        throw new Error("useCondoDashboard must be used within a CondoDashboardProvider");
+    }
+    return context;
+}
+
 export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider, initialPosition }: CondoDashboardClientProps) { 
   const { t, setLocale } = useLocale();
   const router = useRouter();
@@ -142,7 +150,8 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     handleSetTheme,
     theme,
     condo: initialCondo,
-  }), [handleSetLocale, handleSetTheme, theme, initialCondo]);
+    onDataNeedsRefresh,
+  }), [handleSetLocale, handleSetTheme, theme, initialCondo, onDataNeedsRefresh]);
 
   return (
     <CondoDashboardContext.Provider value={providerValue}>
@@ -169,10 +178,10 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
               </TabsList>
               <div className="mt-4">
                   <TabsContent value="users" forceMount className={cn(activeTab !== 'users' && 'hidden')}>
-                      <ManageUsersTab condoId={initialCondo.id} />
+                      <ManageUsersTab />
                   </TabsContent>
                   <TabsContent value="devices" forceMount className={cn(activeTab !== 'devices' && 'hidden')}>
-                      <ManageDevicesTab condoId={initialCondo.id} devices={initialDevices} onDataNeedsRefresh={onDataNeedsRefresh} />
+                      <ManageDevicesTab initialDevices={initialDevices} />
                   </TabsContent>
                   <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
                       <CondoMapTab 

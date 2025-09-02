@@ -67,6 +67,7 @@ import { getUsersByCondoId, createUser, updateUser, deleteUser, type CondoUser }
 import { Skeleton } from '../ui/skeleton';
 import { cn } from '@/lib/utils';
 import { LoadingOverlay } from '../admin/admin-header';
+import { useCondoDashboard } from '../condo-dashboard-client';
 
 function UserForm({ 
     condoId, 
@@ -121,7 +122,7 @@ function UserForm({
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="type">{t('condoDashboard.users.table.type')}</Label>
-                            <Select name="type" defaultValue={user?.type || 'resident'} required disabled={pending}>
+                            <Select name="type" defaultValue={user?.type || 'resident'} required disabled={pending || isEditMode}>
                                 <SelectTrigger>
                                     <SelectValue placeholder={t('login.selectUserType')} />
                                 </SelectTrigger>
@@ -158,9 +159,11 @@ function UserForm({
     );
 }
 
-export default function ManageUsersTab({ condoId }: { condoId: string }) {
+export default function ManageUsersTab() {
     const { t } = useLocale();
     const { toast } = useToast();
+    const { condo, onDataNeedsRefresh } = useCondoDashboard();
+    
     const [users, setUsers] = useState<CondoUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -168,11 +171,12 @@ export default function ManageUsersTab({ condoId }: { condoId: string }) {
     const [isDeleting, startDeleteTransition] = useTransition();
 
     const fetchUsers = useCallback(async () => {
+        if (!condo?.id) return;
         setIsLoading(true);
-        const fetchedUsers = await getUsersByCondoId(condoId);
+        const fetchedUsers = await getUsersByCondoId(condo.id);
         setUsers(fetchedUsers);
         setIsLoading(false);
-    }, [condoId]);
+    }, [condo?.id]);
 
     useEffect(() => {
         fetchUsers();
@@ -187,6 +191,7 @@ export default function ManageUsersTab({ condoId }: { condoId: string }) {
         setIsFormOpen(false);
         setSelectedUser(null);
         fetchUsers();
+        onDataNeedsRefresh();
     };
 
     const handleDeleteUser = (user: CondoUser) => {
@@ -198,6 +203,7 @@ export default function ManageUsersTab({ condoId }: { condoId: string }) {
                     description: t('condoDashboard.users.toast.userDeleted'),
                 });
                 fetchUsers();
+                onDataNeedsRefresh();
             } else {
                  toast({
                     title: t('toast.errorTitle'),
@@ -214,6 +220,8 @@ export default function ManageUsersTab({ condoId }: { condoId: string }) {
             description: t('condoDashboard.users.toast.passwordReset', { name: userName })
         });
     }
+
+    if (!condo) return null;
 
     return (
         <Card>
@@ -300,7 +308,7 @@ export default function ManageUsersTab({ condoId }: { condoId: string }) {
 
             {isFormOpen && (
                  <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                    <UserForm condoId={condoId} user={selectedUser} onSuccess={onFormSuccess} />
+                    <UserForm condoId={condo.id} user={selectedUser} onSuccess={onFormSuccess} />
                 </Dialog>
             )}
         </Card>

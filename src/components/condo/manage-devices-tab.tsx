@@ -68,6 +68,7 @@ import { Skeleton } from '../ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { cn } from '@/lib/utils';
 import { LoadingOverlay } from '../admin/admin-header';
+import { useCondoDashboard } from '../condo-dashboard-client';
 
 function ManageProtocolForm({
     device,
@@ -230,16 +231,14 @@ function DeviceForm({
 }
 
 export default function ManageDevicesTab({
-    condoId,
-    devices: initialDevices,
-    onDataNeedsRefresh,
+    initialDevices,
 }: {
-    condoId: string;
-    devices: Device[];
-    onDataNeedsRefresh: () => void;
+    initialDevices: Device[];
 }) {
     const { t, locale } = useLocale();
     const { toast } = useToast();
+    const { condo, onDataNeedsRefresh } = useCondoDashboard();
+    
     const [devices, setDevices] = useState<Device[]>(initialDevices);
     
     const [protocols, setProtocols] = useState<Protocol[]>([]);
@@ -305,6 +304,8 @@ export default function ManageDevicesTab({
         setSelectedDevice(null);
         onDataNeedsRefresh();
     }
+    
+    if (!condo) return null;
 
     return (
         <Card>
@@ -399,7 +400,7 @@ export default function ManageDevicesTab({
 
              <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
                 <DeviceForm
-                    condoId={condoId}
+                    condoId={condo.id}
                     device={selectedDevice}
                     deviceTypes={deviceTypes}
                     onSuccess={onDialogSuccess}
