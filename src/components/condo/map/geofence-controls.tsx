@@ -199,13 +199,13 @@ export function GeofenceControls({
 
         const Collection = require('ol/Collection').default;
         const features = new Collection([featureToEdit]);
+        let originalCoords: number[][] | undefined;
 
         const modify = new Modify({
             features: features,
             insertVertexCondition: () => !isRectangle(featureToEdit.getGeometry()),
         });
         
-        let originalCoords: number[][] | undefined;
         modify.on('modifystart', (event) => {
             const feature = event.features.item(0);
             const geom = feature.getGeometry();
@@ -220,12 +220,9 @@ export function GeofenceControls({
         modify.on('modifying', (event) => {
             const feature = event.features.item(0);
             const geometry = feature.getGeometry();
-            
             if (!geometry || !isRectangle(geometry) || !originalCoords) return;
 
             const currentCoords = (geometry as Polygon).getCoordinates()[0];
-            
-            // Find moved vertex
             let movedIndex = -1;
             for (let i = 0; i < 4; i++) {
                 if (originalCoords[i][0] !== currentCoords[i][0] || originalCoords[i][1] !== currentCoords[i][1]) {
@@ -240,7 +237,6 @@ export function GeofenceControls({
             const oppositePoint = originalCoords[oppositeIndex];
             const movedPoint = currentCoords[movedIndex];
             
-            // Corrected rectangle coordinates
             const newCoords = [
                 [oppositePoint[0], oppositePoint[1]],
                 [movedPoint[0], oppositePoint[1]],
@@ -249,20 +245,23 @@ export function GeofenceControls({
                 [oppositePoint[0], oppositePoint[1]]
             ];
 
-            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-            const correctedGeometryForDebug = format.writeGeometryObject(new (require('ol/geom/Polygon').default)([newCoords]));
-            setDebugInfo(`Moviendo vértice...\nCoordenadas corregidas:\n${JSON.stringify(correctedGeometryForDebug.coordinates, null, 2)}`);
-
             const PolygonGeom = require('ol/geom/Polygon').default;
             const newGeom = new PolygonGeom([newCoords]);
             feature.setGeometry(newGeom);
+            originalCoords = newGeom.getCoordinates()[0].slice();
+
+             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+             const correctedGeometryForDebug = format.writeGeometryObject(newGeom);
+             setDebugInfo(`Moviendo vértice...\nCoordenadas corregidas:\n${JSON.stringify(correctedGeometryForDebug.coordinates, null, 2)}`);
         });
 
         modify.on('modifyend', (event) => {
             if (event.features.getLength() > 0) {
                 const feature = event.features.item(0);
                 pushToHistory(feature.getGeometry()!);
-                setDebugInfo(`¡Cambio guardado en el historial! Total: ${historyStack.length + 1}.`);
+                const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+                const finalGeom = format.writeGeometryObject(feature.getGeometry()!);
+                setDebugInfo(`¡Cambio guardado en el historial! Total: ${historyStack.length + 1}. Coords: ${JSON.stringify(finalGeom, null, 2)}`);
             }
             originalCoords = undefined;
         });
@@ -274,7 +273,7 @@ export function GeofenceControls({
         translate.on('translateend', (event) => {
             if (event.features.getLength() > 0) {
                 pushToHistory(event.features.item(0).getGeometry()!);
-                 setDebugInfo(`¡Geocerca movida y guardada en el historial! Total: ${historyStack.length + 1}.`);
+                setDebugInfo(`¡Geocerca movida y guardada en el historial! Total: ${historyStack.length + 1}.`);
             }
         });
         map.addInteraction(translate);
