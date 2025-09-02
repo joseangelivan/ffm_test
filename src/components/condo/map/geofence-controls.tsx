@@ -160,6 +160,8 @@ export function GeofenceControls({
                 const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
                 const olGeom = format.readGeometry(originalGeometry);
                 if (olGeom) feature.setGeometry(olGeom);
+             } else if (feature.getId()?.toString().startsWith('new-shape-')) {
+                source?.removeFeature(feature);
              }
         }
         
@@ -189,11 +191,13 @@ export function GeofenceControls({
         const features = new Collection([featureToEdit]);
 
         const geometry = featureToEdit.getGeometry();
-        const isRectangle = geometry && geometry.getType() === 'Polygon' && (geometry.getCoordinates()[0]?.length === 5);
+        const isRectangle = (geom: Geometry | undefined) => {
+            return geom && geom.getType() === 'Polygon' && (geom.getCoordinates()[0]?.length === 5);
+        }
 
         const modify = new Modify({
             features: features,
-            geometryFunction: drawingMode === 'Rectangle' || isRectangle ? (geometry: any) => {
+            geometryFunction: isRectangle(geometry) ? (geometry: any) => {
                  const coords = geometry.getCoordinates()[0];
                  const minX = Math.min(coords[0][0], coords[1][0], coords[2][0], coords[3][0]);
                  const minY = Math.min(coords[0][1], coords[1][1], coords[2][1], coords[3][1]);
@@ -229,7 +233,7 @@ export function GeofenceControls({
             setHistoryIndex(-1);
         }
 
-    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef, translateInteractionRef, geofenceSourceRef, pushToHistory, setHistoryStack, setHistoryIndex, drawingMode]);
+    }, [selectedGeofenceId, geofences, cancelCurrentAction, setMode, setActiveShapeState, removeInteractions, mapRef, modifyInteractionRef, translateInteractionRef, geofenceSourceRef, pushToHistory, setHistoryStack, setHistoryIndex]);
       
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
