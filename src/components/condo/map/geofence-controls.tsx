@@ -272,11 +272,23 @@ export function GeofenceControls({
         }
 
         const newInteraction = new Draw(drawOptions);
+        drawingInteractionRef.current = newInteraction;
 
         newInteraction.on('drawend', (event) => {
             const newFeature = event.feature;
             const newId = `new-shape-${Date.now()}`;
             newFeature.setId(newId);
+            
+            // Clean up the draw interaction
+            if (drawingInteractionRef.current) {
+                map.removeInteraction(drawingInteractionRef.current);
+                drawingInteractionRef.current = null;
+            }
+
+            // Immediately make the new feature editable
+            const modify = new Modify({ features: new Collection([newFeature]) });
+            map.addInteraction(modify);
+            modifyInteractionRef.current = modify;
 
             const placeholderGeofence: DbGeofence = {
                 id: newId,
@@ -285,22 +297,14 @@ export function GeofenceControls({
                 geometry: {}, // Placeholder
                 is_default: false,
             };
+
             setGeofences(current => [...current, placeholderGeofence]);
             setSelectedGeofenceId(newId);
             setCurrentGeofenceName(placeholderGeofence.name);
-            setIsDrawing(false);
-            removeInteractions();
-            
-            // Re-activate modify on the new feature
-            const features = new Collection([newFeature]);
-            const modify = new Modify({ features: features });
-            map.addInteraction(modify);
-            modifyInteractionRef.current = modify;
-            
             setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
+            setIsDrawing(false);
         });
 
-        drawingInteractionRef.current = newInteraction;
         map.addInteraction(newInteraction);
         setIsDrawing(true);
         setCurrentGeofenceName(getNextGeofenceName());
