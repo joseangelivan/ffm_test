@@ -39,19 +39,30 @@ import type { Geometry, Polygon, SimpleGeometry } from 'ol/geom';
 
 
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
+  // SOLUCIÓN SIMPLE Y EFECTIVA: Recalcular basado en el vértice movido y su opuesto
+  
   const indiceOpuesto = (indiceMovido + 2) % 4;
   const verticeOpuesto = verticesOriginales[indiceOpuesto];
   
-  const nuevoRectangulo = new Array(4);
+  // Los vértices adyacentes toman una coordenada de cada extremo
+  const indiceAdyacente1 = (indiceMovido + 1) % 4;
+  const indiceAdyacente2 = (indiceMovido + 3) % 4;
   
+  const nuevoRectangulo = new Array(4);
   nuevoRectangulo[indiceMovido] = verticeMovido;
   nuevoRectangulo[indiceOpuesto] = verticeOpuesto;
   
-  const indiceLateral1 = (indiceMovido + 1) % 4;
-  nuevoRectangulo[indiceLateral1] = [verticeMovido[0], verticeOpuesto[1]];
-  
-  const indiceLateral2 = (indiceMovido + 3) % 4;
-  nuevoRectangulo[indiceLateral2] = [verticeOpuesto[0], verticeMovido[1]];
+  // Determinar qué coordenadas tomar de cada vértice
+  // basado en la posición del vértice movido
+  if (indiceMovido % 2 === 0) {
+    // Vértice en esquina (0 o 2)
+    nuevoRectangulo[indiceAdyacente1] = [verticeMovido[0], verticeOpuesto[1]];
+    nuevoRectangulo[indiceAdyacente2] = [verticeOpuesto[0], verticeMovido[1]];
+  } else {
+    // Vértice en lado (1 o 3)
+    nuevoRectangulo[indiceAdyacente1] = [verticeOpuesto[0], verticeMovido[1]];
+    nuevoRectangulo[indiceAdyacente2] = [verticeMovido[0], verticeOpuesto[1]];
+  }
   
   return [...nuevoRectangulo, nuevoRectangulo[0]];
 };
@@ -367,27 +378,21 @@ export function GeofenceControls({
     }, [geofences, selectedGeofenceId, mapRef, cancelCurrentAction, setMode, setActiveShapeState, setHistoryStack, setHistoryIndex, modifyInteractionRef, translateInteractionRef]);
 
 
+    // This ref will hold the callback functions that need access to the latest component state
+    const onModifyCallback = useRef<(event: any) => void>();
+    const onModifyEndCallback = useRef<(event: any) => void>();
+
     useEffect(() => {
-        const modify = modifyInteractionRef.current;
-        if (!modify) return;
-
-        let originalCoords: number[][] | null = null;
-        
-        const handleModifyStart = (event: any) => {
-            const feature = event.features.getArray()[0];
-            if (feature) {
-                 originalCoords = (feature.getGeometry() as SimpleGeometry).getCoordinates()[0].slice(0, 4);
-            }
-        };
-
-        const handleModifying = (event: any) => {
+        onModifyCallback.current = (event: any) => {
             try {
                 setDebugInfo("Moviendo vértice...");
                 const feature = event.features.getArray()[0] as Feature<Polygon>;
-                if (!feature || feature.get('geometryType') !== 'Rectangle' || !originalCoords) return;
+                if (!feature || feature.get('geometryType') !== 'Rectangle') return;
 
-                const currentCoords = feature.getGeometry()?.getCoordinates()[0].slice(0, 4) as number[][];
-                if (!currentCoords || currentCoords.length !== 4) return;
+                const originalCoords = (event.target as Modify).getFeature().get('originalCoordinates');
+                if (!originalCoords) return;
+
+                const currentCoords = feature.getGeometry()!.getCoordinates()[0].slice(0, 4);
                 
                 let movedIndex = -1;
                 for (let i = 0; i < 4; i++) {
@@ -398,41 +403,61 @@ export function GeofenceControls({
                 }
                 
                 if (movedIndex === -1) return;
-                
+
                 const correctedCoords = RecalcularRectangulo(originalCoords, currentCoords[movedIndex], movedIndex);
+                feature.getGeometry()!.setCoordinates([correctedCoords]);
                 
-                if(correctedCoords.length === 5) {
-                    feature.getGeometry()?.setCoordinates([correctedCoords]);
-                    const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-                    const geomForDebug = format.writeGeometryObject(feature.getGeometry()!);
-                    setDebugInfo(`Coords: ${JSON.stringify(geomForDebug, null, 2)}`);
-                }
+                const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+                const geomForDebug = format.writeGeometryObject(feature.getGeometry()!);
+                setDebugInfo(`Coords: ${JSON.stringify(geomForDebug, null, 2)}`);
+
              } catch(e: any) {
                 setDebugInfo(`Error: ${e.message}`);
              }
         };
 
-        const handleModifyEnd = (event: any) => {
+        onModifyEndCallback.current = (event: any) => {
             const feature = event.features.getArray()[0];
             if (feature) {
                 pushToHistory(feature.getGeometry()!);
                 setDebugInfo(`¡Cambio guardado en el historial! Coords: ${JSON.stringify(new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(feature.getGeometry()!), null, 2)}`);
             }
-            originalCoords = null;
+            feature.unset('originalCoordinates');
+        };
+
+    }, [setDebugInfo, pushToHistory]);
+
+    useEffect(() => {
+        const modify = modifyInteractionRef.current;
+        if (!modify) return;
+
+        const handleModifyStart = (event: any) => {
+            const feature = event.features.getArray()[0];
+            if (feature) {
+                 const originalCoords = (feature.getGeometry() as SimpleGeometry).getCoordinates()[0].slice(0, 4);
+                 feature.set('originalCoordinates', originalCoords);
+            }
+        };
+
+        const handleModifying = (event: any) => {
+            onModifyCallback.current?.(event);
+        };
+        
+        const handleModifyEnd = (event: any) => {
+            onModifyEndCallback.current?.(event);
         };
 
         const modifyStartKey = modify.on('modifystart', handleModifyStart);
         const modifyingKey = modify.on('modifying', handleModifying);
         const modifyEndKey = modify.on('modifyend', handleModifyEnd);
-
+        
         return () => {
             const { unByKey } = require('ol/Observable');
             unByKey(modifyStartKey);
             unByKey(modifyingKey);
             unByKey(modifyEndKey);
         }
-
-    }, [modifyInteractionRef.current, setDebugInfo, pushToHistory]);
+    }, [modifyInteractionRef.current]);
 
 
     const isBusy = isSaving || isDeleting || isSettingDefault;
