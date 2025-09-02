@@ -140,8 +140,7 @@ export function GeofenceControls({
 
     const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
-    const [newGeofencePlaceholder, setNewGeofencePlaceholder] = useState<DbGeofence | null>(null);
-        
+    
     const defaultGeofenceName = geofences.find(g => g.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
     
     const geofenceSourceRef = (): VectorSource | null => {
@@ -207,7 +206,6 @@ export function GeofenceControls({
         setIsDrawing(false);
         setHistoryStack([]);
         setHistoryIndex(-1);
-        setNewGeofencePlaceholder(null);
     }, [activeShapeState, removeInteractions, setActiveShapeState, setMode, geofenceSourceRef, setHistoryStack, setHistoryIndex]);
     
     const saveCurrentAction = useCallback(async () => {
@@ -285,9 +283,9 @@ export function GeofenceControls({
         const map = mapRef.current;
         const source = geofenceSourceRef();
 
-        if (!map || !source) return;
+        if (!map || !source || isDrawing) return;
         
-        removeInteractions(); 
+        cancelCurrentAction();
         setMode('editing');
         
         const drawOptions: any = { source: source };
@@ -312,17 +310,8 @@ export function GeofenceControls({
             map.removeInteraction(newInteraction);
             drawingInteractionRef.current = null;
             
-            const placeholderGeofence: DbGeofence = {
-                id: newId,
-                condominium_id: condoId,
-                name: getNextGeofenceName(),
-                geometry: null, 
-                is_default: false,
-            };
-
-            setNewGeofencePlaceholder(placeholderGeofence);
             setSelectedGeofenceId(newId);
-            setCurrentGeofenceName(placeholderGeofence.name);
+            setCurrentGeofenceName(getNextGeofenceName());
             setActiveShapeState({ id: newId, feature: newFeature, originalGeometry: null });
             setIsDrawing(false);
             const initialGeom = newFeature.getGeometry();
@@ -334,13 +323,11 @@ export function GeofenceControls({
 
         map.addInteraction(newInteraction);
         setIsDrawing(true);
-        setCurrentGeofenceName(getNextGeofenceName());
     };
     
     const startEditingSelected = useCallback(() => {
         const source = geofenceSourceRef();
-        const map = mapRef.current;
-        if (!selectedGeofenceId || !source || !map) return;
+        if (!selectedGeofenceId || !source) return;
 
         const featureToEdit = source.getFeatureById(selectedGeofenceId) as Feature<Polygon>;
         const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
@@ -361,7 +348,7 @@ export function GeofenceControls({
         if (initialGeom) {
             pushToHistory(initialGeom);
         }
-    }, [geofences, selectedGeofenceId, cancelCurrentAction, setMode, setActiveShapeState, mapRef, pushToHistory]);
+    }, [geofences, selectedGeofenceId, cancelCurrentAction, setMode, setActiveShapeState, pushToHistory]);
 
     useEffect(() => {
         const map = mapRef.current;
@@ -428,7 +415,7 @@ export function GeofenceControls({
 
         const translateInteraction = new Translate({ features: features });
         map.addInteraction(translateInteraction);
-        translateInteractionRef.current = translateInteraction;
+        translateInteraction.current = translateInteraction;
 
         const onTranslateEnd = (e: any) => {
             const feature = e.features.getArray()[0];
@@ -446,7 +433,6 @@ export function GeofenceControls({
 
 
     const isBusy = isSaving || isDeleting || isSettingDefault;
-    const combinedGeofences = newGeofencePlaceholder ? [...geofences, newGeofencePlaceholder] : geofences;
 
     return (
         <div className="space-y-4 pt-2 border-t">
@@ -513,7 +499,7 @@ export function GeofenceControls({
                                         <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {combinedGeofences.map(gf => (
+                                        {geofences.map(gf => (
                                             <SelectItem key={gf.id} value={gf.id}>
                                                 <div className='flex items-center gap-2'>
                                                     {gf.id === defaultGeofenceId && <Star className="h-4 w-4 text-orange-500 fill-orange-400" />}
@@ -521,6 +507,13 @@ export function GeofenceControls({
                                                 </div>
                                             </SelectItem>
                                         ))}
+                                         {activeShapeState?.id.startsWith('new-shape-') && (
+                                            <SelectItem value={activeShapeState.id} disabled>
+                                                <div className='flex items-center gap-2'>
+                                                    <span>{currentGeofenceName}</span>
+                                                </div>
+                                            </SelectItem>
+                                        )}
                                     </SelectContent>
                                 </Select>
                                 <div className="flex items-center">
