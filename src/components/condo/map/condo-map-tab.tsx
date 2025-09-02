@@ -167,6 +167,8 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
       });
   };
 
+  const defaultGeofenceName = dbGeofences.find(gf => gf.id === defaultGeofenceId)?.name || t('condoDashboard.map.geofence.none');
+
   return (
     <>
         <Card>
@@ -234,14 +236,17 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                             </div>
                             
                             {selectedModule === 'geofence' && (
-                                <>
-                                <div className="space-y-4 pt-2 border-t mt-4 flex-grow flex flex-col">
-                                    <div className="flex justify-between items-center">
-                                        <h3 className="text-base font-semibold">{t('condoDashboard.map.modules.geofence')}</h3>
-                                        <div className="flex items-center space-x-2">
-                                            <Checkbox id="show-all" checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)} />
-                                            <Label htmlFor="show-all" className="text-xs">{t('condoDashboard.map.geofence.viewAll')}</Label>
-                                        </div>
+                                <div className="space-y-4 pt-4 border-t mt-4 flex-grow flex flex-col">
+                                    
+                                    <div className="grid grid-cols-2 gap-4 items-end">
+                                      <div>
+                                          <Label htmlFor='default-geofence-display'>{t('condoDashboard.map.geofence.defaultLabel')}</Label>
+                                          <Input id='default-geofence-display' value={defaultGeofenceName} readOnly />
+                                      </div>
+                                      <div className="flex items-center space-x-2 pb-2">
+                                          <Checkbox id="show-all" checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)} />
+                                          <Label htmlFor="show-all">{t('condoDashboard.map.geofence.viewAll')}</Label>
+                                      </div>
                                     </div>
                                     
                                     <div className="space-y-2">
@@ -261,65 +266,46 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                             </SelectContent>
                                         </Select>
                                     </div>
+
                                     <div className="grid grid-cols-2 gap-2">
-                                        <Button variant="outline" disabled={isPending} onClick={() => setIsEditMode(true)}>
-                                            <PlusCircle className="mr-2 h-4 w-4"/>{t('common.create')}
-                                        </Button>
-                                        <Button variant="outline" disabled={!selectedGeofenceId || isPending} onClick={() => setIsEditMode(true)}>
-                                            <Edit className="mr-2 h-4 w-4"/>{t('common.edit')}
-                                        </Button>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
+                                        <Button variant="outline" disabled={isPending} onClick={() => {}}><PlusCircle className="mr-2 h-4 w-4"/>{t('common.create')}</Button>
+                                        <Button variant="outline" disabled={!selectedGeofenceId || isPending} onClick={() => {}}><Edit className="mr-2 h-4 w-4"/>{t('common.edit')}</Button>
+                                        <Button variant="secondary" onClick={() => handleSetDefault(selectedGeofenceId!)} disabled={!selectedGeofenceId || selectedGeofenceId === defaultGeofenceId || isPending}><Star className="mr-2 h-4 w-4"/>{t('condoDashboard.map.geofence.setAsDefault')}</Button>
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button variant="destructive" disabled={!selectedGeofenceId || isPending}>
-                                                    <Trash2 className="mr-2 h-4 w-4"/>{t('common.delete')}
-                                                </Button>
+                                                <Button variant="destructive" disabled={!selectedGeofenceId || isPending}><Trash2 className="mr-2 h-4 w-4"/>{t('common.delete')}</Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        {t('condoDashboard.users.deleteConfirmation', {name: dbGeofences.find((g: DbGeofence) => g.id === selectedGeofenceId)?.name || ''})}
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDelete(selectedGeofenceId!)}>{t('common.delete')}</AlertDialogAction>
-                                                </AlertDialogFooter>
+                                                <AlertDialogHeader><AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle><AlertDialogDescription>{t('condoDashboard.users.deleteConfirmation', {name: dbGeofences.find((g: DbGeofence) => g.id === selectedGeofenceId)?.name || ''})}</AlertDialogDescription></AlertDialogHeader>
+                                                <AlertDialogFooter><AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(selectedGeofenceId!)}>{t('common.delete')}</AlertDialogAction></AlertDialogFooter>
                                             </AlertDialogContent>
                                         </AlertDialog>
-                                        <Button variant="secondary" onClick={() => handleSetDefault(selectedGeofenceId!)} disabled={!selectedGeofenceId || selectedGeofenceId === defaultGeofenceId || isPending}>
-                                            <Star className="mr-2 h-4 w-4"/>{t('condoDashboard.map.geofence.setAsDefault')}
-                                        </Button>
                                     </div>
+                                    
+                                    <fieldset className="border rounded-md p-4 pt-2 space-y-4 mt-auto">
+                                        <legend className="-ml-1 px-1 text-sm font-medium flex items-center">
+                                            <Checkbox id="enable-editing" checked={isEditMode} onCheckedChange={(checked) => setIsEditMode(!!checked)} />
+                                            <Label htmlFor="enable-editing" className="ml-2 font-semibold text-foreground">{t('adminDashboard.settingsGroups.catalogs.deviceTypes.editMode')}</Label>
+                                        </legend>
+                                        {isEditMode && (
+                                            <div className="space-y-4 animate-in fade-in-50">
+                                                <Select value={shapeType} onValueChange={(v) => setShapeType(v as any)}>
+                                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value='Polygon'>{t('condoDashboard.map.shapes.polygon')}</SelectItem>
+                                                        <SelectItem value='Rectangle'>{t('condoDashboard.map.shapes.rectangle')}</SelectItem>
+                                                        <SelectItem value='Circle'>{t('condoDashboard.map.shapes.circle')}</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    <Button><PenSquare className="h-4 w-4 mr-2" />{t('condoDashboard.map.geofence.draw')} {shapeType}</Button>
+                                                    <Button><Save className="h-4 w-4 mr-2"/> {t('condoDashboard.map.geofence.saveButton')}</Button>
+                                                    <Button onClick={()=> setIsEditMode(false)} variant="ghost"><XCircle className="h-4 w-4 mr-2"/> {t('common.cancel')}</Button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </fieldset>
                                 </div>
-                                <fieldset className="border rounded-md p-4 pt-2 space-y-4 mt-4">
-                                    <legend className="-ml-1 px-1 text-sm font-medium flex items-center">
-                                         <Checkbox id="enable-editing" checked={isEditMode} onCheckedChange={(checked) => setIsEditMode(!!checked)} />
-                                        <Label htmlFor="enable-editing" className="ml-2 font-semibold text-foreground">{t('adminDashboard.settingsGroups.catalogs.deviceTypes.editMode')}</Label>
-                                    </legend>
-                                    {isEditMode && (
-                                    <div className="space-y-4">
-                                        <Select value={shapeType} onValueChange={(v) => setShapeType(v as any)}>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value='Polygon'>{t('condoDashboard.map.shapes.polygon')}</SelectItem>
-                                                <SelectItem value='Rectangle'>{t('condoDashboard.map.shapes.rectangle')}</SelectItem>
-                                                <SelectItem value='Circle'>{t('condoDashboard.map.shapes.circle')}</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <div className="grid grid-cols-1 gap-2">
-                                            <Button><PenSquare className="h-4 w-4 mr-2" />{t('condoDashboard.map.geofence.draw')} {shapeType}</Button>
-                                            <Button><Save className="h-4 w-4 mr-2"/> {t('condoDashboard.map.geofence.saveButton')}</Button>
-                                            <Button onClick={()=> setIsEditMode(false)} variant="ghost"><XCircle className="h-4 w-4 mr-2"/> {t('common.cancel')}</Button>
-                                        </div>
-                                    </div>
-                                    )}
-                                </fieldset>
-                                </>
                             )}
                             {selectedModule === 'elements' && (
                                 <ElementsControls condoId={condo.id}/>
@@ -341,5 +327,3 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     </>
   );
 }
-
-    
