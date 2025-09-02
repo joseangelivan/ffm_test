@@ -189,14 +189,14 @@ export function GeofenceControls({
 
         const modify = new Modify({
             features: features,
-            geometryFunction: drawingMode === 'Rectangle' ? (geometry) => {
-                 const coords = (geometry as any).getCoordinates()[0];
-                 const minX = Math.min(coords[0][0], coords[2][0]);
-                 const minY = Math.min(coords[0][1], coords[2][1]);
-                 const maxX = Math.max(coords[0][0], coords[2][0]);
-                 const maxY = Math.max(coords[0][1], coords[2][1]);
+            geometryFunction: drawingMode === 'Rectangle' ? (geometry: any) => {
+                 const coords = geometry.getCoordinates()[0];
+                 const minX = Math.min(coords[0][0], coords[1][0], coords[2][0], coords[3][0]);
+                 const minY = Math.min(coords[0][1], coords[1][1], coords[2][1], coords[3][1]);
+                 const maxX = Math.max(coords[0][0], coords[1][0], coords[2][0], coords[3][0]);
+                 const maxY = Math.max(coords[0][1], coords[1][1], coords[2][1], coords[3][1]);
                  const newCoords = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY], [minX, minY]];
-                 (geometry as any).setCoordinates([newCoords]);
+                 geometry.setCoordinates([newCoords]);
                  return geometry;
             } : undefined,
         });
