@@ -100,8 +100,13 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   }, [applyTheme, initialSettings, session, router]);
 
   useEffect(() => {
-      handleSetTheme(initialSettings.theme);
-  }, [handleSetTheme, initialSettings.theme]);
+    // This effect should only run once on mount to set the initial theme based on settings
+    const setInitialTheme = async () => {
+        const themeData = await getActiveTheme(initialSettings);
+        applyTheme(themeData, initialSettings.theme);
+    };
+    setInitialTheme();
+  }, []); // Empty dependency array ensures it runs only once
 
   const handleSetLocale = async (newLocale: 'es' | 'pt-BR') => {
       setLocale(newLocale);
