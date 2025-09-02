@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
@@ -50,7 +50,7 @@ interface MapProps {
     selectedGeofenceId: string | null;
     defaultGeofenceId: string | null;
     mode: 'view' | 'editing';
-    initialPosition: { lat: number, lng: number };
+    initialPosition: { lat: number; lng: number };
 }
 
 /**
@@ -67,15 +67,21 @@ function readLegacyOrStandardGeoJSON(geometry: any) {
 
     const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
 
-    // Handle legacy, non-standard geometry types that were stored as 'Rectangle'
-    if (geometry.type === 'Rectangle' && geometry.coordinates) {
-        try {
-            // Assume the coordinates are already in a polygon-like structure
-            const transformedCoords = geometry.coordinates[0].map((coord: number[]) => fromLonLat(coord));
-            return new Polygon([transformedCoords]);
-        } catch(e) {
-            console.error("Error transforming legacy Rectangle geometry:", e);
-            return null;
+    // Explicitly handle the legacy "rectangle" type by converting it to a Polygon
+    if (geometry.type.toLowerCase() === 'rectangle') {
+        if (Array.isArray(geometry.coordinates) && geometry.coordinates.length > 0 && Array.isArray(geometry.coordinates[0])) {
+            try {
+                // The coordinates for a polygon are an array of linear rings.
+                // The first linear ring defines the exterior boundary.
+                const transformedCoords = geometry.coordinates[0].map((coord: number[]) => fromLonLat(coord));
+                return new Polygon([transformedCoords]);
+            } catch(e) {
+                console.error("Error transforming legacy Rectangle geometry coordinates:", e);
+                return null;
+            }
+        } else {
+             console.error("Invalid coordinate structure for legacy Rectangle geometry:", geometry);
+             return null;
         }
     }
     
@@ -167,36 +173,37 @@ const OpenLayersMap: React.FC<MapProps> = ({
         const source = vectorSourceRef.current;
         if (!source) return;
 
-        const existingFeatures = new Set(source.getFeatures().map(f => f.getId()));
+        const existingFeatureIds = new Set(source.getFeatures().map(f => f.getId()));
+        const dbGeofenceIds = new Set(dbGeofences.map(g => g.id));
         
+        // Add or update features from DB
         dbGeofences.forEach(dbGf => {
-            let feature = source.getFeatureById(dbGf.id);
             const geometry = readLegacyOrStandardGeoJSON(dbGf.geometry);
-            
             if (!geometry) {
                 console.warn(`Could not read geometry for geofence ${dbGf.id}`);
                 return;
             }
 
-            if (!feature) {
+            let feature = source.getFeatureById(dbGf.id);
+            if (feature) {
+                // Update geometry only if not being edited
+                if (activeShapeState?.id !== dbGf.id) {
+                    feature.setGeometry(geometry);
+                }
+            } else {
                 feature = new Feature({ geometry });
                 feature.setId(dbGf.id);
                 source.addFeature(feature);
-            } else {
-                const currentGeom = feature.getGeometry();
-                // Only update geometry if it's different and not being actively edited
-                if (activeShapeState?.id !== dbGf.id) {
-                     feature.setGeometry(geometry);
-                }
             }
-            existingFeatures.delete(dbGf.id);
         });
 
-        existingFeatures.forEach(id => {
-            if (typeof id === 'string' && id.startsWith('new-shape-')) return;
-            if (id !== activeShapeState?.id) {
-                const featureToRemove = source.getFeatureById(id!);
-                if (featureToRemove) source.removeFeature(featureToRemove);
+        // Remove features that are no longer in the DB
+        existingFeatureIds.forEach(id => {
+            if (id && !dbGeofenceIds.has(id.toString()) && id !== activeShapeState?.id) {
+                const featureToRemove = source.getFeatureById(id);
+                if (featureToRemove) {
+                    source.removeFeature(featureToRemove);
+                }
             }
         });
 
@@ -215,20 +222,16 @@ const OpenLayersMap: React.FC<MapProps> = ({
             const isDefault = id === defaultGeofenceId;
 
             let style = STYLE_BACKGROUND_GREY;
-            let zIndex = 1;
             
             if (isBeingEdited) {
                 style = STYLE_FOCUSED_BLUE;
-                zIndex = 3;
             } else {
                  if (mode === 'view') {
                     if (showAllGeofences) {
                         style = isDefault ? STYLE_VIEW_MODE : STYLE_BACKGROUND_GREY;
-                        zIndex = isDefault ? 2 : 1;
                     } else {
                         if (isDefault) {
                             style = STYLE_VIEW_MODE;
-                            zIndex = 2;
                         } else {
                             feature.setStyle(new Style()); // Hide it
                             return;
@@ -237,10 +240,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 } else { // mode === 'editing'
                     if (isSelected) {
                         style = STYLE_REFERENCE_GREEN;
-                        zIndex = 2;
                     } else if (showAllGeofences) {
                         style = STYLE_BACKGROUND_GREY;
-                        zIndex = 1;
                     } else {
                          feature.setStyle(new Style()); // Hide it
                          return;
