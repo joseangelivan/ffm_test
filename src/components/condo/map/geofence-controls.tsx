@@ -44,8 +44,6 @@ const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
 }
 
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number) => {
-    // This function requires the Polygon class, which should only be loaded on the client.
-    // We import it here to avoid server-side rendering issues.
     const PolygonClass = require('ol/geom/Polygon').default;
     const estaDentro = puntoEstaDentro(new PolygonClass([verticesOriginales]), verticeMovido);
 
@@ -174,7 +172,7 @@ export function GeofenceControls({
     const pushToHistory = useCallback((geometry: Geometry) => {
         setHistoryStack(prev => {
             const newStack = prev.slice(0, historyIndex + 1);
-            newStack.push(geometry.clone());
+            newStack.push(geometry.clone()); // CLONE the geometry
             setHistoryIndex(newStack.length - 1);
             return newStack;
         });
