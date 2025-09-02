@@ -52,8 +52,12 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
         return null;
     }
     
-    // Check for an empty object `{}` which is invalid.
-    if (typeof geometryObject === 'object' && Object.keys(geometryObject).length === 0 && geometryObject.constructor === Object) {
+    if (typeof geometryObject !== 'object') {
+        console.warn(`Invalid geometry object passed to reader (not an object):`, geometryObject);
+        return null;
+    }
+
+    if (Object.keys(geometryObject).length === 0 && geometryObject.constructor === Object) {
         console.warn(`Invalid geometry object passed to reader (empty object):`, geometryObject);
         return null;
     }
