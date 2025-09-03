@@ -152,7 +152,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 return STYLE_EDIT_MODE_SELECTED;
             }
             if (featureId === selectedGeofenceId) {
-                return STYLE_VIEW_MODE; // Blue border for selected but not actively edited
+                return STYLE_VIEW_MODE;
             }
             return STYLE_EDIT_MODE_UNSELECTED;
         }

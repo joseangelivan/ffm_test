@@ -302,19 +302,20 @@ export function GeofenceControls({
         const selectedGeofenceData = geofences.find(g => g.id === selectedGeofenceId);
         if (!selectedGeofenceData) return;
 
-        cancelCurrentAction(); // Clear any previous state
+        cancelCurrentAction();
         setIsDrawing(false);
 
         let featureToEdit = source.getFeatureById(selectedGeofenceId) as OlFeature<Polygon> | null;
+        const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
+        const geometry = format.readGeometry(selectedGeofenceData.geometry);
+        if (!geometry) {
+             toast({ title: t('toast.errorTitle'), description: "No se pudo cargar la geometría de la geocerca.", variant: 'destructive' });
+             return;
+        }
 
-        // If feature not on map, create it from DB data
-        if (!featureToEdit) {
-            const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-            const geometry = format.readGeometry(selectedGeofenceData.geometry);
-            if (!geometry) {
-                toast({ title: t('toast.errorTitle'), description: "No se pudo cargar la geometría de la geocerca.", variant: 'destructive' });
-                return;
-            }
+        if (featureToEdit) {
+            featureToEdit.setGeometry(geometry);
+        } else {
             featureToEdit = new Feature(geometry);
             featureToEdit.setId(selectedGeofenceData.id);
             source.addFeature(featureToEdit);
@@ -333,7 +334,7 @@ export function GeofenceControls({
             pushToHistory(originalGeom);
         }
 
-    }, [geofences, selectedGeofenceId, cancelCurrentAction, pushToHistory, toast, t]);
+    }, [geofences, selectedGeofenceId, cancelCurrentAction, pushToHistory, toast, t, setActiveShapeState]);
     
      useEffect(() => {
         const map = mapRef.current;
