@@ -232,7 +232,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
             let cursor = 'default';
             let vertexFound = false;
 
-            // Check for vertices first
             map.forEachFeatureAtPixel(
                 pixel,
                 (feature, layer) => {
@@ -244,15 +243,12 @@ const OpenLayersMap: React.FC<MapProps> = ({
                     layerFilter: (layer) => {
                         const interactions = map.getInteractions().getArray();
                         const modifyInteraction = interactions.find(i => i instanceof Modify && i.getActive());
-                        // The overlay with vertices is not publicly exposed, so we check if it has a source (which the base layer has)
-                        // The overlay is a VectorLayer without a source.
                         return modifyInteraction ? !layer.getSource() : false;
                     },
                     hitTolerance: 5,
                 }
             );
 
-            // If no vertex was found, check for the main shape
             if (!vertexFound) {
                 map.forEachFeatureAtPixel(
                     pixel,
@@ -344,6 +340,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
+
 
 
 
