@@ -43,12 +43,9 @@ import { Style } from 'ol/style';
 
 
 const RecalcularRectangulo = (vérticeFijo: number[], vérticeMovido: number[]): number[][] => {
-  const [x1, y1] = vérticeFijo;
-  const [x2, y2] = vérticeMovido;
-  
-  return [
-    [x1, y1], [x2, y1], [x2, y2], [x1, y2], [x1, y1]
-  ];
+    const [x1, y1] = vérticeFijo;
+    const [x2, y2] = vérticeMovido;
+    return [[x1, y1], [x1, y2], [x2, y2], [x2, y1], [x1, y1]];
 };
 
 
@@ -447,6 +444,10 @@ export function GeofenceControls({
                             onCheckedChange={(checked) => {
                                 if (!checked) {
                                     cancelCurrentAction();
+                                } else {
+                                    if (geofences.length > 0 && !selectedGeofenceId) {
+                                        setSelectedGeofenceId(geofences[0].id);
+                                    }
                                 }
                                 setMode(checked ? 'editing' : 'view');
                             }}
