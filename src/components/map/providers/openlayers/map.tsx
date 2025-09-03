@@ -17,6 +17,7 @@ import type { Geometry } from 'ol/geom';
 import Feature from 'ol/Feature';
 import { Style, Fill, Stroke } from 'ol/style';
 import type { Geofence as DbGeofence } from '@/actions/maps';
+import { platformModifierKeyOnly } from 'ol/events/condition';
 
 
 const STYLE_VIEW_MODE = new Style({
@@ -218,8 +219,24 @@ const OpenLayersMap: React.FC<MapProps> = ({
         (mapRef as React.MutableRefObject<Map | null>).current = map;
         onMapLoad(map, vectorSourceRef.current);
 
+        const handlePointerMove = (e: any) => {
+            const pixel = map.getEventPixel(e.originalEvent);
+            const hit = map.hasFeatureAtPixel(pixel, {
+                layerFilter: (layer) => layer === vectorLayer,
+                hitTolerance: 4, 
+            });
+            const target = map.getTargetElement();
+            if (target) {
+                target.style.cursor = hit ? 'crosshair' : '';
+            }
+        };
+
+        map.on('pointermove', handlePointerMove);
+
+
         return () => {
             if (mapRef.current) {
+                mapRef.current.un('pointermove', handlePointerMove);
                 mapRef.current.setTarget(undefined);
             }
         };
