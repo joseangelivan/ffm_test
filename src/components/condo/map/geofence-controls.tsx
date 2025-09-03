@@ -406,7 +406,7 @@ export function GeofenceControls({
                     <div className="flex items-center justify-between">
                         <Label htmlFor="default-geofence">{t('condoDashboard.map.geofence.defaultLabel')}</Label>
                         <div className="flex items-center space-x-2">
-                            <Checkbox id="view-all" checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)}/>
+                            <Checkbox id="view-all" checked={showAllGeofences} onCheckedChange={(checked) => setShowAllGeofences(!!checked)} disabled={mode === 'editing'}/>
                             <label htmlFor="view-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                 {t('condoDashboard.map.geofence.viewAll')}
                             </label>
@@ -447,6 +447,10 @@ export function GeofenceControls({
                                 } else {
                                     if (geofences.length > 0 && !selectedGeofenceId) {
                                         setSelectedGeofenceId(geofences[0].id);
+                                    }
+                                    // When entering edit mode, always turn off "show all"
+                                    if (showAllGeofences) {
+                                        setShowAllGeofences(false);
                                     }
                                 }
                                 setMode(checked ? 'editing' : 'view');
