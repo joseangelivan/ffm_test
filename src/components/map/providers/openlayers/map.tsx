@@ -225,32 +225,27 @@ const OpenLayersMap: React.FC<MapProps> = ({
             const pixel = map.getEventPixel(e.originalEvent);
             const target = map.getTargetElement();
             if (!target) return;
-            
+        
             let cursor = 'default';
-            
-            // Check if pointer is over a feature and change cursor to 'move'
-            const feature = map.forEachFeatureAtPixel(pixel, (f) => f);
-            if (feature && mode === 'editing' && activeShapeState && feature.getId() === activeShapeState.id) {
-                cursor = 'move';
-            }
+            let featureFound = false;
 
-            // Check specifically if pointer is over a vertex of the modify interaction
-             if (map.getInteractions().getArray().some(i => i instanceof Modify && i.getActive())) {
-                const modifyInteraction = map.getInteractions().getArray().find(i => i instanceof Modify && i.getActive()) as Modify;
-                // This is an internal detail, but it's a common way to check for vertex handles
-                const overlay = (modifyInteraction as any).overlay_;
-                const vertexFeature = overlay.getSource().getClosestFeatureToCoordinate(e.coordinate);
-                if (vertexFeature) {
-                    const distance = Math.sqrt(
-                        Math.pow(e.coordinate[0] - vertexFeature.getGeometry().getCoordinates()[0], 2) +
-                        Math.pow(e.coordinate[1] - vertexFeature.getGeometry().getCoordinates()[1], 2)
-                    );
-                    if (distance < 10 * map.getView().getResolution()) { // 10 pixel tolerance
-                         cursor = 'crosshair';
-                    }
+            // Check if pointer is over a feature
+            map.getFeaturesAtPixel(pixel, { hitTolerance: 5 }).forEach(feature => {
+                if (featureFound) return; // Process only the top-most feature
+
+                const featureId = feature.getId();
+                // Check if it's a vertex from the Modify interaction
+                const isVertex = feature.getStyle && typeof feature.getStyle() === 'function' && (feature.getStyle() as any).getImage && (feature.getStyle() as any).getImage().getRadius() > 0;
+        
+                if (isVertex) {
+                    cursor = 'crosshair';
+                    featureFound = true;
+                } else if (mode === 'editing' && activeShapeState && featureId === activeShapeState.id) {
+                    cursor = 'move';
+                    featureFound = true;
                 }
-             }
-
+            });
+        
             target.style.cursor = cursor;
         };
         
@@ -326,4 +321,5 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
+
 
