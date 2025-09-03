@@ -301,25 +301,15 @@ export function GeofenceControls({
 
         const selectedGeofenceData = geofences.find(g => g.id === selectedGeofenceId);
         if (!selectedGeofenceData) return;
+        
+        const featureToEdit = source.getFeatureById(selectedGeofenceId) as OlFeature<Polygon> | null;
+        if (!featureToEdit) {
+            toast({ title: "Error", description: "No se pudo encontrar la forma en el mapa para editar.", variant: "destructive" });
+            return;
+        }
 
         cancelCurrentAction();
         setIsDrawing(false);
-
-        let featureToEdit = source.getFeatureById(selectedGeofenceId) as OlFeature<Polygon> | null;
-        const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-        const geometry = format.readGeometry(selectedGeofenceData.geometry);
-        if (!geometry) {
-             toast({ title: t('toast.errorTitle'), description: "No se pudo cargar la geometría de la geocerca.", variant: 'destructive' });
-             return;
-        }
-
-        if (featureToEdit) {
-            featureToEdit.setGeometry(geometry);
-        } else {
-            featureToEdit = new Feature(geometry);
-            featureToEdit.setId(selectedGeofenceData.id);
-            source.addFeature(featureToEdit);
-        }
         
         const originalGeom = featureToEdit.getGeometry()?.clone();
         
@@ -334,7 +324,7 @@ export function GeofenceControls({
             pushToHistory(originalGeom);
         }
 
-    }, [geofences, selectedGeofenceId, cancelCurrentAction, pushToHistory, toast, t, setActiveShapeState]);
+    }, [geofences, selectedGeofenceId, cancelCurrentAction, pushToHistory, toast]);
     
      useEffect(() => {
         const map = mapRef.current;
@@ -530,7 +520,7 @@ export function GeofenceControls({
                                         </Tooltip>
                                         <Tooltip>
                                              <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!selectedGeofenceId || isBusy || !!activeShapeState}>
+                                                <Button variant="ghost" size="icon" onClick={startEditingSelected} disabled={!selectedGeofenceId || !!activeShapeState}>
                                                     <Edit className="h-4 w-4"/>
                                                 </Button>
                                             </TooltipTrigger>
