@@ -17,7 +17,7 @@ import type { Geometry } from 'ol/geom';
 import Feature from 'ol/Feature';
 import { Style, Fill, Stroke } from 'ol/style';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-import { platformModifierKeyOnly } from 'ol/events/condition';
+import { Modify } from 'ol/interaction';
 
 
 const STYLE_VIEW_MODE = new Style({
@@ -203,6 +203,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
         const vectorLayer = new VectorLayer({
             source: vectorSourceRef.current,
             style: (feature) => feature.get('style'),
+            updateWhileAnimating: true,
+            updateWhileInteracting: true,
         });
         vectorLayer.set('id', 'geofence-layer');
 
@@ -221,26 +223,46 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
         const handlePointerMove = (e: any) => {
             const pixel = map.getEventPixel(e.originalEvent);
-            const hit = map.hasFeatureAtPixel(pixel, {
-                layerFilter: (layer) => layer === vectorLayer,
-                hitTolerance: 4, 
-            });
             const target = map.getTargetElement();
-            if (target) {
-                target.style.cursor = hit ? 'crosshair' : '';
+            if (!target) return;
+            
+            let cursor = 'default';
+            
+            // Check if pointer is over a feature and change cursor to 'move'
+            const feature = map.forEachFeatureAtPixel(pixel, (f) => f);
+            if (feature && mode === 'editing' && activeShapeState && feature.getId() === activeShapeState.id) {
+                cursor = 'move';
             }
+
+            // Check specifically if pointer is over a vertex of the modify interaction
+             if (map.getInteractions().getArray().some(i => i instanceof Modify && i.getActive())) {
+                const modifyInteraction = map.getInteractions().getArray().find(i => i instanceof Modify && i.getActive()) as Modify;
+                // This is an internal detail, but it's a common way to check for vertex handles
+                const overlay = (modifyInteraction as any).overlay_;
+                const vertexFeature = overlay.getSource().getClosestFeatureToCoordinate(e.coordinate);
+                if (vertexFeature) {
+                    const distance = Math.sqrt(
+                        Math.pow(e.coordinate[0] - vertexFeature.getGeometry().getCoordinates()[0], 2) +
+                        Math.pow(e.coordinate[1] - vertexFeature.getGeometry().getCoordinates()[1], 2)
+                    );
+                    if (distance < 10 * map.getView().getResolution()) { // 10 pixel tolerance
+                         cursor = 'crosshair';
+                    }
+                }
+             }
+
+            target.style.cursor = cursor;
         };
-
+        
         map.on('pointermove', handlePointerMove);
-
 
         return () => {
             if (mapRef.current) {
-                mapRef.current.un('pointermove', handlePointerMove);
+                 mapRef.current.un('pointermove', handlePointerMove);
                 mapRef.current.setTarget(undefined);
             }
         };
-    }, [provider, onMapLoad, initialPosition, mapRef]);
+    }, [provider, onMapLoad, initialPosition, mapRef, mode, activeShapeState]);
 
 
     useEffect(() => {
@@ -304,3 +326,4 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
+
