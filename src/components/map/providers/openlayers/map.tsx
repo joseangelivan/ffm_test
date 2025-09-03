@@ -15,7 +15,7 @@ import { fromLonLat, transform } from 'ol/proj';
 import GeoJSON from 'ol/format/GeoJSON';
 import type { Geometry } from 'ol/geom';
 import Feature from 'ol/Feature';
-import { Style, Fill, Stroke } from 'ol/style';
+import { Style, Fill, Stroke, Circle as CircleStyle } from 'ol/style';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 import { Modify } from 'ol/interaction';
 
@@ -222,30 +222,55 @@ const OpenLayersMap: React.FC<MapProps> = ({
         onMapLoad(map, vectorSourceRef.current);
 
         const handlePointerMove = (e: any) => {
+            if (e.dragging) {
+              return;
+            }
             const pixel = map.getEventPixel(e.originalEvent);
             const target = map.getTargetElement();
             if (!target) return;
-        
+          
             let cursor = 'default';
-            let featureFound = false;
-
-            // Check if pointer is over a feature
-            map.getFeaturesAtPixel(pixel, { hitTolerance: 5 }).forEach(feature => {
-                if (featureFound) return; // Process only the top-most feature
-
-                const featureId = feature.getId();
-                // Check if it's a vertex from the Modify interaction
-                const isVertex = feature.getStyle && typeof feature.getStyle() === 'function' && (feature.getStyle() as any).getImage && (feature.getStyle() as any).getImage().getRadius() > 0;
-        
-                if (isVertex) {
-                    cursor = 'crosshair';
-                    featureFound = true;
-                } else if (mode === 'editing' && activeShapeState && featureId === activeShapeState.id) {
-                    cursor = 'move';
-                    featureFound = true;
+            let featureAtPixel = false;
+          
+            // Check for vertices from the Modify interaction's overlay
+            map.forEachFeatureAtPixel(
+              pixel,
+              (feature, layer) => {
+                if (feature.get('features')) { // This identifies the modify interaction's vertex feature
+                  cursor = 'crosshair';
+                  featureAtPixel = true;
+                  return true; // stop iterating
                 }
-            });
-        
+              },
+              {
+                // Important: Check the layer of the Modify interaction's overlay
+                layerFilter: (layer) => {
+                  const interactions = map.getInteractions().getArray();
+                  const modifyInteraction = interactions.find(i => i instanceof Modify && i.getActive());
+                  return modifyInteraction ? (modifyInteraction as any).overlay_ === layer : false;
+                },
+                hitTolerance: 5,
+              }
+            );
+          
+            if (!featureAtPixel) {
+              // Check if hovering over the main geofence shape
+              map.forEachFeatureAtPixel(
+                pixel,
+                (feature) => {
+                  if (activeShapeState && feature.getId() === activeShapeState.id) {
+                    cursor = 'move';
+                    featureAtPixel = true;
+                    return true;
+                  }
+                },
+                {
+                  layerFilter: l => l === vectorLayer,
+                  hitTolerance: 5,
+                }
+              );
+            }
+          
             target.style.cursor = cursor;
         };
         
@@ -253,7 +278,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
         return () => {
             if (mapRef.current) {
-                 mapRef.current.un('pointermove', handlePointerMove);
+                mapRef.current.un('pointermove', handlePointerMove);
                 mapRef.current.setTarget(undefined);
             }
         };
@@ -321,5 +346,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
+
 
 
