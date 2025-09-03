@@ -42,37 +42,25 @@ import Feature from 'ol/Feature';
 import { Style } from 'ol/style';
 
 
-const puntoEstaDentro = (poligono: Polygon, punto: number[]): boolean => {
-    return poligono.intersectsCoordinate(punto);
-}
-
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
-    const olPolygon = require('ol/geom/Polygon').default;
-
-    const poligonoOriginal = new olPolygon([verticesOriginales]);
-    if (!puntoEstaDentro(poligonoOriginal, verticeMovido)) {
-        const tempVertices = [...verticesOriginales];
-        tempVertices[indiceMovido] = verticeMovido;
-        const xs = tempVertices.map(v => v[0]);
-        const ys = tempVertices.map(v => v[1]);
-        const minX = Math.min(...xs);
-        const maxX = Math.max(...xs);
-        const minY = Math.min(...ys);
-        const maxY = Math.max(...ys);
-        const rectanguloPerfecto = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]];
-        return [...rectanguloPerfecto, rectanguloPerfecto[0]];
-    }
-
+    // El vértice opuesto es el que está a 2 índices de distancia en un array de 4 vértices
     const indiceOpuesto = (indiceMovido + 2) % 4;
     const verticeOpuesto = verticesOriginales[indiceOpuesto];
     
+    const x1 = verticeMovido[0];
+    const y1 = verticeMovido[1];
+    const x2 = verticeOpuesto[0];
+    const y2 = verticeOpuesto[1];
+
+    // Se construyen los 4 vértices del nuevo rectángulo
     const nuevoRectangulo = [
-        [verticeMovido[0], verticeMovido[1]],
-        [verticeOpuesto[0], verticeMovido[1]],
-        [verticeOpuesto[0], verticeOpuesto[1]],
-        [verticeMovido[0], verticeOpuesto[1]],
+        [x1, y1], // El vértice que se movió
+        [x2, y1], // Nuevo vértice adyacente
+        [x2, y2], // El vértice opuesto que permaneció fijo
+        [x1, y2], // Nuevo vértice adyacente
     ];
   
+  // Se devuelve el array de vértices, con el primero repetido al final para cerrar el polígono
   return [...nuevoRectangulo, nuevoRectangulo[0]];
 };
 
@@ -396,8 +384,12 @@ export function GeofenceControls({
                     }
 
                     if (movedIndex !== -1) {
-                        newPoint = newVertices.find(nv => !originalVertices.some(ov => ov[0] === nv[0] && ov[1] === nv[1]));
+                       const foundNewPoint = newVertices.find(nv => !originalVertices.some(ov => ov[0] === nv[0] && ov[1] === nv[1]));
+                       if (foundNewPoint) {
+                          newPoint = foundNewPoint;
+                       }
                     }
+
 
                     if (movedIndex !== -1 && newPoint) {
                         const correctedCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
