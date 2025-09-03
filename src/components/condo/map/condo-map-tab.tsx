@@ -117,7 +117,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     });
   }, [condoAddressPosition]);
 
-  const applyZoomLevel = useCallback(() => {
+  const applyZoomLevel = useCallback((source: VectorSource | null = geofenceSource) => {
     const map = mapRef.current;
     if (!map) return;
 
@@ -126,8 +126,10 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
         return;
     }
 
-    const source = geofenceSource;
-    if (!source) return;
+    if (!source) {
+        centerMapOnAddress();
+        return;
+    }
 
     let geofenceIdToFit: string | null;
 
@@ -178,7 +180,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     setIsLoading(false);
     
     // Apply initial zoom/centering after map is fully loaded and ready
-    applyZoomLevel();
+    applyZoomLevel(source);
   }, [applyZoomLevel]);
     
   const handleZoomIn = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom()! + 1);
@@ -287,7 +289,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                             <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
                                 <ZoomOut className="h-5 w-5" />
                             </Button>
-                            <Button onClick={applyZoomLevel} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
+                            <Button onClick={() => applyZoomLevel()} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
                                 <Frame className="h-5 w-5" />
                             </Button>
                         </div>
@@ -357,3 +359,5 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     </>
   );
 }
+
+    
