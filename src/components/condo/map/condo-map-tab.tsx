@@ -215,10 +215,9 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const onShapeDrawn = useCallback((feature: Feature<any>) => {
     if (!feature) return;
 
-    if (activeShapeState?.feature) {
-      const source = geofenceSource;
-      if(source && source.hasFeature(activeShapeState.feature)) {
-        source.removeFeature(activeShapeState.feature);
+    if (activeShapeState?.feature && geofenceSource) {
+      if(geofenceSource.hasFeature(activeShapeState.feature)) {
+        geofenceSource.removeFeature(activeShapeState.feature);
       }
     }
 
@@ -320,7 +319,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                 </Select>
                             </div>
                             
-                            {selectedModule === 'geofence' && geofenceSource && (
+                            {selectedModule === 'geofence' && (
                                 <GeofenceControls
                                     condoId={condo.id}
                                     geofences={dbGeofences}

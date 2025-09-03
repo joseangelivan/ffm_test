@@ -31,7 +31,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { LoadingOverlay } from '@/components/admin/admin-header';
 
-import { Draw, Modify, Translate } from 'ol/interaction';
+import Draw from 'ol/interaction/Draw';
+import { Modify, Translate } from 'ol/interaction';
 import GeoJSON from 'ol/format/GeoJSON';
 import { Polygon } from 'ol/geom';
 import type { Geometry, SimpleGeometry } from 'ol/geom';
@@ -101,7 +102,7 @@ type GeofenceControlsProps = {
     setHistoryStack: React.Dispatch<React.SetStateAction<Geometry[]>>;
     historyIndex: number;
     setHistoryIndex: React.Dispatch<React.SetStateAction<number>>;
-    geofenceSource: VectorSource;
+    geofenceSource: VectorSource | null;
 }
 
 export function GeofenceControls({
@@ -184,16 +185,17 @@ export function GeofenceControls({
     }, [mapRef]);
 
     const cancelCurrentAction = useCallback(() => {
-        const source = geofenceSource;
-        if (activeShapeState?.feature && source) {
+        if (!geofenceSource) return;
+
+        if (activeShapeState?.feature) {
              const { feature, originalGeometry } = activeShapeState;
              if (originalGeometry && feature) {
                 const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
                 const olGeom = format.readGeometry(originalGeometry);
                 if (olGeom) feature.setGeometry(olGeom);
              } else if (feature.getId()?.toString().startsWith('new-shape-')) {
-                if (source.hasFeature(feature)) {
-                    source.removeFeature(feature);
+                if (geofenceSource.hasFeature(feature)) {
+                    geofenceSource.removeFeature(feature);
                 }
              }
         }
@@ -287,13 +289,12 @@ export function GeofenceControls({
     }
     
     const startEditingSelected = useCallback(() => {
-        const source = geofenceSource;
-        if (!selectedGeofenceId || !source) {
-            toast({ title: "Error", description: "No se pudo obtener la capa del mapa para editar.", variant: "destructive" });
+        if (!selectedGeofenceId || !geofenceSource) {
+            toast({ title: "Error", description: "Source or selectedGeofenceId is missing.", variant: "destructive" });
             return;
         }
 
-        const featureToEdit = source.getFeatureById(selectedGeofenceId) as OlFeature<Polygon> | null;
+        const featureToEdit = geofenceSource.getFeatureById(selectedGeofenceId) as OlFeature<Polygon> | null;
         
         if (featureToEdit) {
             cancelCurrentAction(); // Clear any previous state
@@ -323,15 +324,14 @@ export function GeofenceControls({
     
      useEffect(() => {
         const map = mapRef.current;
-        const source = geofenceSource;
-        if (!map || !source) return;
+        if (!map || !geofenceSource) return;
 
         removeAllInteractions();
 
         if (mode === 'editing') {
             if (isDrawing) {
                 const newInteraction = new Draw({
-                    source: source,
+                    source: geofenceSource,
                     type: drawingMode === 'Rectangle' ? 'Circle' : drawingMode,
                     geometryFunction: drawingMode === 'Rectangle' ? Draw.createBox() : undefined,
                 });
