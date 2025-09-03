@@ -183,7 +183,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   }, []);
 
   useEffect(() => {
-      if (!isLoading && mapRef.current) {
+      if (!isLoading && mapRef.current && !mapInitialized.current) {
           applyZoomLevel();
       }
   }, [isLoading, applyZoomLevel]);
