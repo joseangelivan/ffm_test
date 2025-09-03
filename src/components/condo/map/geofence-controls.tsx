@@ -42,21 +42,12 @@ import Feature from 'ol/Feature';
 import { Style } from 'ol/style';
 
 
-const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
-  const indiceOpuesto = (indiceMovido + 2) % 4;
-  const verticeOpuesto = verticesOriginales[indiceOpuesto];
-
-  const x1 = verticeMovido[0];
-  const y1 = verticeMovido[1];
-  const x2 = verticeOpuesto[0];
-  const y2 = verticeOpuesto[1];
-
+const RecalcularRectangulo = (vérticeFijo: number[], vérticeMovido: number[]): number[][] => {
+  const [x1, y1] = vérticeFijo;
+  const [x2, y2] = vérticeMovido;
+  
   return [
-    [x1, y1], // El vértice que se movió
-    [x2, y1], // Nuevo vértice adyacente
-    [x2, y2], // El vértice opuesto que permaneció fijo
-    [x1, y2], // Nuevo vértice adyacente
-    [x1, y1]  // Cerrar el polígono
+    [x1, y1], [x2, y1], [x2, y2], [x1, y2], [x1, y1]
   ];
 };
 
@@ -274,7 +265,7 @@ export function GeofenceControls({
     
     const startEditingSelected = useCallback(() => {
         if (!selectedGeofenceId || !geofenceSource) {
-             toast({ title: t('toast.errorTitle'), description: "Error al obtener la capa del mapa. Intente de nuevo.", variant: 'destructive' });
+            console.error("Source or selectedGeofenceId is missing.");
             return;
         }
 
@@ -369,7 +360,6 @@ export function GeofenceControls({
                     const newVertices = finalGeometry.getCoordinates()[0].slice(0, 4);
                     
                     let movedIndex = -1;
-                    let newPoint: number[] | undefined;
                     
                     for (let i = 0; i < originalVertices.length; i++) {
                         const oldVertex = originalVertices[i];
@@ -381,16 +371,10 @@ export function GeofenceControls({
                     }
 
                     if (movedIndex !== -1) {
-                       const foundNewPoint = newVertices.find(nv => !originalVertices.some(ov => ov[0] === nv[0] && ov[1] === nv[1]));
-                       if (foundNewPoint) {
-                          newPoint = foundNewPoint;
-                       }
-                    }
-
-
-                    if (movedIndex !== -1 && newPoint) {
-                        const correctedCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
-                        const newGeom = new Polygon(correctedCoords);
+                        const movedPoint = newVertices[movedIndex];
+                        const oppositePoint = originalVertices[(movedIndex + 2) % 4];
+                        const correctedCoords = RecalcularRectangulo(oppositePoint, movedPoint);
+                        const newGeom = new Polygon([correctedCoords]);
                         feature.setGeometry(newGeom);
                         pushToHistory(newGeom);
                     } else {
