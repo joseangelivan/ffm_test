@@ -49,6 +49,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
 
   // --- State ---
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>(condo.geofences);
+  const [geofenceSource, setGeofenceSource] = useState<VectorSource | null>(null);
   
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(() => 
     condo.geofences.find(g => g.is_default)?.id || (condo.geofences.length > 0 ? condo.geofences[0].id : null)
@@ -129,8 +130,8 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
         return;
     }
 
-    const geofenceSource = (map.getLayers().getArray().find(l => l.get('id') === 'geofence-layer') as any)?.getSource();
-    if (!geofenceSource) return;
+    const source = geofenceSource;
+    if (!source) return;
 
     let geofenceIdToFit: string | null;
 
@@ -149,7 +150,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
         return;
     }
 
-    const featureToFit = geofenceSource.getFeatureById(geofenceIdToFit);
+    const featureToFit = source.getFeatureById(geofenceIdToFit);
     if (!featureToFit) return;
 
     const extent = featureToFit.getGeometry()?.getExtent();
@@ -166,7 +167,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
             maxZoom: 20
         });
     }
-  }, [mode, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress]);
+  }, [mode, geofenceSource, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress]);
 
 
   const handleMapLoad = useCallback(async (map: OlMap, source: VectorSource) => {
@@ -174,6 +175,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     mapInitialized.current = true;
     
     mapRef.current = map;
+    setGeofenceSource(source);
     
     map.on('moveend', () => {
         const zoom = map.getView().getZoom();
@@ -214,7 +216,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     if (!feature) return;
 
     if (activeShapeState?.feature) {
-      const source = (mapRef.current?.getLayers().getArray().find(l => l.get('id') === 'geofence-layer') as any)?.getSource();
+      const source = geofenceSource;
       if(source && source.hasFeature(activeShapeState.feature)) {
         source.removeFeature(activeShapeState.feature);
       }
@@ -232,7 +234,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
       setHistoryStack([]);
       setHistoryIndex(-1);
     }
-  }, [activeShapeState]);
+  }, [activeShapeState, geofenceSource]);
   
   return (
     <>
@@ -318,7 +320,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                 </Select>
                             </div>
                             
-                            {selectedModule === 'geofence' && (
+                            {selectedModule === 'geofence' && geofenceSource && (
                                 <GeofenceControls
                                     condoId={condo.id}
                                     geofences={dbGeofences}
@@ -340,6 +342,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                     setHistoryStack={setHistoryStack}
                                     historyIndex={historyIndex}
                                     setHistoryIndex={setHistoryIndex}
+                                    geofenceSource={geofenceSource}
                                 />
                             )}
                             {selectedModule === 'elements' && (
