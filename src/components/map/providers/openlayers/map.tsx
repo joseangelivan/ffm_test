@@ -142,7 +142,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const vectorSourceRef = useRef<VectorSource>(new VectorSource());
+    const vectorSourceRef = useRef<VectorSource | null>(null);
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
         if (mode === 'view') {
@@ -194,7 +194,11 @@ const OpenLayersMap: React.FC<MapProps> = ({
         }
         
         const initialLayer = new TileLayer({ source });
-
+        
+        if (!vectorSourceRef.current) {
+            vectorSourceRef.current = new VectorSource();
+        }
+        
         const vectorLayer = new VectorLayer({
             source: vectorSourceRef.current,
             style: (feature) => feature.get('style'),
@@ -283,5 +287,3 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
-
-  
