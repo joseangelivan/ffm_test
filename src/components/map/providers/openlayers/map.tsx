@@ -17,7 +17,7 @@ import type { Geometry } from 'ol/geom';
 import Feature from 'ol/Feature';
 import { Style, Fill, Stroke, Circle as CircleStyle } from 'ol/style';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-import { Modify } from 'ol/interaction';
+import { Modify, Translate } from 'ol/interaction';
 
 
 const STYLE_VIEW_MODE = new Style({
@@ -220,63 +220,13 @@ const OpenLayersMap: React.FC<MapProps> = ({
         
         (mapRef as React.MutableRefObject<Map | null>).current = map;
         onMapLoad(map, vectorSourceRef.current);
-
-        const handlePointerMove = (e: any) => {
-            if (e.dragging || mode !== 'editing') {
-                return;
-            }
-            const pixel = map.getEventPixel(e.originalEvent);
-            const target = map.getTargetElement();
-            if (!target) return;
-
-            let cursor = 'default';
-            let vertexFound = false;
-
-            map.forEachFeatureAtPixel(
-                pixel,
-                (feature, layer) => {
-                    cursor = 'crosshair';
-                    vertexFound = true;
-                    return true;
-                },
-                {
-                    layerFilter: (layer) => {
-                        const interactions = map.getInteractions().getArray();
-                        const modifyInteraction = interactions.find(i => i instanceof Modify && i.getActive());
-                        return modifyInteraction ? !layer.getSource() : false;
-                    },
-                    hitTolerance: 5,
-                }
-            );
-
-            if (!vertexFound) {
-                map.forEachFeatureAtPixel(
-                    pixel,
-                    (feature) => {
-                        if (activeShapeState && feature.getId() === activeShapeState.id) {
-                            cursor = 'move';
-                            return true;
-                        }
-                    },
-                    {
-                        layerFilter: l => l === vectorLayer,
-                        hitTolerance: 5,
-                    }
-                );
-            }
-            
-            target.style.cursor = cursor;
-        };
-
-        map.on('pointermove', handlePointerMove);
-
+        
         return () => {
             if (mapRef.current) {
-                mapRef.current.un('pointermove', handlePointerMove);
                 mapRef.current.setTarget(undefined);
             }
         };
-    }, [provider, onMapLoad, initialPosition, mapRef, mode, activeShapeState]);
+    }, [provider, onMapLoad, initialPosition, mapRef]);
 
 
     useEffect(() => {
@@ -332,6 +282,55 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
     }, [dbGeofences, mode, showAllGeofences, selectedGeofenceId, defaultGeofenceId, getFeatureStyle, activeShapeState]);
 
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map || mode !== 'editing' || !activeShapeState?.feature) {
+            return;
+        }
+        
+        const handlePointerMove = (e: any) => {
+            const target = map.getTargetElement();
+            if (e.dragging || !target) return;
+
+            const pixel = map.getEventPixel(e.originalEvent);
+            let cursorSet = false;
+
+            const modifyInteraction = map.getInteractions().getArray().find(
+                i => i instanceof Modify && i.getActive()
+            ) as Modify | undefined;
+
+            if (modifyInteraction) {
+                 const featuresAtPixel = modifyInteraction.getOverlay().getSource()?.getFeaturesAtCoordinate(e.coordinate);
+                 if (featuresAtPixel && featuresAtPixel.length > 0) {
+                     target.style.cursor = 'crosshair';
+                     cursorSet = true;
+                 }
+            }
+            
+            if (!cursorSet) {
+                const hit = map.hasFeatureAtPixel(pixel, {
+                    layerFilter: (l) => l.getSource() === vectorSourceRef.current,
+                    hitTolerance: 5,
+                });
+                if (hit) {
+                     target.style.cursor = 'move';
+                } else {
+                    target.style.cursor = '';
+                }
+            }
+        };
+
+        map.on('pointermove', handlePointerMove);
+        
+        return () => {
+             map.un('pointermove', handlePointerMove);
+             const target = map.getTargetElement();
+             if (target) {
+                 target.style.cursor = '';
+             }
+        }
+    }, [mapRef, mode, activeShapeState]);
+
 
     return (
        <div ref={mapContainerRef} className="w-full h-full">
@@ -340,8 +339,3 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
-
-
-
-
-
