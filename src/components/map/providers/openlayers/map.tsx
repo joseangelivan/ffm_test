@@ -196,9 +196,16 @@ const OpenLayersMap: React.FC<MapProps> = ({
         
         const initialLayer = new TileLayer({ source });
         
-        if (!vectorSourceRef.current) {
-            vectorSourceRef.current = new VectorSource();
-        }
+        const initialFeatures = dbGeofences.map(dbGeofence => {
+            const olGeom = readLegacyOrStandardGeoJSON(dbGeofence);
+            if (!olGeom) return null;
+            const feature = new Feature({ geometry: olGeom });
+            feature.setId(dbGeofence.id);
+            feature.set('geometryType', olGeom.get('geometryType'));
+            return feature;
+        }).filter((f): f is Feature<Geometry> => f !== null);
+
+        vectorSourceRef.current = new VectorSource({ features: initialFeatures });
         
         const vectorLayer = new VectorLayer({
             source: vectorSourceRef.current,
@@ -226,7 +233,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 mapRef.current.setTarget(undefined);
             }
         };
-    }, [provider, onMapLoad, initialPosition, mapRef]);
+    }, [provider, onMapLoad, initialPosition, mapRef, dbGeofences]);
 
 
     useEffect(() => {
