@@ -43,25 +43,21 @@ import { Style } from 'ol/style';
 
 
 const RecalcularRectangulo = (verticesOriginales: number[][], verticeMovido: number[], indiceMovido: number): number[][] => {
-    // El vértice opuesto es el que está a 2 índices de distancia en un array de 4 vértices
-    const indiceOpuesto = (indiceMovido + 2) % 4;
-    const verticeOpuesto = verticesOriginales[indiceOpuesto];
-    
-    const x1 = verticeMovido[0];
-    const y1 = verticeMovido[1];
-    const x2 = verticeOpuesto[0];
-    const y2 = verticeOpuesto[1];
+  const indiceOpuesto = (indiceMovido + 2) % 4;
+  const verticeOpuesto = verticesOriginales[indiceOpuesto];
 
-    // Se construyen los 4 vértices del nuevo rectángulo
-    const nuevoRectangulo = [
-        [x1, y1], // El vértice que se movió
-        [x2, y1], // Nuevo vértice adyacente
-        [x2, y2], // El vértice opuesto que permaneció fijo
-        [x1, y2], // Nuevo vértice adyacente
-    ];
-  
-  // Se devuelve el array de vértices, con el primero repetido al final para cerrar el polígono
-  return [...nuevoRectangulo, nuevoRectangulo[0]];
+  const x1 = verticeMovido[0];
+  const y1 = verticeMovido[1];
+  const x2 = verticeOpuesto[0];
+  const y2 = verticeOpuesto[1];
+
+  return [
+    [x1, y1], // El vértice que se movió
+    [x2, y1], // Nuevo vértice adyacente
+    [x2, y2], // El vértice opuesto que permaneció fijo
+    [x1, y2], // Nuevo vértice adyacente
+    [x1, y1]  // Cerrar el polígono
+  ];
 };
 
 
@@ -278,7 +274,7 @@ export function GeofenceControls({
     
     const startEditingSelected = useCallback(() => {
         if (!selectedGeofenceId || !geofenceSource) {
-            toast({ title: "Error", description: "Source or selectedGeofenceId is missing.", variant: "destructive" });
+             toast({ title: t('toast.errorTitle'), description: "Error al obtener la capa del mapa. Intente de nuevo.", variant: 'destructive' });
             return;
         }
 
@@ -351,6 +347,7 @@ export function GeofenceControls({
                     }),
                     insertVertexCondition: () => !isRectangle,
                 });
+                modifyInteraction.set('id', 'modify-interaction');
                 map.addInteraction(modifyInteraction);
                 interactionsRef.current.modify = modifyInteraction;
 
@@ -393,7 +390,7 @@ export function GeofenceControls({
 
                     if (movedIndex !== -1 && newPoint) {
                         const correctedCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
-                        const newGeom = new Polygon([correctedCoords]);
+                        const newGeom = new Polygon(correctedCoords);
                         feature.setGeometry(newGeom);
                         pushToHistory(newGeom);
                     } else {

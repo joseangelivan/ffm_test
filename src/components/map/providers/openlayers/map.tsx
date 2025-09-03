@@ -275,6 +275,56 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
     }, [dbGeofences, mode, showAllGeofences, selectedGeofenceId, defaultGeofenceId, getFeatureStyle, activeShapeState]);
 
+     useEffect(() => {
+        const map = mapRef.current;
+        if (!map || mode !== 'editing' || !activeShapeState) {
+            if (map?.getTargetElement()) {
+                 map.getTargetElement().style.cursor = 'default';
+            }
+            return;
+        }
+
+        const handlePointerMove = (e: any) => {
+            const targetElement = map.getTargetElement();
+            let cursor = 'default';
+            
+            // Check if pointer is on a vertex of the active feature
+            const featureAtPixel = map.forEachFeatureAtPixel(e.pixel, (feature, layer) => {
+                if(layer?.get('id') === 'geofence-layer' && feature === activeShapeState.feature) {
+                    return feature;
+                }
+                return undefined;
+            }, {
+                layerFilter: layer => layer.get('id') === 'geofence-layer',
+                hitTolerance: 5
+            });
+
+            if (featureAtPixel) {
+                // This logic is a bit simplified. A more robust solution might check if the pixel
+                // is near a vertex specifically, which the Modify interaction does internally.
+                // For our purpose, we'll check if the active shape is being modified.
+                const modifyInteraction = map.getInteractions().getArray().find(i => i.get('id') === 'modify-interaction');
+                if (modifyInteraction) {
+                    // OpenLayers doesn't expose a simple "is on vertex" public API.
+                    // This is a common workaround: check if the feature is at the pixel.
+                    // If so, we assume vertex hover is possible and change cursor.
+                    cursor = 'crosshair';
+                }
+            }
+            
+            targetElement.style.cursor = cursor;
+        };
+        
+        map.on('pointermove', handlePointerMove);
+
+        return () => {
+            map.un('pointermove', handlePointerMove);
+             if (map.getTargetElement()) {
+                map.getTargetElement().style.cursor = 'default';
+            }
+        };
+    }, [mapRef, mode, activeShapeState]);
+
 
     return (
        <div ref={mapContainerRef} className="w-full h-full">
@@ -283,5 +333,3 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
-
-  
