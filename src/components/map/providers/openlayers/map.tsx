@@ -38,6 +38,12 @@ const STYLE_EDIT_MODE_UNSELECTED = new Style({
     fill: new Fill({ color: 'rgba(100, 100, 100, 0.1)' }),
     stroke: new Stroke({ color: '#646464', width: 1.5, lineDash: [5, 5] }),
 });
+
+const STYLE_EDIT_MODE_FOCUSED = new Style({
+    fill: new Fill({ color: 'rgba(67, 133, 245, 0.1)' }),
+    stroke: new Stroke({ color: '#4385F5', width: 3 }),
+});
+
 const STYLE_HIDDEN = new Style({
     fill: new Fill({ color: 'transparent' }),
     stroke: new Stroke({ color: 'transparent', width: 0 }),
@@ -151,9 +157,12 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 }
                 return STYLE_EDIT_MODE_SELECTED;
             }
+            if (featureId === selectedGeofenceId && !activeShapeState) {
+                return STYLE_EDIT_MODE_FOCUSED;
+            }
             return STYLE_EDIT_MODE_UNSELECTED;
         }
-    }, [mode, showAllGeofences, defaultGeofenceId, activeShapeState]);
+    }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState]);
     
     useEffect(() => {
         if (!mapContainerRef.current) return;

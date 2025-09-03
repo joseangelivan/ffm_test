@@ -297,34 +297,40 @@ export function GeofenceControls({
     
     const startEditingSelected = useCallback(() => {
         const source = geofenceSourceRef.current;
-        if (!selectedGeofenceId || !source) return;
-
-        const selectedGeofenceData = geofences.find(g => g.id === selectedGeofenceId);
-        if (!selectedGeofenceData) return;
-        
-        const featureToEdit = source.getFeatureById(selectedGeofenceId) as OlFeature<Polygon> | null;
-        if (!featureToEdit) {
-            toast({ title: "Error", description: "No se pudo encontrar la forma en el mapa para editar.", variant: "destructive" });
+        if (!selectedGeofenceId || !source) {
+            console.error("Source or selectedGeofenceId is missing.");
             return;
         }
 
-        cancelCurrentAction();
-        setIsDrawing(false);
+        const selectedGeofenceData = geofences.find(g => g.id === selectedGeofenceId);
+        if (!selectedGeofenceData) {
+            toast({ title: "Error", description: "Could not find geofence data.", variant: "destructive" });
+            return;
+        }
         
-        const originalGeom = featureToEdit.getGeometry()?.clone();
+        const featureToEdit = source.getFeatureById(selectedGeofenceId) as OlFeature<Polygon> | null;
         
-        setActiveShapeState({
-            id: selectedGeofenceId,
-            feature: featureToEdit,
-            originalGeometry: originalGeom ? new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(originalGeom) : null
-        });
-        setCurrentGeofenceName(selectedGeofenceData.name);
-        
-        if (originalGeom) {
-            pushToHistory(originalGeom);
+        if (featureToEdit) {
+            cancelCurrentAction(); // Clear any previous state
+            setIsDrawing(false);
+            
+            const originalGeom = featureToEdit.getGeometry()?.clone();
+            
+            setActiveShapeState({
+                id: selectedGeofenceId,
+                feature: featureToEdit,
+                originalGeometry: originalGeom ? new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(originalGeom) : null
+            });
+            setCurrentGeofenceName(selectedGeofenceData.name);
+            
+            if (originalGeom) {
+                pushToHistory(originalGeom);
+            }
+        } else {
+             toast({ title: "Error", description: "No se pudo encontrar la forma en el mapa para editar.", variant: "destructive" });
         }
 
-    }, [geofences, selectedGeofenceId, cancelCurrentAction, pushToHistory, toast]);
+    }, [geofences, selectedGeofenceId, cancelCurrentAction, pushToHistory, toast, setActiveShapeState, setCurrentGeofenceName, setIsDrawing]);
     
      useEffect(() => {
         const map = mapRef.current;
@@ -406,7 +412,7 @@ export function GeofenceControls({
 
                     if (movedIndex !== -1 && newPoint) {
                         const correctedCoords = RecalcularRectangulo(originalVertices, newPoint, movedIndex);
-                        const newGeom = new Polygon(correctedCoords);
+                        const newGeom = new Polygon([correctedCoords]);
                         feature.setGeometry(newGeom);
                         pushToHistory(newGeom);
                     } else {
