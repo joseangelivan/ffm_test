@@ -297,17 +297,16 @@ export function GeofenceControls({
     
     const startEditingSelected = useCallback(() => {
         const source = geofenceSourceRef.current;
-        if (!selectedGeofenceId || !source) {
-            console.error("Source or selectedGeofenceId is missing.");
+        if (!source) {
+            toast({ title: "Error", description: "La capa del mapa no está lista. Inténtalo de nuevo.", variant: "destructive" });
             return;
         }
 
-        const selectedGeofenceData = geofences.find(g => g.id === selectedGeofenceId);
-        if (!selectedGeofenceData) {
-            toast({ title: "Error", description: "Could not find geofence data.", variant: "destructive" });
+        if (!selectedGeofenceId) {
+             console.error("No geofence selected.");
             return;
         }
-        
+
         const featureToEdit = source.getFeatureById(selectedGeofenceId) as OlFeature<Polygon> | null;
         
         if (featureToEdit) {
@@ -321,7 +320,11 @@ export function GeofenceControls({
                 feature: featureToEdit,
                 originalGeometry: originalGeom ? new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(originalGeom) : null
             });
-            setCurrentGeofenceName(selectedGeofenceData.name);
+
+            const selectedGeofenceData = geofences.find(g => g.id === selectedGeofenceId);
+            if (selectedGeofenceData) {
+                setCurrentGeofenceName(selectedGeofenceData.name);
+            }
             
             if (originalGeom) {
                 pushToHistory(originalGeom);
