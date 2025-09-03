@@ -222,58 +222,56 @@ const OpenLayersMap: React.FC<MapProps> = ({
         onMapLoad(map, vectorSourceRef.current);
 
         const handlePointerMove = (e: any) => {
-            if (e.dragging) {
-              return;
+            if (e.dragging || mode !== 'editing') {
+                return;
             }
             const pixel = map.getEventPixel(e.originalEvent);
             const target = map.getTargetElement();
             if (!target) return;
-          
+
             let cursor = 'default';
-            let featureAtPixel = false;
-          
-            // Check for vertices from the Modify interaction's overlay
+            let vertexFound = false;
+
+            // Check for vertices first
             map.forEachFeatureAtPixel(
-              pixel,
-              (feature, layer) => {
-                if (feature.get('features')) { // This identifies the modify interaction's vertex feature
-                  cursor = 'crosshair';
-                  featureAtPixel = true;
-                  return true; // stop iterating
-                }
-              },
-              {
-                // Important: Check the layer of the Modify interaction's overlay
-                layerFilter: (layer) => {
-                  const interactions = map.getInteractions().getArray();
-                  const modifyInteraction = interactions.find(i => i instanceof Modify && i.getActive());
-                  return modifyInteraction ? (modifyInteraction as any).overlay_ === layer : false;
-                },
-                hitTolerance: 5,
-              }
-            );
-          
-            if (!featureAtPixel) {
-              // Check if hovering over the main geofence shape
-              map.forEachFeatureAtPixel(
                 pixel,
-                (feature) => {
-                  if (activeShapeState && feature.getId() === activeShapeState.id) {
-                    cursor = 'move';
-                    featureAtPixel = true;
+                (feature, layer) => {
+                    cursor = 'crosshair';
+                    vertexFound = true;
                     return true;
-                  }
                 },
                 {
-                  layerFilter: l => l === vectorLayer,
-                  hitTolerance: 5,
+                    layerFilter: (layer) => {
+                        const interactions = map.getInteractions().getArray();
+                        const modifyInteraction = interactions.find(i => i instanceof Modify && i.getActive());
+                        // The overlay with vertices is not publicly exposed, so we check if it has a source (which the base layer has)
+                        // The overlay is a VectorLayer without a source.
+                        return modifyInteraction ? !layer.getSource() : false;
+                    },
+                    hitTolerance: 5,
                 }
-              );
+            );
+
+            // If no vertex was found, check for the main shape
+            if (!vertexFound) {
+                map.forEachFeatureAtPixel(
+                    pixel,
+                    (feature) => {
+                        if (activeShapeState && feature.getId() === activeShapeState.id) {
+                            cursor = 'move';
+                            return true;
+                        }
+                    },
+                    {
+                        layerFilter: l => l === vectorLayer,
+                        hitTolerance: 5,
+                    }
+                );
             }
-          
+            
             target.style.cursor = cursor;
         };
-        
+
         map.on('pointermove', handlePointerMove);
 
         return () => {
@@ -346,6 +344,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
+
 
 
 
