@@ -97,9 +97,34 @@ export async function deleteGeofence(id: string): Promise<ActionState> {
     try {
         const pool = await getDbPool();
         client = await pool.connect();
+        
+        await client.query('BEGIN');
+
+        const geofenceToDelete = await client.query('SELECT is_default, condominium_id FROM geofences WHERE id = $1', [id]);
+
+        if (geofenceToDelete.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return { success: false, message: 'Geocerca no encontrada.' };
+        }
+        
+        const { is_default, condominium_id } = geofenceToDelete.rows[0];
+
         await client.query('DELETE FROM geofences WHERE id = $1', [id]);
+        
+        if (is_default) {
+            const nextGeofence = await client.query(
+                'SELECT id FROM geofences WHERE condominium_id = $1 ORDER BY created_at ASC LIMIT 1',
+                [condominium_id]
+            );
+            if (nextGeofence.rows.length > 0) {
+                await client.query('UPDATE geofences SET is_default = true WHERE id = $1', [nextGeofence.rows[0].id]);
+            }
+        }
+
+        await client.query('COMMIT');
         return { success: true, message: 'Geocerca eliminada con éxito.' };
     } catch (error) {
+        if (client) await client.query('ROLLBACK');
         console.error("Error deleting geofence:", error);
         return { success: false, message: 'Error del servidor.' };
     } finally {
