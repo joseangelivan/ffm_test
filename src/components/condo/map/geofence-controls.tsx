@@ -31,7 +31,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { LoadingOverlay } from '@/components/admin/admin-header';
 
-import Draw from 'ol/interaction/Draw';
+import Draw, { createBox } from 'ol/interaction/Draw';
 import { Modify, Translate } from 'ol/interaction';
 import GeoJSON from 'ol/format/GeoJSON';
 import { Polygon } from 'ol/geom';
@@ -333,7 +333,7 @@ export function GeofenceControls({
                 const newInteraction = new Draw({
                     source: geofenceSource,
                     type: drawingMode === 'Rectangle' ? 'Circle' : drawingMode,
-                    geometryFunction: drawingMode === 'Rectangle' ? Draw.createBox() : undefined,
+                    geometryFunction: drawingMode === 'Rectangle' ? createBox() : undefined,
                 });
                 map.addInteraction(newInteraction);
                 interactionsRef.current.draw = newInteraction;
