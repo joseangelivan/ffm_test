@@ -157,7 +157,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 }
                 return STYLE_EDIT_MODE_SELECTED;
             }
-            if (featureId === selectedGeofenceId && !activeShapeState) {
+            if (featureId === selectedGeofenceId) {
                 return STYLE_EDIT_MODE_FOCUSED;
             }
             return STYLE_EDIT_MODE_UNSELECTED;
@@ -277,41 +277,50 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
      useEffect(() => {
         const map = mapRef.current;
-        if (!map || mode !== 'editing' || !activeShapeState) {
-            if (map?.getTargetElement()) {
-                 map.getTargetElement().style.cursor = 'default';
-            }
-            return;
-        }
+        if (!map) return;
+        
+        const targetElement = map.getTargetElement();
+        if (!targetElement) return;
 
         const handlePointerMove = (e: any) => {
-            const targetElement = map.getTargetElement();
-            let cursor = 'default';
-            
-            // Check if pointer is on a vertex of the active feature
-            const featureAtPixel = map.forEachFeatureAtPixel(e.pixel, (feature, layer) => {
-                if(layer?.get('id') === 'geofence-layer' && feature === activeShapeState.feature) {
-                    return feature;
-                }
-                return undefined;
-            }, {
-                layerFilter: layer => layer.get('id') === 'geofence-layer',
-                hitTolerance: 5
-            });
+             if (mode !== 'editing' || !activeShapeState) {
+                targetElement.style.cursor = 'default';
+                return;
+            }
 
-            if (featureAtPixel) {
-                // This logic is a bit simplified. A more robust solution might check if the pixel
-                // is near a vertex specifically, which the Modify interaction does internally.
-                // For our purpose, we'll check if the active shape is being modified.
-                const modifyInteraction = map.getInteractions().getArray().find(i => i.get('id') === 'modify-interaction');
-                if (modifyInteraction) {
-                    // OpenLayers doesn't expose a simple "is on vertex" public API.
-                    // This is a common workaround: check if the feature is at the pixel.
-                    // If so, we assume vertex hover is possible and change cursor.
-                    cursor = 'crosshair';
+            const pixel = map.getEventPixel(e.originalEvent);
+            const modifyInteraction = map.getInteractions().getArray().find(i => i.get('id') === 'modify-interaction');
+            let cursor = 'default';
+
+            if (modifyInteraction) {
+                // This is a simplified check. OpenLayers has internal ways to check this.
+                // We're checking if any feature vertex is at the pointer.
+                const feature = map.forEachFeatureAtPixel(pixel, f => f, {
+                    layerFilter: layer => layer.get('id') === 'geofence-layer',
+                    hitTolerance: 5
+                });
+                
+                if (feature === activeShapeState.feature) {
+                    // This is still an approximation. A more robust way might require accessing private
+                    // properties of the Modify interaction, which is not ideal.
+                    // For now, if we're on the active feature, we assume 'move'.
+                    cursor = 'move';
+                    
+                    // A better approximation for vertex detection:
+                    const geometry = (feature.getGeometry() as Geometry);
+                    if (geometry) {
+                       const closestPoint = geometry.getClosestPoint(map.getCoordinateFromPixel(pixel));
+                       const pixelAtClosestPoint = map.getPixelFromCoordinate(closestPoint);
+                       const dx = pixelAtClosestPoint[0] - pixel[0];
+                       const dy = pixelAtClosestPoint[1] - pixel[1];
+                       const dist = Math.sqrt(dx * dx + dy * dy);
+                       if (dist < 6) { // 6-pixel tolerance for vertex
+                           cursor = 'crosshair';
+                       }
+                    }
                 }
             }
-            
+
             targetElement.style.cursor = cursor;
         };
         
@@ -333,3 +342,4 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
+
