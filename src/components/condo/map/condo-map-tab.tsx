@@ -51,12 +51,8 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>(condo.geofences);
   const [geofenceSource, setGeofenceSource] = useState<VectorSource | null>(null);
   
-  const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(() => 
-    condo.geofences.find(g => g.is_default)?.id || (condo.geofences.length > 0 ? condo.geofences[0].id : null)
-  );
-  const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(() => 
-    condo.geofences.find(g => g.is_default)?.id || null
-  );
+  const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
+  const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
 
   const [mode, setMode] = useState<'view' | 'editing'>('view');
   const [showAllGeofences, setShowAllGeofences] = useState(false);
@@ -72,6 +68,16 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const [historyStack, setHistoryStack] = useState<Geometry[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
+  // Initialize geofence selections on first load
+  useEffect(() => {
+    const defaultGf = condo.geofences.find(g => g.is_default);
+    const initialSelectedId = defaultGf?.id || (condo.geofences.length > 0 ? condo.geofences[0].id : null);
+    
+    setDefaultGeofenceId(defaultGf?.id || null);
+    setSelectedGeofenceId(initialSelectedId);
+  }, [condo.geofences]);
+
+
   // --- Data Fetching & Refreshing ---
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
@@ -82,13 +88,15 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
         const defaultGfDb = freshDbGeofences.find(g => g.is_default);
         setDefaultGeofenceId(defaultGfDb ? defaultGfDb.id : null);
         
+        // If a specific ID is provided (e.g., after creating a new geofence), select it.
+        // Otherwise, maintain the current selection unless it was deleted.
         if (newSelectedId) {
             setSelectedGeofenceId(newSelectedId);
         } else {
-            // If the currently selected geofence was deleted, select the new default.
             const currentSelectionExists = freshDbGeofences.some(g => g.id === selectedGeofenceId);
             if (!currentSelectionExists) {
-                setSelectedGeofenceId(defaultGfDb ? defaultGfDb.id : (freshDbGeofences.length > 0 ? freshDbGeofences[0].id : null));
+                // If the selected geofence was deleted, fall back to the default or first available.
+                setSelectedGeofenceId(defaultGfDb?.id || (freshDbGeofences.length > 0 ? freshDbGeofences[0].id : null));
             }
         }
     } catch (e) {
@@ -97,17 +105,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     } finally {
         setIsLoading(false);
     }
-}, [condo.id, selectedGeofenceId, toast, t]);
-  
-  useEffect(() => {
-    const defaultGf = condo.geofences.find(g => g.is_default);
-    setDefaultGeofenceId(defaultGf ? defaultGf.id : null);
-
-    const currentSelectionExists = condo.geofences.some(g => g.id === selectedGeofenceId);
-    if (!currentSelectionExists) {
-        setSelectedGeofenceId(defaultGf ? defaultGf.id : (condo.geofences.length > 0 ? condo.geofences[0].id : null));
-    }
-  }, [condo.geofences, selectedGeofenceId]);
+  }, [condo.id, selectedGeofenceId, toast, t]);
 
   // --- Map Interactions ---
   const centerMapOnAddress = useCallback(() => {
