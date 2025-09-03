@@ -45,7 +45,6 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   
   // --- Refs ---
   const mapRef = useRef<OlMap | null>(null);
-  const mapInitialized = useRef(false);
 
   // --- State ---
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>(condo.geofences);
@@ -168,9 +167,6 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
 
 
   const handleMapLoad = useCallback(async (map: OlMap, source: VectorSource) => {
-    if (mapInitialized.current) return;
-    mapInitialized.current = true;
-    
     mapRef.current = map;
     setGeofenceSource(source);
     
@@ -180,13 +176,10 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     });
     
     setIsLoading(false);
-  }, []);
-
-  useEffect(() => {
-      if (!isLoading && mapRef.current && !mapInitialized.current) {
-          applyZoomLevel();
-      }
-  }, [isLoading, applyZoomLevel]);
+    
+    // Apply initial zoom/centering after map is fully loaded and ready
+    applyZoomLevel();
+  }, [applyZoomLevel]);
     
   const handleZoomIn = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom()! + 1);
   const handleZoomOut = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom()! - 1);
