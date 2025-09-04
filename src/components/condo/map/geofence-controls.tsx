@@ -203,12 +203,12 @@ export function GeofenceControls({
         } else if (geometryType === 'Circle') {
             const circleGeom = geometry as OlCircle;
             const center = toLonLat(circleGeom.getCenter());
-            const radius = circleGeom.getRadius(); // Radius in meters
+            const radius = circleGeom.getRadius();
             geometryToSave = { type: 'Circle', center, radius };
         } else {
-             // For standard polygons, convert to a polygon for saving
-            const polygonGeom = (geometry instanceof OlCircle) ? fromCircle(geometry) : geometry;
-            geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(polygonGeom);
+             const polygonGeom = (geometry instanceof OlCircle) ? fromCircle(geometry) : geometry;
+             geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(polygonGeom);
+             geometryToSave.type = 'Polygon';
         }
     
         if (!currentGeofenceName) {
@@ -295,7 +295,7 @@ export function GeofenceControls({
         const featureToEdit = geofenceSource.getFeatureById(selectedGeofenceId) as OlFeature<Polygon> | null;
         
         if (featureToEdit) {
-            cancelCurrentAction(); // Clear any previous state
+            cancelCurrentAction(); 
             setIsDrawing(false);
             
             const originalGeom = featureToEdit.getGeometry()?.clone();
@@ -342,6 +342,8 @@ export function GeofenceControls({
                         drawnFeature.set('geometryType', 'Rectangle');
                     } else if (drawingMode === 'Circle') {
                         drawnFeature.set('geometryType', 'Circle');
+                    } else {
+                        drawnFeature.set('geometryType', 'Polygon');
                     }
                     onShapeDrawn(drawnFeature);
                     setIsDrawing(false);
@@ -497,11 +499,12 @@ export function GeofenceControls({
                                 <Select 
                                     value={selectedGeofenceId || ''} 
                                     onValueChange={(value) => {
+                                        cancelCurrentAction();
                                         setSelectedGeofenceId(value);
                                         const selectedGf = geofences.find(g => g.id === value);
-                                        if (selectedGf?.geometry.type === 'Circle') {
+                                        if (selectedGf?.geometry?.type === 'Circle') {
                                             setDrawingMode('Circle');
-                                        } else if (selectedGf?.geometry.type === 'Rectangle') {
+                                        } else if (selectedGf?.geometry?.type === 'Rectangle') {
                                             setDrawingMode('Rectangle');
                                         } else {
                                             setDrawingMode('Polygon');
@@ -607,3 +610,5 @@ export function GeofenceControls({
         </div>
     );
 }
+
+    
