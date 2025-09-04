@@ -27,10 +27,24 @@ const ServiceSchema = z.object({
     }, { message: "La configuración de respuesta debe ser un JSON válido."}),
 });
 
-// Self-contained helper function to avoid import issues on server actions.
 function getNestedValue(obj: any, path: string): any {
-  if (!path) return undefined;
-  // This regex allows for array access like 'results[0].geometry' and simple paths like '0.lat'
+  // Extraer y procesar condicionales tipo "path{(condición)?valorTrue:valorFalse}"
+  const conditionalMatch = path.match(/^(.+)\{(.*)\}$/);
+  
+  if (conditionalMatch) {
+    const [_, basePath, condition] = conditionalMatch;
+    const value = basePath.split('.').reduce((o, k) => (o || {})[k], obj);
+    
+    // Ejecutar el ternario seguro
+    try {
+      const ternario = condition.replace(/"/g, "'"); // Normalizar comillas
+      const expresion = `return ${ternario.replace(/value/g, JSON.stringify(value))}`;
+      return new Function('value', expresion)(value);
+    } catch {
+      return value; // Si falla el ternario, devolver valor crudo
+    }
+  }
+
   const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
   let result = obj;
   for (const key of keys) {
