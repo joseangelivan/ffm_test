@@ -78,7 +78,6 @@ type GeofenceControlsProps = {
     geofenceSource: VectorSource | null;
     drawingMode: DrawingMode;
     setDrawingMode: React.Dispatch<React.SetStateAction<DrawingMode>>;
-    shapeBeingSaved: { id: string; feature: OlFeature<any> | null; originalGeometry?: any; } | null;
     setShapeBeingSaved: React.Dispatch<React.SetStateAction<{ id: string; feature: OlFeature<any> | null; originalGeometry?: any; } | null>>;
 }
 
@@ -106,7 +105,6 @@ export function GeofenceControls({
     geofenceSource,
     drawingMode,
     setDrawingMode,
-    shapeBeingSaved,
     setShapeBeingSaved,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
@@ -126,14 +124,6 @@ export function GeofenceControls({
     });
     
     const originalGeometryOnModifyStart = useRef<Geometry | null>(null);
-
-     // This effect cleans up the shapeBeingSaved state AFTER the geofences data has been refreshed and re-rendered.
-    useEffect(() => {
-        if (!isSaving && shapeBeingSaved) {
-            setShapeBeingSaved(null);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [geofences]); // Only run when the geofences prop changes
 
 
     const pushToHistory = useCallback((geometry: Geometry) => {
@@ -251,17 +241,20 @@ export function GeofenceControls({
                 setHistoryStack([]);
                 setHistoryIndex(-1);
                 setCurrentGeofenceName('');
+                setMode('view');
 
                 // Refresh data
                 const newSelectedId = isNewShape ? result.data?.id : id;
                 await onDataNeedsRefresh(newSelectedId);
+                setShapeBeingSaved(null);
+
 
             } else if (result) {
                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
                 setShapeBeingSaved(null); // Clear on failure too
             }
         });
-    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, setHistoryStack, setHistoryIndex, removeAllInteractions, setActiveShapeState, setShapeBeingSaved]);
+    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, setHistoryStack, setHistoryIndex, removeAllInteractions, setActiveShapeState, setShapeBeingSaved, setMode]);
     
     const handleStartDrawing = () => {
         cancelCurrentAction();

@@ -97,6 +97,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   // --- Data Fetching & Refreshing ---
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
+    setActiveShapeState(null); // Ensure we clear any active shape state when refreshing
     try {
         const freshDbGeofences = await getGeofencesByCondoId(condo.id);
         setDbGeofences(freshDbGeofences);
@@ -185,7 +186,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
 
 
   // --- Map Interactions ---
-  const handleMapLoad = useCallback(async (map: OlMap, source: VectorSource) => {
+  const handleMapLoad = useCallback((map: OlMap, source: VectorSource) => {
     mapRef.current = map;
     setGeofenceSource(source);
     
