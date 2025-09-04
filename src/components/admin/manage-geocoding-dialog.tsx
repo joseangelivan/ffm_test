@@ -95,7 +95,7 @@ function ServiceFormFields({ service, onCancel }: { service: GeocodingService | 
     };
     
     return (
-        <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+        <div className={cn("relative transition-opacity")}>
             {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating')} />}
             <DialogHeader>
                 <DialogTitle>{isEditMode ? t('adminDashboard.geocoding.editTitle') : t('adminDashboard.geocoding.newTitle')}</DialogTitle>
@@ -139,7 +139,10 @@ function ServiceFormFields({ service, onCancel }: { service: GeocodingService | 
             </div>
             <DialogFooter>
                 <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
-                <Button type="submit" disabled={pending || !isRequestJsonValid || !isResponseJsonValid}>{isEditMode ? t('common.saveChanges') : t('common.create')}</Button>
+                <Button type="submit" disabled={pending || !isRequestJsonValid || !isResponseJsonValid}>
+                    {pending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
+                    {isEditMode ? t('common.saveChanges') : t('common.create')}
+                </Button>
             </DialogFooter>
         </div>
     )
@@ -281,7 +284,7 @@ export function ManageGeocodingDialog() {
             </DropdownMenuItem>
         </DialogTrigger>
         <DialogContent className="sm:max-w-2xl">
-            <div className={cn("relative", (isSubmitting && !testingId) && "opacity-50")}>
+            <div className={cn("relative")}>
                 {(isSubmitting && !testingId) && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
                 <DialogHeader>
                     <DialogTitle>{t('adminDashboard.geocoding.title')}</DialogTitle>

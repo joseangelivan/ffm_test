@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useActionState, useTransition, useRef } from 'react';
@@ -185,7 +186,7 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
                 <form action={dispatch}>
-                    <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+                    <div className={cn("relative transition-opacity")}>
                         {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating')} />}
                         <DialogHeader>
                             <DialogTitle>{isEditMode ? t('adminDashboard.maps.editTitle') : t('adminDashboard.maps.newTitle')}</DialogTitle>
@@ -226,7 +227,10 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
                         </div>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>{t('common.cancel')}</Button>
-                            <Button type="submit" disabled={isCreateButtonDisabled()}>{isEditMode ? t('common.saveChanges') : t('common.create')}</Button>
+                            <Button type="submit" disabled={isCreateButtonDisabled()}>
+                                {pending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
+                                {isEditMode ? t('common.saveChanges') : t('common.create')}
+                            </Button>
                         </DialogFooter>
                     </div>
                 </form>
@@ -320,7 +324,7 @@ export function ManageMapsDialog() {
             </DropdownMenuItem>
         </DialogTrigger>
         <DialogContent className="sm:max-w-2xl">
-            <div className={cn("relative", isSubmitting && "opacity-50")}>
+            <div className={cn("relative")}>
                 {isSubmitting && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
                 <DialogHeader>
                     <DialogTitle>{t('adminDashboard.maps.title')}</DialogTitle>

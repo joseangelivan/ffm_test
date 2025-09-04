@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useActionState, useTransition, useRef } from 'react';
@@ -59,7 +60,7 @@ function SmtpFormFields({ config, onCancel }: { config: SmtpConfiguration | null
     const { t } = useLocale();
 
     return (
-        <div className={cn("relative transition-opacity", pending && "opacity-50")}>
+        <div className={cn("relative transition-opacity")}>
             {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating')} />}
             <DialogHeader>
                 <DialogTitle>{isEditMode ? t('adminDashboard.smtp.editTitle') : t('adminDashboard.smtp.newTitle')}</DialogTitle>
@@ -95,7 +96,10 @@ function SmtpFormFields({ config, onCancel }: { config: SmtpConfiguration | null
             </div>
             <DialogFooter>
                 <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
-                <Button type="submit" disabled={pending}>{isEditMode ? t('common.saveChanges') : t('common.create')}</Button>
+                <Button type="submit" disabled={pending}>
+                    {pending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
+                    {isEditMode ? t('common.saveChanges') : t('common.create')}
+                </Button>
             </DialogFooter>
         </div>
     )
@@ -232,8 +236,8 @@ export function SmtpConfigDialog() {
             </DropdownMenuItem>
         </DialogTrigger>
         <DialogContent className="sm:max-w-2xl">
-            <div className={cn("relative", (isSubmitting && !testingId) && "opacity-50")}>
-                {isSubmitting && !testingId && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
+            <div className={cn("relative")}>
+                {(isSubmitting && !testingId) && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
                 <DialogHeader>
                     <DialogTitle>{t('adminDashboard.smtp.title')}</DialogTitle>
                     <DialogDescription>

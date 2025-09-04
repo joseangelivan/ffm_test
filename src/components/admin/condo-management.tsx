@@ -387,6 +387,7 @@ function CondoFormFields({
                 </Button>
             </DialogClose>
             <Button type="submit" disabled={isFormPending}>
+              {isFormPending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
               {isEditMode
                 ? t('adminDashboard.editCondoDialog.save')
                 : t('adminDashboard.newCondoDialog.create')}
@@ -572,6 +573,8 @@ export function CondoManagement() {
   
     const [editingCondoData, setEditingCondoData] = useState<Condominio & Partial<LocationData> | null>(null);
     const [isPreparingEdit, setIsPreparingEdit] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [isDeleting, startDeletingTransition] = useTransition();
 
     // --- Caching helpers for location data ---
     const getCachedData = useCallback(async (key: string, fetcher: () => Promise<any>) => {
@@ -671,24 +674,28 @@ export function CondoManagement() {
         }
     }, [toast, t, getCachedData]);
   
-    const handleDeleteCondo = async (condoId: string) => {
-        const result = await deleteCondominio(condoId);
-        if (result.success) {
-            toast({
-                title: t('toast.successTitle'),
-                description: result.message,
-            });
-            fetchCondos();
-        } else {
-            toast({
-                title: t('toast.errorTitle'),
-                description: result.message,
-                variant: 'destructive',
-            });
-        }
+    const handleDeleteCondo = (condoId: string) => {
+        setDeletingId(condoId);
+        startDeletingTransition(async () => {
+            const result = await deleteCondominio(condoId);
+            if (result.success) {
+                toast({
+                    title: t('toast.successTitle'),
+                    description: result.message,
+                });
+                fetchCondos();
+            } else {
+                toast({
+                    title: t('toast.errorTitle'),
+                    description: result.message,
+                    variant: 'destructive',
+                });
+            }
+            setDeletingId(null);
+        });
     }
   
-    const handleCondoFormSuccess = () => {
+    const onFormSuccess = () => {
         setIsNewCondoDialogOpen(false);
         setIsEditCondoDialogOpen(false);
         setEditingCondoData(null);
@@ -697,11 +704,16 @@ export function CondoManagement() {
 
     return (
         <div className="grid gap-4 relative">
-             {isPreparingEdit && (
+             {(isPreparingEdit || (isDeleting && !deletingId)) && (
                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
                     <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                         <Loader className="h-12 w-12 animate-spin" />
-                        <span>{t('adminDashboard.loadingOverlay.preparingEdit')}</span>
+                        <span>
+                            {isPreparingEdit 
+                                ? t('adminDashboard.loadingOverlay.preparingEdit') 
+                                : t('adminDashboard.loadingOverlay.processing')
+                            }
+                        </span>
                     </div>
                 </div>
             )}
@@ -720,7 +732,7 @@ export function CondoManagement() {
                     </DialogTrigger>
                     <DialogContent>
                         <CondoFormWrapper
-                            closeDialog={handleCondoFormSuccess}
+                            closeDialog={onFormSuccess}
                             formAction={createCondominio}
                             isEditMode={false}
                             initialData={{}}
@@ -769,7 +781,7 @@ export function CondoManagement() {
                         <TableCell>
                             <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button aria-haspopup="true" size="icon" variant="ghost">
+                                <Button aria-haspopup="true" size="icon" variant="ghost" disabled={isDeleting}>
                                 <MoreVertical className="h-4 w-4" />
                                 <span className="sr-only">{t('adminDashboard.table.toggleMenu')}</span>
                                 </Button>
@@ -786,7 +798,8 @@ export function CondoManagement() {
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>
-                                            <Trash2 className="h-4 w-4 mr-2"/>{t('adminDashboard.table.delete')}
+                                            {deletingId === condo.id ? <Loader className="h-4 w-4 mr-2 animate-spin"/> : <Trash2 className="h-4 w-4 mr-2"/>}
+                                            {t('adminDashboard.table.delete')}
                                         </DropdownMenuItem>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
@@ -799,6 +812,7 @@ export function CondoManagement() {
                                         <AlertDialogFooter>
                                             <AlertDialogCancel>{t('adminDashboard.newCondoDialog.cancel')}</AlertDialogCancel>
                                             <AlertDialogAction onClick={() => handleDeleteCondo(condo.id)} className={buttonVariants({variant: 'destructive'})}>
+                                                {isDeleting && deletingId === condo.id && <Loader className="mr-2 h-4 w-4 animate-spin"/>}
                                                 {t('adminDashboard.table.delete')}
                                             </AlertDialogAction>
                                         </AlertDialogFooter>
@@ -824,7 +838,7 @@ export function CondoManagement() {
                 <DialogContent>
                     {editingCondoData && (
                         <CondoFormWrapper
-                            closeDialog={handleCondoFormSuccess}
+                            closeDialog={onFormSuccess}
                             formAction={handleUpdateCondoAction}
                             initialData={editingCondoData}
                             isEditMode={true}
