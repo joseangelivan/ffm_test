@@ -34,7 +34,7 @@ import { LoadingOverlay } from '@/components/admin/admin-header';
 import Draw, { createBox } from 'ol/interaction/Draw';
 import { Modify, Translate } from 'ol/interaction';
 import GeoJSON from 'ol/format/GeoJSON';
-import { Polygon } from 'ol/geom';
+import { Polygon, Circle as OlCircle } from 'ol/geom';
 import type { Geometry, SimpleGeometry } from 'ol/geom';
 import Collection from 'ol/Collection';
 import type VectorSource from 'ol/source/Vector';
@@ -182,9 +182,23 @@ export function GeofenceControls({
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
         const { id, feature } = activeShapeState;
-    
-        const geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(feature.getGeometry()!);
         
+        let geometryToSave: any;
+        const geometry = feature.getGeometry();
+        
+        if (geometry instanceof OlCircle) {
+            // Convert circle to a polygon for saving, as GeoJSON doesn't support circles well.
+            const polygon = Polygon.fromCircle(geometry);
+            geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(polygon);
+        } else if (geometry) {
+            geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(geometry);
+        }
+
+        if (!geometryToSave) {
+            toast({ title: t('toast.errorTitle'), description: "Geometría inválida.", variant: "destructive" });
+            return;
+        }
+    
         if (!currentGeofenceName) {
             toast({ title: t('toast.errorTitle'), description: "El nombre de la geocerca es obligatorio.", variant: "destructive" });
             return;
@@ -442,18 +456,18 @@ export function GeofenceControls({
                             id="edit-mode" 
                             checked={mode === 'editing'} 
                             onCheckedChange={(checked) => {
-                                if (!checked) {
+                                const isEnteringEditMode = !!checked;
+                                if (!isEnteringEditMode) {
                                     cancelCurrentAction();
                                 } else {
                                     if (geofences.length > 0 && !selectedGeofenceId) {
                                         setSelectedGeofenceId(geofences[0].id);
                                     }
-                                    // When entering edit mode, always turn off "show all"
                                     if (showAllGeofences) {
                                         setShowAllGeofences(false);
                                     }
                                 }
-                                setMode(checked ? 'editing' : 'view');
+                                setMode(isEnteringEditMode ? 'editing' : 'view');
                             }}
                         />
                         <label

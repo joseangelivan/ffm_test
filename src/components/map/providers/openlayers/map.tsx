@@ -101,6 +101,8 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
             const geometry = format.readGeometry(geometryObject);
             // If it's a polygon and has 5 coordinates (4 vertices + closing point), it's a rectangle
             if (geometry.getType() === 'Polygon' && (geometry as any).getCoordinates()[0].length === 5) {
+                // This is a simplification; a more robust check would analyze the angles.
+                // For now, it's a good heuristic for shapes created as rectangles.
                 geometry.set('geometryType', 'Rectangle');
             }
             return geometry;
