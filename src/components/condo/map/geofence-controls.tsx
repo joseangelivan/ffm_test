@@ -231,13 +231,21 @@ export function GeofenceControls({
             if (result?.success) {
                 toast({ title: t('toast.successTitle'), description: result.message });
                 const newSelectedId = isNewShape ? result.data?.id : id;
-                cancelCurrentAction();
+                
+                // Instead of calling cancelCurrentAction, which reverts the geometry,
+                // we just clean up the editing state.
+                removeAllInteractions();
+                setActiveShapeState(null);
+                setCurrentGeofenceName('');
+                setHistoryStack([]);
+                setHistoryIndex(-1);
+
                 await onDataNeedsRefresh(newSelectedId);
             } else if (result) {
                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
             }
         });
-    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, cancelCurrentAction]);
+    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, removeAllInteractions, setActiveShapeState, setHistoryStack, setHistoryIndex]);
     
     const handleStartDrawing = () => {
         cancelCurrentAction();
