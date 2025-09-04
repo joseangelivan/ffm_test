@@ -116,7 +116,7 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess }: Admi
     if (!session) return null;
 
     return (
-        <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-40">
+        <header className="sticky top-0 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-40">
             <div className="flex items-center gap-2">
                  {isCondoView ? <Building className="h-6 w-6 text-primary"/> : <Shield className="h-6 w-6 text-primary"/>}
                 <h1 className="text-lg font-semibold md:text-2xl font-headline">

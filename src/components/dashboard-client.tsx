@@ -209,7 +209,7 @@ function AddDeviceDialog({
 function DashboardSkeleton() {
   return (
     <div className="flex flex-col h-screen">
-      <header className="flex h-16 items-center border-b px-4 md:px-6 shrink-0">
+      <header className="flex h-14 items-center border-b px-4 md:px-6 shrink-0">
         <Skeleton className="h-8 w-48" />
         <div className="ml-auto flex items-center gap-4">
           <Skeleton className="h-8 w-8 rounded-full" />
@@ -335,7 +335,7 @@ export default function DashboardClient({
 
   return (
     <div className="flex min-h-screen w-full flex-col">
-      <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-50">
+      <header className="sticky top-0 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-50">
         <Logo />
         <div className="flex-1">
           <h1 className="text-lg font-semibold md:text-2xl font-headline">{t('dashboard.title')}</h1>
