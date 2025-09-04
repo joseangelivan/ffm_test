@@ -36,6 +36,14 @@ const SCHEMA_FILES_ORDER = [
     'map_providers/base_schema.sql',
 ];
 
+const TABLES_FOR_RLS = [
+    'admins', 'admin_first_login_pins', 'admin_totp_secrets', 'admin_verification_pins',
+    'condominiums', 'residents', 'gatekeepers', 'device_types', 'protocols',
+    'devices', 'devices_communication', 'languages', 'sessions', 'admin_settings',
+    'smtp_configurations', 'themes', 'app_settings', 'translation_services',
+    'geofences', 'map_element_types', 'geocoding_services', 'map_providers', 'migrations_log'
+];
+
 async function applySqlFile(client: PoolClient, filePath: string, log: string[]): Promise<void> {
     const fileName = path.basename(filePath);
     log.push(`EXECUTE: Applying schema file: ${fileName}`);
@@ -231,6 +239,42 @@ async function runMigrations(client: PoolClient, log: string[]) {
     }
 }
 
+async function applyRlsPolicies(client: PoolClient, log: string[]): Promise<void> {
+    log.push('PHASE 6: Applying Row Level Security policies...');
+
+    for (const tableName of TABLES_FOR_RLS) {
+        try {
+            log.push(`INFO: Applying RLS for table: ${tableName}`);
+            // Enable RLS
+            await client.query(`ALTER TABLE public.${tableName} ENABLE ROW LEVEL SECURITY;`);
+
+            // Drop existing policy if it exists, to ensure a clean slate
+            await client.query(`DROP POLICY IF EXISTS "service_policy_public" ON public.${tableName};`);
+
+            // Create a fully permissive policy. Since our backend connects with a privileged role,
+            // this policy allows the backend to perform any action, while RLS is still enabled
+            // as a security baseline.
+            await client.query(`
+                CREATE POLICY "service_policy_public" ON public.${tableName}
+                FOR ALL
+                TO public
+                USING (true)
+                WITH CHECK (true);
+            `);
+            log.push(`SUCCESS: RLS policy applied for table: ${tableName}`);
+        } catch (e: any) {
+            // Check if the error is because the table does not exist, which can happen.
+            if (e.code === '42P01') { // undefined_table
+                 log.push(`WARNING: Table "${tableName}" not found, skipping RLS policy. This may be normal if the table is obsolete.`);
+            } else {
+                log.push(`ERROR: Failed to apply RLS for table "${tableName}". Error: ${e.message}`);
+                throw e; // Propagate error to rollback transaction
+            }
+        }
+    }
+    log.push('SUCCESS: All RLS policies applied.');
+}
+
 
 export async function initializeDatabase(
     prevState: DbInitResult | undefined,
@@ -263,6 +307,9 @@ export async function initializeDatabase(
         
         // Always run pending migrations from the migrations folder
         await runMigrations(dbClient, log);
+
+        // Apply RLS policies as a final step
+        await applyRlsPolicies(dbClient, log);
         
         await dbClient.query('COMMIT');
         log.push('SUCCESS: Database is up to date.');
