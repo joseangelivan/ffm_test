@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLocale } from '@/lib/i18n';
-import { GeofenceControls } from './geofence-controls';
+import { GeofenceControls, type DrawingMode } from './geofence-controls';
 import { ElementsControls } from './elements-controls';
 import { getGeofencesByCondoId } from '@/actions/maps';
 import type { Geofence as DbGeofence } from '@/actions/maps';
@@ -66,6 +66,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const [activeShapeState, setActiveShapeState] = useState<{ id: string, feature: Feature<any> | null, originalGeometry?: any } | null>(null);
   const [historyStack, setHistoryStack] = useState<Geometry[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
 
   // Initialize geofence selections on first load
   useEffect(() => {
@@ -75,6 +76,21 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     setDefaultGeofenceId(defaultGf?.id || null);
     setSelectedGeofenceId(initialSelectedId);
   }, [condo.geofences]);
+
+  useEffect(() => {
+    if (mode === 'view' || !selectedGeofenceId) return;
+    const selectedGeofence = dbGeofences.find(g => g.id === selectedGeofenceId);
+    if (!selectedGeofence) return;
+
+    const type = selectedGeofence.geometry?.type;
+    if (type === 'Circle') {
+        setDrawingMode('Circle');
+    } else if (type === 'Rectangle') {
+        setDrawingMode('Rectangle');
+    } else {
+        setDrawingMode('Polygon');
+    }
+  }, [selectedGeofenceId, dbGeofences, mode]);
 
 
   // --- Data Fetching & Refreshing ---
@@ -334,6 +350,8 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                     historyIndex={historyIndex}
                                     setHistoryIndex={setHistoryIndex}
                                     geofenceSource={geofenceSource}
+                                    drawingMode={drawingMode}
+                                    setDrawingMode={setDrawingMode}
                                 />
                             )}
                             {selectedModule === 'elements' && (

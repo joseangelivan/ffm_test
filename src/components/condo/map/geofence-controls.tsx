@@ -34,7 +34,7 @@ import { LoadingOverlay } from '@/components/admin/admin-header';
 import Draw, { createBox } from 'ol/interaction/Draw';
 import { Modify, Translate } from 'ol/interaction';
 import GeoJSON from 'ol/format/GeoJSON';
-import { Polygon, Circle as OlCircle } from 'ol/geom';
+import { Polygon, Circle as OlCircle, fromCircle } from 'ol/geom';
 import type { Geometry, SimpleGeometry } from 'ol/geom';
 import Collection from 'ol/Collection';
 import type VectorSource from 'ol/source/Vector';
@@ -76,6 +76,8 @@ type GeofenceControlsProps = {
     historyIndex: number;
     setHistoryIndex: React.Dispatch<React.SetStateAction<number>>;
     geofenceSource: VectorSource | null;
+    drawingMode: DrawingMode;
+    setDrawingMode: React.Dispatch<React.SetStateAction<DrawingMode>>;
 }
 
 export function GeofenceControls({
@@ -100,6 +102,8 @@ export function GeofenceControls({
     historyIndex,
     setHistoryIndex,
     geofenceSource,
+    drawingMode,
+    setDrawingMode,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -109,7 +113,6 @@ export function GeofenceControls({
     const [isSettingDefault, startSettingDefaultTransition] = useTransition();
     
     const [isDrawing, setIsDrawing] = useState(false);
-    const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
     
     const interactionsRef = useRef<{ draw: Draw | null, modify: Modify | null, translate: Translate | null }>({
@@ -187,21 +190,24 @@ export function GeofenceControls({
         let geometryToSave: any;
         const geometry = feature.getGeometry();
         
-        if (geometry instanceof OlCircle) {
-            const center = toLonLat(geometry.getCenter());
-            const radius = geometry.getRadius();
-            geometryToSave = {
-                type: "Circle",
-                center: center,
-                radius: radius,
-            };
-        } else if (geometry) {
-            geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(geometry);
-        }
-
-        if (!geometryToSave) {
+        if (!geometry) {
             toast({ title: t('toast.errorTitle'), description: "Geometría inválida.", variant: "destructive" });
             return;
+        }
+
+        const geometryType = feature.get('geometryType');
+
+        if (geometryType === 'Rectangle') {
+            const coordinates = (geometry as Polygon).getCoordinates()[0].slice(0, 4).map(coord => toLonLat(coord));
+            geometryToSave = { type: 'Rectangle', coordinates: [coordinates] };
+        } else if (geometry instanceof OlCircle) {
+            const center = toLonLat(geometry.getCenter());
+            const radius = geometry.getRadius(); // Radius in meters
+            geometryToSave = { type: 'Circle', center, radius };
+        } else {
+             // For standard polygons, convert to a polygon for saving
+            const polygonGeom = (geometry instanceof OlCircle) ? fromCircle(geometry) : geometry;
+            geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(polygonGeom);
         }
     
         if (!currentGeofenceName) {
