@@ -200,9 +200,10 @@ export function GeofenceControls({
         if (geometryType === 'Rectangle') {
             const coordinates = (geometry as Polygon).getCoordinates()[0].slice(0, 4).map(coord => toLonLat(coord));
             geometryToSave = { type: 'Rectangle', coordinates: [coordinates] };
-        } else if (geometry instanceof OlCircle) {
-            const center = toLonLat(geometry.getCenter());
-            const radius = geometry.getRadius(); // Radius in meters
+        } else if (geometryType === 'Circle') {
+            const circleGeom = geometry as OlCircle;
+            const center = toLonLat(circleGeom.getCenter());
+            const radius = circleGeom.getRadius(); // Radius in meters
             geometryToSave = { type: 'Circle', center, radius };
         } else {
              // For standard polygons, convert to a polygon for saving
@@ -339,6 +340,8 @@ export function GeofenceControls({
                     const drawnFeature = event.feature;
                     if (drawingMode === 'Rectangle') {
                         drawnFeature.set('geometryType', 'Rectangle');
+                    } else if (drawingMode === 'Circle') {
+                        drawnFeature.set('geometryType', 'Circle');
                     }
                     onShapeDrawn(drawnFeature);
                     setIsDrawing(false);
@@ -347,7 +350,7 @@ export function GeofenceControls({
             } else if (activeShapeState?.feature) {
                 const featureToEdit = activeShapeState.feature;
                 const features = new Collection([featureToEdit]);
-                const isRectangle = featureToEdit.get('geometryType') === 'Rectangle';
+                const geometryType = featureToEdit.get('geometryType');
                 
                  const modifyInteraction = new Modify({ 
                     features: features,
@@ -358,7 +361,7 @@ export function GeofenceControls({
                             stroke: new (require('ol/style').Stroke)({ color: 'white', width: 2 })
                         }),
                     }),
-                    insertVertexCondition: () => !isRectangle,
+                    insertVertexCondition: () => geometryType !== 'Rectangle' && geometryType !== 'Circle',
                 });
                 modifyInteraction.set('id', 'modify-interaction');
                 map.addInteraction(modifyInteraction);
@@ -373,7 +376,7 @@ export function GeofenceControls({
                     const finalGeometry = feature.getGeometry();
                     if (!finalGeometry) return;
 
-                    if (!isRectangle || !originalGeometryOnModifyStart.current) {
+                    if (geometryType !== 'Rectangle' || !originalGeometryOnModifyStart.current) {
                         pushToHistory(finalGeometry.clone());
                         return;
                     }
@@ -468,14 +471,14 @@ export function GeofenceControls({
                             checked={mode === 'editing'} 
                             onCheckedChange={(checked) => {
                                 const isEnteringEditMode = !!checked;
+                                if (isEnteringEditMode) {
+                                    setShowAllGeofences(false);
+                                }
                                 if (!isEnteringEditMode) {
                                     cancelCurrentAction();
                                 } else {
                                     if (geofences.length > 0 && !selectedGeofenceId) {
                                         setSelectedGeofenceId(geofences[0].id);
-                                    }
-                                    if (showAllGeofences) {
-                                        setShowAllGeofences(false);
                                     }
                                 }
                                 setMode(isEnteringEditMode ? 'editing' : 'view');
@@ -491,7 +494,21 @@ export function GeofenceControls({
 
                     <fieldset disabled={isBusy || mode === 'view'} className="space-y-4 disabled:opacity-50">
                             <div className="flex items-center gap-2">
-                                <Select value={selectedGeofenceId || ''} onValueChange={setSelectedGeofenceId} disabled={!!activeShapeState?.feature || isBusy}>
+                                <Select 
+                                    value={selectedGeofenceId || ''} 
+                                    onValueChange={(value) => {
+                                        setSelectedGeofenceId(value);
+                                        const selectedGf = geofences.find(g => g.id === value);
+                                        if (selectedGf?.geometry.type === 'Circle') {
+                                            setDrawingMode('Circle');
+                                        } else if (selectedGf?.geometry.type === 'Rectangle') {
+                                            setDrawingMode('Rectangle');
+                                        } else {
+                                            setDrawingMode('Polygon');
+                                        }
+                                    }} 
+                                    disabled={!!activeShapeState?.feature || isBusy}
+                                >
                                     <SelectTrigger className={cn("flex-1", selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-') && mode === 'editing' && !activeShapeState && "text-blue-600 border-blue-400 font-bold")}>
                                         <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
                                     </SelectTrigger>
