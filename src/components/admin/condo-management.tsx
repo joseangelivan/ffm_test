@@ -718,7 +718,7 @@ export function CondoManagement() {
                 </div>
             )}
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-row items-center justify-between pb-4">
                 <div>
                     <CardTitle>{t('adminDashboard.condoListTitle')}</CardTitle>
                     <CardDescription>{t('adminDashboard.condoListDescription')}</CardDescription>
@@ -850,3 +850,5 @@ export function CondoManagement() {
         </div>
     );
 }
+
+    
