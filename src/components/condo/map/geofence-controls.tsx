@@ -58,6 +58,7 @@ type GeofenceControlsProps = {
     condoId: string;
     geofences: DbGeofence[];
     onDataNeedsRefresh: (newSelectedId?: string) => void;
+    onFitView: () => void;
     onShapeDrawn: (feature: OlFeature) => void;
     activeShapeState: ActiveShapeState;
     setActiveShapeState: React.Dispatch<React.SetStateAction<ActiveShapeState>>;
@@ -85,6 +86,7 @@ export function GeofenceControls({
     condoId,
     geofences,
     onDataNeedsRefresh,
+    onFitView,
     onShapeDrawn,
     activeShapeState,
     setActiveShapeState,
@@ -491,13 +493,13 @@ export function GeofenceControls({
                                 const isEnteringEditMode = !!checked;
                                 if (isEnteringEditMode) {
                                     setShowAllGeofences(false);
-                                }
-                                if (!isEnteringEditMode) {
-                                    cancelCurrentAction();
                                 } else {
-                                    if (geofences.length > 0 && !selectedGeofenceId) {
-                                        setSelectedGeofenceId(geofences[0].id);
-                                    }
+                                    cancelCurrentAction();
+                                    onFitView();
+                                }
+
+                                if (isEnteringEditMode && geofences.length > 0 && !selectedGeofenceId) {
+                                    setSelectedGeofenceId(geofences[0].id);
                                 }
                                 setMode(isEnteringEditMode ? 'editing' : 'view');
                             }}

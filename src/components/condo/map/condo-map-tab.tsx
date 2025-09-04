@@ -97,7 +97,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   // --- Data Fetching & Refreshing ---
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
     setIsLoading(true);
-    setActiveShapeState(null); // Ensure we clear any active shape state when refreshing
+    // Do not reset active shape state here to allow continuous editing
     try {
         const freshDbGeofences = await getGeofencesByCondoId(condo.id);
         setDbGeofences(freshDbGeofences);
@@ -134,7 +134,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     });
   }, [condoAddressPosition]);
 
-  const applyZoomLevel = useCallback((source: VectorSource | null = geofenceSource) => {
+  const applyZoomLevel = useCallback(() => {
     const map = mapRef.current;
     if (!map) return;
 
@@ -142,8 +142,8 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     if (!mapSize || mapSize.some(s => s === 0)) {
         return;
     }
-
-    if (!source) {
+    
+    if (!geofenceSource) {
         centerMapOnAddress();
         return;
     }
@@ -165,7 +165,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
         return;
     }
 
-    const featureToFit = source.getFeatureById(geofenceIdToFit);
+    const featureToFit = geofenceSource.getFeatureById(geofenceIdToFit);
     if (!featureToFit) return;
 
     const extent = featureToFit.getGeometry()?.getExtent();
@@ -198,7 +198,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     setIsLoading(false);
     
     // Apply initial zoom/centering after map is fully loaded and ready
-    applyZoomLevel(source);
+    applyZoomLevel();
   }, [applyZoomLevel]);
     
   const handleZoomIn = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom()! + 1);
@@ -243,7 +243,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
       setHistoryStack([]);
       setHistoryIndex(-1);
     }
-  }, [activeShapeState, geofenceSource]);
+  }, [activeShapeState, geofenceSource, setActiveShapeState, setHistoryStack, setHistoryIndex]);
   
   return (
     <>
@@ -308,7 +308,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                             <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
                                 <ZoomOut className="h-5 w-5" />
                             </Button>
-                            <Button onClick={() => applyZoomLevel()} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
+                            <Button onClick={applyZoomLevel} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
                                 <Frame className="h-5 w-5" />
                             </Button>
                         </div>
@@ -335,6 +335,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                     condoId={condo.id}
                                     geofences={dbGeofences}
                                     onDataNeedsRefresh={onDataNeedsRefresh}
+                                    onFitView={applyZoomLevel}
                                     onShapeDrawn={onShapeDrawn}
                                     selectedGeofenceId={selectedGeofenceId}
                                     setSelectedGeofenceId={setSelectedGeofenceId}
