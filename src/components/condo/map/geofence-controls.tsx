@@ -241,7 +241,6 @@ export function GeofenceControls({
                 setHistoryStack([]);
                 setHistoryIndex(-1);
                 setCurrentGeofenceName('');
-                setMode('view');
 
                 // Refresh data
                 const newSelectedId = isNewShape ? result.data?.id : id;
@@ -254,7 +253,7 @@ export function GeofenceControls({
                 setShapeBeingSaved(null); // Clear on failure too
             }
         });
-    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, setHistoryStack, setHistoryIndex, removeAllInteractions, setActiveShapeState, setShapeBeingSaved, setMode]);
+    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, setHistoryStack, setHistoryIndex, removeAllInteractions, setActiveShapeState, setShapeBeingSaved]);
     
     const handleStartDrawing = () => {
         cancelCurrentAction();
