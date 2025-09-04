@@ -106,7 +106,6 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     }
   }, [condo.id, selectedGeofenceId, toast, t]);
 
-  // --- Map Interactions ---
   const centerMapOnAddress = useCallback(() => {
     const map = mapRef.current;
     if(!map || !condoAddressPosition) return;
@@ -168,6 +167,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   }, [mode, geofenceSource, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress]);
 
 
+  // --- Map Interactions ---
   const handleMapLoad = useCallback(async (map: OlMap, source: VectorSource) => {
     mapRef.current = map;
     setGeofenceSource(source);
@@ -359,5 +359,3 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     </>
   );
 }
-
-    

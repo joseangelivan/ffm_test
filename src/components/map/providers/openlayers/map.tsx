@@ -118,7 +118,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const vectorSourceRef = useRef<VectorSource>(new VectorSource());
+    const vectorSourceRef = useRef<VectorSource | null>(null);
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
         if (mode === 'view') {
@@ -142,12 +142,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     
     useEffect(() => {
         if (!mapContainerRef.current) return;
-        
-        // Prevent re-initialization
-        if (mapRef.current) {
-            mapRef.current.setTarget(mapContainerRef.current);
-            return;
-        }
+        if (mapRef.current) return; // Prevent re-initialization
 
         let config: any;
         try {
@@ -169,17 +164,31 @@ const OpenLayersMap: React.FC<MapProps> = ({
             source = new OSM();
         }
         
-        const initialLayer = new TileLayer({ source });
+        const tileLayer = new TileLayer({ source });
+        
+        const initialFeatures = dbGeofences.map(dbGeofence => {
+            const olGeom = readCustomGeoJSON(dbGeofence);
+            if (!olGeom) return null;
+            const feature = new Feature({ geometry: olGeom });
+            feature.setId(dbGeofence.id);
+            if (olGeom instanceof Polygon) {
+                feature.set('geometryType', olGeom.get('geometryType'));
+            }
+            return feature;
+        }).filter((f): f is Feature<Geometry> => f !== null);
+
+        const localVectorSource = new VectorSource({ features: initialFeatures });
+        vectorSourceRef.current = localVectorSource;
 
         const vectorLayer = new VectorLayer({
-            source: vectorSourceRef.current,
+            source: localVectorSource,
             style: (feature) => feature.get('style'),
         });
         vectorLayer.set('id', 'geofence-layer');
 
         const map = new Map({
             target: mapContainerRef.current!,
-            layers: [initialLayer, vectorLayer],
+            layers: [tileLayer, vectorLayer],
             view: new View({
                 center: fromLonLat([initialPosition.lng, initialPosition.lat]),
                 zoom: 4,
@@ -188,15 +197,14 @@ const OpenLayersMap: React.FC<MapProps> = ({
         });
         
         (mapRef as React.MutableRefObject<Map | null>).current = map;
-        onMapLoad(map, vectorSourceRef.current);
+        onMapLoad(map, localVectorSource);
 
         return () => {
             if (mapRef.current) {
                 mapRef.current.setTarget(undefined);
             }
         };
-    }, [provider, onMapLoad, initialPosition, mapRef]);
-
+    }, []); // This effect should only run once on mount
 
     useEffect(() => {
         const source = vectorSourceRef.current;
@@ -212,6 +220,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             let feature = source.getFeatureById(dbGeofence.id);
             if (feature) {
                 const currentGeom = feature.getGeometry();
+                // Only update geometry if it's not the currently edited shape
                 if (currentGeom && activeShapeState?.feature !== feature) {
                     const currentCoords = JSON.stringify(currentGeom.getCoordinates());
                     const newCoords = JSON.stringify(olGeom.getCoordinates());
