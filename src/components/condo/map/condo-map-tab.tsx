@@ -244,6 +244,12 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
       setHistoryIndex(-1);
     }
   }, [activeShapeState, geofenceSource, setActiveShapeState, setHistoryStack, setHistoryIndex]);
+
+  useEffect(() => {
+    if (mode === 'view') {
+        applyZoomLevel();
+    }
+  }, [mode, applyZoomLevel]);
   
   return (
     <>

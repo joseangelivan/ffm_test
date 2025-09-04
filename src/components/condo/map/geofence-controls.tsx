@@ -495,7 +495,6 @@ export function GeofenceControls({
                                     setShowAllGeofences(false);
                                 } else {
                                     cancelCurrentAction();
-                                    onFitView();
                                 }
 
                                 if (isEnteringEditMode && geofences.length > 0 && !selectedGeofenceId) {
