@@ -141,8 +141,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState]);
     
     useEffect(() => {
-        if (!mapContainerRef.current) return;
-        if (mapRef.current) return; // Prevent re-initialization
+        if (!mapContainerRef.current || mapRef.current) return; // Initialize map only once
 
         let config: any;
         try {
@@ -157,15 +156,15 @@ const OpenLayersMap: React.FC<MapProps> = ({
         const apiConfig = config.api_config || {};
         const baseUrl = apiConfig.base_url;
 
-        let source;
+        let tileSource;
         if (baseUrl) {
-            source = new XYZ({ url: baseUrl, maxZoom: 20 });
+            tileSource = new XYZ({ url: baseUrl, maxZoom: 20 });
         } else {
-            source = new OSM();
+            tileSource = new OSM();
         }
         
-        const tileLayer = new TileLayer({ source });
-        
+        const tileLayer = new TileLayer({ source: tileSource });
+
         const initialFeatures = dbGeofences.map(dbGeofence => {
             const olGeom = readCustomGeoJSON(dbGeofence);
             if (!olGeom) return null;
@@ -177,7 +176,9 @@ const OpenLayersMap: React.FC<MapProps> = ({
             return feature;
         }).filter((f): f is Feature<Geometry> => f !== null);
 
-        const localVectorSource = new VectorSource({ features: initialFeatures });
+        const localVectorSource = new VectorSource({
+            features: initialFeatures,
+        });
         vectorSourceRef.current = localVectorSource;
 
         const vectorLayer = new VectorLayer({
@@ -202,9 +203,10 @@ const OpenLayersMap: React.FC<MapProps> = ({
         return () => {
             if (mapRef.current) {
                 mapRef.current.setTarget(undefined);
+                // The map instance itself is not destroyed, just detached.
             }
         };
-    }, []); // This effect should only run once on mount
+    }, []); // Empty dependency array ensures this runs only once on mount
 
     useEffect(() => {
         const source = vectorSourceRef.current;
