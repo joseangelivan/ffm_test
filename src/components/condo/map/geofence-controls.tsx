@@ -78,6 +78,8 @@ type GeofenceControlsProps = {
     geofenceSource: VectorSource | null;
     drawingMode: DrawingMode;
     setDrawingMode: React.Dispatch<React.SetStateAction<DrawingMode>>;
+    shapeBeingSaved: { id: string; feature: OlFeature<any> | null; originalGeometry?: any; } | null;
+    setShapeBeingSaved: React.Dispatch<React.SetStateAction<{ id: string; feature: OlFeature<any> | null; originalGeometry?: any; } | null>>;
 }
 
 export function GeofenceControls({
@@ -104,6 +106,8 @@ export function GeofenceControls({
     geofenceSource,
     drawingMode,
     setDrawingMode,
+    shapeBeingSaved,
+    setShapeBeingSaved,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -123,16 +127,10 @@ export function GeofenceControls({
     
     const originalGeometryOnModifyStart = useRef<Geometry | null>(null);
 
-     // This effect cleans up the editing state AFTER the geofences data has been refreshed and re-rendered.
+     // This effect cleans up the shapeBeingSaved state AFTER the geofences data has been refreshed and re-rendered.
     useEffect(() => {
-        if (!isSaving && activeShapeState) {
-            const activeId = activeShapeState.id;
-            // If the active shape now exists in the main geofences list and is not a "new" shape
-            if (!activeId.startsWith('new-shape-') && geofences.some(g => g.id === activeId)) {
-                // The data has been refreshed, now it's safe to clear the editing state
-                setActiveShapeState(null);
-                removeAllInteractions();
-            }
+        if (!isSaving && shapeBeingSaved) {
+            setShapeBeingSaved(null);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [geofences]); // Only run when the geofences prop changes
@@ -201,6 +199,7 @@ export function GeofenceControls({
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
 
+        setShapeBeingSaved(activeShapeState);
         const { id, feature } = activeShapeState;
         
         let geometryToSave: any;
@@ -246,19 +245,23 @@ export function GeofenceControls({
         
             if (result?.success) {
                 toast({ title: t('toast.successTitle'), description: result.message });
-                const newSelectedId = isNewShape ? result.data?.id : id;
-                await onDataNeedsRefresh(newSelectedId);
-
-                // Clear history and name, but keep activeShapeState until useEffect cleans it up
+                // Clean up state
+                removeAllInteractions();
+                setActiveShapeState(null);
                 setHistoryStack([]);
                 setHistoryIndex(-1);
                 setCurrentGeofenceName('');
 
+                // Refresh data
+                const newSelectedId = isNewShape ? result.data?.id : id;
+                await onDataNeedsRefresh(newSelectedId);
+
             } else if (result) {
                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+                setShapeBeingSaved(null); // Clear on failure too
             }
         });
-    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, setHistoryStack, setHistoryIndex]);
+    }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, setHistoryStack, setHistoryIndex, removeAllInteractions, setActiveShapeState, setShapeBeingSaved]);
     
     const handleStartDrawing = () => {
         cancelCurrentAction();
