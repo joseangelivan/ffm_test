@@ -40,6 +40,7 @@ import Collection from 'ol/Collection';
 import type VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
 import { Style } from 'ol/style';
+import { toLonLat } from 'ol/proj';
 
 
 const RecalcularRectangulo = (vérticeFijo: number[], vérticeMovido: number[]): number[][] => {
@@ -187,9 +188,13 @@ export function GeofenceControls({
         const geometry = feature.getGeometry();
         
         if (geometry instanceof OlCircle) {
-            // Convert circle to a polygon for saving, as GeoJSON doesn't support circles well.
-            const polygon = Polygon.fromCircle(geometry);
-            geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(polygon);
+            const center = toLonLat(geometry.getCenter());
+            const radius = geometry.getRadius();
+            geometryToSave = {
+                type: "Circle",
+                center: center,
+                radius: radius,
+            };
         } else if (geometry) {
             geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(geometry);
         }

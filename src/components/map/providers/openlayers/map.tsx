@@ -13,11 +13,11 @@ import 'ol/ol.css';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { fromLonLat, transform } from 'ol/proj';
 import GeoJSON from 'ol/format/GeoJSON';
+import { Circle as OlCircle, Polygon } from 'ol/geom';
 import type { Geometry } from 'ol/geom';
 import Feature from 'ol/Feature';
-import { Style, Fill, Stroke, Circle as CircleStyle } from 'ol/style';
+import { Style, Fill, Stroke } from 'ol/style';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-import { Modify, Translate } from 'ol/interaction';
 
 
 const STYLE_VIEW_MODE = new Style({
@@ -51,58 +51,31 @@ const STYLE_HIDDEN = new Style({
 });
 
 
-function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
-    const geometryObject = { ...dbGeofence.geometry };
+function readCustomGeoJSON(dbGeofence: DbGeofence): Geometry | null {
+    const geometryObject = dbGeofence.geometry;
 
-    if (!geometryObject) {
-        return null;
-    }
-    
-    if (typeof geometryObject !== 'object') {
+    if (!geometryObject || typeof geometryObject !== 'object') {
         console.warn(`Invalid geometry object passed to reader (not an object):`, geometryObject);
         return null;
     }
-
-    if (Object.keys(geometryObject).length === 0 && geometryObject.constructor === Object) {
-        console.warn(`Invalid geometry object passed to reader (empty object):`, geometryObject);
-        return null;
-    }
-
-    // Handle legacy Google Maps rectangle format
-    if ('bounds' in geometryObject && typeof (geometryObject as any).bounds === 'object') {
-        const bounds = (geometryObject as any).bounds;
-        if (bounds && bounds.north && bounds.south && bounds.east && bounds.west) {
-             const coords = [
-                [bounds.west, bounds.south],
-                [bounds.east, bounds.south],
-                [bounds.east, bounds.north],
-                [bounds.west, bounds.north],
-                [bounds.west, bounds.south]
-            ].map(coord => fromLonLat(coord));
-            
-            const Polygon = require('ol/geom/Polygon').default;
-            const newPolygon = new Polygon([coords]);
-            newPolygon.set('geometryType', 'Rectangle');
-            return newPolygon;
-        } else {
-            console.warn(`Invalid coordinate structure for legacy Rectangle geometry:`, bounds);
-            return null;
-        }
+    
+    // Handle our custom Circle format
+    if (geometryObject.type === 'Circle' && geometryObject.center && geometryObject.radius) {
+        const center = fromLonLat(geometryObject.center);
+        return new OlCircle(center, geometryObject.radius);
     }
     
-    if (geometryObject.type === 'rectangle') {
-        geometryObject.type = 'Polygon';
-    }
-
-    // Standard GeoJSON handling
-    if ('type' in geometryObject && 'coordinates' in geometryObject) {
+    // Handle standard GeoJSON Polygon (and legacy rectangles)
+    if (geometryObject.type === 'Polygon' || geometryObject.type === 'rectangle') {
        try {
+            const geojson = { ...geometryObject };
+            if (geojson.type === 'rectangle') geojson.type = 'Polygon'; // Treat legacy rectangle as polygon
+            
             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-            const geometry = format.readGeometry(geometryObject);
-            // If it's a polygon and has 5 coordinates (4 vertices + closing point), it's a rectangle
+            const geometry = format.readGeometry(geojson);
+            
+            // Heuristic to tag rectangles for special handling during modification
             if (geometry.getType() === 'Polygon' && (geometry as any).getCoordinates()[0].length === 5) {
-                // This is a simplification; a more robust check would analyze the angles.
-                // For now, it's a good heuristic for shapes created as rectangles.
                 geometry.set('geometryType', 'Rectangle');
             }
             return geometry;
@@ -111,8 +84,8 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
             return null;
         }
     }
-    
-    console.warn(`Invalid geometry object passed to reader (no type or incompatible structure):`, geometryObject);
+
+    console.warn(`Invalid or unsupported geometry object passed to reader:`, geometryObject);
     return null;
 }
 
@@ -145,7 +118,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const vectorSourceRef = useRef<VectorSource | null>(null);
+    const vectorSourceRef = useRef<VectorSource>(new VectorSource());
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
         if (mode === 'view') {
@@ -197,23 +170,10 @@ const OpenLayersMap: React.FC<MapProps> = ({
         }
         
         const initialLayer = new TileLayer({ source });
-        
-        const initialFeatures = dbGeofences.map(dbGeofence => {
-            const olGeom = readLegacyOrStandardGeoJSON(dbGeofence);
-            if (!olGeom) return null;
-            const feature = new Feature({ geometry: olGeom });
-            feature.setId(dbGeofence.id);
-            feature.set('geometryType', olGeom.get('geometryType'));
-            return feature;
-        }).filter((f): f is Feature<Geometry> => f !== null);
 
-        vectorSourceRef.current = new VectorSource({ features: initialFeatures });
-        
         const vectorLayer = new VectorLayer({
             source: vectorSourceRef.current,
             style: (feature) => feature.get('style'),
-            updateWhileAnimating: true,
-            updateWhileInteracting: true,
         });
         vectorLayer.set('id', 'geofence-layer');
 
@@ -229,13 +189,13 @@ const OpenLayersMap: React.FC<MapProps> = ({
         
         (mapRef as React.MutableRefObject<Map | null>).current = map;
         onMapLoad(map, vectorSourceRef.current);
-        
+
         return () => {
             if (mapRef.current) {
                 mapRef.current.setTarget(undefined);
             }
         };
-    }, [provider, onMapLoad, initialPosition, mapRef, dbGeofences]);
+    }, [provider, onMapLoad, initialPosition, mapRef]);
 
 
     useEffect(() => {
@@ -246,7 +206,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
         // Add or update features from the database
         dbGeofences.forEach(dbGeofence => {
-            const olGeom = readLegacyOrStandardGeoJSON(dbGeofence);
+            const olGeom = readCustomGeoJSON(dbGeofence);
             if (!olGeom) return;
 
             let feature = source.getFeatureById(dbGeofence.id);
@@ -262,7 +222,9 @@ const OpenLayersMap: React.FC<MapProps> = ({
             } else {
                 feature = new Feature({ geometry: olGeom });
                 feature.setId(dbGeofence.id);
-                feature.set('geometryType', olGeom.get('geometryType'));
+                if (olGeom instanceof Polygon) {
+                    feature.set('geometryType', olGeom.get('geometryType'));
+                }
                 source.addFeature(feature);
             }
         });
@@ -290,55 +252,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
         source.changed();
 
     }, [dbGeofences, mode, showAllGeofences, selectedGeofenceId, defaultGeofenceId, getFeatureStyle, activeShapeState]);
-
-    useEffect(() => {
-        const map = mapRef.current;
-        if (!map || mode !== 'editing' || !activeShapeState?.feature) {
-            return;
-        }
-        
-        const handlePointerMove = (e: any) => {
-            const target = map.getTargetElement();
-            if (e.dragging || !target) return;
-
-            const pixel = map.getEventPixel(e.originalEvent);
-            let cursorSet = false;
-
-            const modifyInteraction = map.getInteractions().getArray().find(
-                i => i instanceof Modify && i.getActive()
-            ) as Modify | undefined;
-
-            if (modifyInteraction) {
-                 const featuresAtPixel = modifyInteraction.getOverlay().getSource()?.getFeaturesAtCoordinate(e.coordinate);
-                 if (featuresAtPixel && featuresAtPixel.length > 0) {
-                     target.style.cursor = 'crosshair';
-                     cursorSet = true;
-                 }
-            }
-            
-            if (!cursorSet) {
-                const hit = map.hasFeatureAtPixel(pixel, {
-                    layerFilter: (l) => l.getSource() === vectorSourceRef.current,
-                    hitTolerance: 5,
-                });
-                if (hit) {
-                     target.style.cursor = 'move';
-                } else {
-                    target.style.cursor = '';
-                }
-            }
-        };
-
-        map.on('pointermove', handlePointerMove);
-        
-        return () => {
-             map.un('pointermove', handlePointerMove);
-             const target = map.getTargetElement();
-             if (target) {
-                 target.style.cursor = '';
-             }
-        }
-    }, [mapRef, mode, activeShapeState]);
 
 
     return (
