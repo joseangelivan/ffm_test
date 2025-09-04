@@ -18,7 +18,7 @@ import type { Geometry } from 'ol/geom';
 import Feature from 'ol/Feature';
 import { Style, Fill, Stroke } from 'ol/style';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-import { Modify, Translate } from 'ol/interaction';
+import { Modify } from 'ol/interaction';
 
 
 const STYLE_VIEW_MODE = new Style({
@@ -147,6 +147,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
     useEffect(() => {
         if (!mapContainerRef.current) return;
         
+        let map: Map;
+
         if (!mapRef.current) {
             let config: any;
             try {
@@ -188,7 +190,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             });
             vectorLayer.set('id', 'geofence-layer');
 
-            const map = new Map({
+            map = new Map({
                 target: mapContainerRef.current!,
                 layers: [initialLayer, vectorLayer],
                 view: new View({
@@ -200,10 +202,9 @@ const OpenLayersMap: React.FC<MapProps> = ({
             
             (mapRef as React.MutableRefObject<Map | null>).current = map;
             onMapLoad(map, vectorSource);
+        } else {
+            map = mapRef.current;
         }
-
-        const map = mapRef.current;
-        if (!map) return;
 
         const source = vectorSourceRef.current;
         if (!source) return;
@@ -246,26 +247,29 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
         const pointerMoveHandler = (e: any) => {
             if (e.dragging || !mapRef.current) return;
-            const pixel = mapRef.current.getEventPixel(e.originalEvent);
-            const modifyInteraction = mapRef.current.getInteractions().getArray().find(i => i.get('id') === 'modify-interaction');
+            const mapInstance = mapRef.current;
+            const pixel = mapInstance.getEventPixel(e.originalEvent);
+
+            const modifyInteraction = mapInstance.getInteractions().getArray().find(i => i instanceof Modify);
             if (modifyInteraction && (modifyInteraction as any).getOverlay) {
                 const overlaySource = (modifyInteraction as any).getOverlay().getSource();
                  if (overlaySource && overlaySource.getFeaturesAtCoordinate(e.coordinate).length > 0) {
-                    mapRef.current.getTargetElement().style.cursor = 'crosshair';
+                    mapInstance.getTargetElement().style.cursor = 'crosshair';
                     return;
                 }
             }
             
-            const translateInteraction = mapRef.current.getInteractions().getArray().find(i => i instanceof Translate);
-            const hit = mapRef.current.hasFeatureAtPixel(pixel, {
+            // Check for Translate interaction by its constructor name to avoid direct import issues
+            const translateInteraction = mapInstance.getInteractions().getArray().find(i => i.constructor.name === 'Translate');
+            const hit = mapInstance.hasFeatureAtPixel(pixel, {
                  hitTolerance: 5,
                  layerFilter: (l) => l.getSource() === source
             });
 
             if (hit && translateInteraction && (translateInteraction as any).getFeatures && (translateInteraction as any).getFeatures().getLength() > 0) {
-                 mapRef.current.getTargetElement().style.cursor = 'move';
+                 mapInstance.getTargetElement().style.cursor = 'move';
             } else {
-                 mapRef.current.getTargetElement().style.cursor = '';
+                 mapInstance.getTargetElement().style.cursor = '';
             }
         };
 
