@@ -118,9 +118,9 @@ const OpenLayersMap: React.FC<MapProps> = ({
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const vectorSourceRef = useRef<VectorSource | null>(null);
+    const isMapInitialized = useRef(false);
 
-   const getFeatureStyle = useCallback((featureId: string): Style => {
+    const getFeatureStyle = useCallback((featureId: string): Style => {
         if (mode === 'view') {
             if (showAllGeofences) {
                 return featureId === defaultGeofenceId ? STYLE_VIEW_MODE : STYLE_EDIT_MODE_UNSELECTED;
@@ -139,131 +139,111 @@ const OpenLayersMap: React.FC<MapProps> = ({
             return STYLE_EDIT_MODE_UNSELECTED;
         }
     }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState]);
-    
+
     useEffect(() => {
-        if (!mapContainerRef.current || mapRef.current) return; // Initialize map only once
-
-        let config: any;
-        try {
-            config = typeof provider.config_json === 'string' 
-                ? JSON.parse(provider.config_json) 
-                : provider.config_json || {};
-        } catch (e) {
-            console.error("Failed to parse map provider config_json:", e);
-            config = {};
-        }
+        if (!mapContainerRef.current) return;
         
-        const apiConfig = config.api_config || {};
-        const baseUrl = apiConfig.base_url;
+        let map: Map;
+        let vectorSource: VectorSource;
 
-        let tileSource;
-        if (baseUrl) {
-            tileSource = new XYZ({ url: baseUrl, maxZoom: 20 });
+        if (!mapRef.current) {
+            let config: any;
+            try {
+                config = typeof provider.config_json === 'string' 
+                    ? JSON.parse(provider.config_json) 
+                    : provider.config_json || {};
+            } catch (e) {
+                console.error("Failed to parse map provider config_json:", e);
+                config = {};
+            }
+            
+            const apiConfig = config.api_config || {};
+            const baseUrl = apiConfig.base_url;
+
+            let tileSource;
+            if (baseUrl) {
+                tileSource = new XYZ({ url: baseUrl, maxZoom: 20 });
+            } else {
+                tileSource = new OSM();
+            }
+            
+            const tileLayer = new TileLayer({ source: tileSource });
+
+            vectorSource = new VectorSource();
+            const vectorLayer = new VectorLayer({
+                source: vectorSource,
+                style: (feature) => feature.get('style'),
+            });
+            vectorLayer.set('id', 'geofence-layer');
+
+            map = new Map({
+                target: mapContainerRef.current!,
+                layers: [tileLayer, vectorLayer],
+                view: new View({
+                    center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+                    zoom: 4,
+                }),
+                controls: [],
+            });
+
+            (mapRef as React.MutableRefObject<Map | null>).current = map;
+            
         } else {
-            tileSource = new OSM();
+            map = mapRef.current;
+            vectorSource = map.getLayers().getArray()
+                .find(layer => layer instanceof VectorLayer && layer.get('id') === 'geofence-layer')
+                ?.getSource() as VectorSource;
         }
+
+        if (!vectorSource) return;
+
+        // Clear existing features to redraw
+        vectorSource.clear();
         
-        const tileLayer = new TileLayer({ source: tileSource });
-
-        const initialFeatures = dbGeofences.map(dbGeofence => {
-            const olGeom = readCustomGeoJSON(dbGeofence);
-            if (!olGeom) return null;
-            const feature = new Feature({ geometry: olGeom });
-            feature.setId(dbGeofence.id);
-            if (olGeom instanceof Polygon) {
-                feature.set('geometryType', olGeom.get('geometryType'));
-            }
-            return feature;
-        }).filter((f): f is Feature<Geometry> => f !== null);
-
-        const localVectorSource = new VectorSource({
-            features: initialFeatures,
-        });
-        vectorSourceRef.current = localVectorSource;
-
-        const vectorLayer = new VectorLayer({
-            source: localVectorSource,
-            style: (feature) => feature.get('style'),
-        });
-        vectorLayer.set('id', 'geofence-layer');
-
-        const map = new Map({
-            target: mapContainerRef.current!,
-            layers: [tileLayer, vectorLayer],
-            view: new View({
-                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
-                zoom: 4,
-            }),
-            controls: [],
-        });
-        
-        (mapRef as React.MutableRefObject<Map | null>).current = map;
-        onMapLoad(map, localVectorSource);
-
-        return () => {
-            if (mapRef.current) {
-                mapRef.current.setTarget(undefined);
-                // The map instance itself is not destroyed, just detached.
-            }
-        };
-    }, []); // Empty dependency array ensures this runs only once on mount
-
-    useEffect(() => {
-        const source = vectorSourceRef.current;
-        if (!source) return;
-
-        const dbGeofenceIds = new Set(dbGeofences.map(g => g.id));
-
         // Add or update features from the database
         dbGeofences.forEach(dbGeofence => {
             const olGeom = readCustomGeoJSON(dbGeofence);
             if (!olGeom) return;
 
-            let feature = source.getFeatureById(dbGeofence.id);
-            if (feature) {
-                const currentGeom = feature.getGeometry();
-                // Only update geometry if it's not the currently edited shape
-                if (currentGeom && activeShapeState?.feature !== feature) {
-                    const currentCoords = JSON.stringify(currentGeom.getCoordinates());
-                    const newCoords = JSON.stringify(olGeom.getCoordinates());
-                    if(currentCoords !== newCoords) {
-                         feature.setGeometry(olGeom);
-                    }
-                }
-            } else {
-                feature = new Feature({ geometry: olGeom });
-                feature.setId(dbGeofence.id);
-                if (olGeom instanceof Polygon) {
-                    feature.set('geometryType', olGeom.get('geometryType'));
-                }
-                source.addFeature(feature);
+            const feature = new Feature({ geometry: olGeom });
+            feature.setId(dbGeofence.id);
+            if (olGeom instanceof Polygon) {
+                feature.set('geometryType', olGeom.get('geometryType'));
             }
+            vectorSource.addFeature(feature);
         });
         
-        // Add the currently active new shape if it's not already on the map
-        if (activeShapeState?.feature && !source.hasFeature(activeShapeState.feature)) {
-            source.addFeature(activeShapeState.feature);
+        // Add the currently active new shape if it exists
+        if (activeShapeState?.feature) {
+            vectorSource.addFeature(activeShapeState.feature);
         }
 
-        // Clean up features that are no longer in DB and are not the active shape
-        source.getFeatures().forEach(feature => {
-            const featureId = feature.getId() as string;
-            if (!dbGeofenceIds.has(featureId) && featureId !== activeShapeState?.id) {
-                source.removeFeature(feature);
-            }
-        });
-
         // Apply styles to all features
-        source.getFeatures().forEach(feature => {
+        vectorSource.getFeatures().forEach(feature => {
             const featureId = feature.getId() as string;
             const style = getFeatureStyle(featureId);
             feature.set('style', style);
         });
 
-        source.changed();
+        // Trigger onMapLoad callback only once after the map is initialized
+        if (!isMapInitialized.current && mapRef.current) {
+            onMapLoad(mapRef.current, vectorSource);
+            isMapInitialized.current = true;
+        }
 
-    }, [dbGeofences, mode, showAllGeofences, selectedGeofenceId, defaultGeofenceId, getFeatureStyle, activeShapeState]);
-
+    }, [
+        provider,
+        onMapLoad,
+        dbGeofences,
+        mode,
+        showAllGeofences,
+        selectedGeofenceId,
+        defaultGeofenceId,
+        initialPosition,
+        mapRef,
+        activeShapeState,
+        getFeatureStyle
+    ]);
 
     return (
        <div ref={mapContainerRef} className="w-full h-full">
