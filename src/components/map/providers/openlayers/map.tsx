@@ -18,7 +18,7 @@ import type { Geometry } from 'ol/geom';
 import Feature from 'ol/Feature';
 import { Style, Fill, Stroke } from 'ol/style';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-import { Modify } from 'ol/interaction';
+import { Modify, Translate } from 'ol/interaction';
 
 
 const STYLE_VIEW_MODE = new Style({
@@ -105,6 +105,7 @@ interface MapProps {
     initialPosition: { lat: number, lng: number };
     mapRef: React.RefObject<Map | null>;
     activeShapeState: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
+    shapeBeingSaved: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     children?: React.ReactNode;
 }
 
@@ -119,12 +120,16 @@ const OpenLayersMap: React.FC<MapProps> = ({
     initialPosition,
     mapRef,
     activeShapeState,
+    shapeBeingSaved,
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const vectorSourceRef = useRef<VectorSource | null>(null);
 
-    const getFeatureStyle = useCallback((featureId: string): Style => {
+   const getFeatureStyle = useCallback((featureId: string): Style => {
+        if (shapeBeingSaved && featureId === shapeBeingSaved.id) {
+            return STYLE_EDIT_MODE_SELECTED;
+        }
         if (mode === 'view') {
             if (showAllGeofences) {
                 return featureId === defaultGeofenceId ? STYLE_VIEW_MODE : STYLE_EDIT_MODE_UNSELECTED;
@@ -142,7 +147,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             }
             return STYLE_EDIT_MODE_UNSELECTED;
         }
-    }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState]);
+    }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState, shapeBeingSaved]);
     
     useEffect(() => {
         if (!mapContainerRef.current) return;
@@ -291,7 +296,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
         initialPosition,
         mapRef,
         activeShapeState,
-        getFeatureStyle
+        getFeatureStyle,
+        shapeBeingSaved
     ]);
 
 
@@ -302,5 +308,3 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
-
-    

@@ -34,7 +34,7 @@ import { LoadingOverlay } from '@/components/admin/admin-header';
 import Draw, { createBox } from 'ol/interaction/Draw';
 import { Modify, Translate } from 'ol/interaction';
 import GeoJSON from 'ol/format/GeoJSON';
-import { Polygon, Circle as OlCircle, fromCircle } from 'ol/geom';
+import { Polygon, Circle as OlCircle } from 'ol/geom';
 import type { Geometry, SimpleGeometry } from 'ol/geom';
 import Collection from 'ol/Collection';
 import type VectorSource from 'ol/source/Vector';
@@ -114,6 +114,7 @@ export function GeofenceControls({
     
     const [isDrawing, setIsDrawing] = useState(false);
     const [currentGeofenceName, setCurrentGeofenceName] = useState('');
+    const [shapeBeingSaved, setShapeBeingSaved] = useState<ActiveShapeState>(null);
     
     const interactionsRef = useRef<{ draw: Draw | null, modify: Modify | null, translate: Translate | null }>({
         draw: null,
@@ -185,6 +186,9 @@ export function GeofenceControls({
     
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
+
+        setShapeBeingSaved(activeShapeState);
+        
         const { id, feature } = activeShapeState;
         
         let geometryToSave: any;
@@ -206,7 +210,7 @@ export function GeofenceControls({
             const radius = circleGeom.getRadius();
             geometryToSave = { type: 'Circle', center, radius };
         } else {
-             const polygonGeom = (geometry instanceof OlCircle) ? fromCircle(geometry) : geometry;
+             const polygonGeom = geometry;
              geometryToSave = new GeoJSON({ featureProjection: 'EPSG:3857' }).writeGeometryObject(polygonGeom);
              geometryToSave.type = 'Polygon';
         }
@@ -232,8 +236,6 @@ export function GeofenceControls({
                 toast({ title: t('toast.successTitle'), description: result.message });
                 const newSelectedId = isNewShape ? result.data?.id : id;
                 
-                // Instead of calling cancelCurrentAction, which reverts the geometry,
-                // we just clean up the editing state.
                 removeAllInteractions();
                 setActiveShapeState(null);
                 setCurrentGeofenceName('');
@@ -244,6 +246,7 @@ export function GeofenceControls({
             } else if (result) {
                 toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
             }
+            setShapeBeingSaved(null);
         });
     }, [condoId, currentGeofenceName, activeShapeState, geofences.length, onDataNeedsRefresh, t, toast, removeAllInteractions, setActiveShapeState, setHistoryStack, setHistoryIndex]);
     
@@ -618,5 +621,3 @@ export function GeofenceControls({
         </div>
     );
 }
-
-    

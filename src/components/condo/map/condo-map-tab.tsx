@@ -64,6 +64,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   
   // --- Active Shape & History State ---
   const [activeShapeState, setActiveShapeState] = useState<{ id: string, feature: Feature<any> | null, originalGeometry?: any } | null>(null);
+  const [shapeBeingSaved, setShapeBeingSaved] = useState<{ id: string, feature: Feature<any> | null, originalGeometry?: any } | null>(null);
   const [historyStack, setHistoryStack] = useState<Geometry[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
@@ -283,6 +284,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                 mode={mode}
                                 initialPosition={initialPosition}
                                 mapRef={mapRef}
+                                shapeBeingSaved={shapeBeingSaved}
                             />
                         </div>
                          {activeShapeState && (
@@ -352,6 +354,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                     geofenceSource={geofenceSource}
                                     drawingMode={drawingMode}
                                     setDrawingMode={setDrawingMode}
+                                    setShapeBeingSaved={setShapeBeingSaved}
                                 />
                             )}
                             {selectedModule === 'elements' && (

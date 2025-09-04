@@ -27,6 +27,7 @@ type MapContainerProps = {
     initialPosition: { lat: number; lng: number };
     mapRef: React.RefObject<OlMap | null>;
     activeShapeState: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
+    shapeBeingSaved: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     children?: React.ReactNode;
 }
 
