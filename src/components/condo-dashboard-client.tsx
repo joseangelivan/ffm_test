@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -135,7 +134,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
             onAccountUpdateSuccess={handleAccountUpdateSuccess}
         />
 
-        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
+        <main className="flex flex-1 flex-col gap-2 p-2 md:gap-4 md:p-4">
           <div className="grid gap-4">
             <div>
               <Link href="/admin/dashboard" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
