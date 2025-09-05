@@ -1,7 +1,11 @@
-CREATE OR REPLACE FUNCTION trigger_set_timestamp()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION public.trigger_set_timestamp()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'public'
+AS $$
 BEGIN
-  NEW.updated_at = NOW();
+  NEW.updated_at := now();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
