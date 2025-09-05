@@ -306,7 +306,7 @@ export default function ManageDevicesTab({
     
     return (
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
+            <CardHeader className="flex flex-row items-center justify-between p-4">
                 <div>
                     <CardTitle>{t('condoDashboard.devices.title')}</CardTitle>
                     <CardDescription>{t('condoDashboard.devices.description')}</CardDescription>

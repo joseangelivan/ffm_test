@@ -254,7 +254,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   return (
     <>
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
+            <CardHeader className="flex flex-row items-center justify-between p-4">
                 <div>
                     <CardTitle>{t('condoDashboard.map.title')}</CardTitle>
                     <CardDescription>{t('condoDashboard.map.description')}</CardDescription>

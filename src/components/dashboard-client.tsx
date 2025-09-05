@@ -433,7 +433,7 @@ export default function DashboardClient({
       <main className="flex flex-1 flex-col gap-2 p-2 md:gap-4 md:p-4">
         <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
           <Card className="xl:col-span-2">
-            <CardHeader className="flex flex-row items-center">
+            <CardHeader className="flex flex-row items-center p-4">
               <div className="grid gap-2">
                 <CardTitle className="font-headline">
                   {t('dashboard.mapTitle')}: {selectedDevice ? selectedDevice.name : t('dashboard.noDeviceSelected')}
@@ -456,7 +456,7 @@ export default function DashboardClient({
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between p-4">
               <div className="grid gap-2">
                 <CardTitle className="font-headline">{t('dashboard.myDevices')}</CardTitle>
                 <CardDescription>{t('dashboard.myDevicesDescription')}</CardDescription>

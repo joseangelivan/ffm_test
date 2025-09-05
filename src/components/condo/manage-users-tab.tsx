@@ -220,7 +220,7 @@ export default function ManageUsersTab({ condoId, initialUsers }: { condoId: str
 
     return (
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
+            <CardHeader className="flex flex-row items-center justify-between p-4">
                 <div>
                     <CardTitle>{t('condoDashboard.users.title')}</CardTitle>
                     <CardDescription>{t('condoDashboard.users.description')}</CardDescription>
