@@ -162,10 +162,12 @@ const OpenLayersMap: React.FC<MapProps> = ({
             config = {};
         }
         
+        // Determine provider type, checking top-level first, then inside JSON
+        const providerType = provider.provider_type || config.provider_type;
         const apiConfig = config.api_config || {};
         
         let source;
-        if (provider.provider_type === 'google') {
+        if (providerType === 'google') {
             const GoogleSource = require('ol/source/Google').default;
             const envApiKey = window.nextConfig?.env?.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -173,8 +175,9 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 ? envApiKey
                 : apiConfig.parameters?.apiKey;
             
+            // Allow developer mode by passing an empty key if not found
             if (!apiKey) {
-                apiKey = ''; // Use empty key to force dev mode
+                apiKey = ''; 
             }
             
             source = new GoogleSource({

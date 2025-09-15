@@ -96,10 +96,11 @@ function AddGoogleMapProviderDialog({ isOpen, onOpenChange, onSuccess }: { isOpe
     const [name, setName] = useState('Google Maps');
 
     const googleProviderJson = {
+        provider_type: 'google', // Explicitly define the provider type
         api_config: {
             parameters: {
-            apiKey: "$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
-            mapId: "DEMO_MAP_ID"
+                apiKey: "$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
+                mapId: "roadmap" // Common map types: roadmap, satellite, hybrid, terrain
             }
         },
         ui_config: {
@@ -218,15 +219,15 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
     const getProviderTypeFromConfig = () => {
         try {
             const parsed = JSON.parse(config);
-            return parsed?.provider_type || '';
+            return parsed?.provider_type || 'openlayers'; // Fallback to a generic type
         } catch {
-            return '';
+            return 'openlayers';
         }
     }
 
     const isCreateButtonDisabled = () => {
         if (pending) return true;
-        if (!name || !isJsonValid) return true;
+        if (!name || !isJsonValid || !config) return true;
         return false;
     };
     
@@ -502,3 +503,4 @@ export function ManageMapsDialog() {
     </>
   );
 }
+
