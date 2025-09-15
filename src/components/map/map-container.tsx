@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from 'react';
@@ -34,7 +35,7 @@ const MapContainer: React.FC<MapContainerProps> = (props) => {
     const { t } = useLocale();
     
     // OpenLayers is now the single entry point for all map types.
-    return <OpenLayersMap {...props as any} />;
+    return <OpenLayersMap {...props} />;
 }
 
 export default MapContainer;

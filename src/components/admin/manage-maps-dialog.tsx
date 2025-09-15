@@ -60,7 +60,7 @@ import MapContainer from '../map/map-container';
 const IMMUTABLE_PROVIDER_ID = '00000000-0000-0000-0000-000000000001';
 
 
-function TestMapProviderDialog({ provider, onOpenChange }: { provider: MapProvider | null, onOpenChange: (open: boolean) => void }) {
+function TestMapProviderDialog({ provider, onOpenChange, initialPosition }: { provider: MapProvider | null, onOpenChange: (open: boolean) => void, initialPosition: { lat: number, lng: number } }) {
     const { t } = useLocale();
     const isOpen = !!provider;
 
@@ -78,6 +78,7 @@ function TestMapProviderDialog({ provider, onOpenChange }: { provider: MapProvid
                          <MapContainer 
                             provider={provider} 
                             onMapLoad={() => {}}
+                            initialPosition={initialPosition}
                         />
                     )}
                 </div>
@@ -290,6 +291,8 @@ export function ManageMapsDialog() {
   const [isListOpen, setIsListOpen] = useState(false);
   const [editingService, setEditingService] = useState<MapProvider | null>(null);
   
+  const testInitialPosition = { lat: -23.5505, lng: -46.6333 }; // São Paulo
+
   const fetchServices = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -494,8 +497,8 @@ export function ManageMapsDialog() {
       <TestMapProviderDialog 
         provider={testingService} 
         onOpenChange={() => setTestingService(null)} 
+        initialPosition={testInitialPosition}
       />
     </>
   );
 }
-
