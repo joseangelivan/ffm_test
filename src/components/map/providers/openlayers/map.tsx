@@ -177,20 +177,10 @@ const OpenLayersMap: React.FC<MapProps> = ({
             
             const initialLayer = new TileLayer({ source });
             
-            const features = dbGeofences.map(dbGeofence => {
-                const olGeom = readCustomGeoJSON(dbGeofence);
-                if (!olGeom) return null;
-                const feature = new Feature({ geometry: olGeom });
-                feature.setId(dbGeofence.id);
-                feature.set('geometryType', olGeom.get('geometryType'));
-                return feature;
-            }).filter((f): f is Feature<Geometry> => f !== null);
-
-            const vectorSource = new VectorSource({ features });
-            vectorSourceRef.current = vectorSource;
+            vectorSourceRef.current = new VectorSource();
 
             const vectorLayer = new VectorLayer({
-                source: vectorSource,
+                source: vectorSourceRef.current,
                 style: (feature) => feature.get('style'),
             });
             vectorLayer.set('id', 'geofence-layer');
@@ -206,11 +196,12 @@ const OpenLayersMap: React.FC<MapProps> = ({
             });
             
             (mapRef as React.MutableRefObject<Map | null>).current = map;
-            onMapLoad(map, vectorSource);
+            onMapLoad(map, vectorSourceRef.current);
         } else {
             map = mapRef.current;
+            map.setTarget(mapContainerRef.current);
         }
-
+        
         const source = vectorSourceRef.current;
         if (!source) return;
 
@@ -264,7 +255,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 }
             }
             
-            // Check for Translate interaction by its constructor name to avoid direct import issues
             const translateInteraction = mapInstance.getInteractions().getArray().find(i => i.constructor.name === 'Translate');
             const hit = mapInstance.hasFeatureAtPixel(pixel, {
                  hitTolerance: 5,
@@ -279,9 +269,11 @@ const OpenLayersMap: React.FC<MapProps> = ({
         };
 
         map.on('pointermove', pointerMoveHandler);
+        
         return () => {
             if (mapRef.current) {
                  mapRef.current.un('pointermove', pointerMoveHandler);
+                 mapRef.current.setTarget(undefined);
             }
         };
 
