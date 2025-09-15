@@ -97,28 +97,28 @@ function readCustomGeoJSON(dbGeofence: DbGeofence): Geometry | null {
 interface MapProps {
     provider: DbMapProvider;
     onMapLoad: (map: Map, source: VectorSource) => void;
-    dbGeofences: DbGeofence[];
-    mode: 'view' | 'editing';
-    showAllGeofences: boolean;
-    selectedGeofenceId: string | null;
-    defaultGeofenceId: string | null;
-    initialPosition: { lat: number, lng: number };
-    activeShapeState: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
-    shapeBeingSaved: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
+    dbGeofences?: DbGeofence[];
+    mode?: 'view' | 'editing';
+    showAllGeofences?: boolean;
+    selectedGeofenceId?: string | null;
+    defaultGeofenceId?: string | null;
+    initialPosition?: { lat: number, lng: number };
+    activeShapeState?: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
+    shapeBeingSaved?: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     children?: React.ReactNode;
 }
 
 const OpenLayersMap: React.FC<MapProps> = ({ 
     provider, 
     onMapLoad, 
-    dbGeofences,
-    mode,
-    showAllGeofences,
-    selectedGeofenceId,
-    defaultGeofenceId,
+    dbGeofences = [],
+    mode = 'view',
+    showAllGeofences = false,
+    selectedGeofenceId = null,
+    defaultGeofenceId = null,
     initialPosition,
-    activeShapeState,
-    shapeBeingSaved,
+    activeShapeState = null,
+    shapeBeingSaved = null,
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -180,18 +180,24 @@ const OpenLayersMap: React.FC<MapProps> = ({
         });
         vectorLayer.set('id', 'geofence-layer');
 
+        const center = initialPosition ? fromLonLat([initialPosition.lng, initialPosition.lat]) : fromLonLat([-51.9253, -14.235]);
+        const zoom = initialPosition ? 4 : 4;
+
+
         const map = new Map({
             target: mapContainerRef.current!,
             layers: [initialLayer, vectorLayer],
             view: new View({
-                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
-                zoom: 4,
+                center: center,
+                zoom: zoom,
             }),
             controls: [],
         });
         
         mapRef.current = map;
-        onMapLoad(map, vectorSourceRef.current);
+        if (onMapLoad) {
+            onMapLoad(map, vectorSourceRef.current);
+        }
         
         const pointerMoveHandler = (e: any) => {
             if (e.dragging || !mapRef.current) return;

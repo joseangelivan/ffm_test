@@ -44,7 +44,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const { toast } = useToast();
   
   // --- Refs ---
-  const mapRef = useRef<OlMap | null>(null);
+  const olMapRef = useRef<OlMap | null>(null);
 
   // --- State ---
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>(condo.geofences);
@@ -125,7 +125,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   }, [condo.id, selectedGeofenceId, toast, t]);
 
   const centerMapOnAddress = useCallback(() => {
-    const map = mapRef.current;
+    const map = olMapRef.current;
     if(!map || !condoAddressPosition) return;
     map.getView().animate({
         center: fromLonLat([condoAddressPosition.lng, condoAddressPosition.lat]),
@@ -135,7 +135,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   }, [condoAddressPosition]);
 
   const applyZoomLevel = useCallback(() => {
-    const map = mapRef.current;
+    const map = olMapRef.current;
     if (!map) return;
 
     const mapSize = map.getSize();
@@ -187,7 +187,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
 
   // --- Map Interactions ---
   const handleMapLoad = useCallback((map: OlMap, source: VectorSource) => {
-    mapRef.current = map;
+    olMapRef.current = map;
     setGeofenceSource(source);
     
     map.on('moveend', () => {
@@ -201,8 +201,8 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     applyZoomLevel();
   }, [applyZoomLevel]);
     
-  const handleZoomIn = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom()! + 1);
-  const handleZoomOut = () => mapRef.current?.getView().setZoom(mapRef.current.getView().getZoom()! - 1);
+  const handleZoomIn = () => olMapRef.current?.getView().setZoom(olMapRef.current.getView().getZoom()! + 1);
+  const handleZoomOut = () => olMapRef.current?.getView().setZoom(olMapRef.current.getView().getZoom()! - 1);
   
   const handleUndo = () => {
     if (historyIndex > 0) {
@@ -353,7 +353,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
                                     activeShapeState={activeShapeState}
                                     setActiveShapeState={setActiveShapeState}
-                                    mapRef={mapRef}
+                                    mapRef={olMapRef}
                                     historyStack={historyStack}
                                     setHistoryStack={setHistoryStack}
                                     historyIndex={historyIndex}
