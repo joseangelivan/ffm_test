@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -112,7 +111,7 @@ interface MapProps {
 
 const OpenLayersMap: React.FC<MapProps> = ({ 
     provider, 
-    mapRef,
+    mapRef: passedMapRef,
     onMapLoad, 
     googleMapsApiKey,
     dbGeofences = [],
@@ -128,7 +127,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const vectorSourceRef = useRef<VectorSource>(new VectorSource());
     const internalMapRef = useRef<Map | null>(null);
-    const finalMapRef = mapRef || internalMapRef;
+    const finalMapRef = passedMapRef || internalMapRef;
 
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
@@ -163,7 +162,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         const apiConfig = config.api_config || {};
 
         const initializeMap = () => {
-            if (!mapContainerRef.current) return;
+            if (!mapContainerRef.current || finalMapRef.current) return;
 
             let source;
             if (providerType === 'google') {
@@ -197,15 +196,27 @@ const OpenLayersMap: React.FC<MapProps> = ({
         };
 
         const loadGoogleMapsApi = (apiKey: string) => {
-            if (window.google) {
+            if (window.google && window.google.maps) {
                 initializeMap();
                 return;
             }
+            
+            if ((window as any).__isGoogleMapsApiLoading__) {
+                // If it's already loading, just wait for the callback to fire.
+                window.__googleMapsApiLoaded__ = initializeMap;
+                return;
+            }
+
+            (window as any).__isGoogleMapsApiLoading__ = true;
+            window.__googleMapsApiLoaded__ = () => {
+                (window as any).__isGoogleMapsApiLoading__ = false;
+                initializeMap();
+            };
+            
             const script = document.createElement('script');
             script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=__googleMapsApiLoaded__`;
             script.async = true;
             script.defer = true;
-            window.__googleMapsApiLoaded__ = initializeMap;
             document.head.appendChild(script);
         };
 
@@ -226,7 +237,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                  finalMapRef.current.setTarget(undefined);
              }
         };
-    }, [provider, googleMapsApiKey, initialPosition, onMapLoad]);
+    }, [provider, googleMapsApiKey, initialPosition, onMapLoad, finalMapRef]);
 
 
     // Effect for updating features and styles
@@ -280,3 +291,5 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
+
+    
