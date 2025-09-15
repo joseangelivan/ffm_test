@@ -9,7 +9,6 @@ import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
-import GoogleSource from 'ol/source/Google';
 import 'ol/ol.css';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { fromLonLat, transform } from 'ol/proj';
@@ -167,14 +166,14 @@ const OpenLayersMap: React.FC<MapProps> = ({
         
         let source;
         if (provider.provider_type === 'google') {
-            const envApiKey = (window as any).nextConfig?.env?.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+            const GoogleSource = require('ol/source/Google').default;
+            const envApiKey = window.nextConfig?.env?.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
             let apiKey = apiConfig.parameters?.apiKey?.startsWith('$') 
                 ? envApiKey
                 : apiConfig.parameters?.apiKey;
             
             if (!apiKey) {
-                console.error("Google Maps API key is missing from config or environment variables. Map will load in developer mode.");
                 apiKey = ''; // Use empty key to force dev mode
             }
             
