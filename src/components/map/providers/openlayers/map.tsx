@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -155,8 +154,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
     
     // Effect for initializing the map
     useEffect(() => {
-        if (!mapContainerRef.current || finalMapRef.current) return;
-        
+        if (!mapContainerRef.current || (finalMapRef && finalMapRef.current)) return;
+
         const config = provider.config_json || {};
         const providerType = provider.provider_type || config.provider_type;
         const apiConfig = config.api_config || {};
@@ -188,7 +187,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         };
 
         const initializeMap = async () => {
-            if (!mapContainerRef.current || finalMapRef.current) return;
+            if (!mapContainerRef.current || (finalMapRef && finalMapRef.current)) return;
 
             let source;
             if (providerType === 'google') {
@@ -223,14 +222,16 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 controls: [],
             });
 
-            (finalMapRef as React.MutableRefObject<Map>).current = map;
+            if (finalMapRef) {
+                (finalMapRef as React.MutableRefObject<Map>).current = map;
+            }
             if (onMapLoad) onMapLoad(map, vectorSourceRef.current);
         };
 
         initializeMap();
 
         return () => {
-             if (finalMapRef.current) {
+             if (finalMapRef && finalMapRef.current) {
                  finalMapRef.current.setTarget(undefined);
              }
         };
