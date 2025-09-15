@@ -142,24 +142,6 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
         }
     }, [service])
 
-    const handleLoadConfig = () => {
-        try {
-            const parsedConfig = JSON.parse(config);
-            const extractedProvider = parsedConfig?.api_config?.provider;
-            if (extractedProvider && typeof extractedProvider === 'string') {
-                setProviderType(extractedProvider);
-                toast({ title: t('toast.successTitle'), description: `Provider "${extractedProvider}" carregado com sucesso.`});
-            } else {
-                setProviderType('');
-                toast({ title: t('toast.errorTitle'), description: 'A chave "provider" não foi encontrada ou é inválida no JSON.', variant: 'destructive'});
-            }
-        } catch (e) {
-            setProviderType('');
-            setIsJsonValid(false);
-            toast({ title: t('toast.errorTitle'), description: t('adminDashboard.maps.invalidJson'), variant: 'destructive'});
-        }
-    };
-
     const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const text = e.target.value;
         setConfig(text);
@@ -193,12 +175,15 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
                             <DialogDescription>{t('adminDashboard.maps.formDescription')}</DialogDescription>
                         </DialogHeader>
                         <input type="hidden" name="id" value={service?.id || ''} />
-                        <input type="hidden" name="provider_type" value={providerType} />
-
+                        
                         <div className="grid gap-4 py-4">
                              <div className="grid gap-2">
                                 <Label htmlFor="name">{t('adminDashboard.maps.nameLabel')}</Label>
                                 <Input id="name" name="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="OpenLayers - Ruas" required disabled={pending}/>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="provider_type">{t('adminDashboard.maps.typeLabel')}</Label>
+                                <Input id="provider_type" name="provider_type" value={providerType} onChange={(e) => setProviderType(e.target.value)} placeholder="Ex: openlayers, google" required disabled={pending}/>
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="config">{t('adminDashboard.maps.configLabel')}</Label>
@@ -207,22 +192,12 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
                                     name="config"
                                     value={config}
                                     onChange={handleJsonChange}
-                                    placeholder='{\n  "api_config": {\n    "provider": "openlayers",\n    ...\n  }\n}'
+                                    placeholder='{\n  "api_config": {\n    "base_url": "...",\n    ...\n  }\n}'
                                     required 
                                     disabled={pending}
                                     className={cn("min-h-[150px] font-mono text-xs", !isJsonValid && "border-destructive focus-visible:ring-destructive")}
                                 />
                                 {!isJsonValid && <p className="text-sm text-destructive">{t('adminDashboard.maps.invalidJson')}</p>}
-                            </div>
-
-                             <div className="grid grid-cols-3 gap-2 items-end">
-                                <Button type="button" variant="outline" className="col-span-1" onClick={handleLoadConfig} disabled={pending}>
-                                    {t('adminDashboard.maps.loadConfigButton')}
-                                 </Button>
-                                <div className="grid gap-2 col-span-2">
-                                    <Label htmlFor="provider_type_display">{t('adminDashboard.maps.typeLabel')}</Label>
-                                    <Input id="provider_type_display" value={providerType} readOnly disabled placeholder={t('adminDashboard.maps.typeExtractedPlaceholder')} />
-                                </div>
                             </div>
                         </div>
                         <DialogFooter>

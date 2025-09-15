@@ -22,16 +22,16 @@ const GoogleMap = dynamic(() => import('./providers/google/map'), {
 
 type MapContainerProps = {
     provider: DbMapProvider;
-    onMapLoad: (map: OlMap, source: VectorSource) => void;
-    dbGeofences: DbGeofence[];
-    mode: 'view' | 'editing';
-    showAllGeofences: boolean;
-    selectedGeofenceId: string | null;
-    defaultGeofenceId: string | null;
-    initialPosition: { lat: number; lng: number };
-    mapRef: React.RefObject<OlMap | null>;
-    activeShapeState: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
-    shapeBeingSaved: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
+    onMapLoad: (map: OlMap | any, source?: VectorSource) => void;
+    dbGeofences?: DbGeofence[];
+    mode?: 'view' | 'editing';
+    showAllGeofences?: boolean;
+    selectedGeofenceId?: string | null;
+    defaultGeofenceId?: string | null;
+    initialPosition?: { lat: number; lng: number };
+    mapRef?: React.RefObject<OlMap | null>;
+    activeShapeState?: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
+    shapeBeingSaved?: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     children?: React.ReactNode;
 }
 
@@ -39,19 +39,29 @@ const MapContainer: React.FC<MapContainerProps> = (props) => {
     const { t } = useLocale();
     const { provider } = props;
 
+    // The 'any' in onMapLoad is a concession to the fact that the Google Maps component
+    // will return a google.maps.Map instance, not an OpenLayers Map instance.
+    const onMapLoadForProvider = props.onMapLoad as (map: any, source?: VectorSource) => void;
+
+
     switch (provider.provider_type) {
         case 'google':
              return (
+                 <GoogleMap config={provider.config_json} onMapLoad={onMapLoadForProvider}>
+                    {props.children}
+                 </GoogleMap>
+            );
+        case 'openlayers':
+        case 'mapbox':
+        case 'leaflet':
+             return <OpenLayersMap {...props as any} />;
+        default:
+            return (
                 <div className="flex items-center justify-center h-full bg-muted relative">
                      <p className="absolute top-2 left-2 text-xs bg-background/80 p-2 rounded-md z-10">{t('adminDashboard.maps.providerNotSupported', { type: provider.provider_type })}</p>
-                    <OpenLayersMap {...props} />
+                    <OpenLayersMap {...props as any} />
                 </div>
             );
-
-        default:
-            // All other providers are assumed to be tile-based (XYZ) and are handled by OpenLayers.
-            // This includes 'openlayers', 'mapbox', 'leaflet', and any other custom tile provider.
-            return <OpenLayersMap {...props} />;
     }
 }
 
