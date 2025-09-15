@@ -15,9 +15,31 @@ interface MapProps {
 const GoogleMapRenderer: React.FC<MapProps> = ({ children, config, onMapLoad }) => {
     const { t } = useLocale();
     const mapRef = useRef<google.maps.Map | null>(null);
+    const { toast } = useToast();
     
     const apiKey = config?.api_config?.parameters?.apiKey;
     const mapId = config?.api_config?.parameters?.mapId;
+
+    const handleApiError = (event: {
+      type: 'error';
+      target: Map;
+      error: {
+        name: string;
+        message: string;
+        cause: any;
+      };
+    }) => {
+      // Specifically handle authentication errors without crashing
+      if (event.error.name === 'AuthFailure') {
+        console.error('Google Maps AuthFailure:', event.error);
+        toast({
+            title: t('toast.mapsBillingError.title'),
+            description: t('toast.mapsBillingError.description'),
+            variant: 'destructive',
+            duration: 10000,
+        });
+      }
+    };
 
     if (!apiKey) {
         onMapLoad(null);
@@ -31,7 +53,10 @@ const GoogleMapRenderer: React.FC<MapProps> = ({ children, config, onMapLoad }) 
     }
 
     return (
-       <APIProvider apiKey={apiKey}>
+       <APIProvider 
+            apiKey={apiKey}
+            onLoad={() => console.log("Google Maps API Provider Loaded")}
+        >
            <Map
                 ref={mapRef}
                 mapId={mapId}
@@ -44,6 +69,7 @@ const GoogleMapRenderer: React.FC<MapProps> = ({ children, config, onMapLoad }) 
                         onMapLoad(mapRef.current);
                     }
                 }}
+                onError={handleApiError}
             >
                {children}
             </Map>
@@ -52,4 +78,3 @@ const GoogleMapRenderer: React.FC<MapProps> = ({ children, config, onMapLoad }) 
 };
 
 export default GoogleMapRenderer;
-
