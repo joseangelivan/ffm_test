@@ -9,6 +9,7 @@ import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
+import GoogleSource from 'ol/source/Google';
 import 'ol/ol.css';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { fromLonLat, transform } from 'ol/proj';
@@ -166,36 +167,21 @@ const OpenLayersMap: React.FC<MapProps> = ({
         
         let source;
         if (provider.provider_type === 'google') {
-            // Import dynamically only on the client-side
-            import('ol/source/Google').then(GoogleSourceModule => {
-                const GoogleSource = GoogleSourceModule.default;
-                
-                const envApiKey = (window as any).nextConfig?.env?.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+            const envApiKey = (window as any).nextConfig?.env?.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-                let apiKey = apiConfig.parameters?.apiKey?.startsWith('$') 
-                    ? envApiKey
-                    : apiConfig.parameters?.apiKey;
-                
-                if (!apiKey) {
-                    console.error("Google Maps API key is missing from config or environment variables. Map will load in developer mode.");
-                    apiKey = ''; // Use empty key to force dev mode
-                }
-
-                source = new GoogleSource({
-                    key: apiKey,
-                    mapTypeId: apiConfig.parameters?.mapId || 'roadmap',
-                });
-                
-                // Once source is resolved, update the layer
-                if (mapRef.current) {
-                    const layers = mapRef.current.getLayers().getArray();
-                    if (layers.length > 0 && layers[0] instanceof TileLayer) {
-                        (layers[0] as TileLayer<any>).setSource(source);
-                    }
-                }
+            let apiKey = apiConfig.parameters?.apiKey?.startsWith('$') 
+                ? envApiKey
+                : apiConfig.parameters?.apiKey;
+            
+            if (!apiKey) {
+                console.error("Google Maps API key is missing from config or environment variables. Map will load in developer mode.");
+                apiKey = ''; // Use empty key to force dev mode
+            }
+            
+            source = new GoogleSource({
+                key: apiKey,
+                mapTypeId: apiConfig.parameters?.mapId || 'roadmap',
             });
-            // Use a temporary source while Google source is loading
-            source = new OSM();
             
         } else { // Fallback for openlayers, mapbox, leaflet
             const baseUrl = apiConfig.base_url;
@@ -270,7 +256,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                  mapRef.current = null;
             }
         };
-    }, []);
+    }, [provider, initialPosition, onMapLoad]);
 
     // Effect for updating features and styles
     useEffect(() => {
