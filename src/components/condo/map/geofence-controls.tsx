@@ -527,7 +527,7 @@ export function GeofenceControls({
                                             setDrawingMode('Polygon');
                                         }
                                     }} 
-                                    disabled={!!activeShapeState?.feature || isBusy}
+                                    disabled={mode === 'view' || !!activeShapeState?.feature || isBusy}
                                 >
                                     <SelectTrigger className={cn("flex-1", selectedGeofenceId && !selectedGeofenceId.startsWith('new-shape-') && mode === 'editing' && !activeShapeState && "text-blue-600 border-blue-400 font-bold")}>
                                         <SelectValue placeholder={t('condoDashboard.map.geofence.selectPlaceholder')} />
