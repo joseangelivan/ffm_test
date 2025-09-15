@@ -45,6 +45,8 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   
   // --- Refs ---
   const olMapRef = useRef<OlMap | null>(null);
+  const googleMapRef = useRef<google.maps.Map | null>(null);
+
 
   // --- State ---
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>(condo.geofences);
@@ -68,6 +70,8 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   const [historyStack, setHistoryStack] = useState<Geometry[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
+
+  const isGoogleMap = provider.provider_type === 'google';
 
   // Initialize geofence selections on first load
   useEffect(() => {
@@ -125,16 +129,27 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
   }, [condo.id, selectedGeofenceId, toast, t]);
 
   const centerMapOnAddress = useCallback(() => {
-    const map = olMapRef.current;
-    if(!map || !condoAddressPosition) return;
-    map.getView().animate({
-        center: fromLonLat([condoAddressPosition.lng, condoAddressPosition.lat]),
-        zoom: 17,
-        duration: 800,
-    });
-  }, [condoAddressPosition]);
+    if (!condoAddressPosition) return;
+
+    if (isGoogleMap && googleMapRef.current) {
+        googleMapRef.current.panTo(condoAddressPosition);
+        googleMapRef.current.setZoom(17);
+    } else if (olMapRef.current) {
+        olMapRef.current.getView().animate({
+            center: fromLonLat([condoAddressPosition.lng, condoAddressPosition.lat]),
+            zoom: 17,
+            duration: 800,
+        });
+    }
+  }, [condoAddressPosition, isGoogleMap]);
 
   const applyZoomLevel = useCallback(() => {
+    if (isGoogleMap) {
+        // Google Maps auto-fitting logic would go here if we were drawing on it
+        centerMapOnAddress();
+        return;
+    }
+
     const map = olMapRef.current;
     if (!map) return;
 
@@ -182,27 +197,43 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
             maxZoom: 20
         });
     }
-  }, [mode, geofenceSource, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress]);
+  }, [mode, geofenceSource, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress, isGoogleMap]);
 
 
   // --- Map Interactions ---
-  const handleMapLoad = useCallback((map: OlMap, source: VectorSource) => {
-    olMapRef.current = map;
-    setGeofenceSource(source);
+  const handleMapLoad = useCallback((map: OlMap | google.maps.Map, source?: VectorSource) => {
+        if (isGoogleMap) {
+            googleMapRef.current = map as google.maps.Map;
+        } else {
+            olMapRef.current = map as OlMap;
+            setGeofenceSource(source || null);
+            
+            (map as OlMap).on('moveend', () => {
+                const zoom = (map as OlMap).getView().getZoom();
+                if (zoom) setZoomLevel(Math.round(zoom));
+            });
+        }
+        setIsLoading(false);
+        applyZoomLevel();
+    }, [isGoogleMap, applyZoomLevel]);
+
     
-    map.on('moveend', () => {
-        const zoom = map.getView().getZoom();
-        if (zoom) setZoomLevel(Math.round(zoom));
-    });
-    
-    setIsLoading(false);
-    
-    // Apply initial zoom/centering after map is fully loaded and ready
-    applyZoomLevel();
-  }, [applyZoomLevel]);
-    
-  const handleZoomIn = () => olMapRef.current?.getView().setZoom(olMapRef.current.getView().getZoom()! + 1);
-  const handleZoomOut = () => olMapRef.current?.getView().setZoom(olMapRef.current.getView().getZoom()! - 1);
+    const handleZoomIn = () => {
+        if (isGoogleMap && googleMapRef.current) {
+            const currentZoom = googleMapRef.current.getZoom() || 15;
+            googleMapRef.current.setZoom(currentZoom + 1);
+        } else if (olMapRef.current) {
+            olMapRef.current.getView().setZoom(olMapRef.current.getView().getZoom()! + 1);
+        }
+    };
+    const handleZoomOut = () => {
+        if (isGoogleMap && googleMapRef.current) {
+            const currentZoom = googleMapRef.current.getZoom() || 15;
+            googleMapRef.current.setZoom(currentZoom - 1);
+        } else if (olMapRef.current) {
+            olMapRef.current.getView().setZoom(olMapRef.current.getView().getZoom()! - 1);
+        }
+    };
   
   const handleUndo = () => {
     if (historyIndex > 0) {
@@ -293,7 +324,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                 shapeBeingSaved={shapeBeingSaved}
                             />
                         </div>
-                         {activeShapeState && (
+                         {activeShapeState && !isGoogleMap && (
                             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex items-center gap-1 backdrop-blur-sm">
                                 <Button variant="ghost" size="sm" className="flex items-center gap-2" onClick={handleUndo} disabled={historyIndex <= 0}>
                                     <Undo className="h-4 w-4"/>
@@ -362,10 +393,11 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                     drawingMode={drawingMode}
                                     setDrawingMode={setDrawingMode}
                                     setShapeBeingSaved={setShapeBeingSaved}
+                                    isGoogleMap={isGoogleMap}
                                 />
                             )}
                             {selectedModule === 'elements' && (
-                                <ElementsControls condoId={condo.id}/>
+                                <ElementsControls condoId={condo.id} isGoogleMap={isGoogleMap}/>
                             )}
                         </fieldset>
                     </div>

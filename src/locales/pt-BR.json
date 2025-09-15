@@ -1,4 +1,5 @@
 
+
 {
     "login": {
       "welcome": "Bem-vindo de Volta",
@@ -415,6 +416,7 @@
         "undo": "Desfazer",
         "redo": "Refazer",
         "wipDescription": "A gestão deste módulo está em desenvolvimento e será implementada utilizando OpenLayers.",
+        "googleEditNotSupported": "A edição de geocercas e elementos não está disponível para o Google Maps. Por favor, selecione um provedor de mapa compatível com OpenLayers.",
         "modules": {
             "title": "Módulos do Mapa",
             "selectPlaceholder": "Selecionar módulo",
@@ -677,4 +679,5 @@
     
 
     
+
 
