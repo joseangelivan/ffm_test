@@ -82,6 +82,7 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
 
   // Process the map provider config on the server to inject environment variables
   const mapProvider = await processAndGetConfig(rawMapProvider);
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   const condo = condoResult.data;
   
@@ -106,6 +107,7 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
           initialDevices={devices}
           initialSettings={settings}
           mapProvider={mapProvider}
+          googleMapsApiKey={googleMapsApiKey}
           initialPosition={initialPosition}
         />
     </Suspense>

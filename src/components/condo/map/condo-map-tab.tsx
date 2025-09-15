@@ -36,9 +36,10 @@ import type { Geometry } from 'ol/geom';
 interface CondoMapTabProps {
   condo: Condominio & { geofences: DbGeofence[] };
   initialPosition: { lat: number; lng: number };
+  googleMapsApiKey: string | undefined;
 }
 
-export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps) {
+export default function CondoMapTab({ condo, initialPosition, googleMapsApiKey }: CondoMapTabProps) {
   const { t } = useLocale();
   const { toast } = useToast();
   const { mapProvider } = useCondoDashboard();
@@ -202,9 +203,14 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
         });
 
         setIsLoading(false);
-        // Defer the initial zoom to allow geofences to load
-        setTimeout(() => applyZoomLevel(), 100);
-    }, [applyZoomLevel]);
+    }, []);
+
+    useEffect(() => {
+        if (!isLoading && olMapRef.current) {
+            // Defer the initial zoom to allow geofences to load and map to be ready
+            setTimeout(() => applyZoomLevel(), 100);
+        }
+    }, [isLoading, applyZoomLevel]);
 
     
     const handleZoomIn = () => {
@@ -260,10 +266,10 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   }, [activeShapeState, geofenceSource, setActiveShapeState, setHistoryStack, setHistoryIndex]);
 
   useEffect(() => {
-    if (mode === 'view') {
+    if (mode === 'view' && !isLoading) {
         applyZoomLevel();
     }
-  }, [mode, applyZoomLevel]);
+  }, [mode, isLoading, applyZoomLevel]);
   
   if (!mapProvider) {
     return (
@@ -304,8 +310,10 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                             )}
                              <MapContainer 
                                 provider={mapProvider}
+                                mapRef={olMapRef}
                                 onMapLoad={handleMapLoad}
                                 dbGeofences={dbGeofences}
+                                googleMapsApiKey={googleMapsApiKey}
                                 activeShapeState={activeShapeState}
                                 showAllGeofences={showAllGeofences}
                                 selectedGeofenceId={selectedGeofenceId}

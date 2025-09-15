@@ -96,7 +96,9 @@ function readCustomGeoJSON(dbGeofence: DbGeofence): Geometry | null {
 
 interface MapProps {
     provider: DbMapProvider;
+    mapRef: React.RefObject<Map | null>;
     onMapLoad: (map: Map, source: VectorSource) => void;
+    googleMapsApiKey?: string;
     dbGeofences?: DbGeofence[];
     mode?: 'view' | 'editing';
     showAllGeofences?: boolean;
@@ -110,19 +112,20 @@ interface MapProps {
 
 const OpenLayersMap: React.FC<MapProps> = ({ 
     provider, 
+    mapRef,
     onMapLoad, 
+    googleMapsApiKey,
     dbGeofences = [],
     mode = 'view',
     showAllGeofences = false,
     selectedGeofenceId = null,
     defaultGeofenceId = null,
-    initialPosition,
+    initialPosition = { lat: -14.235, lng: -51.9253 }, // Default to Brazil
     activeShapeState = null,
     shapeBeingSaved = null,
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const mapRef = useRef<Map | null>(null);
     const vectorSourceRef = useRef<VectorSource>(new VectorSource());
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
@@ -159,8 +162,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         let source;
         if (providerType === 'google') {
             const GoogleSource = require('ol/source/Google').default;
-            const apiKey = apiConfig.parameters?.apiKey || '';
-            
+            const apiKey = googleMapsApiKey || '';
             source = new GoogleSource({
                 key: apiKey,
                 mapTypeId: apiConfig.parameters?.mapId || 'roadmap',
@@ -202,13 +204,17 @@ const OpenLayersMap: React.FC<MapProps> = ({
             controls: [],
         });
         
-        mapRef.current = map;
+        // Use the passed ref
+        if (mapRef) {
+            (mapRef as React.MutableRefObject<Map | null>).current = map;
+        }
+        
         if (onMapLoad) {
             onMapLoad(map, vectorSourceRef.current);
         }
         
         const pointerMoveHandler = (e: any) => {
-            if (e.dragging || !mapRef.current) return;
+            if (e.dragging || !mapRef || !mapRef.current) return;
             const mapInstance = mapRef.current;
             const pixel = mapInstance.getEventPixel(e.originalEvent);
 
@@ -237,13 +243,13 @@ const OpenLayersMap: React.FC<MapProps> = ({
         map.on('pointermove', pointerMoveHandler);
 
         return () => {
-            if (mapRef.current) {
+            if (mapRef && mapRef.current) {
                  mapRef.current.un('pointermove', pointerMoveHandler);
                  mapRef.current.setTarget(undefined);
-                 mapRef.current = null;
+                 (mapRef as React.MutableRefObject<Map | null>).current = null;
             }
         };
-    }, [provider, initialPosition, onMapLoad, dbGeofences]);
+    }, [provider, initialPosition, onMapLoad, dbGeofences, googleMapsApiKey, mapRef]);
 
     // Effect for updating features and styles
     useEffect(() => {
@@ -296,4 +302,3 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
-

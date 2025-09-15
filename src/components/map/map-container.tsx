@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from 'react';
@@ -18,7 +19,9 @@ const OpenLayersMap = dynamic(() => import('./providers/openlayers/map'), {
 
 type MapContainerProps = {
     provider: DbMapProvider;
+    mapRef: React.RefObject<OlMap | null>;
     onMapLoad: (map: OlMap | any, source?: VectorSource) => void;
+    googleMapsApiKey?: string;
     dbGeofences?: DbGeofence[];
     mode?: 'view' | 'editing';
     showAllGeofences?: boolean;
