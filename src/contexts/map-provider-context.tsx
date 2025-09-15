@@ -27,6 +27,7 @@ export const GoogleMapsLoaderProvider: React.FC<{ children: React.ReactNode }> =
         const originalConsoleError = console.error;
         const messagesToIgnore = [
             "Google Maps JavaScript API error: InvalidKeyMapError",
+            "Google Maps JavaScript API error: BillingNotEnabledMapError",
         ];
 
         console.error = (...args) => {
