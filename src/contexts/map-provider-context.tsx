@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import { useLoadScript } from '@react-google-maps/api';
 import type { Libraries } from '@react-google-maps/api/dist/utils/make-load-script-url';
 
@@ -22,6 +22,30 @@ export const GoogleMapsLoaderProvider: React.FC<{ children: React.ReactNode }> =
         libraries,
         preventGoogleFontsLoading: true,
     });
+
+    useEffect(() => {
+        const originalConsoleError = console.error;
+        const messagesToIgnore = [
+            "Google Maps JavaScript API error: InvalidKeyMapError",
+        ];
+
+        console.error = (...args) => {
+            const firstArg = args[0];
+            if (typeof firstArg === 'string') {
+                const shouldIgnore = messagesToIgnore.some(msg => firstArg.startsWith(msg));
+                if (shouldIgnore) {
+                    return;
+                }
+            }
+            originalConsoleError(...args);
+        };
+
+        return () => {
+            // Restore original console.error when component unmounts
+            console.error = originalConsoleError;
+        };
+    }, []);
+
 
     return (
         <GoogleMapsLoaderContext.Provider value={{ isLoaded, loadError }}>
