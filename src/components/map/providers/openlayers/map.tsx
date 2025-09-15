@@ -153,7 +153,11 @@ const OpenLayersMap: React.FC<MapProps> = ({
     
     // Effect for initializing the map
     useEffect(() => {
-        if (!mapContainerRef.current || mapRef.current) return;
+        if (!mapContainerRef.current) return;
+        if (mapRef && mapRef.current) {
+            mapRef.current.setTarget(mapContainerRef.current);
+            return;
+        };
 
         const config = provider.config_json || {};
         const providerType = provider.provider_type || config.provider_type;
@@ -162,7 +166,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         let source;
         if (providerType === 'google') {
             const GoogleSource = require('ol/source/Google').default;
-            const apiKey = googleMapsApiKey || '';
+            const apiKey = googleMapsApiKey || apiConfig.parameters?.apiKey || '';
             source = new GoogleSource({
                 key: apiKey,
                 mapTypeId: apiConfig.parameters?.mapId || 'roadmap',
