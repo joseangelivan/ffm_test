@@ -140,49 +140,55 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
 
     const mapSize = map.getSize();
     if (!mapSize || mapSize.some(s => s === 0)) {
+        // Map not rendered yet, defer.
         return;
     }
     
-    if (!geofenceSource) {
-        centerMapOnAddress();
-        return;
-    }
-
     let geofenceIdToFit: string | null;
-
     if (mode === 'view') {
         geofenceIdToFit = defaultGeofenceId;
     } else {
         const isEditingNewShape = selectedGeofenceId?.startsWith('new-shape-');
         if (isEditingNewShape) {
+            // Don't fit view when starting to draw a new shape
             return;
         }
         geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
     }
     
     if (!geofenceIdToFit) {
+        // Only center on address if there's nothing else to fit to.
         centerMapOnAddress();
         return;
     }
 
-    const featureToFit = geofenceSource.getFeatureById(geofenceIdToFit);
-    if (!featureToFit) return;
+    if (geofenceSource) {
+        const featureToFit = geofenceSource.getFeatureById(geofenceIdToFit);
+        if (featureToFit) {
+            const extent = featureToFit.getGeometry()?.getExtent();
+            if (extent && extent.every(isFinite)) {
+                let paddingPercentage = 0.1;
+                if (fitLevel === '1') paddingPercentage = 0.05;
+                if (fitLevel === '3') paddingPercentage = 0.2;
+                
+                const mapSize = map.getSize()!;
+                const padding = mapSize.map(s => s * paddingPercentage);
 
-    const extent = featureToFit.getGeometry()?.getExtent();
-    if (extent) {
-        let paddingPercentage = 0.1;
-        if (fitLevel === '1') paddingPercentage = 0.05;
-        if (fitLevel === '3') paddingPercentage = 0.2;
-
-        const padding = map.getSize()!.map(s => s * paddingPercentage);
-
-        map.getView().fit(extent, {
-            padding: [padding[1], padding[0], padding[1], padding[0]],
-            duration: 800,
-            maxZoom: 20
-        });
+                map.getView().fit(extent, {
+                    padding: [padding[1], padding[0], padding[1], padding[0]],
+                    duration: 800,
+                    maxZoom: 20
+                });
+            } else {
+                centerMapOnAddress();
+            }
+        } else {
+            // Feature not found in source yet, defer.
+        }
+    } else {
+        centerMapOnAddress();
     }
-  }, [mode, geofenceSource, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress]);
+}, [mode, geofenceSource, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress]);
 
 
   // --- Map Interactions ---
@@ -196,7 +202,8 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
         });
 
         setIsLoading(false);
-        applyZoomLevel();
+        // Defer the initial zoom to allow geofences to load
+        setTimeout(() => applyZoomLevel(), 100);
     }, [applyZoomLevel]);
 
     

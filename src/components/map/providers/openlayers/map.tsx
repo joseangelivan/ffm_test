@@ -183,8 +183,14 @@ const OpenLayersMap: React.FC<MapProps> = ({
         });
         vectorLayer.set('id', 'geofence-layer');
 
-        const center = initialPosition ? fromLonLat([initialPosition.lng, initialPosition.lat]) : fromLonLat([-51.9253, -14.235]);
-        const zoom = initialPosition ? 15 : 4;
+        const defaultGeofence = dbGeofences.find(g => g.is_default);
+        const hasDefaultGeofenceWithGeometry = defaultGeofence && defaultGeofence.geometry && Object.keys(defaultGeofence.geometry).length > 0;
+
+        const center = (initialPosition && !hasDefaultGeofenceWithGeometry) 
+            ? fromLonLat([initialPosition.lng, initialPosition.lat]) 
+            : fromLonLat([-51.9253, -14.235]);
+
+        const zoom = (initialPosition && !hasDefaultGeofenceWithGeometry) ? 15 : 4;
 
         const map = new Map({
             target: mapContainerRef.current!,
@@ -237,7 +243,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                  mapRef.current = null;
             }
         };
-    }, [provider, initialPosition, onMapLoad]);
+    }, [provider, initialPosition, onMapLoad, dbGeofences]);
 
     // Effect for updating features and styles
     useEffect(() => {
@@ -290,3 +296,4 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
+
