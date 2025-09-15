@@ -28,7 +28,6 @@ type MapContainerProps = {
     initialPosition?: { lat: number; lng: number };
     activeShapeState?: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     shapeBeingSaved?: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
-    googleMapsApiKey?: string;
     children?: React.ReactNode;
 }
 

@@ -102,10 +102,9 @@ interface MapProps {
     showAllGeofences?: boolean;
     selectedGeofenceId?: string | null;
     defaultGeofenceId?: string | null;
-    initialPosition?: { lat: number, lng: number };
+    initialPosition?: { lat: number; lng: number };
     activeShapeState?: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     shapeBeingSaved?: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
-    googleMapsApiKey?: string;
     children?: React.ReactNode;
 }
 
@@ -120,7 +119,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
     initialPosition,
     activeShapeState = null,
     shapeBeingSaved = null,
-    googleMapsApiKey,
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -154,23 +152,14 @@ const OpenLayersMap: React.FC<MapProps> = ({
     useEffect(() => {
         if (!mapContainerRef.current || mapRef.current) return;
 
-        let config: any;
-        try {
-            config = typeof provider.config_json === 'string' 
-                ? JSON.parse(provider.config_json) 
-                : provider.config_json || {};
-        } catch (e) {
-            console.error("Failed to parse map provider config_json:", e);
-            config = {};
-        }
-        
+        const config = provider.config_json || {};
         const providerType = provider.provider_type || config.provider_type;
         const apiConfig = config.api_config || {};
         
         let source;
         if (providerType === 'google') {
             const GoogleSource = require('ol/source/Google').default;
-            const apiKey = googleMapsApiKey || '';
+            const apiKey = apiConfig.parameters?.apiKey || '';
             
             source = new GoogleSource({
                 key: apiKey,
@@ -196,7 +185,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
         const center = initialPosition ? fromLonLat([initialPosition.lng, initialPosition.lat]) : fromLonLat([-51.9253, -14.235]);
         const zoom = initialPosition ? 15 : 4;
-
 
         const map = new Map({
             target: mapContainerRef.current!,
@@ -249,7 +237,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                  mapRef.current = null;
             }
         };
-    }, [provider, initialPosition, onMapLoad, googleMapsApiKey]);
+    }, [provider, initialPosition, onMapLoad]);
 
     // Effect for updating features and styles
     useEffect(() => {

@@ -45,10 +45,9 @@ type CondoDashboardClientProps = {
     initialSettings: UserSettings;
     mapProvider: MapProvider;
     initialPosition: { lat: number; lng: number };
-    googleMapsApiKey?: string;
 };
 
-export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider, initialPosition, googleMapsApiKey }: CondoDashboardClientProps) { 
+export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider, initialPosition }: CondoDashboardClientProps) { 
   const { t, setLocale } = useLocale();
   const router = useRouter();
 
@@ -161,7 +160,6 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                         condo={initialCondo} 
                         initialPosition={initialPosition} 
                         provider={mapProvider}
-                        googleMapsApiKey={googleMapsApiKey}
                       />
                   </TabsContent>
               </div>

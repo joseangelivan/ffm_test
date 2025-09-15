@@ -37,10 +37,9 @@ interface CondoMapTabProps {
   condo: Condominio & { geofences: DbGeofence[] };
   initialPosition: { lat: number; lng: number };
   provider: DbMapProvider;
-  googleMapsApiKey?: string;
 }
 
-export default function CondoMapTab({ condo, initialPosition, provider, googleMapsApiKey }: CondoMapTabProps) {
+export default function CondoMapTab({ condo, initialPosition, provider }: CondoMapTabProps) {
   const { t } = useLocale();
   const { toast } = useToast();
   
@@ -299,7 +298,6 @@ export default function CondoMapTab({ condo, initialPosition, provider, googleMa
                                 mode={mode}
                                 initialPosition={initialPosition}
                                 shapeBeingSaved={shapeBeingSaved}
-                                googleMapsApiKey={googleMapsApiKey}
                             />
                         </div>
                          {activeShapeState && (

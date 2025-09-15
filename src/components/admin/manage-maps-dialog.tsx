@@ -40,6 +40,7 @@ import {
     updateMapProvider,
     deleteMapProvider,
     setMapProviderAsDefault,
+    processAndGetConfig,
     type MapProvider
 } from '@/actions/map_providers';
 import { 
@@ -96,11 +97,11 @@ function AddGoogleMapProviderDialog({ isOpen, onOpenChange, onSuccess }: { isOpe
     const [name, setName] = useState('Google Maps');
 
     const googleProviderJson = {
-        provider_type: 'google', // Explicitly define the provider type
+        provider_type: 'google',
         api_config: {
             parameters: {
                 apiKey: "$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
-                mapId: "roadmap" // Common map types: roadmap, satellite, hybrid, terrain
+                mapId: "roadmap"
             }
         },
         ui_config: {
@@ -353,8 +354,11 @@ export function ManageMapsDialog() {
     });
   }
 
-  const handleTest = (service: MapProvider) => {
-      setTestingService(service);
+  const handleTest = async (service: MapProvider) => {
+      startSubmitting(async () => {
+          const processedProvider = await processAndGetConfig(service);
+          setTestingService(processedProvider);
+      });
   }
 
   return (
@@ -503,4 +507,3 @@ export function ManageMapsDialog() {
     </>
   );
 }
-

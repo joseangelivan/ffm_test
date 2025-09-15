@@ -12,6 +12,7 @@ import { getSettings, getDefaultMapProvider, getGeofencesByCondoId } from '@/act
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle, Map } from 'lucide-react';
 import { geocodeAddress } from '@/actions/geocoding';
+import { processAndGetConfig } from '@/actions/map_providers';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,8 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
   
   const { id: condoId } = await params;
 
-  const [condoResult, devices, settings, mapProvider, geofences] = await Promise.all([
+  // Fetch all initial data in parallel
+  const [condoResult, devices, settings, rawMapProvider, geofences] = await Promise.all([
     getCondominioById(condoId),
     getDevicesByCondoId(condoId),
     getSettings(session),
@@ -59,7 +61,7 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
     );
   }
 
-  if (!mapProvider) {
+  if (!rawMapProvider) {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
             <div className="flex flex-col items-center gap-4 text-center">
@@ -78,6 +80,9 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
     );
   }
 
+  // Process the map provider config on the server to inject environment variables
+  const mapProvider = await processAndGetConfig(rawMapProvider);
+
   const condo = condoResult.data;
   
   const geoResult = await geocodeAddress({
@@ -92,8 +97,7 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
     : { lat: 0, lng: 0 };
   
   const condoWithGeofences = { ...condo, geofences: geofences || [] };
-  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-
+  
   return (
     <Suspense fallback={<Loading />}>
         <CondoDashboardClient
@@ -103,7 +107,6 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
           initialSettings={settings}
           mapProvider={mapProvider}
           initialPosition={initialPosition}
-          googleMapsApiKey={googleMapsApiKey}
         />
     </Suspense>
   );

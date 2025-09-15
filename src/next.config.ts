@@ -19,18 +19,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  webpack: (config, { isServer, webpack }) => {
-    // This prevents the "Module not found: Can't resolve 'pg-native'" error.
-    // The pg library optionally tries to require a native binding that's not needed for standard use.
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        "pg-native": false,
-      };
-    }
-    
-    return config;
-  }
 };
 
 export default nextConfig;
