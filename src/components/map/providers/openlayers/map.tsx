@@ -170,22 +170,21 @@ const OpenLayersMap: React.FC<MapProps> = ({
             import('ol/source/Google').then(GoogleSourceModule => {
                 const GoogleSource = GoogleSourceModule.default;
                 
-                // On the client, access env vars via window.nextConfig
                 const envApiKey = (window as any).nextConfig?.env?.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-                const apiKey = apiConfig.parameters?.apiKey.startsWith('$') 
+                let apiKey = apiConfig.parameters?.apiKey?.startsWith('$') 
                     ? envApiKey
-                    : apiConfig.parameters.apiKey;
+                    : apiConfig.parameters?.apiKey;
                 
                 if (!apiKey) {
-                    console.error("Google Maps API key is missing from config or environment variables.");
-                    source = new OSM(); // Fallback to OSM
-                } else {
-                     source = new GoogleSource({
-                        key: apiKey,
-                        mapTypeId: apiConfig.parameters?.mapId || 'roadmap',
-                    });
+                    console.error("Google Maps API key is missing from config or environment variables. Map will load in developer mode.");
+                    apiKey = ''; // Use empty key to force dev mode
                 }
+
+                source = new GoogleSource({
+                    key: apiKey,
+                    mapTypeId: apiConfig.parameters?.mapId || 'roadmap',
+                });
                 
                 // Once source is resolved, update the layer
                 if (mapRef.current) {
