@@ -13,30 +13,11 @@ interface MapProps {
 }
 
 const GoogleMapRenderer: React.FC<MapProps> = ({ children, config, onMapLoad }) => {
-    const { toast } = useToast();
     const { t } = useLocale();
     const mapRef = useRef<google.maps.Map | null>(null);
     
     const apiKey = config?.api_config?.parameters?.apiKey;
     const mapId = config?.api_config?.parameters?.mapId;
-
-    useEffect(() => {
-        const handleBillingError = () => {
-            toast({
-                title: t('toast.mapsBillingError.title'),
-                description: t('toast.mapsBillingError.description'),
-                variant: 'destructive',
-                duration: 10000,
-            });
-        };
-        
-        window.gm_authFailure = handleBillingError;
-
-        return () => {
-            delete (window as any).gm_authFailure;
-        }
-    }, [toast, t]);
-
 
     if (!apiKey) {
         onMapLoad(null);
@@ -71,3 +52,4 @@ const GoogleMapRenderer: React.FC<MapProps> = ({ children, config, onMapLoad }) 
 };
 
 export default GoogleMapRenderer;
+
