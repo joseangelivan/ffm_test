@@ -1,0 +1,9 @@
+{
+  "provider_type": "openlayers",
+  "api_config": {
+    "base_url": "https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=$MAPTILER_API_KEY"
+  },
+  "ui_config": {
+    "attribution": "© MapTiler, © OpenStreetMap contributors"
+  }
+}

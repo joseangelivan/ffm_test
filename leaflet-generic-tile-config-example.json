@@ -1,0 +1,9 @@
+{
+  "provider_type": "openlayers",
+  "api_config": {
+    "base_url": "https://stamen-tiles-{s}.a.ssl.fastly.net/toner/{z}/{x}/{y}.png"
+  },
+  "ui_config": {
+    "attribution": "Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap, under ODbL."
+  }
+}

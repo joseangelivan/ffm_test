@@ -1,0 +1,9 @@
+{
+  "provider_type": "mapbox",
+  "api_config": {
+    "base_url": "https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=$MAPBOX_ACCESS_TOKEN"
+  },
+  "ui_config": {
+    "attribution": "© Mapbox, © OpenStreetMap"
+  }
+}

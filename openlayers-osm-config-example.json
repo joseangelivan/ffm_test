@@ -1,0 +1,9 @@
+{
+  "provider_type": "openlayers",
+  "api_config": {
+    "base_url": "https://{a-c}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+  },
+  "ui_config": {
+    "attribution": "© OpenStreetMap contributors"
+  }
+}
