@@ -1,44 +1,39 @@
 
 "use client";
 
-import React, { createContext, useState, useEffect } from 'react';
-import { getAppSetting } from '@/actions/settings';
+import React, { createContext, useContext } from 'react';
+import { useLoadScript } from '@react-google-maps/api';
+import type { Libraries } from '@react-google-maps/api/dist/utils/make-load-script-url';
 
-type MapProviderType = 'google' | 'osm';
+const libraries: Libraries = ['maps'];
 
-interface MapProviderContextType {
-    provider: MapProviderType;
-    setProvider: (provider: MapProviderType) => void;
-    isLoading: boolean;
+interface GoogleMapsLoaderContextType {
+    isLoaded: boolean;
+    loadError: Error | undefined;
 }
 
-export const MapProviderContext = createContext<MapProviderContextType | undefined>(undefined);
+const GoogleMapsLoaderContext = createContext<GoogleMapsLoaderContextType | undefined>(undefined);
 
-export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [provider, setProvider] = useState<MapProviderType>('google');
-    const [isLoading, setIsLoading] = useState(true);
+export const GoogleMapsLoaderProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
-    useEffect(() => {
-        const fetchProvider = async () => {
-            setIsLoading(true);
-            const savedProvider = await getAppSetting('map_provider');
-            if (savedProvider === 'google' || savedProvider === 'osm') {
-                setProvider(savedProvider);
-            }
-            setIsLoading(false);
-        };
+    const { isLoaded, loadError } = useLoadScript({
+        googleMapsApiKey: apiKey,
+        libraries,
+        preventGoogleFontsLoading: true,
+    });
 
-        fetchProvider();
-    }, []);
-
-    // We don't save the provider setting here, that should be done in an admin panel.
-    const handleSetProvider = (newProvider: MapProviderType) => {
-        setProvider(newProvider);
-    };
-    
     return (
-        <MapProviderContext.Provider value={{ provider, setProvider: handleSetProvider, isLoading }}>
+        <GoogleMapsLoaderContext.Provider value={{ isLoaded, loadError }}>
             {children}
-        </MapProviderContext.Provider>
+        </GoogleMapsLoaderContext.Provider>
     );
+};
+
+export const useGoogleMapsLoader = () => {
+    const context = useContext(GoogleMapsLoaderContext);
+    if (context === undefined) {
+        throw new Error('useGoogleMapsLoader must be used within a GoogleMapsLoaderProvider');
+    }
+    return context;
 };

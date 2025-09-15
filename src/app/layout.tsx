@@ -7,6 +7,7 @@ import { getSettings, getActiveTheme } from '@/actions/admin';
 import { cn } from '@/lib/utils';
 import type { Theme } from '@/actions/themes';
 import { Toaster } from '@/components/ui/toaster';
+import { GoogleMapsLoaderProvider } from '@/contexts/map-provider-context';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -65,7 +66,9 @@ export default async function RootLayout({
     <html lang={initialLocale.split('-')[0]} className={cn('h-full', bodyClassName)} style={bodyStyle}>
         <body className={cn("h-full font-body antialiased", inter.variable)}>
              <LocaleProvider initialLocale={initialLocale}>
-                {children}
+                <GoogleMapsLoaderProvider>
+                    {children}
+                </GoogleMapsLoaderProvider>
                 <Toaster />
             </LocaleProvider>
         </body>

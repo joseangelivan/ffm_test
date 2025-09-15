@@ -1,9 +1,11 @@
+
 "use client";
 
 import React, { useCallback, useRef } from 'react';
-import { GoogleMap, useLoadScript, MarkerF } from '@react-google-maps/api';
+import { GoogleMap, MarkerF } from '@react-google-maps/api';
 import { useLocale } from '@/lib/i18n';
 import { Loader } from 'lucide-react';
+import { useGoogleMapsLoader } from '@/contexts/map-provider-context';
 
 const containerStyle = {
   width: '100%',
@@ -19,18 +21,10 @@ interface MapProps {
 
 const GoogleMapProvider: React.FC<MapProps> = ({ children, config, onMapLoad, initialPosition }) => {
     const { t } = useLocale();
+    const { isLoaded, loadError } = useGoogleMapsLoader();
     const mapRef = useRef<google.maps.Map | null>(null);
-    
-    // Extrae la clave de la configuración y comprueba si es un placeholder.
-    const apiKeyFromConfig = config?.api_config?.parameters?.apiKey || '';
-    const isApiKeyPlaceholder = apiKeyFromConfig.startsWith('$');
-    const apiKey = isApiKeyPlaceholder ? '' : apiKeyFromConfig;
 
-    const { isLoaded, loadError } = useLoadScript({
-        googleMapsApiKey: apiKey,
-        libraries: ['maps'],
-        preventGoogleFontsLoading: true,
-    });
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
     const center = initialPosition 
         ? initialPosition 
@@ -46,7 +40,6 @@ const GoogleMapProvider: React.FC<MapProps> = ({ children, config, onMapLoad, in
         onMapLoad(null);
     }, [onMapLoad]);
 
-    // Si la clave es un placeholder o está vacía, no intentes renderizar el mapa.
     if (!apiKey) {
         return (
             <div className="flex items-center justify-center h-full bg-muted p-4">
@@ -58,7 +51,6 @@ const GoogleMapProvider: React.FC<MapProps> = ({ children, config, onMapLoad, in
     }
 
     if (loadError) {
-        // Este error es por problemas de red, no de clave.
         return (
              <div className="flex items-center justify-center h-full bg-muted-foreground/10 p-4">
                 <p className="text-muted-foreground text-center">
