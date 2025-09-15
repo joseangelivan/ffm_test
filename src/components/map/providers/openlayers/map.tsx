@@ -163,13 +163,29 @@ const OpenLayersMap: React.FC<MapProps> = ({
         }
         
         const apiConfig = config.api_config || {};
-        const baseUrl = apiConfig.base_url;
-
+        
         let source;
-        if (baseUrl) {
-            source = new XYZ({ url: baseUrl, maxZoom: 20 });
-        } else {
-            source = new OSM();
+        if (provider.provider_type === 'google') {
+            const GoogleSource = require('ol/source/Google').default;
+            const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+            if (!apiKey) {
+                console.error("Google Maps API key is missing.");
+                // Fallback to OSM
+                source = new OSM();
+            } else {
+                 source = new GoogleSource({
+                    key: apiKey,
+                    mapTypeId: apiConfig.parameters?.mapId || 'roadmap', // e.g., 'satellite', 'roadmap', 'terrain'
+                });
+            }
+        } else { // Fallback for openlayers, mapbox, leaflet
+            const baseUrl = apiConfig.base_url;
+            if (baseUrl) {
+                source = new XYZ({ url: baseUrl, maxZoom: 20 });
+            } else {
+                // Default fallback
+                source = new OSM();
+            }
         }
         
         const initialLayer = new TileLayer({ source });
@@ -181,7 +197,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         vectorLayer.set('id', 'geofence-layer');
 
         const center = initialPosition ? fromLonLat([initialPosition.lng, initialPosition.lat]) : fromLonLat([-51.9253, -14.235]);
-        const zoom = initialPosition ? 4 : 4;
+        const zoom = initialPosition ? 15 : 4;
 
 
         const map = new Map({

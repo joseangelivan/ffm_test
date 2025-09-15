@@ -15,11 +15,6 @@ const OpenLayersMap = dynamic(() => import('./providers/openlayers/map'), {
     loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
 });
 
-const GoogleMapProvider = dynamic(() => import('./providers/google/map'), {
-    ssr: false,
-    loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
-});
-
 
 type MapContainerProps = {
     provider: DbMapProvider;
@@ -37,33 +32,9 @@ type MapContainerProps = {
 
 const MapContainer: React.FC<MapContainerProps> = (props) => {
     const { t } = useLocale();
-    const { provider } = props;
-
-    const onMapLoadForProvider = props.onMapLoad as (map: any, source?: VectorSource) => void;
-
-    switch (provider.provider_type) {
-        case 'google':
-             return (
-                 <GoogleMapProvider 
-                    config={provider.config_json} 
-                    onMapLoad={onMapLoadForProvider}
-                    initialPosition={props.initialPosition}
-                 >
-                    {props.children}
-                 </GoogleMapProvider>
-            );
-        case 'openlayers':
-        case 'mapbox':
-        case 'leaflet':
-             return <OpenLayersMap {...props as any} />;
-        default:
-            return (
-                <div className="flex items-center justify-center h-full bg-muted relative">
-                     <p className="absolute top-2 left-2 text-xs bg-background/80 p-2 rounded-md z-10">{t('adminDashboard.maps.providerNotSupported', { type: provider.provider_type })}</p>
-                    <OpenLayersMap {...props as any} />
-                </div>
-            );
-    }
+    
+    // OpenLayers is now the single entry point for all map types.
+    return <OpenLayersMap {...props as any} />;
 }
 
 export default MapContainer;
