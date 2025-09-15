@@ -24,21 +24,13 @@ import { ManageElementTypeDialog } from './manage-element-type-dialog';
 
 type MapElementType = 'camera' | 'gatehouse' | 'housing_area' | 'other';
 
-export function ElementsControls({condoId, isGoogleMap}: {condoId: string, isGoogleMap: boolean}) {
+export function ElementsControls({condoId}: {condoId: string}) {
     const { t } = useLocale();
     const [isElementEditing, setIsElementEditing] = useState(false);
     const [selectedElementType, setSelectedElementType] = useState<MapElementType>('camera');
 
     const getElementTypeLabel = (type: MapElementType) => {
         return t(`condoDashboard.map.elementTypes.${type}`);
-    }
-    
-    if (isGoogleMap) {
-        return (
-            <div className="space-y-4 pt-2 border-t text-center text-muted-foreground text-sm p-4 bg-muted/50 rounded-md mt-4">
-                <p>{t('condoDashboard.map.googleEditNotSupported')}</p>
-            </div>
-        )
     }
 
     return (

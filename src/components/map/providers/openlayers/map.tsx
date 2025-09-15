@@ -166,18 +166,34 @@ const OpenLayersMap: React.FC<MapProps> = ({
         
         let source;
         if (provider.provider_type === 'google') {
-            const GoogleSource = require('ol/source/Google').default;
-            const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-            if (!apiKey) {
-                console.error("Google Maps API key is missing.");
-                // Fallback to OSM
-                source = new OSM();
-            } else {
-                 source = new GoogleSource({
-                    key: apiKey,
-                    mapTypeId: apiConfig.parameters?.mapId || 'roadmap', // e.g., 'satellite', 'roadmap', 'terrain'
-                });
-            }
+            // Import dynamically only on the client-side
+            import('ol/source/Google').then(GoogleSourceModule => {
+                const GoogleSource = GoogleSourceModule.default;
+                const apiKey = apiConfig.parameters?.apiKey.startsWith('$') 
+                    ? process.env[apiConfig.parameters.apiKey.substring(1)] 
+                    : apiConfig.parameters.apiKey;
+                
+                if (!apiKey) {
+                    console.error("Google Maps API key is missing from config or environment variables.");
+                    source = new OSM(); // Fallback to OSM
+                } else {
+                     source = new GoogleSource({
+                        key: apiKey,
+                        mapTypeId: apiConfig.parameters?.mapId || 'roadmap',
+                    });
+                }
+                
+                // Once source is resolved, update the layer
+                if (mapRef.current) {
+                    const layers = mapRef.current.getLayers().getArray();
+                    if (layers.length > 0 && layers[0] instanceof TileLayer) {
+                        (layers[0] as TileLayer<any>).setSource(source);
+                    }
+                }
+            });
+            // Use a temporary source while Google source is loading
+            source = new OSM();
+            
         } else { // Fallback for openlayers, mapbox, leaflet
             const baseUrl = apiConfig.base_url;
             if (baseUrl) {
@@ -251,7 +267,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                  mapRef.current = null;
             }
         };
-    }, [provider, onMapLoad, initialPosition]);
+    }, []);
 
     // Effect for updating features and styles
     useEffect(() => {

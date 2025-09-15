@@ -80,7 +80,6 @@ type GeofenceControlsProps = {
     drawingMode: DrawingMode;
     setDrawingMode: React.Dispatch<React.SetStateAction<DrawingMode>>;
     setShapeBeingSaved: React.Dispatch<React.SetStateAction<{ id: string; feature: OlFeature<any> | null; originalGeometry?: any; } | null>>;
-    isGoogleMap: boolean;
 }
 
 export function GeofenceControls({
@@ -109,7 +108,6 @@ export function GeofenceControls({
     drawingMode,
     setDrawingMode,
     setShapeBeingSaved,
-    isGoogleMap,
 }: GeofenceControlsProps) {
     const { t } = useLocale();
     const { toast } = useToast();
@@ -341,11 +339,6 @@ export function GeofenceControls({
     }, [geofences, selectedGeofenceId, geofenceSource, cancelCurrentAction, pushToHistory, toast, setActiveShapeState, setCurrentGeofenceName, setIsDrawing]);
     
      useEffect(() => {
-        if (isGoogleMap) {
-            removeAllInteractions();
-            return;
-        }
-
         const map = mapRef.current;
         if (!map || !geofenceSource) return;
 
@@ -450,17 +443,9 @@ export function GeofenceControls({
         
         return () => removeAllInteractions();
 
-    }, [mode, isDrawing, activeShapeState, drawingMode, pushToHistory, removeAllInteractions, onShapeDrawn, mapRef, geofenceSource, isGoogleMap]);
+    }, [mode, isDrawing, activeShapeState, drawingMode, pushToHistory, removeAllInteractions, onShapeDrawn, mapRef, geofenceSource]);
 
     const isBusy = isSaving || isDeleting || isSettingDefault;
-    
-    if (isGoogleMap) {
-        return (
-            <div className="space-y-4 pt-2 border-t text-center text-muted-foreground text-sm p-4 bg-muted/50 rounded-md mt-4">
-                <p>{t('condoDashboard.map.googleEditNotSupported')}</p>
-            </div>
-        )
-    }
 
     return (
         <div className="space-y-4 pt-2 border-t">
