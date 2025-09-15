@@ -103,7 +103,6 @@ interface MapProps {
     selectedGeofenceId: string | null;
     defaultGeofenceId: string | null;
     initialPosition: { lat: number, lng: number };
-    mapRef: React.RefObject<Map | null>;
     activeShapeState: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     shapeBeingSaved: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     children?: React.ReactNode;
@@ -118,12 +117,12 @@ const OpenLayersMap: React.FC<MapProps> = ({
     selectedGeofenceId,
     defaultGeofenceId,
     initialPosition,
-    mapRef,
     activeShapeState,
     shapeBeingSaved,
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<Map | null>(null);
     const vectorSourceRef = useRef<VectorSource>(new VectorSource());
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
@@ -191,7 +190,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             controls: [],
         });
         
-        (mapRef as React.MutableRefObject<Map | null>).current = map;
+        mapRef.current = map;
         onMapLoad(map, vectorSourceRef.current);
         
         const pointerMoveHandler = (e: any) => {
@@ -227,10 +226,10 @@ const OpenLayersMap: React.FC<MapProps> = ({
             if (mapRef.current) {
                  mapRef.current.un('pointermove', pointerMoveHandler);
                  mapRef.current.setTarget(undefined);
-                 // Do not dispose the map, just detatch it
+                 mapRef.current = null;
             }
         };
-    }, [provider, onMapLoad, initialPosition, mapRef]);
+    }, [provider, onMapLoad, initialPosition]);
 
     // Effect for updating features and styles
     useEffect(() => {

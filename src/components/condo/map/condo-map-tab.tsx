@@ -290,7 +290,6 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                 defaultGeofenceId={defaultGeofenceId}
                                 mode={mode}
                                 initialPosition={initialPosition}
-                                mapRef={mapRef}
                                 shapeBeingSaved={shapeBeingSaved}
                             />
                         </div>
