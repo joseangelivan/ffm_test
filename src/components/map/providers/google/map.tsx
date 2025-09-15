@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useRef, useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { GoogleMap, useLoadScript, MarkerF } from '@react-google-maps/api';
 import { useLocale } from '@/lib/i18n';
 import { Loader } from 'lucide-react';
@@ -22,11 +21,15 @@ const GoogleMapProvider: React.FC<MapProps> = ({ children, config, onMapLoad, in
     const { t } = useLocale();
     const mapRef = useRef<google.maps.Map | null>(null);
     
-    const apiKey = config?.api_config?.parameters?.apiKey;
+    // Extrae la clave de la configuración y comprueba si es un placeholder.
+    const apiKeyFromConfig = config?.api_config?.parameters?.apiKey || '';
+    const isApiKeyPlaceholder = apiKeyFromConfig.startsWith('$');
+    const apiKey = isApiKeyPlaceholder ? '' : apiKeyFromConfig;
 
     const { isLoaded, loadError } = useLoadScript({
-        googleMapsApiKey: apiKey || "",
+        googleMapsApiKey: apiKey,
         libraries: ['maps'],
+        preventGoogleFontsLoading: true,
     });
 
     const center = initialPosition 
@@ -43,45 +46,51 @@ const GoogleMapProvider: React.FC<MapProps> = ({ children, config, onMapLoad, in
         onMapLoad(null);
     }, [onMapLoad]);
 
+    // Si la clave es un placeholder o está vacía, no intentes renderizar el mapa.
+    if (!apiKey) {
+        return (
+            <div className="flex items-center justify-center h-full bg-muted p-4">
+                <p className="text-muted-foreground text-center">
+                    {t('condoDashboard.map.apiKeyMissing.description')}
+                </p>
+            </div>
+        );
+    }
+
     if (loadError) {
+        // Este error es por problemas de red, no de clave.
         return (
              <div className="flex items-center justify-center h-full bg-muted-foreground/10 p-4">
                 <p className="text-muted-foreground text-center">
-                    Error al cargar el script de Google Maps.
+                    Error al cargar el script de Google Maps. Revisa tu conexión a internet.
                 </p>
             </div>
         );
     }
     
-    if (!isLoaded || !apiKey) {
+    if (!isLoaded) {
          return (
             <div className="flex items-center justify-center h-full bg-muted">
-                {!apiKey ? (
-                    <p className="text-muted-foreground text-center p-4">
-                        {t('condoDashboard.map.apiKeyMissing.description')}
-                    </p>
-                ) : (
-                    <Loader className="h-6 w-6 animate-spin" />
-                )}
+                <Loader className="h-6 w-6 animate-spin" />
             </div>
         );
     }
 
     return (
-           <GoogleMap
-                mapContainerStyle={containerStyle}
-                center={center}
-                zoom={initialPosition ? 15 : 4}
-                onLoad={onLoad}
-                onUnmount={onUnmount}
-                options={{
-                    mapId: config?.api_config?.parameters?.mapId,
-                    disableDefaultUI: true,
-                    gestureHandling: 'greedy'
-                }}
-            >
-               {children}
-            </GoogleMap>
+        <GoogleMap
+            mapContainerStyle={containerStyle}
+            center={center}
+            zoom={initialPosition ? 15 : 4}
+            onLoad={onLoad}
+            onUnmount={onUnmount}
+            options={{
+                mapId: config?.api_config?.parameters?.mapId,
+                disableDefaultUI: true,
+                gestureHandling: 'greedy'
+            }}
+        >
+            {children}
+        </GoogleMap>
     );
 };
 
