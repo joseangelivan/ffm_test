@@ -57,7 +57,7 @@ import {
 import { LoadingOverlay } from './admin-header';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import MapContainer from '../map/map-container';
-import { useCondoDashboard } from '@/contexts/condo-dashboard-context';
+import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 
 const IMMUTABLE_PROVIDER_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -283,7 +283,7 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
 export function ManageMapsDialog() {
   const { t } = useLocale();
   const { toast } = useToast();
-  const condoDashboardContext = useCondoDashboard();
+  const condoDashboardContext = React.useContext(CondoDashboardContext);
 
   const [services, setServices] = useState<MapProvider[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -350,7 +350,9 @@ export function ManageMapsDialog() {
         if(result.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
             fetchServices();
-            condoDashboardContext?.refreshMapProvider();
+            if (condoDashboardContext) {
+                condoDashboardContext.refreshMapProvider();
+            }
         } else {
             toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
         }
