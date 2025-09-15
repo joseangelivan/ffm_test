@@ -124,7 +124,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const vectorSourceRef = useRef<VectorSource | null>(null);
+    const vectorSourceRef = useRef<VectorSource>(new VectorSource());
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
         if (shapeBeingSaved && featureId === shapeBeingSaved.id) {
@@ -149,59 +149,91 @@ const OpenLayersMap: React.FC<MapProps> = ({
         }
     }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState, shapeBeingSaved]);
     
+    // Effect for initializing the map
     useEffect(() => {
-        if (!mapContainerRef.current) return;
-        
-        let map: Map;
+        if (!mapContainerRef.current || mapRef.current) return;
 
-        if (!mapRef.current) {
-            let config: any;
-            try {
-                config = typeof provider.config_json === 'string' 
-                    ? JSON.parse(provider.config_json) 
-                    : provider.config_json || {};
-            } catch (e) {
-                console.error("Failed to parse map provider config_json:", e);
-                config = {};
-            }
-            
-            const apiConfig = config.api_config || {};
-            const baseUrl = apiConfig.base_url;
-
-            let source;
-            if (baseUrl) {
-                source = new XYZ({ url: baseUrl, maxZoom: 20 });
-            } else {
-                source = new OSM();
-            }
-            
-            const initialLayer = new TileLayer({ source });
-            
-            vectorSourceRef.current = new VectorSource();
-
-            const vectorLayer = new VectorLayer({
-                source: vectorSourceRef.current,
-                style: (feature) => feature.get('style'),
-            });
-            vectorLayer.set('id', 'geofence-layer');
-
-            map = new Map({
-                target: mapContainerRef.current!,
-                layers: [initialLayer, vectorLayer],
-                view: new View({
-                    center: fromLonLat([initialPosition.lng, initialPosition.lat]),
-                    zoom: 4,
-                }),
-                controls: [],
-            });
-            
-            (mapRef as React.MutableRefObject<Map | null>).current = map;
-            onMapLoad(map, vectorSourceRef.current);
-        } else {
-            map = mapRef.current;
-            map.setTarget(mapContainerRef.current);
+        let config: any;
+        try {
+            config = typeof provider.config_json === 'string' 
+                ? JSON.parse(provider.config_json) 
+                : provider.config_json || {};
+        } catch (e) {
+            console.error("Failed to parse map provider config_json:", e);
+            config = {};
         }
         
+        const apiConfig = config.api_config || {};
+        const baseUrl = apiConfig.base_url;
+
+        let source;
+        if (baseUrl) {
+            source = new XYZ({ url: baseUrl, maxZoom: 20 });
+        } else {
+            source = new OSM();
+        }
+        
+        const initialLayer = new TileLayer({ source });
+        
+        const vectorLayer = new VectorLayer({
+            source: vectorSourceRef.current,
+            style: (feature) => feature.get('style'),
+        });
+        vectorLayer.set('id', 'geofence-layer');
+
+        const map = new Map({
+            target: mapContainerRef.current!,
+            layers: [initialLayer, vectorLayer],
+            view: new View({
+                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+                zoom: 4,
+            }),
+            controls: [],
+        });
+        
+        (mapRef as React.MutableRefObject<Map | null>).current = map;
+        onMapLoad(map, vectorSourceRef.current);
+        
+        const pointerMoveHandler = (e: any) => {
+            if (e.dragging || !mapRef.current) return;
+            const mapInstance = mapRef.current;
+            const pixel = mapInstance.getEventPixel(e.originalEvent);
+
+            const modifyInteraction = mapInstance.getInteractions().getArray().find(i => i instanceof Modify);
+            if (modifyInteraction && (modifyInteraction as any).getOverlay) {
+                const overlaySource = (modifyInteraction as any).getOverlay().getSource();
+                 if (overlaySource && overlaySource.getFeaturesAtCoordinate(e.coordinate).length > 0) {
+                    mapInstance.getTargetElement().style.cursor = 'crosshair';
+                    return;
+                }
+            }
+            
+            const translateInteraction = mapInstance.getInteractions().getArray().find(i => i.constructor.name === 'Translate');
+            const hit = mapInstance.hasFeatureAtPixel(pixel, {
+                 hitTolerance: 5,
+                 layerFilter: (l) => l.getSource() === vectorSourceRef.current
+            });
+
+            if (hit && translateInteraction && (translateInteraction as any).getFeatures && (translateInteraction as any).getFeatures().getLength() > 0) {
+                 mapInstance.getTargetElement().style.cursor = 'move';
+            } else {
+                 mapInstance.getTargetElement().style.cursor = '';
+            }
+        };
+
+        map.on('pointermove', pointerMoveHandler);
+
+        return () => {
+            if (mapRef.current) {
+                 mapRef.current.un('pointermove', pointerMoveHandler);
+                 mapRef.current.setTarget(undefined);
+                 // Do not dispose the map, just detatch it
+            }
+        };
+    }, [provider, onMapLoad, initialPosition, mapRef]);
+
+    // Effect for updating features and styles
+    useEffect(() => {
         const source = vectorSourceRef.current;
         if (!source) return;
 
@@ -241,56 +273,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
         source.changed();
 
-        const pointerMoveHandler = (e: any) => {
-            if (e.dragging || !mapRef.current) return;
-            const mapInstance = mapRef.current;
-            const pixel = mapInstance.getEventPixel(e.originalEvent);
-
-            const modifyInteraction = mapInstance.getInteractions().getArray().find(i => i instanceof Modify);
-            if (modifyInteraction && (modifyInteraction as any).getOverlay) {
-                const overlaySource = (modifyInteraction as any).getOverlay().getSource();
-                 if (overlaySource && overlaySource.getFeaturesAtCoordinate(e.coordinate).length > 0) {
-                    mapInstance.getTargetElement().style.cursor = 'crosshair';
-                    return;
-                }
-            }
-            
-            const translateInteraction = mapInstance.getInteractions().getArray().find(i => i.constructor.name === 'Translate');
-            const hit = mapInstance.hasFeatureAtPixel(pixel, {
-                 hitTolerance: 5,
-                 layerFilter: (l) => l.getSource() === source
-            });
-
-            if (hit && translateInteraction && (translateInteraction as any).getFeatures && (translateInteraction as any).getFeatures().getLength() > 0) {
-                 mapInstance.getTargetElement().style.cursor = 'move';
-            } else {
-                 mapInstance.getTargetElement().style.cursor = '';
-            }
-        };
-
-        map.on('pointermove', pointerMoveHandler);
-        
-        return () => {
-            if (mapRef.current) {
-                 mapRef.current.un('pointermove', pointerMoveHandler);
-                 mapRef.current.setTarget(undefined);
-            }
-        };
-
-    }, [
-        provider,
-        onMapLoad,
-        dbGeofences,
-        mode,
-        showAllGeofences,
-        selectedGeofenceId,
-        defaultGeofenceId,
-        initialPosition,
-        mapRef,
-        activeShapeState,
-        getFeatureStyle,
-        shapeBeingSaved
-    ]);
+    }, [dbGeofences, mode, showAllGeofences, selectedGeofenceId, defaultGeofenceId, activeShapeState, getFeatureStyle, shapeBeingSaved]);
 
 
     return (
