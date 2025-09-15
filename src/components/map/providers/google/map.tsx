@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useRef } from 'react';
@@ -43,8 +44,8 @@ const GoogleMapRenderer: React.FC<MapProps> = ({ children, config, onMapLoad }) 
     if (!apiKey) {
         onMapLoad(null);
         return (
-            <div className="flex items-center justify-center h-full bg-muted-foreground/10">
-                <p className="text-muted-foreground text-center p-4">
+            <div className="flex items-center justify-center h-full bg-muted-foreground/10 p-4">
+                <p className="text-muted-foreground text-center">
                     {t('condoDashboard.map.apiKeyMissing.description')}
                 </p>
             </div>
@@ -76,3 +77,4 @@ const GoogleMapRenderer: React.FC<MapProps> = ({ children, config, onMapLoad }) 
 };
 
 export default GoogleMapRenderer;
+
