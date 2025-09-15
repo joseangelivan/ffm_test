@@ -20,27 +20,6 @@ const GoogleMapRenderer: React.FC<MapProps> = ({ children, config, onMapLoad }) 
     const apiKey = config?.api_config?.parameters?.apiKey;
     const mapId = config?.api_config?.parameters?.mapId;
 
-    useEffect(() => {
-        const handleAuthFailure = () => {
-          toast({
-            title: t('toast.mapsBillingError.title'),
-            description: t('toast.mapsBillingError.description'),
-            variant: 'destructive',
-            duration: 15000,
-            copyable: true
-          });
-        };
-        
-        // Attach to the global error handler for Google Maps
-        (window as any).gm_authFailure = handleAuthFailure;
-
-        return () => {
-          // Clean up the global handler when the component unmounts
-          delete (window as any).gm_authFailure;
-        };
-    }, [t, toast]);
-
-
     if (!apiKey) {
         onMapLoad(null);
         return (
