@@ -39,18 +39,7 @@ const MapContainer: React.FC<MapContainerProps> = (props) => {
     const { t } = useLocale();
     const { provider } = props;
 
-    // The map container logic is now primarily designed for OpenLayers,
-    // which is our base for interactions. If we were to implement Google Maps
-    // editing features, we would need a separate prop drill/state management
-    // for its specific API (e.g., onMapLoad would need to be typed for both).
-    // For now, we can render Google Maps in a view-only state if needed.
-
     switch (provider.provider_type) {
-        case 'openlayers':
-        case 'mapbox':
-        case 'leaflet':
-            return <OpenLayersMap {...props} />;
-        
         case 'google':
              return (
                 <div className="flex items-center justify-center h-full bg-muted relative">
@@ -60,11 +49,9 @@ const MapContainer: React.FC<MapContainerProps> = (props) => {
             );
 
         default:
-            return (
-                 <div className="flex items-center justify-center h-full bg-muted">
-                    <p>{t('adminDashboard.maps.providerNotSupported', { type: provider.provider_type })}</p>
-                </div>
-            );
+            // All other providers are assumed to be tile-based (XYZ) and are handled by OpenLayers.
+            // This includes 'openlayers', 'mapbox', 'leaflet', and any other custom tile provider.
+            return <OpenLayersMap {...props} />;
     }
 }
 
