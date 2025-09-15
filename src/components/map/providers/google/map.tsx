@@ -1,27 +1,45 @@
 
 "use client";
 
-import React, { useEffect, useRef } from 'react';
-import { APIProvider, Map, AdvancedMarker } from '@vis.gl/react-google-maps';
-import { useToast } from '@/hooks/use-toast';
+import React, { useRef, useCallback } from 'react';
+import { GoogleMap, LoadScript, MarkerF } from '@react-google-maps/api';
 import { useLocale } from '@/lib/i18n';
+import { Loader } from 'lucide-react';
+
+const containerStyle = {
+  width: '100%',
+  height: '100%',
+};
 
 interface MapProps {
     children?: React.ReactNode;
     config: any;
     onMapLoad: (map: google.maps.Map | null) => void;
+    initialPosition?: { lat: number, lng: number };
 }
 
-const GoogleMapRenderer: React.FC<MapProps> = ({ children, config, onMapLoad }) => {
+const GoogleMapProvider: React.FC<MapProps> = ({ children, config, onMapLoad, initialPosition }) => {
     const { t } = useLocale();
     const mapRef = useRef<google.maps.Map | null>(null);
-    const { toast } = useToast();
     
     const apiKey = config?.api_config?.parameters?.apiKey;
     const mapId = config?.api_config?.parameters?.mapId;
 
-    if (!apiKey) {
+    const center = initialPosition 
+        ? initialPosition 
+        : { lat: -14.235, lng: -51.9253 };
+
+    const onLoad = useCallback((map: google.maps.Map) => {
+        mapRef.current = map;
+        onMapLoad(map);
+    }, [onMapLoad]);
+
+    const onUnmount = useCallback(() => {
+        mapRef.current = null;
         onMapLoad(null);
+    }, [onMapLoad]);
+
+    if (!apiKey) {
         return (
             <div className="flex items-center justify-center h-full bg-muted-foreground/10 p-4">
                 <p className="text-muted-foreground text-center">
@@ -32,28 +50,27 @@ const GoogleMapRenderer: React.FC<MapProps> = ({ children, config, onMapLoad }) 
     }
 
     return (
-       <APIProvider 
-            apiKey={apiKey}
-            onLoad={() => console.log("Google Maps API Provider Loaded")}
-        >
-           <Map
-                ref={mapRef}
-                mapId={mapId}
-                defaultCenter={{ lat: -14.235, lng: -51.9253 }}
-                defaultZoom={4}
-                gestureHandling={'greedy'}
-                disableDefaultUI={true}
-                onTilesLoaded={() => {
-                    if(mapRef.current) {
-                        onMapLoad(mapRef.current);
-                    }
+       <LoadScript
+            googleMapsApiKey={apiKey}
+            loadingElement={<div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>}
+            onError={(error) => console.error("Google Maps script loading error:", error)}
+       >
+           <GoogleMap
+                mapContainerStyle={containerStyle}
+                center={center}
+                zoom={initialPosition ? 15 : 4}
+                onLoad={onLoad}
+                onUnmount={onUnmount}
+                options={{
+                    mapId: mapId,
+                    disableDefaultUI: true,
+                    gestureHandling: 'greedy'
                 }}
             >
                {children}
-            </Map>
-       </APIProvider>
+            </GoogleMap>
+       </LoadScript>
     );
 };
 
-export default GoogleMapRenderer;
-
+export default GoogleMapProvider;

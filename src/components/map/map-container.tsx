@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -14,7 +15,7 @@ const OpenLayersMap = dynamic(() => import('./providers/openlayers/map'), {
     loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
 });
 
-const GoogleMap = dynamic(() => import('./providers/google/map'), {
+const GoogleMapProvider = dynamic(() => import('./providers/google/map'), {
     ssr: false,
     loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
 });
@@ -29,7 +30,6 @@ type MapContainerProps = {
     selectedGeofenceId?: string | null;
     defaultGeofenceId?: string | null;
     initialPosition?: { lat: number; lng: number };
-    mapRef?: React.RefObject<OlMap | null>;
     activeShapeState?: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     shapeBeingSaved?: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     children?: React.ReactNode;
@@ -39,17 +39,18 @@ const MapContainer: React.FC<MapContainerProps> = (props) => {
     const { t } = useLocale();
     const { provider } = props;
 
-    // The 'any' in onMapLoad is a concession to the fact that the Google Maps component
-    // will return a google.maps.Map instance, not an OpenLayers Map instance.
     const onMapLoadForProvider = props.onMapLoad as (map: any, source?: VectorSource) => void;
-
 
     switch (provider.provider_type) {
         case 'google':
              return (
-                 <GoogleMap config={provider.config_json} onMapLoad={onMapLoadForProvider}>
+                 <GoogleMapProvider 
+                    config={provider.config_json} 
+                    onMapLoad={onMapLoadForProvider}
+                    initialPosition={props.initialPosition}
+                 >
                     {props.children}
-                 </GoogleMap>
+                 </GoogleMapProvider>
             );
         case 'openlayers':
         case 'mapbox':
