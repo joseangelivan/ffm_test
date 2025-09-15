@@ -96,8 +96,8 @@ function readCustomGeoJSON(dbGeofence: DbGeofence): Geometry | null {
 
 interface MapProps {
     provider: DbMapProvider;
-    mapRef: React.RefObject<Map | null>;
-    onMapLoad: (map: Map, source: VectorSource) => void;
+    mapRef?: React.RefObject<Map | null>;
+    onMapLoad?: (map: Map, source: VectorSource) => void;
     googleMapsApiKey?: string;
     dbGeofences?: DbGeofence[];
     mode?: 'view' | 'editing';
@@ -127,6 +127,9 @@ const OpenLayersMap: React.FC<MapProps> = ({
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const vectorSourceRef = useRef<VectorSource>(new VectorSource());
+    const internalMapRef = useRef<Map | null>(null);
+    const finalMapRef = mapRef || internalMapRef;
+
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
         if (shapeBeingSaved && featureId === shapeBeingSaved.id) {
@@ -154,8 +157,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
     // Effect for initializing the map
     useEffect(() => {
         if (!mapContainerRef.current) return;
-        if (mapRef && mapRef.current) {
-            mapRef.current.setTarget(mapContainerRef.current);
+        if (finalMapRef.current) {
+            finalMapRef.current.setTarget(mapContainerRef.current);
             return;
         };
 
@@ -167,6 +170,9 @@ const OpenLayersMap: React.FC<MapProps> = ({
         if (providerType === 'google') {
             const GoogleSource = require('ol/source/Google').default;
             const apiKey = googleMapsApiKey || apiConfig.parameters?.apiKey || '';
+            if (!apiKey) {
+                console.error("Google Maps API key is missing from config or environment variables. Map will load in developer mode.");
+            }
             source = new GoogleSource({
                 key: apiKey,
                 mapTypeId: apiConfig.parameters?.mapId || 'roadmap',
@@ -189,20 +195,10 @@ const OpenLayersMap: React.FC<MapProps> = ({
         });
         vectorLayer.set('id', 'geofence-layer');
 
-        const defaultGeofence = dbGeofences.find(g => g.is_default);
-        const hasDefaultGeofenceWithGeometry = defaultGeofence && defaultGeofence.geometry && Object.keys(defaultGeofence.geometry).length > 0;
-        
-        const viewOptions: any = {};
-        
-        // Only set the initial center if there's no geofence to fit to.
-        // This prevents the "double load" animation.
-        if (initialPosition && !hasDefaultGeofenceWithGeometry) {
-            viewOptions.center = fromLonLat([initialPosition.lng, initialPosition.lat]);
-            viewOptions.zoom = 15;
-        } else {
-            viewOptions.center = fromLonLat([-51.9253, -14.235]); // Brazil fallback
-            viewOptions.zoom = 4;
-        }
+        const viewOptions = {
+            center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+            zoom: 15,
+        };
 
         const map = new Map({
             target: mapContainerRef.current!,
@@ -211,18 +207,15 @@ const OpenLayersMap: React.FC<MapProps> = ({
             controls: [],
         });
         
-        // Use the passed ref
-        if (mapRef) {
-            (mapRef as React.MutableRefObject<Map | null>).current = map;
-        }
+        (finalMapRef as React.MutableRefObject<Map | null>).current = map;
         
         if (onMapLoad) {
             onMapLoad(map, vectorSourceRef.current);
         }
         
         const pointerMoveHandler = (e: any) => {
-            if (e.dragging || !mapRef || !mapRef.current) return;
-            const mapInstance = mapRef.current;
+            if (e.dragging || !finalMapRef || !finalMapRef.current) return;
+            const mapInstance = finalMapRef.current;
             const pixel = mapInstance.getEventPixel(e.originalEvent);
 
             const modifyInteraction = mapInstance.getInteractions().getArray().find(i => i instanceof Modify);
@@ -250,10 +243,10 @@ const OpenLayersMap: React.FC<MapProps> = ({
         map.on('pointermove', pointerMoveHandler);
 
         return () => {
-            if (mapRef && mapRef.current) {
-                 mapRef.current.un('pointermove', pointerMoveHandler);
-                 mapRef.current.setTarget(undefined);
-                 (mapRef as React.MutableRefObject<Map | null>).current = null;
+            if (finalMapRef && finalMapRef.current) {
+                 finalMapRef.current.un('pointermove', pointerMoveHandler);
+                 finalMapRef.current.setTarget(undefined);
+                 (finalMapRef as React.MutableRefObject<Map | null>).current = null;
             }
         };
     }, []); // Removed dependencies to ensure it only runs once
