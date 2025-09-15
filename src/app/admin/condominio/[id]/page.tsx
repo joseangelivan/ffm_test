@@ -92,6 +92,7 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
     : { lat: 0, lng: 0 };
   
   const condoWithGeofences = { ...condo, geofences: geofences || [] };
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   return (
     <Suspense fallback={<Loading />}>
@@ -102,6 +103,7 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
           initialSettings={settings}
           mapProvider={mapProvider}
           initialPosition={initialPosition}
+          googleMapsApiKey={googleMapsApiKey}
         />
     </Suspense>
   );

@@ -105,6 +105,7 @@ interface MapProps {
     initialPosition?: { lat: number, lng: number };
     activeShapeState?: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     shapeBeingSaved?: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
+    googleMapsApiKey?: string;
     children?: React.ReactNode;
 }
 
@@ -119,6 +120,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     initialPosition,
     activeShapeState = null,
     shapeBeingSaved = null,
+    googleMapsApiKey,
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -162,23 +164,13 @@ const OpenLayersMap: React.FC<MapProps> = ({
             config = {};
         }
         
-        // Determine provider type, checking top-level first, then inside JSON
         const providerType = provider.provider_type || config.provider_type;
         const apiConfig = config.api_config || {};
         
         let source;
         if (providerType === 'google') {
             const GoogleSource = require('ol/source/Google').default;
-            const envApiKey = window.nextConfig?.env?.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-
-            let apiKey = apiConfig.parameters?.apiKey?.startsWith('$') 
-                ? envApiKey
-                : apiConfig.parameters?.apiKey;
-            
-            // Allow developer mode by passing an empty key if not found
-            if (!apiKey) {
-                apiKey = ''; 
-            }
+            const apiKey = googleMapsApiKey || '';
             
             source = new GoogleSource({
                 key: apiKey,
@@ -190,7 +182,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
             if (baseUrl) {
                 source = new XYZ({ url: baseUrl, maxZoom: 20 });
             } else {
-                // Default fallback
                 source = new OSM();
             }
         }
@@ -258,7 +249,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                  mapRef.current = null;
             }
         };
-    }, [provider, initialPosition, onMapLoad]);
+    }, [provider, initialPosition, onMapLoad, googleMapsApiKey]);
 
     // Effect for updating features and styles
     useEffect(() => {
