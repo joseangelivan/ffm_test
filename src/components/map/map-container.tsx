@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React from 'react';
@@ -15,6 +13,12 @@ const OpenLayersMap = dynamic(() => import('./providers/openlayers/map'), {
     ssr: false,
     loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
 });
+
+const GoogleMap = dynamic(() => import('./providers/google/map'), {
+    ssr: false,
+    loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
+});
+
 
 type MapContainerProps = {
     provider: DbMapProvider;
@@ -35,12 +39,26 @@ const MapContainer: React.FC<MapContainerProps> = (props) => {
     const { t } = useLocale();
     const { provider } = props;
 
+    // The map container logic is now primarily designed for OpenLayers,
+    // which is our base for interactions. If we were to implement Google Maps
+    // editing features, we would need a separate prop drill/state management
+    // for its specific API (e.g., onMapLoad would need to be typed for both).
+    // For now, we can render Google Maps in a view-only state if needed.
+
     switch (provider.provider_type) {
         case 'openlayers':
-        case 'google': // Temporarily routing to OpenLayers
-        case 'mapbox': // Temporarily routing to OpenLayers
-        case 'leaflet': // Temporarily routing to OpenLayers
+        case 'mapbox':
+        case 'leaflet':
             return <OpenLayersMap {...props} />;
+        
+        case 'google':
+             return (
+                <div className="flex items-center justify-center h-full bg-muted relative">
+                     <p className="absolute top-2 left-2 text-xs bg-background/80 p-2 rounded-md z-10">{t('adminDashboard.maps.providerNotSupported', { type: provider.provider_type })}</p>
+                    <OpenLayersMap {...props} />
+                </div>
+            );
+
         default:
             return (
                  <div className="flex items-center justify-center h-full bg-muted">
