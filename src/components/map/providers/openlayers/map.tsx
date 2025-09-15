@@ -161,14 +161,46 @@ const OpenLayersMap: React.FC<MapProps> = ({
         const providerType = provider.provider_type || config.provider_type;
         const apiConfig = config.api_config || {};
 
-        const initializeMap = () => {
+        const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
+            return new Promise((resolve) => {
+                if (window.google && window.google.maps) {
+                    resolve();
+                    return;
+                }
+
+                if ((window as any).__googleMapsApiLoading__) {
+                     window.__googleMapsApiLoaded__ = () => resolve();
+                     return;
+                }
+
+                (window as any).__googleMapsApiLoading__ = true;
+                window.__googleMapsApiLoaded__ = () => {
+                    (window as any).__googleMapsApiLoading__ = false;
+                    resolve();
+                };
+                
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=__googleMapsApiLoaded__`;
+                script.async = true;
+                script.defer = true;
+                document.head.appendChild(script);
+            });
+        };
+
+        const initializeMap = async () => {
             if (!mapContainerRef.current || finalMapRef.current) return;
 
             let source;
             if (providerType === 'google') {
+                const apiKey = apiConfig.parameters?.apiKey || googleMapsApiKey;
+                if (!apiKey) {
+                    console.error("Google Maps API key is missing.");
+                    return;
+                }
+                await loadGoogleMapsApi(apiKey);
                 const GoogleSource = require('ol/source/Google').default;
                 source = new GoogleSource({
-                    key: apiConfig.parameters?.apiKey || googleMapsApiKey,
+                    key: apiKey,
                     mapTypeId: apiConfig.parameters?.mapId || 'roadmap',
                 });
             } else {
@@ -195,42 +227,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             if (onMapLoad) onMapLoad(map, vectorSourceRef.current);
         };
 
-        const loadGoogleMapsApi = (apiKey: string) => {
-            if (window.google && window.google.maps) {
-                initializeMap();
-                return;
-            }
-            
-            if ((window as any).__isGoogleMapsApiLoading__) {
-                // If it's already loading, just wait for the callback to fire.
-                window.__googleMapsApiLoaded__ = initializeMap;
-                return;
-            }
-
-            (window as any).__isGoogleMapsApiLoading__ = true;
-            window.__googleMapsApiLoaded__ = () => {
-                (window as any).__isGoogleMapsApiLoading__ = false;
-                initializeMap();
-            };
-            
-            const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=__googleMapsApiLoaded__`;
-            script.async = true;
-            script.defer = true;
-            document.head.appendChild(script);
-        };
-
-        if (providerType === 'google') {
-            const apiKey = apiConfig.parameters?.apiKey || googleMapsApiKey;
-            if (!apiKey) {
-                console.error("Google Maps API key is missing.");
-                // Potentially initialize with a fallback or show an error
-                return;
-            }
-            loadGoogleMapsApi(apiKey);
-        } else {
-            initializeMap();
-        }
+        initializeMap();
 
         return () => {
              if (finalMapRef.current) {
@@ -291,5 +288,3 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
-
-    
