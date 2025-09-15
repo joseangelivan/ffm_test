@@ -25,7 +25,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { DropdownMenuItem, DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,7 +50,8 @@ import {
     Trash2,
     PlusCircle,
     TestTube2,
-    Lock
+    Lock,
+    Globe
 } from 'lucide-react';
 import { LoadingOverlay } from './admin-header';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
@@ -83,6 +84,65 @@ function TestMapProviderDialog({ provider, onOpenChange }: { provider: MapProvid
                  <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t('common.close')}</Button>
                  </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+function AddGoogleMapProviderDialog({ isOpen, onOpenChange, onSuccess }: { isOpen: boolean, onOpenChange: (open: boolean) => void, onSuccess: () => void}) {
+    const { t } = useLocale();
+    const { toast } = useToast();
+    const [name, setName] = useState('Google Maps');
+
+    const googleProviderJson = {
+        api_config: {
+            parameters: {
+            apiKey: "$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
+            mapId: "DEMO_MAP_ID"
+            }
+        },
+        ui_config: {
+            attribution: "Google"
+        }
+    };
+    
+    const handleCreateGoogleProvider = async (prevState: any, formData: FormData) => {
+        formData.set('provider_type', 'google');
+        formData.set('config', JSON.stringify(googleProviderJson));
+
+        const result = await createMapProvider(prevState, formData);
+        if (result?.success) {
+            toast({ title: t('toast.successTitle'), description: result.message });
+            onSuccess();
+        } else if(result) {
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+        }
+        return result;
+    }
+
+    const [state, formAction] = useActionState(handleCreateGoogleProvider, undefined);
+    const { pending } = useFormStatus();
+
+    return (
+         <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                 <form action={formAction}>
+                    <div className={cn('relative', pending && 'opacity-50')}>
+                        {pending && <LoadingOverlay text={t('adminDashboard.loadingOverlay.creating')} />}
+                        <DialogHeader>
+                            <DialogTitle>{t('adminDashboard.maps.addGoogleTitle')}</DialogTitle>
+                            <DialogDescription>{t('adminDashboard.maps.addGoogleDescription')}</DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                            <Label htmlFor="name">{t('adminDashboard.maps.nameLabel')}</Label>
+                            <Input id="name" name="name" value={name} onChange={(e) => setName(e.target.value)} required disabled={pending} />
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>{t('common.cancel')}</Button>
+                            <Button type="submit" disabled={pending || !name}>{t('common.create')}</Button>
+                        </DialogFooter>
+                    </div>
+                </form>
             </DialogContent>
         </Dialog>
     )
@@ -127,16 +187,13 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
     
     const [name, setName] = useState(service?.name || '');
     const [config, setConfig] = useState(isEditMode ? getInitialJson(service.config_json) : '');
-    const [providerType, setProviderType] = useState(service?.provider_type || '');
     const [isJsonValid, setIsJsonValid] = useState(true);
 
     useEffect(() => {
         if(service) {
-            setProviderType(service.provider_type);
             setName(service.name);
             setConfig(getInitialJson(service.config_json));
         } else {
-            setProviderType('');
             setName('');
             setConfig('');
         }
@@ -150,20 +207,28 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
             return;
         }
         try {
-            JSON.parse(text);
+            const parsed = JSON.parse(text);
             setIsJsonValid(true);
         } catch (error) {
             setIsJsonValid(false);
         }
     };
+    
+    const getProviderTypeFromConfig = () => {
+        try {
+            const parsed = JSON.parse(config);
+            return parsed?.provider_type || '';
+        } catch {
+            return '';
+        }
+    }
 
     const isCreateButtonDisabled = () => {
         if (pending) return true;
-        if (!providerType || !name || !isJsonValid) return true;
+        if (!name || !isJsonValid) return true;
         return false;
     };
     
-
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
@@ -175,15 +240,12 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
                             <DialogDescription>{t('adminDashboard.maps.formDescription')}</DialogDescription>
                         </DialogHeader>
                         <input type="hidden" name="id" value={service?.id || ''} />
+                        <input type="hidden" name="provider_type" value={getProviderTypeFromConfig()} />
                         
                         <div className="grid gap-4 py-4">
                              <div className="grid gap-2">
                                 <Label htmlFor="name">{t('adminDashboard.maps.nameLabel')}</Label>
                                 <Input id="name" name="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="OpenLayers - Ruas" required disabled={pending}/>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="provider_type">{t('adminDashboard.maps.typeLabel')}</Label>
-                                <Input id="provider_type" name="provider_type" value={providerType} onChange={(e) => setProviderType(e.target.value)} placeholder="Ex: openlayers, google" required disabled={pending}/>
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="config">{t('adminDashboard.maps.configLabel')}</Label>
@@ -192,7 +254,7 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
                                     name="config"
                                     value={config}
                                     onChange={handleJsonChange}
-                                    placeholder='{\n  "api_config": {\n    "base_url": "...",\n    ...\n  }\n}'
+                                    placeholder='{\n  "provider_type": "openlayers",\n  "api_config": {\n    "base_url": "...",\n    ...\n  }\n}'
                                     required 
                                     disabled={pending}
                                     className={cn("min-h-[150px] font-mono text-xs", !isJsonValid && "border-destructive focus-visible:ring-destructive")}
@@ -224,6 +286,7 @@ export function ManageMapsDialog() {
   const [testingService, setTestingService] = useState<MapProvider | null>(null);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isGoogleFormOpen, setIsGoogleFormOpen] = useState(false);
   const [isListOpen, setIsListOpen] = useState(false);
   const [editingService, setEditingService] = useState<MapProvider | null>(null);
   
@@ -247,6 +310,7 @@ export function ManageMapsDialog() {
 
   const onFormSuccess = useCallback(() => {
       setIsFormOpen(false);
+      setIsGoogleFormOpen(false);
       setEditingService(null);
       fetchServices();
   }, [fetchServices]);
@@ -390,9 +454,21 @@ export function ManageMapsDialog() {
                 
                 <DialogFooter className="sm:justify-between">
                     <DialogClose asChild><Button variant="outline">{t('common.close')}</Button></DialogClose>
-                    <Button onClick={handleCreateClick}>
-                        <PlusCircle className="mr-2 h-4 w-4"/>{t('adminDashboard.maps.addButton')}
-                    </Button>
+                     <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button>
+                                <PlusCircle className="mr-2 h-4 w-4"/>{t('adminDashboard.maps.addButton')}
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => setIsGoogleFormOpen(true)}>
+                                <Globe className="mr-2 h-4 w-4" /> Google Maps
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={handleCreateClick}>
+                                <MapIcon className="mr-2 h-4 w-4" /> {t('adminDashboard.maps.addTileProvider')}
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </DialogFooter>
             </div>
         </DialogContent>
@@ -407,6 +483,14 @@ export function ManageMapsDialog() {
         />
       )}
 
+      {isGoogleFormOpen && (
+          <AddGoogleMapProviderDialog 
+              isOpen={isGoogleFormOpen}
+              onOpenChange={setIsGoogleFormOpen}
+              onSuccess={onFormSuccess}
+          />
+      )}
+
       <TestMapProviderDialog 
         provider={testingService} 
         onOpenChange={() => setTestingService(null)} 
@@ -414,3 +498,4 @@ export function ManageMapsDialog() {
     </>
   );
 }
+

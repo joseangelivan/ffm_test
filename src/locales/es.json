@@ -372,8 +372,11 @@
         "description": "Gestiona los proveedores de mapas para la aplicación.",
         "noServices": "No hay proveedores de mapas configurados.",
         "addButton": "Agregar Proveedor",
+        "addTileProvider": "Proveedor de Tiles Genérico",
+        "addGoogleTitle": "Agregar Proveedor de Google Maps",
+        "addGoogleDescription": "Introduce un nombre para esta configuración de Google Maps.",
         "editTitle": "Editar Proveedor de Mapas",
-        "newTitle": "Nuevo Proveedor de Mapas",
+        "newTitle": "Nuevo Proveedor de Mapas (Tiles)",
         "formDescription": "Define un nombre y proporciona la configuración para el proveedor.",
         "nameLabel": "Nombre del Proveedor",
         "typeLabel": "Tipo de Proveedor",
@@ -674,3 +677,4 @@
     
 
     
+
