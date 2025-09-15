@@ -1,0 +1,12 @@
+{
+  "provider_type": "google",
+  "api_config": {
+    "parameters": {
+      "apiKey": "$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
+      "mapId": "roadmap"
+    }
+  },
+  "ui_config": {
+    "attribution": "Google"
+  }
+}
