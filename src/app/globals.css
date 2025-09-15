@@ -89,40 +89,47 @@ body {
 
 /* Custom styles for Google Maps error overlay */
 div.gm-err-container {
-    height: auto !important;
-    width: auto !important;
-    max-width: 300px;
-    bottom: auto !important;
-    top: 10px !important;
-    left: 10px !important;
-    right: auto !important;
-    background-color: hsl(var(--card)) !important;
-    border-radius: var(--radius) !important;
-    padding: 0.5rem !important;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
-    border: 1px solid hsl(var(--border)) !important;
+    height: 100% !important;
+    width: 100% !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    background-color: transparent !important;
 }
 
 div.gm-err-content {
-    padding: 0.5rem !important;
+    position: absolute !important;
+    top: 10px !important;
+    left: 10px !important;
+    max-width: 320px !important;
+    padding: 1rem !important;
+    background-color: hsl(var(--card)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+    border-radius: var(--radius) !important;
     color: hsl(var(--card-foreground)) !important;
     font-size: 0.8rem !important;
+    z-index: 100 !important;
 }
 
 div.gm-err-title {
     font-size: 0.9rem !important;
     font-weight: 600 !important;
     color: hsl(var(--destructive)) !important;
+    margin-bottom: 0.5rem !important;
 }
 
 button.gm-err-close {
-    display: block !important;
+    display: inline-block !important;
     background-color: hsl(var(--primary)) !important;
     color: hsl(var(--primary-foreground)) !important;
     border-radius: calc(var(--radius) - 4px) !important;
-    padding: 4px 8px !important;
+    padding: 4px 12px !important;
     font-size: 0.8rem !important;
-    margin-top: 0.5rem !important;
+    font-weight: 500 !important;
+    margin-top: 0.75rem !important;
     border: none !important;
     cursor: pointer !important;
+    z-index: 101 !important;
+    position: relative !important;
 }

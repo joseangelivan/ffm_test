@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useEffect } from 'react';
 import { useLoadScript } from '@react-google-maps/api';
 import type { Libraries } from '@react-google-maps/api/dist/utils/make-load-script-url';
+import { useLocale } from '@/lib/i18n';
 
 const libraries: Libraries = ['maps'];
 
@@ -15,11 +16,13 @@ interface GoogleMapsLoaderContextType {
 const GoogleMapsLoaderContext = createContext<GoogleMapsLoaderContextType | undefined>(undefined);
 
 export const GoogleMapsLoaderProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { locale } = useLocale();
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: apiKey,
         libraries,
+        language: locale.split('-')[0], // Use the base language ('es' or 'pt')
         preventGoogleFontsLoading: true,
     });
 
