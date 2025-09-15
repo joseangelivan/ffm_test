@@ -1,13 +1,25 @@
 
 "use client";
 
-import React from 'react';
+import React, { useContext } from 'react';
 import type { Condominio } from '@/actions/condos';
+import type { MapProvider } from '@/actions/map_providers';
 
 export const CondoDashboardContext = React.createContext<{
   handleSetLocale: (locale: 'es' | 'pt-BR') => void;
   handleSetTheme: (theme: string) => void;
   theme: string;
-  condo: Condominio | null;
+  condo: (Condominio & { geofences: any[] }) | null;
   onDataNeedsRefresh: () => void;
+  mapProvider: MapProvider | null;
+  refreshMapProvider: () => Promise<void>;
 } | null>(null);
+
+
+export function useCondoDashboard() {
+    const context = useContext(CondoDashboardContext);
+    if (!context) {
+        throw new Error("useCondoDashboard must be used within a CondoDashboardProvider");
+    }
+    return context;
+}

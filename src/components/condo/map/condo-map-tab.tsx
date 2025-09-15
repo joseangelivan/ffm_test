@@ -25,7 +25,7 @@ import type { Geofence as DbGeofence } from '@/actions/maps';
 import { MapSettingsDialog } from './map-settings-dialog';
 import { useToast } from '@/hooks/use-toast';
 import MapContainer from '@/components/map/map-container';
-import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
+import { useCondoDashboard } from '@/contexts/condo-dashboard-context';
 
 import type { Map as OlMap, Feature } from 'ol';
 import type { Vector as VectorSource } from 'ol/source';
@@ -36,12 +36,12 @@ import type { Geometry } from 'ol/geom';
 interface CondoMapTabProps {
   condo: Condominio & { geofences: DbGeofence[] };
   initialPosition: { lat: number; lng: number };
-  provider: DbMapProvider;
 }
 
-export default function CondoMapTab({ condo, initialPosition, provider }: CondoMapTabProps) {
+export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps) {
   const { t } = useLocale();
   const { toast } = useToast();
+  const { mapProvider } = useCondoDashboard();
   
   // --- Refs ---
   const olMapRef = useRef<OlMap | null>(null);
@@ -258,6 +258,14 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
     }
   }, [mode, applyZoomLevel]);
   
+  if (!mapProvider) {
+    return (
+      <div className="flex h-[70vh] items-center justify-center rounded-lg border bg-muted">
+        <Loader className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
   return (
     <>
         <Card>
@@ -279,7 +287,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                 <div className="grid grid-cols-1 md:grid-cols-3 h-[70vh]">
                     <div className="col-span-1 md:col-span-2 relative p-1">
                         <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
-                            {isLoading && (
+                            {(isLoading || !mapProvider) && (
                                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
                                     <div className="flex items-center gap-2 text-muted-foreground">
                                         <Loader className="h-5 w-5 animate-spin" />
@@ -288,7 +296,7 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                 </div>
                             )}
                              <MapContainer 
-                                provider={provider}
+                                provider={mapProvider}
                                 onMapLoad={handleMapLoad}
                                 dbGeofences={dbGeofences}
                                 activeShapeState={activeShapeState}
@@ -369,7 +377,6 @@ export default function CondoMapTab({ condo, initialPosition, provider }: CondoM
                                     drawingMode={drawingMode}
                                     setDrawingMode={setDrawingMode}
                                     setShapeBeingSaved={setShapeBeingSaved}
-                                    isGoogleMap={provider.provider_type === 'google'}
                                 />
                             )}
                             {selectedModule === 'elements' && (

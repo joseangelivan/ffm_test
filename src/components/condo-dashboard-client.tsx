@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -34,26 +34,29 @@ import { cn } from '@/lib/utils';
 import type { SessionPayload } from '@/lib/session';
 import { handleLogoutAction } from '@/lib/session';
 import type { UserSettings } from '@/actions/admin';
-import { getActiveTheme, updateSettings } from '@/actions/admin';
+import { getActiveTheme, updateSettings, getDefaultMapProvider } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
-import { type MapProvider } from '@/actions/map_providers';
+import { type MapProvider as DbMapProvider } from '@/actions/map_providers';
+import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
+import { processAndGetConfig } from '@/actions/map_providers';
 
 type CondoDashboardClientProps = {
     session: SessionPayload;
     initialCondo: Condominio & { geofences: any[] };
     initialDevices: Device[];
     initialSettings: UserSettings;
-    mapProvider: MapProvider;
+    initialMapProvider: DbMapProvider;
     initialPosition: { lat: number; lng: number };
 };
 
-export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider, initialPosition }: CondoDashboardClientProps) { 
+export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, initialMapProvider, initialPosition }: CondoDashboardClientProps) { 
   const { t, setLocale } = useLocale();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState('map');
   const [theme, setTheme] = useState(initialSettings.theme);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [mapProvider, setMapProvider] = useState<DbMapProvider | null>(initialMapProvider);
 
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
     const root = document.documentElement;
@@ -126,63 +129,88 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     router.push('/admin/login');
   };
 
+  const refreshMapProvider = useCallback(async () => {
+    const newRawProvider = await getDefaultMapProvider();
+    if (newRawProvider) {
+      const newProcessedProvider = await processAndGetConfig(newRawProvider);
+      setMapProvider(newProcessedProvider);
+    }
+  }, []);
+
+  const providerValue = useMemo(() => ({
+    handleSetLocale: () => {},
+    handleSetTheme,
+    theme,
+    condo: initialCondo,
+    onDataNeedsRefresh: () => {},
+    mapProvider,
+    refreshMapProvider
+  }), [handleSetTheme, theme, initialCondo, mapProvider, refreshMapProvider]);
+
   return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/40">
-        <AdminHeader 
-            session={session}
-            condoName={initialCondo.name}
-            onAccountUpdateSuccess={handleAccountUpdateSuccess}
-        />
+    <CondoDashboardContext.Provider value={providerValue}>
+      <div className="flex min-h-screen w-full flex-col bg-muted/40">
+          <AdminHeader 
+              session={session}
+              condoName={initialCondo.name}
+              onAccountUpdateSuccess={handleAccountUpdateSuccess}
+          />
 
-        <main className="flex flex-1 flex-col gap-2 p-2 md:gap-4 md:p-4">
-          <div className="grid gap-4">
-            <div>
-              <Link href="/admin/dashboard" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="h-4 w-4" />
-                {t('condoDashboard.backToAdmin')}
-              </Link>
-            </div>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="users" className="flex items-center gap-2"><Users className="h-4 w-4"/>{t('condoDashboard.tabs.users')}</TabsTrigger>
-                <TabsTrigger value="devices" className="flex items-center gap-2"><Smartphone className="h-4 w-4"/>{t('condoDashboard.tabs.devices')}</TabsTrigger>
-                <TabsTrigger value="map" className="flex items-center gap-2"><Map className="h-4 w-4"/>{t('condoDashboard.tabs.map')}</TabsTrigger>
-              </TabsList>
-              <div className="mt-4">
-                  <TabsContent value="users" forceMount className={cn(activeTab !== 'users' && 'hidden')}>
-                      <ManageUsersTab condoId={initialCondo.id} initialUsers={[]}/>
-                  </TabsContent>
-                  <TabsContent value="devices" forceMount className={cn(activeTab !== 'devices' && 'hidden')}>
-                      <ManageDevicesTab condoId={initialCondo.id} initialDevices={initialDevices} />
-                  </TabsContent>
-                  <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
-                      <CondoMapTab 
-                        condo={initialCondo} 
-                        initialPosition={initialPosition} 
-                        provider={mapProvider}
-                      />
-                  </TabsContent>
+          <main className="flex flex-1 flex-col gap-2 p-2 md:gap-4 md:p-4">
+            <div className="grid gap-4">
+              <div>
+                <Link href="/admin/dashboard" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                  <ArrowLeft className="h-4 w-4" />
+                  {t('condoDashboard.backToAdmin')}
+                </Link>
               </div>
-            </Tabs>
-          </div>
-        </main>
-        
-        <AlertDialog open={showLogoutDialog}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>{t('adminDashboard.account.logoutDialog.title')}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        {t('adminDashboard.account.logoutDialog.description')}
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <Button onClick={handleConfirmLogout}>
-                        {t('adminDashboard.account.logoutDialog.confirm')}
-                    </Button>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="users" className="flex items-center gap-2"><Users className="h-4 w-4"/>{t('condoDashboard.tabs.users')}</TabsTrigger>
+                  <TabsTrigger value="devices" className="flex items-center gap-2"><Smartphone className="h-4 w-4"/>{t('condoDashboard.tabs.devices')}</TabsTrigger>
+                  <TabsTrigger value="map" className="flex items-center gap-2"><Map className="h-4 w-4"/>{t('condoDashboard.tabs.map')}</TabsTrigger>
+                </TabsList>
+                <div className="mt-4">
+                    <TabsContent value="users" forceMount className={cn(activeTab !== 'users' && 'hidden')}>
+                        <ManageUsersTab condoId={initialCondo.id} initialUsers={[]}/>
+                    </TabsContent>
+                    <TabsContent value="devices" forceMount className={cn(activeTab !== 'devices' && 'hidden')}>
+                        <ManageDevicesTab condoId={initialCondo.id} initialDevices={initialDevices} />
+                    </TabsContent>
+                    <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
+                        {mapProvider ? (
+                          <CondoMapTab 
+                            condo={initialCondo} 
+                            initialPosition={initialPosition}
+                          />
+                        ) : (
+                          <div className="flex h-[70vh] items-center justify-center rounded-lg border bg-muted">
+                            <Loader className="h-8 w-8 animate-spin text-primary" />
+                          </div>
+                        )}
+                    </TabsContent>
+                </div>
+              </Tabs>
+            </div>
+          </main>
+          
+          <AlertDialog open={showLogoutDialog}>
+              <AlertDialogContent>
+                  <AlertDialogHeader>
+                      <AlertDialogTitle>{t('adminDashboard.account.logoutDialog.title')}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                          {t('adminDashboard.account.logoutDialog.description')}
+                      </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                      <Button onClick={handleConfirmLogout}>
+                          {t('adminDashboard.account.logoutDialog.confirm')}
+                      </Button>
+                  </AlertDialogFooter>
+              </AlertDialogContent>
+          </AlertDialog>
 
-    </div>
+      </div>
+    </CondoDashboardContext.Provider>
   );
 }
