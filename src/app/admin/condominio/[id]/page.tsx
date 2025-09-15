@@ -11,7 +11,6 @@ import { getSession } from '@/lib/auth';
 import { getSettings, getDefaultMapProvider, getGeofencesByCondoId } from '@/actions/admin';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle, Map } from 'lucide-react';
-import { geocodeAddress } from '@/actions/geocoding';
 import { processAndGetConfig } from '@/actions/map_providers';
 
 export const dynamic = 'force-dynamic';
@@ -86,16 +85,10 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
 
   const condo = condoResult.data;
   
-  const geoResult = await geocodeAddress({
-    street: `${condo.street}, ${condo.number}`,
-    city: condo.city,
-    state: condo.state,
-    country: condo.country,
-  });
-
-  const initialPosition = (geoResult.success && geoResult.data && geoResult.data.length > 0)
-    ? geoResult.data[0].geometry.location
-    : { lat: 0, lng: 0 };
+  const defaultGeofence = geofences.find(g => g.is_default);
+  const initialPosition = defaultGeofence?.geometry?.center 
+    ? { lat: defaultGeofence.geometry.center[1], lng: defaultGeofence.geometry.center[0] } 
+    : { lat: -14.235, lng: -51.9253 }; // Fallback to Brazil center
   
   const condoWithGeofences = { ...condo, geofences: geofences || [] };
   

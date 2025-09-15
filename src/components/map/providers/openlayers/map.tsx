@@ -156,100 +156,78 @@ const OpenLayersMap: React.FC<MapProps> = ({
     
     // Effect for initializing the map
     useEffect(() => {
-        if (!mapContainerRef.current) return;
-        if (finalMapRef.current) {
-            finalMapRef.current.setTarget(mapContainerRef.current);
-            return;
-        };
-
+        if (!mapContainerRef.current || finalMapRef.current) return;
+        
         const config = provider.config_json || {};
         const providerType = provider.provider_type || config.provider_type;
         const apiConfig = config.api_config || {};
-        
-        let source;
+
+        const initializeMap = () => {
+            if (!mapContainerRef.current) return;
+
+            let source;
+            if (providerType === 'google') {
+                const GoogleSource = require('ol/source/Google').default;
+                source = new GoogleSource({
+                    key: apiConfig.parameters?.apiKey || googleMapsApiKey,
+                    mapTypeId: apiConfig.parameters?.mapId || 'roadmap',
+                });
+            } else {
+                const baseUrl = apiConfig.base_url;
+                source = baseUrl ? new XYZ({ url: baseUrl, maxZoom: 20 }) : new OSM();
+            }
+
+            const view = new View({
+                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+                zoom: 15,
+            });
+
+            const map = new Map({
+                target: mapContainerRef.current,
+                layers: [
+                    new TileLayer({ source }),
+                    new VectorLayer({ source: vectorSourceRef.current, style: (feature) => feature.get('style') })
+                ],
+                view: view,
+                controls: [],
+            });
+
+            (finalMapRef as React.MutableRefObject<Map>).current = map;
+            if (onMapLoad) onMapLoad(map, vectorSourceRef.current);
+        };
+
+        const loadGoogleMapsApi = (apiKey: string) => {
+            if (window.google) {
+                initializeMap();
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=__googleMapsApiLoaded__`;
+            script.async = true;
+            script.defer = true;
+            window.__googleMapsApiLoaded__ = initializeMap;
+            document.head.appendChild(script);
+        };
+
         if (providerType === 'google') {
-            const GoogleSource = require('ol/source/Google').default;
-            const apiKey = googleMapsApiKey || apiConfig.parameters?.apiKey || '';
+            const apiKey = apiConfig.parameters?.apiKey || googleMapsApiKey;
             if (!apiKey) {
-                console.error("Google Maps API key is missing from config or environment variables. Map will load in developer mode.");
+                console.error("Google Maps API key is missing.");
+                // Potentially initialize with a fallback or show an error
+                return;
             }
-            source = new GoogleSource({
-                key: apiKey,
-                mapTypeId: apiConfig.parameters?.mapId || 'roadmap',
-            });
-            
-        } else { // Fallback for openlayers, mapbox, leaflet
-            const baseUrl = apiConfig.base_url;
-            if (baseUrl) {
-                source = new XYZ({ url: baseUrl, maxZoom: 20 });
-            } else {
-                source = new OSM();
-            }
+            loadGoogleMapsApi(apiKey);
+        } else {
+            initializeMap();
         }
-        
-        const initialLayer = new TileLayer({ source });
-        
-        const vectorLayer = new VectorLayer({
-            source: vectorSourceRef.current,
-            style: (feature) => feature.get('style'),
-        });
-        vectorLayer.set('id', 'geofence-layer');
-
-        const viewOptions = {
-            center: fromLonLat([initialPosition.lng, initialPosition.lat]),
-            zoom: 15,
-        };
-
-        const map = new Map({
-            target: mapContainerRef.current!,
-            layers: [initialLayer, vectorLayer],
-            view: new View(viewOptions),
-            controls: [],
-        });
-        
-        (finalMapRef as React.MutableRefObject<Map | null>).current = map;
-        
-        if (onMapLoad) {
-            onMapLoad(map, vectorSourceRef.current);
-        }
-        
-        const pointerMoveHandler = (e: any) => {
-            if (e.dragging || !finalMapRef || !finalMapRef.current) return;
-            const mapInstance = finalMapRef.current;
-            const pixel = mapInstance.getEventPixel(e.originalEvent);
-
-            const modifyInteraction = mapInstance.getInteractions().getArray().find(i => i instanceof Modify);
-            if (modifyInteraction && (modifyInteraction as any).getOverlay) {
-                const overlaySource = (modifyInteraction as any).getOverlay().getSource();
-                 if (overlaySource && overlaySource.getFeaturesAtCoordinate(e.coordinate).length > 0) {
-                    mapInstance.getTargetElement().style.cursor = 'crosshair';
-                    return;
-                }
-            }
-            
-            const translateInteraction = mapInstance.getInteractions().getArray().find(i => i.constructor.name === 'Translate');
-            const hit = mapInstance.hasFeatureAtPixel(pixel, {
-                 hitTolerance: 5,
-                 layerFilter: (l) => l.getSource() === vectorSourceRef.current
-            });
-
-            if (hit && translateInteraction && (translateInteraction as any).getFeatures && (translateInteraction as any).getFeatures().getLength() > 0) {
-                 mapInstance.getTargetElement().style.cursor = 'move';
-            } else {
-                 mapInstance.getTargetElement().style.cursor = '';
-            }
-        };
-
-        map.on('pointermove', pointerMoveHandler);
 
         return () => {
-            if (finalMapRef && finalMapRef.current) {
-                 finalMapRef.current.un('pointermove', pointerMoveHandler);
+             if (finalMapRef.current) {
                  finalMapRef.current.setTarget(undefined);
-                 (finalMapRef as React.MutableRefObject<Map | null>).current = null;
-            }
+             }
         };
-    }, []); // Removed dependencies to ensure it only runs once
+    }, [provider, googleMapsApiKey, initialPosition, onMapLoad]);
+
 
     // Effect for updating features and styles
     useEffect(() => {

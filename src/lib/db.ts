@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import type { Pool, PoolClient } from 'pg';
@@ -7,6 +8,9 @@ import type { Pool, PoolClient } from 'pg';
 // We use 'var' to ensure it's not block-scoped and can be accessed across requests in the same server process.
 declare global {
   var _dbPool: Pool | undefined;
+  interface Window {
+    __googleMapsApiLoaded__: () => void;
+  }
 }
 
 /**
