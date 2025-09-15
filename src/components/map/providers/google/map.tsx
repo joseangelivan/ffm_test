@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useRef, useCallback } from 'react';
-import { GoogleMap, LoadScript, MarkerF } from '@react-google-maps/api';
+import { GoogleMap, useLoadScript, MarkerF } from '@react-google-maps/api';
 import { useLocale } from '@/lib/i18n';
 import { Loader } from 'lucide-react';
 
@@ -23,7 +23,11 @@ const GoogleMapProvider: React.FC<MapProps> = ({ children, config, onMapLoad, in
     const mapRef = useRef<google.maps.Map | null>(null);
     
     const apiKey = config?.api_config?.parameters?.apiKey;
-    const mapId = config?.api_config?.parameters?.mapId;
+
+    const { isLoaded, loadError } = useLoadScript({
+        googleMapsApiKey: apiKey || "",
+        libraries: ['maps'],
+    });
 
     const center = initialPosition 
         ? initialPosition 
@@ -39,22 +43,31 @@ const GoogleMapProvider: React.FC<MapProps> = ({ children, config, onMapLoad, in
         onMapLoad(null);
     }, [onMapLoad]);
 
-    if (!apiKey) {
+    if (loadError) {
         return (
-            <div className="flex items-center justify-center h-full bg-muted-foreground/10 p-4">
+             <div className="flex items-center justify-center h-full bg-muted-foreground/10 p-4">
                 <p className="text-muted-foreground text-center">
-                    {t('condoDashboard.map.apiKeyMissing.description')}
+                    Error al cargar el script de Google Maps.
                 </p>
+            </div>
+        );
+    }
+    
+    if (!isLoaded || !apiKey) {
+         return (
+            <div className="flex items-center justify-center h-full bg-muted">
+                {!apiKey ? (
+                    <p className="text-muted-foreground text-center p-4">
+                        {t('condoDashboard.map.apiKeyMissing.description')}
+                    </p>
+                ) : (
+                    <Loader className="h-6 w-6 animate-spin" />
+                )}
             </div>
         );
     }
 
     return (
-       <LoadScript
-            googleMapsApiKey={apiKey}
-            loadingElement={<div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>}
-            onError={(error) => console.error("Google Maps script loading error:", error)}
-       >
            <GoogleMap
                 mapContainerStyle={containerStyle}
                 center={center}
@@ -62,14 +75,13 @@ const GoogleMapProvider: React.FC<MapProps> = ({ children, config, onMapLoad, in
                 onLoad={onLoad}
                 onUnmount={onUnmount}
                 options={{
-                    mapId: mapId,
+                    mapId: config?.api_config?.parameters?.mapId,
                     disableDefaultUI: true,
                     gestureHandling: 'greedy'
                 }}
             >
                {children}
             </GoogleMap>
-       </LoadScript>
     );
 };
 
