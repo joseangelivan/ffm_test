@@ -187,20 +187,23 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
         const defaultGeofence = dbGeofences.find(g => g.is_default);
         const hasDefaultGeofenceWithGeometry = defaultGeofence && defaultGeofence.geometry && Object.keys(defaultGeofence.geometry).length > 0;
-
-        const center = (initialPosition && !hasDefaultGeofenceWithGeometry) 
-            ? fromLonLat([initialPosition.lng, initialPosition.lat]) 
-            : fromLonLat([-51.9253, -14.235]);
-
-        const zoom = (initialPosition && !hasDefaultGeofenceWithGeometry) ? 15 : 4;
+        
+        const viewOptions: any = {};
+        
+        // Only set the initial center if there's no geofence to fit to.
+        // This prevents the "double load" animation.
+        if (initialPosition && !hasDefaultGeofenceWithGeometry) {
+            viewOptions.center = fromLonLat([initialPosition.lng, initialPosition.lat]);
+            viewOptions.zoom = 15;
+        } else {
+            viewOptions.center = fromLonLat([-51.9253, -14.235]); // Brazil fallback
+            viewOptions.zoom = 4;
+        }
 
         const map = new Map({
             target: mapContainerRef.current!,
             layers: [initialLayer, vectorLayer],
-            view: new View({
-                center: center,
-                zoom: zoom,
-            }),
+            view: new View(viewOptions),
             controls: [],
         });
         
@@ -249,7 +252,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                  (mapRef as React.MutableRefObject<Map | null>).current = null;
             }
         };
-    }, [provider, initialPosition, onMapLoad, dbGeofences, googleMapsApiKey, mapRef]);
+    }, []); // Removed dependencies to ensure it only runs once
 
     // Effect for updating features and styles
     useEffect(() => {
