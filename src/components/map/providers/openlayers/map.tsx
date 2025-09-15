@@ -169,8 +169,12 @@ const OpenLayersMap: React.FC<MapProps> = ({
             // Import dynamically only on the client-side
             import('ol/source/Google').then(GoogleSourceModule => {
                 const GoogleSource = GoogleSourceModule.default;
+                
+                // On the client, access env vars via window.nextConfig
+                const envApiKey = (window as any).nextConfig?.env?.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
                 const apiKey = apiConfig.parameters?.apiKey.startsWith('$') 
-                    ? process.env[apiConfig.parameters.apiKey.substring(1)] 
+                    ? envApiKey
                     : apiConfig.parameters.apiKey;
                 
                 if (!apiKey) {
