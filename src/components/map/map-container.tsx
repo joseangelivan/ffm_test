@@ -23,8 +23,8 @@ const GoogleMap = dynamic(() => import('./providers/google/map'), {
 
 type MapContainerProps = {
     provider: DbMapProvider;
-    mapRef: React.RefObject<OlMap | null>;
-    onMapLoad: (map: OlMap | any, source?: VectorSource) => void;
+    mapRef?: React.RefObject<OlMap | null>;
+    onMapLoad?: (map: OlMap | any, source?: VectorSource) => void;
     googleMapsApiKey?: string;
     dbGeofences?: DbGeofence[];
     mode?: 'view' | 'editing';
@@ -38,7 +38,6 @@ type MapContainerProps = {
 }
 
 const MapContainer: React.FC<MapContainerProps> = (props) => {
-    const { t } = useLocale();
     const { provider } = props;
     const [isLoading, setIsLoading] = useState(true);
 

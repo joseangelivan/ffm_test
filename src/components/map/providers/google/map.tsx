@@ -3,7 +3,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
-import 'ol/ol.css'; // Although not OpenLayers, it can provide some useful base CSS.
+import { Loader } from 'lucide-react';
 
 interface MapProps {
     provider: DbMapProvider;
@@ -18,6 +18,44 @@ declare global {
   }
 }
 
+const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (window.google && window.google.maps) {
+      resolve();
+      return;
+    }
+
+    if ((window as any).__googleMapsApiLoading__) {
+       const interval = setInterval(() => {
+            if (window.google && window.google.maps) {
+                clearInterval(interval);
+                resolve();
+            }
+        }, 100);
+        return;
+    }
+
+    (window as any).__googleMapsApiLoading__ = true;
+
+    window.__googleMapsApiLoadedCallback = () => {
+      (window as any).__googleMapsApiLoading__ = false;
+      resolve();
+    };
+
+    const script = document.createElement('script');
+    script.id = 'google-maps-api-script';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=__googleMapsApiLoadedCallback`;
+    script.async = true;
+    script.defer = true;
+    script.onerror = () => {
+        (window as any).__googleMapsApiLoading__ = false;
+        reject(new Error("Google Maps script failed to load."));
+    };
+    document.head.appendChild(script);
+  });
+};
+
+
 const GoogleMap: React.FC<MapProps> = ({
     provider,
     googleMapsApiKey,
@@ -25,31 +63,7 @@ const GoogleMap: React.FC<MapProps> = ({
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<any>(null);
-    const [isApiLoaded, setIsApiLoaded] = useState(false);
-
-    const loadGoogleMapsApi = useCallback((apiKey: string) => {
-        return new Promise<void>((resolve, reject) => {
-            if (window.google && window.google.maps) {
-                resolve();
-                return;
-            }
-
-            if (document.getElementById('google-maps-api-script')) {
-                 window.__googleMapsApiLoadedCallback = () => resolve();
-                return;
-            }
-
-            window.__googleMapsApiLoadedCallback = () => resolve();
-
-            const script = document.createElement('script');
-            script.id = 'google-maps-api-script';
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=__googleMapsApiLoadedCallback`;
-            script.async = true;
-            script.defer = true;
-            script.onerror = () => reject(new Error("Google Maps script failed to load."));
-            document.head.appendChild(script);
-        });
-    }, []);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const config = provider.config_json || {};
@@ -58,39 +72,34 @@ const GoogleMap: React.FC<MapProps> = ({
 
         if (!apiKey) {
             console.error("Google Maps API key is missing.");
+            setIsLoading(false);
             return;
         }
 
         loadGoogleMapsApi(apiKey)
-            .then(() => setIsApiLoaded(true))
-            .catch(err => console.error(err));
-        
-        // Cleanup function for when the component unmounts
-        return () => {
-            const script = document.getElementById('google-maps-api-script');
-            if (script) {
-                // It's generally better to leave the script loaded,
-                // but nullify the callback to prevent memory leaks.
-                window.__googleMapsApiLoadedCallback = undefined;
-            }
-        };
-
-    }, [provider, googleMapsApiKey, loadGoogleMapsApi]);
-
-    useEffect(() => {
-        if (isApiLoaded && mapContainerRef.current && !mapInstanceRef.current) {
-             const config = provider.config_json || {};
-             const apiConfig = config.api_config || {};
-
-            const map = new window.google.maps.Map(mapContainerRef.current, {
-                center: initialPosition,
-                zoom: 15,
-                mapId: apiConfig.parameters?.mapId,
-                disableDefaultUI: true,
+            .then(() => {
+                if (mapContainerRef.current && !mapInstanceRef.current) {
+                    const map = new window.google.maps.Map(mapContainerRef.current, {
+                        center: initialPosition,
+                        zoom: 15,
+                        mapId: apiConfig.parameters?.mapId,
+                        disableDefaultUI: true,
+                    });
+                    mapInstanceRef.current = map;
+                }
+                setIsLoading(false);
+            })
+            .catch(err => {
+                console.error(err);
+                setIsLoading(false);
             });
-            mapInstanceRef.current = map;
-        }
-    }, [isApiLoaded, initialPosition, provider.config_json]);
+        
+    }, [provider, googleMapsApiKey, initialPosition]);
+
+
+    if (isLoading) {
+        return <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>;
+    }
 
     return (
         <div ref={mapContainerRef} className="w-full h-full" />

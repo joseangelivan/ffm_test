@@ -95,9 +95,8 @@ function readCustomGeoJSON(dbGeofence: DbGeofence): Geometry | null {
 
 interface MapProps {
     provider: DbMapProvider;
-    mapRef: React.RefObject<Map | null>;
+    mapRef?: React.RefObject<Map | null>;
     onMapLoad?: (map: Map, source: VectorSource) => void;
-    googleMapsApiKey?: string;
     dbGeofences?: DbGeofence[];
     mode?: 'view' | 'editing';
     showAllGeofences?: boolean;
@@ -113,7 +112,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
     provider, 
     mapRef,
     onMapLoad, 
-    googleMapsApiKey,
     dbGeofences = [],
     mode = 'view',
     showAllGeofences = false,
@@ -153,7 +151,13 @@ const OpenLayersMap: React.FC<MapProps> = ({
     
     // Effect for initializing the map
     useEffect(() => {
-        if (!mapContainerRef.current || (mapRef && mapRef.current)) return;
+        const mapExists = mapRef && mapRef.current;
+        if (!mapContainerRef.current || mapExists) {
+            if (mapExists) {
+                mapRef.current.setTarget(mapContainerRef.current ?? undefined);
+            }
+            return;
+        };
 
         const config = provider.config_json || {};
         const apiConfig = config.api_config || {};
@@ -163,14 +167,14 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
         const defaultGeofence = dbGeofences.find(g => g.id === defaultGeofenceId);
         let initialViewOptions: any = {
-            zoom: 4,
-            center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+            zoom: undefined,
+            center: undefined,
         };
 
-        if (defaultGeofence && defaultGeofence.geometry) {
+        if (!defaultGeofence?.geometry) {
             initialViewOptions = {
-                zoom: undefined,
-                center: undefined,
+                zoom: 4,
+                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
             };
         }
         
@@ -191,9 +195,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
         }
         if (onMapLoad) onMapLoad(map, vectorSourceRef.current);
        
-
         return () => {
-             if (mapRef && mapRef.current) {
+             if (mapRef?.current) {
                  mapRef.current.setTarget(undefined);
              }
         };
