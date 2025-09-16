@@ -3,6 +3,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
+import { Map, View } from 'ol';
+import TileLayer from 'ol/layer/Tile';
+import VectorLayer from 'ol/layer/Vector';
+import VectorSource from 'ol/source/Vector';
+import OSM from 'ol/source/OSM';
+import XYZ from 'ol/source/XYZ';
+import { fromLonLat } from 'ol/proj';
 import {
   Locate,
   ZoomIn,
@@ -27,8 +34,7 @@ import { useToast } from '@/hooks/use-toast';
 import MapContainer from '@/components/map/map-container';
 import { useCondoDashboard } from '@/contexts/condo-dashboard-context';
 
-import type { Map as OlMap, Feature } from 'ol';
-import type { Vector as VectorSource } from 'ol/source';
+import type { Feature as OlFeature } from 'ol';
 import type { Geometry } from 'ol/geom';
 
 
@@ -36,6 +42,15 @@ interface CondoMapTabProps {
   condo: Condominio & { geofences: DbGeofence[] };
   initialPosition: { lat: number; lng: number };
 }
+
+export type MapAdapter = {
+    onMoveEnd: (callback: (zoom: number) => void) => void;
+    setCenter: (coords: { lat: number; lng: number }, zoom?: number) => void;
+    zoomIn: () => void;
+    zoomOut: () => void;
+    fitToGeofence: (geofenceId: string, paddingPercentage: number) => void;
+    getMapInstance: () => any;
+};
 
 export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps) {
   const { t } = useLocale();
@@ -57,15 +72,101 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   const [selectedModule, setSelectedModule] = useState('geofence');
   
   // --- Active Shape & History State ---
-  const [activeShapeState, setActiveShapeState] = useState<{ id: string, feature: Feature<any> | null, originalGeometry?: any } | null>(null);
-  const [shapeBeingSaved, setShapeBeingSaved] = useState<{ id: string, feature: Feature<any> | null, originalGeometry?: any } | null>(null);
+  const [activeShapeState, setActiveShapeState] = useState<{ id: string, feature: OlFeature<any> | null, originalGeometry?: any } | null>(null);
+  const [shapeBeingSaved, setShapeBeingSaved] = useState<{ id: string, feature: OlFeature<any> | null, originalGeometry?: any } | null>(null);
   const [historyStack, setHistoryStack] = useState<Geometry[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
 
-  const [mapAdapter, setMapAdapter] = useState<any>(null);
-  const [geofenceSource, setGeofenceSource] = useState<VectorSource | null>(null);
-  const mapRef = useRef<OlMap | null>(null);
+  const mapRef = useRef<Map | null>(null);
+  const vectorSourceRef = useRef<VectorSource | null>(null);
+  const [mapAdapter, setMapAdapter] = useState<MapAdapter | null>(null);
+  
+  const [zoomLevel, setZoomLevel] = useState(15);
+
+
+  // Initialize map and adapter
+   useEffect(() => {
+    if (!mapProvider || !mapRef.current) {
+      let config: any;
+      try {
+        config = typeof mapProvider?.config_json === 'string' 
+            ? JSON.parse(mapProvider.config_json) 
+            : mapProvider?.config_json || {};
+      } catch (e) { config = {}; }
+      
+      const apiConfig = config.api_config || {};
+      const baseUrl = apiConfig.base_url;
+
+      let source;
+      if (baseUrl) {
+          source = new XYZ({ url: baseUrl, maxZoom: 20 });
+      } else {
+          source = new OSM();
+      }
+      
+      const initialLayer = new TileLayer({ source });
+      const newVectorSource = new VectorSource();
+      const vectorLayer = new VectorLayer({
+        source: newVectorSource,
+        style: (feature) => feature.get('style'),
+      });
+      vectorLayer.set('id', 'geofence-layer');
+
+      const newMapInstance = new Map({
+          layers: [initialLayer, vectorLayer],
+          view: new View({
+              center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+              zoom: 4,
+          }),
+          controls: [],
+      });
+      
+      mapRef.current = newMapInstance;
+      vectorSourceRef.current = newVectorSource;
+
+      // Create adapter
+      const adapter: MapAdapter = {
+          onMoveEnd: (callback) => {
+            newMapInstance.on('moveend', () => {
+                  const zoom = newMapInstance.getView().getZoom();
+                  if (zoom) callback(zoom);
+              });
+          },
+          setCenter: (coords, zoom) => {
+            newMapInstance.getView().animate({
+                  center: fromLonLat([coords.lng, coords.lat]),
+                  zoom: zoom || newMapInstance.getView().getZoom(),
+                  duration: 800,
+              });
+          },
+          zoomIn: () => newMapInstance.getView().setZoom(newMapInstance.getView().getZoom()! + 1),
+          zoomOut: () => newMapInstance.getView().setZoom(newMapInstance.getView().getZoom()! - 1),
+          fitToGeofence: (geofenceId, paddingPercentage) => {
+              const featureToFit = newVectorSource.getFeatureById(geofenceId);
+              if (featureToFit) {
+                  const extent = featureToFit.getGeometry()?.getExtent();
+                  if (extent && extent.every(isFinite)) {
+                       const mapSize = newMapInstance.getSize()!;
+                       const padding = mapSize.map((s: number) => s * paddingPercentage);
+                       newMapInstance.getView().fit(extent, {
+                          padding: [padding[1], padding[0], padding[1], padding[0]],
+                          duration: 800,
+                          maxZoom: 20
+                      });
+                  }
+              }
+          },
+          getMapInstance: () => newMapInstance,
+      };
+      setMapAdapter(adapter);
+      adapter.onMoveEnd((zoom: number) => {
+          setZoomLevel(Math.round(zoom));
+      });
+      setIsLoading(false);
+    }
+  }, [mapProvider, initialPosition]);
+
 
   // Initialize geofence selections on first load
   useEffect(() => {
@@ -94,8 +195,6 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
 
   // --- Data Fetching & Refreshing ---
   const onDataNeedsRefresh = useCallback(async (newSelectedId?: string) => {
-    setIsLoading(true);
-    // Do not reset active shape state here to allow continuous editing
     try {
         const freshDbGeofences = await getGeofencesByCondoId(condo.id);
         setDbGeofences(freshDbGeofences);
@@ -117,8 +216,6 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
     } catch (e) {
         console.error("Failed to refresh data", e);
         toast({ title: t('toast.errorTitle'), description: "Error al recargar los datos del mapa.", variant: 'destructive' });
-    } finally {
-        setIsLoading(false);
     }
   }, [condo.id, selectedGeofenceId, toast, t]);
 
@@ -155,30 +252,12 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
 
 }, [mode, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress, mapAdapter]);
 
-
-  // --- Map Interactions ---
-    const [zoomLevel, setZoomLevel] = useState(15);
-  
-  const handleMapLoad = useCallback((adapter: any, source: any) => {
-    setMapAdapter(adapter);
-    setGeofenceSource(source);
-    setIsLoading(false);
-    if(adapter) {
-        adapter.onMoveEnd((zoom: number) => {
-            setZoomLevel(Math.round(zoom));
-        });
-    }
-  }, []);
-
     useEffect(() => {
         if (!isLoading && mapAdapter) {
-            setTimeout(() => applyZoomLevel(), 100);
+            setTimeout(() => applyZoomLevel(), 200);
         }
     }, [isLoading, applyZoomLevel, mapAdapter]);
-
     
-    const handleZoomIn = () => mapAdapter?.zoomIn();
-    const handleZoomOut = () => mapAdapter?.zoomOut();
   
   const handleUndo = () => {
     if (historyIndex > 0) {
@@ -198,12 +277,12 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
     }
   };
 
-  const onShapeDrawn = useCallback((feature: Feature<any>) => {
+  const onShapeDrawn = useCallback((feature: OlFeature<any>) => {
     if (!feature) return;
 
-    if (activeShapeState?.feature && geofenceSource) {
-      if(geofenceSource.hasFeature(activeShapeState.feature)) {
-        geofenceSource.removeFeature(activeShapeState.feature);
+    if (activeShapeState?.feature && vectorSourceRef.current) {
+      if(vectorSourceRef.current.hasFeature(activeShapeState.feature)) {
+        vectorSourceRef.current.removeFeature(activeShapeState.feature);
       }
     }
 
@@ -219,13 +298,7 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
       setHistoryStack([]);
       setHistoryIndex(-1);
     }
-  }, [activeShapeState, geofenceSource, setActiveShapeState, setHistoryStack, setHistoryIndex]);
-
-  useEffect(() => {
-    if (mode === 'view' && !isLoading) {
-        applyZoomLevel();
-    }
-  }, [mode, isLoading, applyZoomLevel]);
+  }, [activeShapeState, vectorSourceRef, setActiveShapeState, setHistoryStack, setHistoryIndex]);
   
   if (!mapProvider) {
     return (
@@ -266,8 +339,8 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                             )}
                             <MapContainer 
                                 mapRef={mapRef}
+                                vectorSourceRef={vectorSourceRef}
                                 provider={mapProvider}
-                                onMapLoad={handleMapLoad}
                                 dbGeofences={dbGeofences}
                                 activeShapeState={activeShapeState}
                                 showAllGeofences={showAllGeofences}
@@ -291,11 +364,11 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                             </div>
                          )}
                         <div className="absolute top-2 right-2 z-10 bg-background/80 p-1 rounded-md shadow-lg flex flex-col items-center gap-1 backdrop-blur-sm">
-                            <Button onClick={handleZoomIn} variant="ghost" size="icon" title="Zoom In">
+                            <Button onClick={() => mapAdapter?.zoomIn()} variant="ghost" size="icon" title="Zoom In">
                                 <ZoomIn className="h-5 w-5" />
                             </Button>
                             <span className="text-xs font-bold w-6 text-center select-none">{zoomLevel}</span>
-                            <Button onClick={handleZoomOut} variant="ghost" size="icon" title="Zoom Out">
+                            <Button onClick={() => mapAdapter?.zoomOut()} variant="ghost" size="icon" title="Zoom Out">
                                 <ZoomOut className="h-5 w-5" />
                             </Button>
                             <Button onClick={applyZoomLevel} variant="ghost" size="icon" title={t('condoDashboard.map.geofence.fitBounds')}>
@@ -344,7 +417,7 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                                     setHistoryStack={setHistoryStack}
                                     historyIndex={historyIndex}
                                     setHistoryIndex={setHistoryIndex}
-                                    geofenceSource={geofenceSource}
+                                    geofenceSource={vectorSourceRef.current}
                                     drawingMode={drawingMode}
                                     setDrawingMode={setDrawingMode}
                                     setShapeBeingSaved={setShapeBeingSaved}
