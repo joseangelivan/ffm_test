@@ -1,16 +1,18 @@
-
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Loader } from 'lucide-react';
+import { Loader, AlertCircle } from 'lucide-react';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { useLocale } from '@/lib/i18n';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 // --- LÓGICA DE CARGA DE API DE GOOGLE ---
 declare global {
   interface Window {
     __googleMapsApiPromise__: Promise<void>;
     __googleMapsApiLoading__: boolean;
+    initGoogleMapsApi: () => void;
+    gm_authFailure: () => void;
   }
 }
 
@@ -62,10 +64,18 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const [isApiReady, setIsApiReady] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { locale } = useLocale();
+    const { t, locale } = useLocale();
 
     useEffect(() => {
         let isMounted = true;
+        
+        // Define el manejador de errores de autenticación de Google Maps
+        window.gm_authFailure = () => {
+             if (isMounted) {
+                setError(t('toast.mapsBillingError.description'));
+            }
+        };
+
         const apiKey = provider.config_json?.api_config?.parameters?.apiKey;
         if (apiKey) {
             loadGoogleMapsApi(apiKey, locale)
@@ -77,8 +87,12 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
         } else {
             setError("Google Maps API Key is missing in the provider configuration.");
         }
-        return () => { isMounted = false; };
-    }, [provider, locale]);
+        return () => { 
+            isMounted = false; 
+            // Limpia el manejador global cuando el componente se desmonta
+            delete window.gm_authFailure;
+        };
+    }, [provider, locale, t]);
 
     useEffect(() => {
         if (!isApiReady || !mapContainerRef.current) {
@@ -99,16 +113,25 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
 
     }, [isApiReady, initialPosition]);
 
-    if (error) {
-        return <div className="flex items-center justify-center h-full bg-destructive/10 text-destructive p-4 text-center">{error}</div>;
-    }
-
-    if (!isApiReady) {
-        return <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>;
-    }
-
     return (
-       <div ref={mapContainerRef} className="w-full h-full" />
+       <div ref={mapContainerRef} className="w-full h-full relative">
+           {!isApiReady && !error && (
+                <div className="absolute inset-0 flex items-center justify-center h-full bg-muted z-10">
+                    <Loader className="h-6 w-6 animate-spin" />
+                </div>
+           )}
+           {error && (
+               <div className="absolute top-2 left-2 right-2 z-10">
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>{t('toast.mapsBillingError.title')}</AlertTitle>
+                      <AlertDescription>
+                        {error}
+                      </AlertDescription>
+                    </Alert>
+               </div>
+           )}
+       </div>
     );
 };
 
