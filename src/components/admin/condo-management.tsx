@@ -192,7 +192,7 @@ function AddressVerificationDialog({
 }) {
   const { t } = useLocale();
   const [isLoading, setIsLoading] = useState(true);
-  const [results, setResults] = useState<GeocodeResult[]>([]);
+  const [result, setResult] = useState<GeocodeResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -218,7 +218,7 @@ function AddressVerificationDialog({
         }));
 
         if (response && response.success && response.data) {
-            setResults(response.data);
+            setResult(response.data);
         } else if (response && !response.success) {
             setError(response.message);
         } else if (!response) {
@@ -233,10 +233,10 @@ function AddressVerificationDialog({
     verify();
   }, [locationData, t, getCachedData]);
 
-  const handleSelect = (result: GeocodeResult) => {
+  const handleSelect = (selectedResult: GeocodeResult) => {
     onSelectAddress({
-      route: result.route,
-      street_number: result.street_number,
+      route: selectedResult.route,
+      street_number: selectedResult.street_number,
     });
     onClose();
   };
@@ -261,25 +261,20 @@ function AddressVerificationDialog({
             <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
-        ) : results.length > 0 ? (
-          <div className="space-y-2">
-            {results.map((result, index) => (
-              <button
-                key={index}
-                onClick={() => handleSelect(result)}
-                className="w-full text-left p-3 rounded-md border hover:bg-accent transition-colors flex items-start gap-4"
-              >
-                <MapPin className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
-                <div className="flex-grow">
-                    <p className="font-semibold">{result.route}{result.street_number ? `, ${result.street_number}` : ''}</p>
-                    <p className="text-sm text-muted-foreground">{result.formatted_address}</p>
-                </div>
-                <div className="ml-auto pl-2">
-                    <CheckCircle className="h-5 w-5 text-green-500"/>
-                </div>
-              </button>
-            ))}
-          </div>
+        ) : result ? (
+          <button
+            onClick={() => handleSelect(result)}
+            className="w-full text-left p-3 rounded-md border hover:bg-accent transition-colors flex items-start gap-4"
+          >
+            <MapPin className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
+            <div className="flex-grow">
+                <p className="font-semibold">{result.route}{result.street_number ? `, ${result.street_number}` : ''}</p>
+                <p className="text-sm text-muted-foreground">{result.formatted_address}</p>
+            </div>
+            <div className="ml-auto pl-2">
+                <CheckCircle className="h-5 w-5 text-green-500"/>
+            </div>
+          </button>
         ) : (
           <p className="text-center text-muted-foreground py-8">{t('addressVerification.notFound')}</p>
         )}
@@ -851,5 +846,7 @@ export function CondoManagement() {
         </div>
     );
 }
+
+    
 
     

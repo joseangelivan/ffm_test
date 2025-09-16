@@ -28,32 +28,25 @@ const ServiceSchema = z.object({
 });
 
 function getNestedValue(obj: any, path: string): any {
-  // Extraer y procesar condicionales tipo "path{(condición)?valorTrue:valorFalse}"
-  const conditionalMatch = path.match(/^(.+)\{(.*)\}$/);
-  
-  if (conditionalMatch) {
-    const [_, basePath, condition] = conditionalMatch;
-    const value = basePath.split('.').reduce((o, k) => (o || {})[k], obj);
+    if (!path) return undefined;
     
-    // Ejecutar el ternario seguro
-    try {
-      const ternario = condition.replace(/"/g, "'"); // Normalizar comillas
-      const expresion = `return ${ternario.replace(/value/g, JSON.stringify(value))}`;
-      return new Function('value', expresion)(value);
-    } catch {
-      return value; // Si falla el ternario, devolver valor crudo
+    // Extraer y procesar condicionales tipo "path{(condición)?valorTrue:valorFalse}"
+    const conditionalMatch = path.match(/^(.+)\{(.*)\}$/);
+    
+    if (conditionalMatch) {
+        const [_, basePath, condition] = conditionalMatch;
+        const value = basePath.split('.').reduce((o, k) => (o || {})[k], obj);
+        
+        try {
+            const ternario = condition.replace(/"/g, "'");
+            const expresion = `return ${ternario.replace(/value/g, JSON.stringify(value))}`;
+            return new Function('value', expresion)(value);
+        } catch {
+            return value; 
+        }
     }
-  }
 
-  const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
-  let result = obj;
-  for (const key of keys) {
-    if (result === null || result === undefined) {
-      return undefined;
-    }
-    result = result[key];
-  }
-  return result;
+    return path.split('.').reduce((o, k) => (o || {})[k], obj);
 }
 
 async function geocodeWithService(
@@ -118,16 +111,19 @@ async function geocodeWithService(
         const response = await fetch(finalUrl, { cache: 'no-store' });
         const responseText = await response.text();
         
+        if (!response.ok) {
+            throw new Error(`La API respondió con el estado ${response.status}. Respuesta: ${responseText}`);
+        }
+        
         let responseData: any;
         try {
             responseData = JSON.parse(responseText);
         } catch (e) {
-            // Not all error responses are JSON, so we handle this gracefully
-            responseData = responseText;
-        }
-
-        if (!response.ok) {
-            throw new Error(`La API respondió con el estado: ${response.status}. Body: ${responseText}`);
+            return { 
+                success: false, 
+                error: `La respuesta de la API no es un JSON válido. Respuesta: ${responseText}`,
+                debug: { url: finalUrl, response: responseText }
+            };
         }
         
         const latPath = responseConfig.lat;
@@ -392,7 +388,7 @@ export type GeocodeResult = {
     }
 };
 
-export async function geocodeAddress(request: GeocodeRequest): Promise<ActionState<GeocodeResult[]>> {
+export async function geocodeAddress(request: GeocodeRequest): Promise<ActionState<GeocodeResult | null>> {
     const { street, city, state, country } = request;
     const fullAddress = [street, city, state, country].filter(Boolean).join(', ');
 
@@ -420,7 +416,7 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
                 administrative_area_level_1: state,
                 country: country,
             };
-            return { success: true, message: "Dirección encontrada.", data: [customResult] };
+            return { success: true, message: "Dirección encontrada.", data: customResult };
         } else {
              return { success: false, message: serviceResult.error || "Error en el servicio de geocodificación." };
         }
@@ -432,3 +428,5 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
         if (client) client.release();
     }
 }
+
+    
