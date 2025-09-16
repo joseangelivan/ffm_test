@@ -4,6 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader } from 'lucide-react';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
+import { useLocale } from '@/lib/i18n';
 
 // --- LÓGICA DE CARGA DE API DE GOOGLE ---
 declare global {
@@ -13,7 +14,7 @@ declare global {
   }
 }
 
-const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
+const loadGoogleMapsApi = (apiKey: string, language: string): Promise<void> => {
     if (typeof window === 'undefined') {
         return Promise.reject(new Error("Cannot load Google Maps API in SSR."));
     }
@@ -33,7 +34,8 @@ const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
         };
 
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMapsApi`;
+        const langParam = language.split('-')[0]; // Use 'es' or 'pt', not 'pt-BR'
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMapsApi&language=${langParam}`;
         script.async = true;
         script.defer = true;
         script.onerror = () => {
@@ -60,12 +62,13 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const [isApiReady, setIsApiReady] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const { locale } = useLocale();
 
     useEffect(() => {
         let isMounted = true;
         const apiKey = provider.config_json?.api_config?.parameters?.apiKey;
         if (apiKey) {
-            loadGoogleMapsApi(apiKey)
+            loadGoogleMapsApi(apiKey, locale)
                 .then(() => { if (isMounted) setIsApiReady(true); })
                 .catch(err => {
                     console.error("Google Maps API failed to load:", err);
@@ -75,7 +78,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
             setError("Google Maps API Key is missing in the provider configuration.");
         }
         return () => { isMounted = false; };
-    }, [provider]);
+    }, [provider, locale]);
 
     useEffect(() => {
         if (!isApiReady || !mapContainerRef.current) {
