@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
 import type { Map as OlMap, Feature as OlFeature } from 'ol';
 import type VectorSource from 'ol/source/Vector';
+import type MapAdapter from 'ol/Map';
 import {
   Locate,
   Frame,
@@ -34,15 +35,6 @@ interface CondoMapTabProps {
   condo: Condominio & { geofences: DbGeofence[] };
   initialPosition: { lat: number; lng: number };
 }
-
-export type MapAdapter = {
-    onMoveEnd: (callback: (zoom: number) => void) => void;
-    setCenter: (coords: { lat: number; lng: number }, zoom?: number) => void;
-    zoomIn: () => void;
-    zoomOut: () => void;
-    fitToGeofence: (geofenceId: string, paddingPercentage: number) => void;
-    getMapInstance: () => any;
-};
 
 export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps) {
   const { t } = useLocale();
@@ -259,6 +251,8 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                                 </div>
                             )}
                              <MapContainer 
+                                mapRef={mapRef}
+                                vectorSourceRef={geofenceSourceRef}
                                 provider={mapProvider} 
                                 onMapLoad={handleMapLoad}
                                 dbGeofences={dbGeofences}
