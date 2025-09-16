@@ -123,6 +123,7 @@ interface MapProps {
     selectedGeofenceId: string | null;
     defaultGeofenceId: string | null;
     initialPosition: { lat: number, lng: number };
+    mapRef: React.RefObject<Map | null>;
     activeShapeState: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     children?: React.ReactNode;
 }
@@ -136,11 +137,11 @@ const OpenLayersMap: React.FC<MapProps> = ({
     selectedGeofenceId,
     defaultGeofenceId,
     initialPosition,
+    mapRef,
     activeShapeState,
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const mapRef = useRef<Map | null>(null);
     const vectorSourceRef = useRef<VectorSource>(new VectorSource());
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
@@ -164,66 +165,64 @@ const OpenLayersMap: React.FC<MapProps> = ({
     }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState]);
     
     useEffect(() => {
-        let map: Map | null = null;
+        if (!mapContainerRef.current) return;
         
-        if (mapContainerRef.current) {
-            let config: any;
-            try {
-                config = typeof provider.config_json === 'string' 
-                    ? JSON.parse(provider.config_json) 
-                    : provider.config_json || {};
-            } catch (e) {
-                console.error("Failed to parse map provider config_json:", e);
-                config = {};
-            }
-            
-            const apiConfig = config.api_config || {};
-            const baseUrl = apiConfig.base_url;
-
-            let source;
-            if (baseUrl) {
-                source = new XYZ({ url: baseUrl, maxZoom: 20 });
-            } else {
-                source = new OSM();
-            }
-            
-            const initialLayer = new TileLayer({ source });
-
-            const vectorLayer = new VectorLayer({
-                source: vectorSourceRef.current,
-                style: (feature) => feature.get('style'),
-            });
-            vectorLayer.set('id', 'geofence-layer');
-
-            map = new Map({
-                target: mapContainerRef.current!,
-                layers: [initialLayer, vectorLayer],
-                view: new View({
-                    center: fromLonLat([initialPosition.lng, initialPosition.lat]),
-                    zoom: 4,
-                }),
-                controls: [],
-            });
-            
-            mapRef.current = map;
-            if(onMapLoad) {
-                onMapLoad(map, vectorSourceRef.current);
-            }
+        // Prevent re-initialization if the map already exists in the ref
+        if (mapRef.current) {
+            mapRef.current.setTarget(mapContainerRef.current);
+            return;
         }
+
+        let config: any;
+        try {
+            config = typeof provider.config_json === 'string' 
+                ? JSON.parse(provider.config_json) 
+                : provider.config_json || {};
+        } catch (e) {
+            console.error("Failed to parse map provider config_json:", e);
+            config = {};
+        }
+        
+        const apiConfig = config.api_config || {};
+        const baseUrl = apiConfig.base_url;
+
+        let source;
+        if (baseUrl) {
+            source = new XYZ({ url: baseUrl, maxZoom: 20 });
+        } else {
+            source = new OSM();
+        }
+        
+        const initialLayer = new TileLayer({ source });
+
+        const vectorLayer = new VectorLayer({
+            source: vectorSourceRef.current,
+            style: (feature) => feature.get('style'),
+        });
+        vectorLayer.set('id', 'geofence-layer');
+
+        const newMapInstance = new Map({
+            target: mapContainerRef.current!,
+            layers: [initialLayer, vectorLayer],
+            view: new View({
+                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+                zoom: 4,
+            }),
+            controls: [],
+        });
+        
+        if (mapRef) {
+          (mapRef as React.MutableRefObject<Map | null>).current = newMapInstance;
+        }
+        
+        onMapLoad(newMapInstance, vectorSourceRef.current);
 
         return () => {
             if (mapRef.current) {
                 mapRef.current.setTarget(undefined);
-                mapRef.current = null;
             }
         };
-    }, [provider, initialPosition]);
-
-     useEffect(() => {
-        if (onMapLoad && mapRef.current) {
-            onMapLoad(mapRef.current, vectorSourceRef.current);
-        }
-    }, [onMapLoad]);
+    }, [provider, initialPosition, onMapLoad, mapRef]);
 
 
     useEffect(() => {

@@ -43,7 +43,6 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   const { mapProvider } = useCondoDashboard();
   
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>(condo.geofences);
-  const [geofenceSource, setGeofenceSource] = useState<VectorSource | null>(null);
   
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
   const [defaultGeofenceId, setDefaultGeofenceId] = useState<string | null>(null);
@@ -65,8 +64,8 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
 
   const [mapAdapter, setMapAdapter] = useState<any>(null);
+  const [geofenceSource, setGeofenceSource] = useState<VectorSource | null>(null);
   const mapRef = useRef<OlMap | null>(null);
-
 
   // Initialize geofence selections on first load
   useEffect(() => {
@@ -163,13 +162,12 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   const handleMapLoad = useCallback((adapter: any, source: any) => {
     setMapAdapter(adapter);
     setGeofenceSource(source);
+    setIsLoading(false);
     if(adapter) {
-        mapRef.current = adapter.getMapInstance();
         adapter.onMoveEnd((zoom: number) => {
             setZoomLevel(Math.round(zoom));
         });
     }
-    setIsLoading(false);
   }, []);
 
     useEffect(() => {
@@ -267,6 +265,7 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                                 </div>
                             )}
                             <MapContainer 
+                                mapRef={mapRef}
                                 provider={mapProvider}
                                 onMapLoad={handleMapLoad}
                                 dbGeofences={dbGeofences}
