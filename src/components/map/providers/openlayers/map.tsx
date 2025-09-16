@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -153,7 +152,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     useEffect(() => {
         const mapExists = mapRef && mapRef.current;
         if (!mapContainerRef.current || mapExists) {
-            if (mapExists) {
+            if (mapExists && mapRef) {
                 mapRef.current.setTarget(mapContainerRef.current ?? undefined);
             }
             return;
@@ -166,19 +165,11 @@ const OpenLayersMap: React.FC<MapProps> = ({
         const source = baseUrl ? new XYZ({ url: baseUrl, maxZoom: 20 }) : new OSM();
 
         const defaultGeofence = dbGeofences.find(g => g.id === defaultGeofenceId);
-        let initialViewOptions: any = {
-            zoom: undefined,
-            center: undefined,
-        };
-
-        if (!defaultGeofence?.geometry) {
-            initialViewOptions = {
-                zoom: 4,
-                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
-            };
-        }
         
-        const view = new View(initialViewOptions);
+        const view = new View({
+            center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+            zoom: 15,
+        });
 
         const map = new Map({
             target: mapContainerRef.current,

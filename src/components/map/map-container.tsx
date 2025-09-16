@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { Suspense, useState, useEffect } from 'react';
@@ -22,7 +21,7 @@ const GoogleMap = dynamic(() => import('./providers/google/map'), {
 
 
 type MapContainerProps = {
-    provider: DbMapProvider;
+    provider: DbMapProvider | null;
     mapRef?: React.RefObject<OlMap | null>;
     onMapLoad?: (map: OlMap | any, source?: VectorSource) => void;
     googleMapsApiKey?: string;
@@ -47,7 +46,7 @@ const MapContainer: React.FC<MapContainerProps> = (props) => {
         }
     }, [provider]);
 
-    if (isLoading) {
+    if (isLoading || !provider) {
         return <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>;
     }
 
@@ -55,6 +54,7 @@ const MapContainer: React.FC<MapContainerProps> = (props) => {
         return <GoogleMap {...props} />;
     }
     
+    // Fallback to OpenLayers for 'openlayers', 'mapbox', etc.
     return (
         <Suspense fallback={<div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>}>
             <OpenLayersMap {...props} />
