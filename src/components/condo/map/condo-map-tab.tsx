@@ -5,11 +5,10 @@
 import React, { useState, useEffect, useCallback, useRef, useTransition } from 'react';
 import type { Map as OlMap, Feature as OlFeature } from 'ol';
 import type VectorSource from 'ol/source/Vector';
-import type MapAdapter from 'ol/Map';
+import type MapAdapterInterface from 'ol/Map';
 import {
   Locate,
   Frame,
-  Loader,
   Undo,
   Redo,
 } from 'lucide-react';
@@ -50,7 +49,6 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   const [showAllGeofences, setShowAllGeofences] = useState(false);
   
   const [fitLevel, setFitLevel] = useState<'1' | '2' | '3'>('2');
-  const [isLoading, setIsLoading] = useState(true);
   const [condoAddressPosition] = useState(initialPosition);
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
   const [selectedModule, setSelectedModule] = useState('geofence');
@@ -64,16 +62,15 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
 
   const mapRef = useRef<OlMap | null>(null);
   const geofenceSourceRef = useRef<VectorSource | null>(null);
-  const [mapAdapter, setMapAdapter] = useState<MapAdapter | null>(null);
+  const [mapAdapter, setMapAdapter] = useState<MapAdapterInterface | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   
   const [zoomLevel, setZoomLevel] = useState(15);
 
 
-  const handleMapLoad = useCallback((adapter: MapAdapter | null, source: VectorSource | null) => {
+  const handleMapLoad = useCallback((adapter: MapAdapterInterface, source: VectorSource) => {
     setMapAdapter(adapter);
-    if (source && !geofenceSourceRef.current) {
-        geofenceSourceRef.current = source;
-    }
+    geofenceSourceRef.current = source;
     setIsLoading(false);
   }, []);
 
@@ -214,11 +211,7 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   }, [activeShapeState, geofenceSourceRef, setActiveShapeState, setHistoryStack, setHistoryIndex]);
   
   if (!mapProvider) {
-    return (
-      <div className="flex h-[70vh] items-center justify-center rounded-lg border bg-muted">
-        <Loader className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
+    return null;
   }
 
   return (
@@ -242,14 +235,6 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                 <div className="grid grid-cols-1 md:grid-cols-3 h-[70vh]">
                     <div className="col-span-1 md:col-span-2 relative p-1">
                         <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
-                            {isLoading && (
-                                <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/50">
-                                <div className="flex items-center gap-2 text-lg text-muted-foreground">
-                                    <Loader className="h-6 w-6 animate-spin" />
-                                    <span>{t('condoDashboard.map.loadingMap')}</span>
-                                </div>
-                                </div>
-                            )}
                              <MapContainer 
                                 mapRef={mapRef}
                                 vectorSourceRef={geofenceSourceRef}
@@ -326,7 +311,6 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
                                     activeShapeState={activeShapeState}
                                     setActiveShapeState={setActiveShapeState}
-                                    mapAdapter={mapAdapter}
                                     mapRef={mapRef}
                                     historyStack={historyStack}
                                     setHistoryStack={setHistoryStack}

@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -40,13 +40,15 @@ import { type Theme } from '@/actions/themes';
 import { type MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
 import { processAndGetConfig } from '@/actions/map_providers';
+import { Alert, AlertDescription as AlertDescription, AlertTitle as AlertTitle } from './ui/alert';
+import { AlertTriangle } from 'lucide-react';
 
 type CondoDashboardClientProps = {
     session: SessionPayload;
     initialCondo: Condominio & { geofences: any[] };
     initialDevices: Device[];
     initialSettings: UserSettings;
-    mapProvider: DbMapProvider;
+    mapProvider: DbMapProvider | null;
     initialPosition: { lat: number; lng: number };
 };
 
@@ -179,10 +181,27 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                         <ManageDevicesTab condoId={initialCondo.id} initialDevices={initialDevices} />
                     </TabsContent>
                     <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
-                        <CondoMapTab 
-                          condo={initialCondo} 
-                          initialPosition={initialPosition}
-                        />
+                        {mapProvider ? (
+                            <CondoMapTab 
+                              condo={initialCondo} 
+                              initialPosition={initialPosition}
+                            />
+                        ) : (
+                             <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
+                                <div className="flex flex-col items-center gap-4 text-center">
+                                    <div className="rounded-full border border-dashed p-4 bg-background">
+                                        <Map className="h-12 w-12 text-muted-foreground" />
+                                    </div>
+                                    <Alert variant="default" className="max-w-lg text-left">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <AlertTitle>No se encontró un proveedor de mapas</AlertTitle>
+                                        <AlertDescription>
+                                            No hay un proveedor de mapas predeterminado configurado en el sistema. Por favor, vaya al panel de administración y configure uno para continuar.
+                                        </AlertDescription>
+                                    </Alert>
+                                </div>
+                            </div>
+                        )}
                     </TabsContent>
                 </div>
               </Tabs>

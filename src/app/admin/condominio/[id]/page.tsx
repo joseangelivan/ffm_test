@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 
 import Loading from '@/app/loading';
 import CondoDashboardClient from '@/components/condo-dashboard-client';
+import CondoMapTab from '@/components/condo/map/condo-map-tab';
 import { getCondominioById } from '@/actions/condos';
 import { getDevicesByCondoId } from '@/actions/devices';
 import { getSession } from '@/lib/auth';
@@ -60,27 +61,8 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
     );
   }
 
-  if (!rawMapProvider) {
-    return (
-        <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
-            <div className="flex flex-col items-center gap-4 text-center">
-                 <div className="rounded-full border border-dashed p-4 bg-background">
-                    <Map className="h-12 w-12 text-muted-foreground" />
-                </div>
-                <Alert variant="default" className="max-w-lg text-left">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>No se encontró un proveedor de mapas</AlertTitle>
-                    <AlertDescription>
-                        No hay un proveedor de mapas predeterminado configurado en el sistema. Por favor, vaya al panel de administración y configure uno para continuar.
-                    </AlertDescription>
-                </Alert>
-            </div>
-        </div>
-    );
-  }
-
   // Process the map provider config on the server to inject environment variables
-  const mapProvider = await processAndGetConfig(rawMapProvider);
+  const mapProvider = rawMapProvider ? await processAndGetConfig(rawMapProvider) : null;
 
   const condo = condoResult.data;
   
