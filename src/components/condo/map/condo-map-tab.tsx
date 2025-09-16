@@ -33,9 +33,10 @@ import type { Geometry } from 'ol/geom';
 interface CondoMapTabProps {
   condo: Condominio & { geofences: DbGeofence[] };
   initialPosition: { lat: number; lng: number };
+  searchedPosition: { lat: number; lng: number } | null;
 }
 
-export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps) {
+export default function CondoMapTab({ condo, initialPosition, searchedPosition }: CondoMapTabProps) {
   const { t } = useLocale();
   const { toast } = useToast();
   const { mapProvider } = useCondoDashboard();
@@ -166,6 +167,12 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
         centerMapOnAddress();
     }
   }, [mapAdapter, dbGeofences, applyZoomLevel, centerMapOnAddress]);
+
+  useEffect(() => {
+    if (searchedPosition && mapAdapter) {
+      mapAdapter.setCenter(searchedPosition, 18);
+    }
+  }, [searchedPosition, mapAdapter]);
     
   
   const handleUndo = () => {

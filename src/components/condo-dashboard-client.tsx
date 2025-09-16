@@ -52,7 +52,7 @@ type CondoDashboardClientProps = {
     initialPosition: { lat: number; lng: number };
 };
 
-export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider: initialMapProvider, initialPosition }: CondoDashboardClientProps) { 
+export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider: initialMapProvider, initialPosition: pageInitialPosition }: CondoDashboardClientProps) { 
   const { t, setLocale } = useLocale();
   const router = useRouter();
 
@@ -60,6 +60,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
   const [theme, setTheme] = useState(initialSettings.theme);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [mapProvider, setMapProvider] = useState<DbMapProvider | null>(initialMapProvider);
+  const [searchedPosition, setSearchedPosition] = useState<{lat: number, lng: number} | null>(null);
 
   const applyTheme = useCallback(async (themeData: Theme | null, newThemeId: string) => {
     const root = document.documentElement;
@@ -147,7 +148,8 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     condo: initialCondo,
     onDataNeedsRefresh: () => {},
     mapProvider,
-    refreshMapProvider
+    refreshMapProvider,
+    onSearchAddress: setSearchedPosition,
   }), [handleSetTheme, theme, initialCondo, mapProvider, refreshMapProvider]);
 
   return (
@@ -184,7 +186,8 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                         {mapProvider ? (
                             <CondoMapTab 
                               condo={initialCondo} 
-                              initialPosition={initialPosition}
+                              initialPosition={pageInitialPosition}
+                              searchedPosition={searchedPosition}
                             />
                         ) : (
                              <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">

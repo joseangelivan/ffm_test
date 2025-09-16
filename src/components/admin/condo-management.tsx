@@ -182,11 +182,13 @@ const LocationSelector = ({
 function AddressVerificationDialog({
   locationData,
   onSelectAddress,
+  onSelectCoordinates,
   onClose,
   getCachedData,
 }: {
   locationData: Partial<Pick<LocationData, 'street' | 'city' | 'state' | 'country'>>;
   onSelectAddress: (address: Pick<GeocodeResult, 'route' | 'street_number'>) => void;
+  onSelectCoordinates: (coords: { lat: number, lng: number }) => void;
   onClose: () => void;
   getCachedData: (key: string, fetcher: () => Promise<any>) => Promise<any>;
 }) {
@@ -238,6 +240,9 @@ function AddressVerificationDialog({
       route: selectedResult.route,
       street_number: selectedResult.street_number,
     });
+    if (selectedResult.geometry?.location) {
+        onSelectCoordinates(selectedResult.geometry.location);
+    }
     onClose();
   };
   
@@ -399,12 +404,14 @@ function CondoFormWrapper({
   initialData,
   isEditMode,
   getCachedData,
+  onSearchAddress
 }: {
   closeDialog: () => void;
   formAction: (prevState: any, formData: FormData) => Promise<any>;
   initialData: Partial<LocationData> & Partial<Condominio>;
   isEditMode: boolean;
   getCachedData: (key: string, fetcher: () => Promise<any>) => Promise<any>;
+  onSearchAddress: (coords: { lat: number, lng: number }) => void;
 }) {
   const { t } = useLocale();
   const { toast } = useToast();
@@ -549,6 +556,7 @@ function CondoFormWrapper({
             <AddressVerificationDialog
                 locationData={locationData}
                 onSelectAddress={handleSelectAddress}
+                onSelectCoordinates={onSearchAddress}
                 onClose={() => setIsVerifyingAddress(false)}
                 getCachedData={getCachedData}
             />
@@ -733,6 +741,7 @@ export function CondoManagement() {
                             isEditMode={false}
                             initialData={{}}
                             getCachedData={getCachedData}
+                            onSearchAddress={() => {}}
                         />
                     </DialogContent>
                 </Dialog>
@@ -839,6 +848,7 @@ export function CondoManagement() {
                             initialData={editingCondoData}
                             isEditMode={true}
                             getCachedData={getCachedData}
+                            onSearchAddress={() => {}}
                         />
                     )}
                 </DialogContent>
