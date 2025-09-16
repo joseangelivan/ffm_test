@@ -13,6 +13,11 @@ const OpenLayersMap = dynamic(() => import('./providers/openlayers/map'), {
     loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
 });
 
+const GoogleMap = dynamic(() => import('./providers/google/map'), {
+    ssr: false,
+    loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
+});
+
 
 type MapContainerProps = {
     provider: DbMapProvider | null;
@@ -43,12 +48,12 @@ const MapContainer: React.FC<MapContainerProps> = (props) => {
     if (isLoading || !provider) {
         return <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>;
     }
+
+    if (provider.provider_type === 'google') {
+        return <GoogleMap {...props} />;
+    }
     
-    return (
-        <Suspense fallback={<div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>}>
-            <OpenLayersMap {...props} />
-        </Suspense>
-    );
+    return <OpenLayersMap {...props} />;
 }
 
 export default MapContainer;

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -10,14 +9,13 @@ import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
 import 'ol/ol.css';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
-import { fromLonLat, transform } from 'ol/proj';
+import { fromLonLat } from 'ol/proj';
 import GeoJSON from 'ol/format/GeoJSON';
 import { Circle as OlCircle, Polygon } from 'ol/geom';
 import type { Geometry } from 'ol/geom';
 import Feature from 'ol/Feature';
 import { Style, Fill, Stroke } from 'ol/style';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-import { Modify, Translate } from 'ol/interaction';
 
 const STYLE_VIEW_MODE = new Style({
     fill: new Fill({ color: 'rgba(67, 133, 245, 0.1)' }),
@@ -30,8 +28,8 @@ const STYLE_EDIT_MODE_SELECTED = new Style({
 });
 
 const STYLE_NEW_SHAPE = new Style({
-    fill: new Fill({ color: 'rgba(52, 168, 83, 0.2)' }), // Green fill
-    stroke: new Stroke({ color: '#34A853', width: 3 }), // Green stroke
+    fill: new Fill({ color: 'rgba(52, 168, 83, 0.2)' }),
+    stroke: new Stroke({ color: '#34A853', width: 3 }),
 });
 
 const STYLE_EDIT_MODE_UNSELECTED = new Style({
@@ -49,12 +47,10 @@ const STYLE_HIDDEN = new Style({
     stroke: new Stroke({ color: 'transparent', width: 0 }),
 });
 
-
 function readCustomGeoJSON(dbGeofence: DbGeofence): Geometry | null {
     const geometryObject = dbGeofence.geometry;
 
     if (!geometryObject || typeof geometryObject !== 'object') {
-        console.warn(`Invalid geometry object passed to reader (not an object):`, geometryObject);
         return null;
     }
 
@@ -87,62 +83,13 @@ function readCustomGeoJSON(dbGeofence: DbGeofence): Geometry | null {
         }
     }
 
-    console.warn(`Invalid or unsupported geometry object passed to reader:`, geometryObject);
     return null;
 }
-
-const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
-        if ((window as any).google && (window as any).google.maps) {
-            resolve();
-            return;
-        }
-
-        if ((window as any).__googleMapsApiLoading__) {
-            const checkInterval = setInterval(() => {
-                if ((window as any).google && (window as any).google.maps) {
-                    clearInterval(checkInterval);
-                    resolve();
-                } else if (!(window as any).__googleMapsApiLoading__) {
-                    clearInterval(checkInterval);
-                    reject(new Error("Google Maps API loading was aborted."));
-                }
-            }, 100);
-            return;
-        }
-
-        (window as any).__googleMapsApiLoading__ = true;
-
-        (window as any).__googleMapsApiLoaded__ = () => {
-            (window as any).__googleMapsApiLoading__ = false;
-            delete (window as any).__googleMapsApiLoaded__;
-            resolve();
-        };
-        
-        const script = document.createElement('script');
-        script.id = 'google-maps-api';
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=__googleMapsApiLoaded__`;
-        script.async = true;
-        script.defer = true;
-        script.onerror = () => {
-            (window as any).__googleMapsApiLoading__ = false;
-            delete (window as any).__googleMapsApiLoaded__;
-            const existingScript = document.getElementById('google-maps-api');
-            if (existingScript) {
-                existingScript.remove();
-            }
-            reject(new Error("Failed to load Google Maps script."));
-        };
-        document.head.appendChild(script);
-    });
-};
-
 
 interface MapProps {
     provider: DbMapProvider;
     mapRef: React.RefObject<Map | null>;
     onMapLoad?: (map: Map, source: VectorSource) => void;
-    googleMapsApiKey?: string,
     dbGeofences?: DbGeofence[];
     mode?: 'view' | 'editing';
     showAllGeofences?: boolean;
@@ -158,55 +105,26 @@ const OpenLayersMap: React.FC<MapProps> = ({
     provider, 
     mapRef,
     onMapLoad, 
-    googleMapsApiKey,
     dbGeofences = [],
     mode = 'view',
     showAllGeofences = false,
     selectedGeofenceId = null,
     defaultGeofenceId = null,
-    initialPosition = { lat: -14.235, lng: -51.9253 }, // Default to Brazil
+    initialPosition = { lat: -14.235, lng: -51.9253 },
     activeShapeState = null,
     shapeBeingSaved = null,
-    ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const vectorSourceRef = useRef<VectorSource>(new VectorSource());
-    const [isApiReady, setIsApiReady] = useState(false);
 
     useEffect(() => {
-        let isMounted = true;
-        const initializeMap = async () => {
-            if (!mapContainerRef.current) return;
-    
-            let map: Map | null = null;
-    
+        let map: Map | null = null;
+        if (mapContainerRef.current) {
             const config = provider.config_json || {};
             const apiConfig = config.api_config || {};
-            let source;
-    
-            if (provider.provider_type === 'google') {
-                const apiKey = apiConfig.parameters?.apiKey || googleMapsApiKey;
-                if (!apiKey) {
-                    console.error("Google Maps API key is missing.");
-                    return;
-                }
-                try {
-                    await loadGoogleMapsApi(apiKey);
-                    if (!isMounted) return;
-                    const GoogleSource = require('ol/source/Google').default;
-                    source = new GoogleSource({
-                        key: apiKey,
-                        mapTypeId: 'roadmap',
-                    });
-                } catch (error) {
-                    console.error(error);
-                    return;
-                }
-            } else {
-                const baseUrl = apiConfig.base_url;
-                source = baseUrl ? new XYZ({ url: baseUrl, maxZoom: 20 }) : new OSM();
-            }
-    
+            const baseUrl = apiConfig.base_url;
+            const source = baseUrl ? new XYZ({ url: baseUrl, maxZoom: 20 }) : new OSM();
+            
             map = new Map({
                 target: mapContainerRef.current!,
                 layers: [
@@ -219,25 +137,20 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 }),
                 controls: [],
             });
-    
+
             (mapRef as React.MutableRefObject<Map | null>).current = map;
             if (onMapLoad) onMapLoad(map, vectorSourceRef.current);
-        };
-    
-        initializeMap();
-    
+        }
+        
         return () => {
-            isMounted = false;
-            const map = (mapRef as React.MutableRefObject<Map | null>).current;
             if (map) {
                 map.setTarget(undefined);
-                (mapRef as React.MutableRefObject<Map | null>).current = null;
             }
         };
-    }, [provider, initialPosition, onMapLoad, mapRef, googleMapsApiKey]);
+    }, [provider, initialPosition, onMapLoad, mapRef]);
 
 
-   const getFeatureStyle = useCallback((featureId: string): Style => {
+    const getFeatureStyle = useCallback((featureId: string): Style => {
         if (shapeBeingSaved && featureId === shapeBeingSaved.id) {
             return STYLE_EDIT_MODE_SELECTED;
         }
@@ -246,7 +159,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 return featureId === defaultGeofenceId ? STYLE_VIEW_MODE : STYLE_EDIT_MODE_UNSELECTED;
             }
             return featureId === defaultGeofenceId ? STYLE_VIEW_MODE : STYLE_HIDDEN;
-        } else { // mode === 'editing'
+        } else {
              if (activeShapeState && featureId === activeShapeState.id) {
                 if (activeShapeState.id.startsWith('new-shape-')) {
                     return STYLE_NEW_SHAPE;
@@ -266,6 +179,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         if (!source) return;
 
         const dbGeofenceIds = new Set(dbGeofences.map(g => g.id));
+        
         source.getFeatures().forEach(feature => {
             const featureId = feature.getId() as string;
             if (!dbGeofenceIds.has(featureId) && featureId !== activeShapeState?.id) {
@@ -301,12 +215,11 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
         source.changed();
 
-    }, [dbGeofences, mode, showAllGeofences, selectedGeofenceId, defaultGeofenceId, activeShapeState, getFeatureStyle, shapeBeingSaved]);
+    }, [dbGeofences, activeShapeState, getFeatureStyle]);
 
 
     return (
-       <div ref={mapContainerRef} className="w-full h-full">
-       </div>
+       <div ref={mapContainerRef} className="w-full h-full" />
     );
 };
 
