@@ -20,15 +20,8 @@ const GoogleMap = dynamic(() => import('../condo/map/providers/google/map'), {
 
 const MapContainer: React.FC<any> = (props) => {
     const { provider } = props;
-    const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        if (provider) {
-            setIsLoading(false);
-        }
-    }, [provider]);
-
-    if (isLoading || !provider) {
+    if (!provider) {
         return <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>;
     }
 
@@ -36,6 +29,7 @@ const MapContainer: React.FC<any> = (props) => {
         return <GoogleMap {...props} />;
     }
     
+    // For any other provider type like 'openlayers', 'leaflet', 'mapbox'
     return <OpenLayersMap {...props} />;
 }
 
