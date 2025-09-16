@@ -7,6 +7,7 @@ import { Loader, AlertCircle } from 'lucide-react';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { useLocale } from '@/lib/i18n';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 // --- LÓGICA DE CARGA DE API DE GOOGLE ---
 declare global {
