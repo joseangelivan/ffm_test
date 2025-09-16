@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { Loader } from 'lucide-react';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
@@ -12,7 +12,7 @@ const OpenLayersMap = dynamic(() => import('./providers/openlayers/map'), {
     loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
 });
 
-const GoogleMap = dynamic(() => import('../condo/map/providers/google/map'), {
+const GoogleMap = dynamic(() => import('@/components/condo/map/providers/google/map'), {
     ssr: false,
     loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
 });

@@ -61,13 +61,16 @@ const loadGoogleMapsApi = (apiKey: string, language: string): Promise<void> => {
 interface GoogleMapProps {
     provider: DbMapProvider;
     initialPosition?: { lat: number; lng: number };
+    onMapLoad: (map: any, source: any) => void;
 }
 
 const GoogleMap: React.FC<GoogleMapProps> = ({ 
     provider, 
-    initialPosition = { lat: -14.235, lng: -51.9253 } 
+    initialPosition = { lat: -14.235, lng: -51.9253 },
+    onMapLoad,
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<google.maps.Map | null>(null);
     const [apiStatus, setApiStatus] = useState<'loading' | 'ready' | 'error'>('loading');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const { t, locale } = useLocale();
@@ -76,12 +79,12 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
         let isMounted = true;
         
         async function initialize() {
+            if (!isMounted) return;
+
             const apiKey = provider.config_json?.api_config?.parameters?.apiKey;
             if (!apiKey) {
-                if(isMounted) {
-                    setErrorMessage("Google Maps API Key is missing.");
-                    setApiStatus('error');
-                }
+                setErrorMessage("Google Maps API Key is missing.");
+                setApiStatus('error');
                 return;
             }
             
@@ -93,11 +96,6 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
                 await loadGoogleMapsApi(apiKey, locale);
                 if (isMounted) {
                     setApiStatus('ready');
-                    new window.google.maps.Map(mapContainerRef.current!, {
-                        center: initialPosition,
-                        zoom: 15,
-                        disableDefaultUI: true,
-                    });
                 }
             } catch (error: any) {
                 console.error("Google Maps API failed to initialize:", error);
@@ -113,7 +111,23 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
         return () => { 
             isMounted = false;
         };
-    }, [provider, locale, initialPosition, t]);
+    }, [provider, locale, t]);
+
+
+    useEffect(() => {
+        if (apiStatus === 'ready' && mapContainerRef.current && !mapRef.current) {
+            const map = new window.google.maps.Map(mapContainerRef.current, {
+                center: initialPosition,
+                zoom: 15,
+                disableDefaultUI: true,
+            });
+            mapRef.current = map;
+            if (onMapLoad) {
+                onMapLoad(map, null); // Google map doesn't have a VectorSource in the same way
+            }
+        }
+    }, [apiStatus, initialPosition, onMapLoad]);
+
 
     return (
        <div className="w-full h-full relative bg-muted">

@@ -165,53 +165,58 @@ const OpenLayersMap: React.FC<MapProps> = ({
     
     useEffect(() => {
         if (!mapContainerRef.current) return;
-        
-        // Prevent re-initialization
+
+        let map: Map;
+
         if (mapRef.current) {
-            mapRef.current.setTarget(mapContainerRef.current);
-            return;
-        }
-
-        let config: any;
-        try {
-            config = typeof provider.config_json === 'string' 
-                ? JSON.parse(provider.config_json) 
-                : provider.config_json || {};
-        } catch (e) {
-            console.error("Failed to parse map provider config_json:", e);
-            config = {};
-        }
-        
-        const apiConfig = config.api_config || {};
-        const baseUrl = apiConfig.base_url;
-
-        let source;
-        if (baseUrl) {
-            source = new XYZ({ url: baseUrl, maxZoom: 20 });
+            map = mapRef.current;
+            map.setTarget(mapContainerRef.current);
         } else {
-            source = new OSM();
+            let config: any;
+            try {
+                config = typeof provider.config_json === 'string' 
+                    ? JSON.parse(provider.config_json) 
+                    : provider.config_json || {};
+            } catch (e) {
+                console.error("Failed to parse map provider config_json:", e);
+                config = {};
+            }
+            
+            const apiConfig = config.api_config || {};
+            const baseUrl = apiConfig.base_url;
+
+            let source;
+            if (baseUrl) {
+                source = new XYZ({ url: baseUrl, maxZoom: 20 });
+            } else {
+                source = new OSM();
+            }
+            
+            const initialLayer = new TileLayer({ source });
+
+            const vectorLayer = new VectorLayer({
+                source: vectorSourceRef.current,
+                style: (feature) => feature.get('style'),
+            });
+            vectorLayer.set('id', 'geofence-layer');
+
+            map = new Map({
+                layers: [initialLayer, vectorLayer],
+                view: new View({
+                    center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+                    zoom: 4,
+                }),
+                controls: [],
+            });
+            
+            (mapRef as React.MutableRefObject<Map | null>).current = map;
         }
         
-        const initialLayer = new TileLayer({ source });
-
-        const vectorLayer = new VectorLayer({
-            source: vectorSourceRef.current,
-            style: (feature) => feature.get('style'),
-        });
-        vectorLayer.set('id', 'geofence-layer');
-
-        const map = new Map({
-            target: mapContainerRef.current!,
-            layers: [initialLayer, vectorLayer],
-            view: new View({
-                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
-                zoom: 4,
-            }),
-            controls: [],
-        });
+        map.setTarget(mapContainerRef.current);
         
-        (mapRef as React.MutableRefObject<Map | null>).current = map;
-        onMapLoad(map, vectorSourceRef.current);
+        if (onMapLoad) {
+            onMapLoad(map, vectorSourceRef.current);
+        }
 
         return () => {
             if (mapRef.current) {
