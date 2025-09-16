@@ -70,6 +70,7 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
 
   const handleMapLoad = useCallback((adapter: MapAdapterInterface, source: VectorSource) => {
     setMapAdapter(adapter);
+    mapRef.current = adapter.getMapInstance();
     geofenceSourceRef.current = source;
     setIsLoading(false);
   }, []);
@@ -236,8 +237,6 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                     <div className="col-span-1 md:col-span-2 relative p-1">
                         <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
                              <MapContainer 
-                                mapRef={mapRef}
-                                vectorSourceRef={geofenceSourceRef}
                                 provider={mapProvider} 
                                 onMapLoad={handleMapLoad}
                                 dbGeofences={dbGeofences}
@@ -309,8 +308,6 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                                     showAllGeofences={showAllGeofences}
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
-                                    activeShapeState={activeShapeState}
-                                    setActiveShapeState={setActiveShapeState}
                                     mapRef={mapRef}
                                     historyStack={historyStack}
                                     setHistoryStack={setHistoryStack}
@@ -320,6 +317,8 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                                     drawingMode={drawingMode}
                                     setDrawingMode={setDrawingMode}
                                     setShapeBeingSaved={setShapeBeingSaved}
+                                    activeShapeState={activeShapeState}
+                                    setActiveShapeState={setActiveShapeState}
                                 />
                             )}
                             {selectedModule === 'elements' && (
