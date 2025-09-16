@@ -65,6 +65,7 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
 
   const [mapAdapter, setMapAdapter] = useState<any>(null);
+  const mapRef = useRef<OlMap | null>(null);
 
 
   // Initialize geofence selections on first load
@@ -159,12 +160,16 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   // --- Map Interactions ---
     const [zoomLevel, setZoomLevel] = useState(15);
   
-  const handleMapLoad = useCallback((adapter: any) => {
+  const handleMapLoad = useCallback((adapter: any, source: any) => {
     setMapAdapter(adapter);
+    setGeofenceSource(source);
+    if(adapter) {
+        mapRef.current = adapter.getMapInstance();
+        adapter.onMoveEnd((zoom: number) => {
+            setZoomLevel(Math.round(zoom));
+        });
+    }
     setIsLoading(false);
-    adapter.onMoveEnd((zoom: number) => {
-        setZoomLevel(Math.round(zoom));
-    });
   }, []);
 
     useEffect(() => {
@@ -253,6 +258,14 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                 <div className="grid grid-cols-1 md:grid-cols-3 h-[70vh]">
                     <div className="col-span-1 md:col-span-2 relative p-1">
                         <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
+                            {isLoading && (
+                                <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/50">
+                                <div className="flex items-center gap-2 text-lg text-muted-foreground">
+                                    <Loader className="h-6 w-6 animate-spin" />
+                                    <span>{t('condoDashboard.map.loadingMap')}</span>
+                                </div>
+                                </div>
+                            )}
                             <MapContainer 
                                 provider={mapProvider}
                                 onMapLoad={handleMapLoad}
@@ -327,6 +340,7 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                                     activeShapeState={activeShapeState}
                                     setActiveShapeState={setActiveShapeState}
                                     mapAdapter={mapAdapter}
+                                    mapRef={mapRef}
                                     historyStack={historyStack}
                                     setHistoryStack={setHistoryStack}
                                     historyIndex={historyIndex}
