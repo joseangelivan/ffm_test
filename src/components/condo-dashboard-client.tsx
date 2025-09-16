@@ -179,16 +179,10 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                         <ManageDevicesTab condoId={initialCondo.id} initialDevices={initialDevices} />
                     </TabsContent>
                     <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
-                        {mapProvider ? (
-                          <CondoMapTab 
-                            condo={initialCondo} 
-                            initialPosition={initialPosition}
-                          />
-                        ) : (
-                          <div className="flex h-[70vh] items-center justify-center rounded-lg border bg-muted">
-                            <Loader className="h-8 w-8 animate-spin text-primary" />
-                          </div>
-                        )}
+                        <CondoMapTab 
+                          condo={initialCondo} 
+                          initialPosition={initialPosition}
+                        />
                     </TabsContent>
                 </div>
               </Tabs>

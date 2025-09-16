@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -122,7 +123,6 @@ interface MapProps {
     selectedGeofenceId: string | null;
     defaultGeofenceId: string | null;
     initialPosition: { lat: number, lng: number };
-    mapRef: React.RefObject<Map | null>;
     activeShapeState: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     children?: React.ReactNode;
 }
@@ -136,11 +136,11 @@ const OpenLayersMap: React.FC<MapProps> = ({
     selectedGeofenceId,
     defaultGeofenceId,
     initialPosition,
-    mapRef,
     activeShapeState,
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<Map | null>(null);
     const vectorSourceRef = useRef<VectorSource>(new VectorSource());
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
@@ -164,14 +164,9 @@ const OpenLayersMap: React.FC<MapProps> = ({
     }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState]);
     
     useEffect(() => {
-        if (!mapContainerRef.current) return;
-
-        let map: Map;
-
-        if (mapRef.current) {
-            map = mapRef.current;
-            map.setTarget(mapContainerRef.current);
-        } else {
+        let map: Map | null = null;
+        
+        if (mapContainerRef.current) {
             let config: any;
             try {
                 config = typeof provider.config_json === 'string' 
@@ -201,6 +196,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             vectorLayer.set('id', 'geofence-layer');
 
             map = new Map({
+                target: mapContainerRef.current!,
                 layers: [initialLayer, vectorLayer],
                 view: new View({
                     center: fromLonLat([initialPosition.lng, initialPosition.lat]),
@@ -209,21 +205,25 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 controls: [],
             });
             
-            (mapRef as React.MutableRefObject<Map | null>).current = map;
-        }
-        
-        map.setTarget(mapContainerRef.current);
-        
-        if (onMapLoad) {
-            onMapLoad(map, vectorSourceRef.current);
+            mapRef.current = map;
+            if(onMapLoad) {
+                onMapLoad(map, vectorSourceRef.current);
+            }
         }
 
         return () => {
             if (mapRef.current) {
                 mapRef.current.setTarget(undefined);
+                mapRef.current = null;
             }
         };
-    }, [provider, onMapLoad, initialPosition, mapRef]);
+    }, [provider, initialPosition]);
+
+     useEffect(() => {
+        if (onMapLoad && mapRef.current) {
+            onMapLoad(mapRef.current, vectorSourceRef.current);
+        }
+    }, [onMapLoad]);
 
 
     useEffect(() => {

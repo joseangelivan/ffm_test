@@ -29,7 +29,6 @@ import { useCondoDashboard } from '@/contexts/condo-dashboard-context';
 
 import type { Map as OlMap, Feature } from 'ol';
 import type { Vector as VectorSource } from 'ol/source';
-import { fromLonLat } from 'ol/proj';
 import type { Geometry } from 'ol/geom';
 
 
@@ -43,10 +42,6 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   const { toast } = useToast();
   const { mapProvider } = useCondoDashboard();
   
-  // --- Refs ---
-  const olMapRef = useRef<OlMap | null>(null);
-
-  // --- State ---
   const [dbGeofences, setDbGeofences] = useState<DbGeofence[]>(condo.geofences);
   const [geofenceSource, setGeofenceSource] = useState<VectorSource | null>(null);
   
@@ -55,7 +50,7 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
 
   const [mode, setMode] = useState<'view' | 'editing'>('view');
   const [showAllGeofences, setShowAllGeofences] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(15);
+  
   const [fitLevel, setFitLevel] = useState<'1' | '2' | '3'>('2');
   const [isLoading, setIsLoading] = useState(true);
   const [condoAddressPosition] = useState(initialPosition);
@@ -68,6 +63,9 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   const [historyStack, setHistoryStack] = useState<Geometry[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
+
+  const [mapAdapter, setMapAdapter] = useState<any>(null);
+
 
   // Initialize geofence selections on first load
   useEffect(() => {
@@ -125,24 +123,12 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   }, [condo.id, selectedGeofenceId, toast, t]);
 
   const centerMapOnAddress = useCallback(() => {
-    if (!condoAddressPosition || !olMapRef.current) return;
-    
-    olMapRef.current.getView().animate({
-        center: fromLonLat([condoAddressPosition.lng, condoAddressPosition.lat]),
-        zoom: 17,
-        duration: 800,
-    });
-  }, [condoAddressPosition]);
+    if (!condoAddressPosition || !mapAdapter) return;
+    mapAdapter.setCenter(condoAddressPosition, 17);
+  }, [condoAddressPosition, mapAdapter]);
 
   const applyZoomLevel = useCallback(() => {
-    const map = olMapRef.current;
-    if (!map) return;
-
-    const mapSize = map.getSize();
-    if (!mapSize || mapSize.some(s => s === 0)) {
-        // Map not rendered yet, defer.
-        return;
-    }
+    if(!mapAdapter) return;
     
     let geofenceIdToFit: string | null;
     if (mode === 'view') {
@@ -150,78 +136,46 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
     } else {
         const isEditingNewShape = selectedGeofenceId?.startsWith('new-shape-');
         if (isEditingNewShape) {
-            // Don't fit view when starting to draw a new shape
             return;
         }
         geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
     }
     
     if (!geofenceIdToFit) {
-        // Only center on address if there's nothing else to fit to.
         centerMapOnAddress();
         return;
     }
-
-    if (geofenceSource) {
-        const featureToFit = geofenceSource.getFeatureById(geofenceIdToFit);
-        if (featureToFit) {
-            const extent = featureToFit.getGeometry()?.getExtent();
-            if (extent && extent.every(isFinite)) {
-                let paddingPercentage = 0.1;
-                if (fitLevel === '1') paddingPercentage = 0.05;
-                if (fitLevel === '3') paddingPercentage = 0.2;
-                
-                const mapSize = map.getSize()!;
-                const padding = mapSize.map(s => s * paddingPercentage);
-
-                map.getView().fit(extent, {
-                    padding: [padding[1], padding[0], padding[1], padding[0]],
-                    duration: 800,
-                    maxZoom: 20
-                });
-            } else {
-                centerMapOnAddress();
-            }
-        } else {
-            // Feature not found in source yet, defer.
-        }
-    } else {
-        centerMapOnAddress();
+    
+    if(mapAdapter.fitToGeofence) {
+        let paddingPercentage = 0.1;
+        if (fitLevel === '1') paddingPercentage = 0.05;
+        if (fitLevel === '3') paddingPercentage = 0.2;
+        mapAdapter.fitToGeofence(geofenceIdToFit, paddingPercentage);
     }
-}, [mode, geofenceSource, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress]);
+
+}, [mode, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress, mapAdapter]);
 
 
   // --- Map Interactions ---
-  const handleMapLoad = useCallback((map: OlMap, source?: VectorSource) => {
-        olMapRef.current = map;
-        setGeofenceSource(source || null);
-        
-        map.on('moveend', () => {
-            const zoom = map.getView().getZoom();
-            if (zoom) setZoomLevel(Math.round(zoom));
-        });
-
-        setIsLoading(false);
-    }, []);
+    const [zoomLevel, setZoomLevel] = useState(15);
+  
+  const handleMapLoad = useCallback((adapter: any) => {
+    setMapAdapter(adapter);
+    setIsLoading(false);
+    adapter.onMoveEnd((zoom: number) => {
+        setZoomLevel(Math.round(zoom));
+    });
+  }, []);
 
     useEffect(() => {
-        if (!isLoading && olMapRef.current) {
-            // Defer the initial zoom to allow geofences to load and map to be ready
+        if (!isLoading && mapAdapter) {
             setTimeout(() => applyZoomLevel(), 100);
         }
-    }, [isLoading, applyZoomLevel]);
+    }, [isLoading, applyZoomLevel, mapAdapter]);
 
     
-    const handleZoomIn = () => {
-        if (olMapRef.current) {
-            olMapRef.current.getView().setZoom(olMapRef.current.getView().getZoom()! + 1);
-        }
-    };
-    const handleZoomOut = () => {
-        if (olMapRef.current) {
-            olMapRef.current.getView().setZoom(olMapRef.current.getView().getZoom()! - 1);
-        }
-    };
+    const handleZoomIn = () => mapAdapter?.zoomIn();
+    const handleZoomOut = () => mapAdapter?.zoomOut();
   
   const handleUndo = () => {
     if (historyIndex > 0) {
@@ -299,17 +253,8 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                 <div className="grid grid-cols-1 md:grid-cols-3 h-[70vh]">
                     <div className="col-span-1 md:col-span-2 relative p-1">
                         <div className="relative h-full w-full bg-muted overflow-hidden shadow-inner rounded-md border">
-                            {(isLoading || !mapProvider) && (
-                                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-md">
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                        <Loader className="h-5 w-5 animate-spin" />
-                                        <span>{t('condoDashboard.map.loadingMap')}</span>
-                                    </div>
-                                </div>
-                            )}
-                             <MapContainer 
+                            <MapContainer 
                                 provider={mapProvider}
-                                mapRef={olMapRef}
                                 onMapLoad={handleMapLoad}
                                 dbGeofences={dbGeofences}
                                 activeShapeState={activeShapeState}
@@ -381,7 +326,7 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
                                     activeShapeState={activeShapeState}
                                     setActiveShapeState={setActiveShapeState}
-                                    mapRef={olMapRef}
+                                    mapAdapter={mapAdapter}
                                     historyStack={historyStack}
                                     setHistoryStack={setHistoryStack}
                                     historyIndex={historyIndex}

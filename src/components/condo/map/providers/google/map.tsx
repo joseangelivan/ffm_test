@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Loader, AlertCircle } from 'lucide-react';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { useLocale } from '@/lib/i18n';
@@ -18,7 +19,7 @@ declare global {
 
 let apiPromise: Promise<void> | null = null;
 
-const loadGoogleMapsApi = (apiKey: string, language: string): Promise<void> => {
+const loadGoogleMapsApi = (apiKey: string, language: string, onAuthFailure: () => void): Promise<void> => {
     if (typeof window === 'undefined') {
         return Promise.reject(new Error("Cannot load Google Maps API in SSR."));
     }
@@ -30,13 +31,11 @@ const loadGoogleMapsApi = (apiKey: string, language: string): Promise<void> => {
     }
 
     apiPromise = new Promise<void>((resolve, reject) => {
-        // Define failure callback FIRST
         window.gm_authFailure = () => {
-            console.warn("Google Maps API Authentication Failure. This is likely a billing or API key issue.");
-            reject(new Error("Google Maps API authentication failed."));
+            onAuthFailure();
+            // Don't reject the promise, as we handle the error state in the component
         };
 
-        // Define success callback
         window.initGoogleMapsApi = () => {
             resolve();
         };
@@ -47,8 +46,8 @@ const loadGoogleMapsApi = (apiKey: string, language: string): Promise<void> => {
         script.async = true;
         script.defer = true;
         script.onerror = (error) => {
-            apiPromise = null; // Reset promise on script load error
-            reject(new Error("Failed to load Google Maps script. Check network and script URL."));
+            apiPromise = null;
+            reject(new Error("Failed to load Google Maps script."));
         };
         document.head.appendChild(script);
     });
@@ -57,7 +56,6 @@ const loadGoogleMapsApi = (apiKey: string, language: string): Promise<void> => {
 };
 
 
-// --- TIPOS Y COMPONENTE PRINCIPAL ---
 interface GoogleMapProps {
     provider: DbMapProvider;
     initialPosition?: { lat: number; lng: number };
@@ -93,14 +91,18 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
             setApiStatus('loading');
             
             try {
-                await loadGoogleMapsApi(apiKey, locale);
-                if (isMounted) {
+                await loadGoogleMapsApi(apiKey, locale, () => {
+                     if (isMounted) {
+                        setErrorMessage(t('toast.mapsBillingError.description'));
+                        setApiStatus('error');
+                    }
+                });
+                 if (isMounted && apiStatus !== 'error') {
                     setApiStatus('ready');
                 }
             } catch (error: any) {
-                console.error("Google Maps API failed to initialize:", error);
                 if (isMounted) {
-                    setErrorMessage(t('toast.mapsBillingError.description'));
+                    setErrorMessage(error.message);
                     setApiStatus('error');
                 }
             }
@@ -111,7 +113,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
         return () => { 
             isMounted = false;
         };
-    }, [provider, locale, t]);
+    }, [provider, locale, t, apiStatus]);
 
 
     useEffect(() => {
@@ -120,10 +122,11 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
                 center: initialPosition,
                 zoom: 15,
                 disableDefaultUI: true,
+                gestureHandling: "cooperative"
             });
             mapRef.current = map;
             if (onMapLoad) {
-                onMapLoad(map, null); // Google map doesn't have a VectorSource in the same way
+                onMapLoad(map, null); 
             }
         }
     }, [apiStatus, initialPosition, onMapLoad]);
@@ -147,7 +150,6 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
                     </Alert>
                </div>
            )}
-            {/* The map div is always present to be targeted */}
             <div ref={mapContainerRef} className="w-full h-full" />
        </div>
     );
