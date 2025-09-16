@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -98,15 +99,13 @@ const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
         }
 
         if ((window as any).__googleMapsApiLoading__) {
-            // If loading is already in progress, wait for it to finish.
             const checkInterval = setInterval(() => {
                 if ((window as any).google && (window as any).google.maps) {
                     clearInterval(checkInterval);
                     resolve();
                 } else if (!(window as any).__googleMapsApiLoading__) {
-                    // Loading was aborted for some reason, try again.
                     clearInterval(checkInterval);
-                    loadGoogleMapsApi(apiKey).then(resolve, reject);
+                    reject(new Error("Google Maps API loading was aborted."));
                 }
             }, 100);
             return;
@@ -116,6 +115,7 @@ const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
 
         (window as any).__googleMapsApiLoaded__ = () => {
             (window as any).__googleMapsApiLoading__ = false;
+            delete (window as any).__googleMapsApiLoaded__;
             resolve();
         };
         
@@ -126,6 +126,11 @@ const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
         script.defer = true;
         script.onerror = () => {
             (window as any).__googleMapsApiLoading__ = false;
+            delete (window as any).__googleMapsApiLoaded__;
+            const existingScript = document.getElementById('google-maps-api');
+            if (existingScript) {
+                existingScript.remove();
+            }
             reject(new Error("Failed to load Google Maps script."));
         };
         document.head.appendChild(script);
@@ -168,7 +173,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
     const vectorSourceRef = useRef<VectorSource>(new VectorSource());
     const [isApiReady, setIsApiReady] = useState(false);
 
-    // Effect for loading external APIs
     useEffect(() => {
         let isMounted = true;
         async function loadApi() {
@@ -180,7 +184,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                         if (isMounted) setIsApiReady(true);
                     } catch (error) {
                         console.error(error);
-                        if (isMounted) setIsApiReady(false); // Indicate failure
+                        if (isMounted) setIsApiReady(false);
                     }
                 } else {
                     console.error("Google Maps API key is missing.");
@@ -194,13 +198,11 @@ const OpenLayersMap: React.FC<MapProps> = ({
         return () => { isMounted = false; };
     }, [provider, googleMapsApiKey]);
 
-    // Effect for initializing the map once API is ready
     useEffect(() => {
         if (!isApiReady || !mapContainerRef.current) {
             return;
         }
 
-        // Prevent re-initialization if map already exists
         if (mapRef.current) {
             mapRef.current.setTarget(mapContainerRef.current);
             return;
@@ -270,7 +272,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
     }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState, shapeBeingSaved]);
 
 
-    // Effect for updating features and styles
     useEffect(() => {
         const source = vectorSourceRef.current;
         if (!source) return;
@@ -321,3 +322,5 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
+
+    
