@@ -50,36 +50,48 @@ const STYLE_HIDDEN = new Style({
 declare global {
   interface Window {
     __googleMapsApiPromise__: Promise<void>;
+    __googleMapsApiLoading__: boolean;
   }
 }
 
 const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
-  if (!window.__googleMapsApiPromise__) {
-    window.__googleMapsApiPromise__ = new Promise<void>((resolve, reject) => {
-      // Función de callback que la API de Google llamará
-      (window as any).initGoogleMapsApi = () => {
-        resolve();
-        delete (window as any).initGoogleMapsApi;
-      };
-
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMapsApi`;
-      script.async = true;
-      script.defer = true;
-      script.onerror = () => {
-        reject(new Error("Failed to load Google Maps script."));
-        delete (window as any).initGoogleMapsApi;
-      };
-      document.head.appendChild(script);
-    });
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error("Cannot load Google Maps API in SSR."));
   }
+  
+  if (window.google?.maps) {
+    return Promise.resolve();
+  }
+
+  if (window.__googleMapsApiPromise__) {
+    return window.__googleMapsApiPromise__;
+  }
+  
+  window.__googleMapsApiPromise__ = new Promise<void>((resolve, reject) => {
+    (window as any).initGoogleMapsApi = () => {
+      window.__googleMapsApiLoading__ = false;
+      resolve();
+      delete (window as any).initGoogleMapsApi;
+    };
+
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMapsApi`;
+    script.async = true;
+    script.defer = true;
+    script.onerror = () => {
+      window.__googleMapsApiLoading__ = false;
+      reject(new Error("Failed to load Google Maps script."));
+      delete (window as any).initGoogleMapsApi;
+    };
+    document.head.appendChild(script);
+  });
+  
   return window.__googleMapsApiPromise__;
 };
 
 
 // --- LECTOR DE GEOJSON PERSONALIZADO ---
 function readCustomGeoJSON(dbGeofence: DbGeofence): Geometry | null {
-    // ... (El resto de la función se mantiene igual)
     const geometryObject = dbGeofence.geometry;
 
     if (!geometryObject || typeof geometryObject !== 'object') {
@@ -159,12 +171,10 @@ const OpenLayersMap: React.FC<MapProps> = ({
           const apiKey = provider.config_json?.api_config?.parameters?.apiKey;
           if (apiKey) {
               loadGoogleMapsApi(apiKey)
-                  .then(() => {
-                      if (isMounted) setIsApiReady(true);
-                  })
-                  .catch(error => console.error(error));
+                  .then(() => { if (isMounted) setIsApiReady(true); })
+                  .catch(error => console.error("Google Maps API failed to load:", error));
           } else {
-              console.error("Google Maps API Key is missing.");
+              console.error("Google Maps API Key is missing for provider.");
           }
       } else {
           setIsApiReady(true);
@@ -195,7 +205,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         }
         
         map = new Map({
-            target: mapContainerRef.current!,
+            target: mapContainerRef.current,
             layers: [
                 new TileLayer({ source }),
                 new VectorLayer({ source: vectorSourceRef.current, style: (feature) => feature.get('style') })
@@ -214,6 +224,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             if (map) {
                 map.setTarget(undefined);
                 (mapRef as React.MutableRefObject<Map | null>).current = null;
+                map = null;
             }
         };
     }, [provider, initialPosition, onMapLoad, mapRef, isApiReady]);
@@ -221,7 +232,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
     // Efecto para actualizar estilos y geometrías
     const getFeatureStyle = useCallback((featureId: string): Style => {
-        // ... (el resto de la función de estilos se mantiene igual)
         if (shapeBeingSaved && featureId === shapeBeingSaved.id) {
             return STYLE_EDIT_MODE_SELECTED;
         }
