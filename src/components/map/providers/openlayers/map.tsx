@@ -175,77 +175,66 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
     useEffect(() => {
         let isMounted = true;
-        async function loadApi() {
+        const initializeMap = async () => {
+            if (!mapContainerRef.current) return;
+    
+            let map: Map | null = null;
+    
+            const config = provider.config_json || {};
+            const apiConfig = config.api_config || {};
+            let source;
+    
             if (provider.provider_type === 'google') {
-                const apiKey = provider.config_json?.api_config?.parameters?.apiKey || googleMapsApiKey;
-                if (apiKey) {
-                    try {
-                        await loadGoogleMapsApi(apiKey);
-                        if (isMounted) setIsApiReady(true);
-                    } catch (error) {
-                        console.error(error);
-                        if (isMounted) setIsApiReady(false);
-                    }
-                } else {
+                const apiKey = apiConfig.parameters?.apiKey || googleMapsApiKey;
+                if (!apiKey) {
                     console.error("Google Maps API key is missing.");
-                    if (isMounted) setIsApiReady(false);
+                    return;
+                }
+                try {
+                    await loadGoogleMapsApi(apiKey);
+                    if (!isMounted) return;
+                    const GoogleSource = require('ol/source/Google').default;
+                    source = new GoogleSource({
+                        key: apiKey,
+                        mapTypeId: 'roadmap',
+                    });
+                } catch (error) {
+                    console.error(error);
+                    return;
                 }
             } else {
-                if (isMounted) setIsApiReady(true);
+                const baseUrl = apiConfig.base_url;
+                source = baseUrl ? new XYZ({ url: baseUrl, maxZoom: 20 }) : new OSM();
             }
-        }
-        loadApi();
-        return () => { isMounted = false; };
-    }, [provider, googleMapsApiKey]);
-
-    useEffect(() => {
-        if (!isApiReady || !mapContainerRef.current) {
-            return;
-        }
-
-        if (mapRef.current) {
-            mapRef.current.setTarget(mapContainerRef.current);
-            return;
-        }
-        
-        let source;
-        const config = provider.config_json || {};
-        const apiConfig = config.api_config || {};
-
-        if (provider.provider_type === 'google') {
-            const GoogleSource = require('ol/source/Google').default;
-            const apiKey = apiConfig.parameters?.apiKey || googleMapsApiKey;
-            source = new GoogleSource({
-                key: apiKey,
-                mapTypeId: 'roadmap',
+    
+            map = new Map({
+                target: mapContainerRef.current!,
+                layers: [
+                    new TileLayer({ source }),
+                    new VectorLayer({ source: vectorSourceRef.current, style: (feature) => feature.get('style') })
+                ],
+                view: new View({
+                    center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+                    zoom: 15,
+                }),
+                controls: [],
             });
-        } else {
-            const baseUrl = apiConfig.base_url;
-            source = baseUrl ? new XYZ({ url: baseUrl, maxZoom: 20 }) : new OSM();
-        }
-
-        const map = new Map({
-            target: mapContainerRef.current!,
-            layers: [
-                new TileLayer({ source }),
-                new VectorLayer({ source: vectorSourceRef.current, style: (feature) => feature.get('style') })
-            ],
-            view: new View({
-                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
-                zoom: 15,
-            }),
-            controls: [],
-        });
-
-        (mapRef as React.MutableRefObject<Map>).current = map;
-        if (onMapLoad) onMapLoad(map, vectorSourceRef.current);
-
+    
+            (mapRef as React.MutableRefObject<Map | null>).current = map;
+            if (onMapLoad) onMapLoad(map, vectorSourceRef.current);
+        };
+    
+        initializeMap();
+    
         return () => {
-            if (mapRef.current) {
-                mapRef.current.setTarget(undefined);
+            isMounted = false;
+            const map = (mapRef as React.MutableRefObject<Map | null>).current;
+            if (map) {
+                map.setTarget(undefined);
+                (mapRef as React.MutableRefObject<Map | null>).current = null;
             }
         };
-    }, [isApiReady, provider, initialPosition, onMapLoad, mapRef, googleMapsApiKey]);
+    }, [provider, initialPosition, onMapLoad, mapRef, googleMapsApiKey]);
 
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
@@ -322,5 +311,3 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
-
-    
