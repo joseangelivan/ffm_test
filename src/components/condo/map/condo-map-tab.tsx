@@ -32,7 +32,7 @@ import type { Geometry } from 'ol/geom';
 
 interface CondoMapTabProps {
   condo: Condominio & { geofences: DbGeofence[] };
-  initialPosition: { lat: number; lng: number };
+  initialPosition: { lat: number; lng: number } | null;
   searchedPosition: { lat: number; lng: number } | null;
 }
 
@@ -230,7 +230,7 @@ export default function CondoMapTab({ condo, initialPosition, searchedPosition }
                  <div className="text-right">
                     <h3 className="font-semibold">{condo.name}</h3>
                     <p className="text-xs text-muted-foreground">{condo.address}</p>
-                    <Button onClick={centerMapOnAddress} variant="link" size="sm" className="p-0 h-auto">
+                    <Button onClick={centerMapOnAddress} variant="link" size="sm" className="p-0 h-auto" disabled={!initialPosition}>
                         <Locate className="h-3 w-3 mr-1" />
                         {t('condoDashboard.map.recenterOnAddress')}
                     </Button>
@@ -348,5 +348,3 @@ export default function CondoMapTab({ condo, initialPosition, searchedPosition }
     </>
   );
 }
-
-    

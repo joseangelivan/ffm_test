@@ -5,14 +5,14 @@ import { notFound } from 'next/navigation';
 
 import Loading from '@/app/loading';
 import CondoDashboardClient from '@/components/condo-dashboard-client';
-import CondoMapTab from '@/components/condo/map/condo-map-tab';
 import { getCondominioById } from '@/actions/condos';
 import { getDevicesByCondoId } from '@/actions/devices';
 import { getSession } from '@/lib/auth';
 import { getSettings, getDefaultMapProvider, getGeofencesByCondoId } from '@/actions/admin';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, Map } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { processAndGetConfig } from '@/actions/map_providers';
+import { geocodeAddress } from '@/actions/geocoding';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,14 +66,29 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
 
   const condo = condoResult.data;
   
-  const defaultGeofence = geofences.find(g => g.is_default);
+  let initialPosition: { lat: number; lng: number } | null = null;
   
-  let initialPosition = { lat: -14.235, lng: -51.9253 }; // Fallback to Brazil center
-  
-  if (defaultGeofence?.geometry?.center) {
-      initialPosition = { lat: defaultGeofence.geometry.center[1], lng: defaultGeofence.geometry.center[0] };
+  // Geocode the condo's address to get the initial position for the "center on address" button
+  const geocodeResult = await geocodeAddress({
+    street: condo.street || '',
+    city: condo.city || '',
+    state: condo.state || '',
+    country: condo.country || '',
+  });
+
+  if (geocodeResult.success && geocodeResult.data?.geometry.location) {
+      initialPosition = geocodeResult.data.geometry.location;
+  } else {
+      // Fallback to geofence center if geocoding fails
+      const defaultGeofence = geofences.find(g => g.is_default);
+      if (defaultGeofence?.geometry?.center) {
+          initialPosition = { lat: defaultGeofence.geometry.center[1], lng: defaultGeofence.geometry.center[0] };
+      } else {
+          // Absolute fallback
+          initialPosition = { lat: -14.235, lng: -51.9253 };
+      }
   }
-  
+
   const condoWithGeofences = { ...condo, geofences: geofences || [] };
   
   return (

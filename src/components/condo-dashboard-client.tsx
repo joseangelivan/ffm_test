@@ -49,7 +49,7 @@ type CondoDashboardClientProps = {
     initialDevices: Device[];
     initialSettings: UserSettings;
     mapProvider: DbMapProvider | null;
-    initialPosition: { lat: number; lng: number };
+    initialPosition: { lat: number; lng: number } | null;
 };
 
 export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider: initialMapProvider, initialPosition: pageInitialPosition }: CondoDashboardClientProps) { 
