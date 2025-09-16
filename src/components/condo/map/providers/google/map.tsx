@@ -11,7 +11,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 // --- LÓGICA DE CARGA DE API DE GOOGLE ---
 declare global {
   interface Window {
-    __googleMapsApiPromise__: Promise<void>;
+    google: typeof google;
     initGoogleMapsApi: () => void;
     gm_authFailure: () => void;
   }
@@ -33,7 +33,7 @@ const loadGoogleMapsApi = (apiKey: string, language: string, onAuthFailure: () =
     apiPromise = new Promise<void>((resolve, reject) => {
         window.gm_authFailure = () => {
             onAuthFailure();
-            // Don't reject the promise, as we handle the error state in the component
+            // No rechazar la promesa, manejamos el error en el estado del componente
         };
 
         window.initGoogleMapsApi = () => {
@@ -46,7 +46,7 @@ const loadGoogleMapsApi = (apiKey: string, language: string, onAuthFailure: () =
         script.async = true;
         script.defer = true;
         script.onerror = (error) => {
-            apiPromise = null;
+            apiPromise = null; // Reset on failure to allow retry
             reject(new Error("Failed to load Google Maps script."));
         };
         document.head.appendChild(script);
@@ -59,7 +59,7 @@ const loadGoogleMapsApi = (apiKey: string, language: string, onAuthFailure: () =
 interface GoogleMapProps {
     provider: DbMapProvider;
     initialPosition?: { lat: number; lng: number };
-    onMapLoad: (map: any, source: any) => void;
+    onMapLoad: (map: any, adapter: any) => void;
 }
 
 const GoogleMap: React.FC<GoogleMapProps> = ({ 
@@ -68,7 +68,6 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
     onMapLoad,
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const mapRef = useRef<google.maps.Map | null>(null);
     const [apiStatus, setApiStatus] = useState<'loading' | 'ready' | 'error'>('loading');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const { t, locale } = useLocale();
@@ -76,20 +75,16 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
     useEffect(() => {
         let isMounted = true;
         
-        async function initialize() {
-            if (!isMounted) return;
-
+        const initializeMap = async () => {
+            if (!isMounted || !mapContainerRef.current) return;
+            
             const apiKey = provider.config_json?.api_config?.parameters?.apiKey;
             if (!apiKey) {
                 setErrorMessage("Google Maps API Key is missing.");
                 setApiStatus('error');
                 return;
             }
-            
-            if (!mapContainerRef.current) return;
-            
-            setApiStatus('loading');
-            
+
             try {
                 await loadGoogleMapsApi(apiKey, locale, () => {
                      if (isMounted) {
@@ -97,9 +92,41 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
                         setApiStatus('error');
                     }
                 });
-                 if (isMounted && apiStatus !== 'error') {
+
+                if (isMounted && apiStatus !== 'error') { // Check status hasn't changed to error
                     setApiStatus('ready');
+                    
+                    const map = new window.google.maps.Map(mapContainerRef.current!, {
+                        center: initialPosition,
+                        zoom: 15,
+                        disableDefaultUI: true,
+                        gestureHandling: "cooperative"
+                    });
+                    
+                    const adapter = {
+                        onMoveEnd: (callback: (zoom: number) => void) => {
+                           map.addListener('idle', () => {
+                                const zoom = map.getZoom();
+                                if(zoom) callback(zoom);
+                           });
+                        },
+                        setCenter: (coords: { lat: number, lng: number }, zoom?: number) => {
+                            map.panTo(coords);
+                            if(zoom) map.setZoom(zoom);
+                        },
+                        zoomIn: () => map.setZoom(map.getZoom()! + 1),
+                        zoomOut: () => map.setZoom(map.getZoom()! - 1),
+                        fitToGeofence: (geofenceId: string, paddingPercentage: number) => {
+                            // Implement if geofence editing on Google Maps is needed
+                        },
+                        getMapInstance: () => map,
+                    }
+
+                    if (onMapLoad) {
+                        onMapLoad(map, adapter); 
+                    }
                 }
+
             } catch (error: any) {
                 if (isMounted) {
                     setErrorMessage(error.message);
@@ -108,28 +135,13 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
             }
         }
         
-        initialize();
+        initializeMap();
 
         return () => { 
             isMounted = false;
         };
-    }, [provider, locale, t, apiStatus]);
-
-
-    useEffect(() => {
-        if (apiStatus === 'ready' && mapContainerRef.current && !mapRef.current) {
-            const map = new window.google.maps.Map(mapContainerRef.current, {
-                center: initialPosition,
-                zoom: 15,
-                disableDefaultUI: true,
-                gestureHandling: "cooperative"
-            });
-            mapRef.current = map;
-            if (onMapLoad) {
-                onMapLoad(map, null); 
-            }
-        }
-    }, [apiStatus, initialPosition, onMapLoad]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Run only once on mount
 
 
     return (
@@ -150,7 +162,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
                     </Alert>
                </div>
            )}
-            <div ref={mapContainerRef} className="w-full h-full" />
+            <div ref={mapContainerRef} className={cn("w-full h-full", apiStatus !== 'ready' && 'invisible')} />
        </div>
     );
 };

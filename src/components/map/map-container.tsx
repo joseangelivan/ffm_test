@@ -20,7 +20,7 @@ const GoogleMap = dynamic(() => import('@/components/condo/map/providers/google/
 });
 
 const MapContainer: React.FC<any> = (props) => {
-    const { provider, mapRef } = props;
+    const { provider } = props;
 
     if (!provider) {
         return <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>;
