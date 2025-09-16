@@ -16,7 +16,6 @@ import GeoJSON from 'ol/format/GeoJSON';
 import type { Geometry, Polygon as OlPolygon, Circle as OlCircle } from 'ol/geom';
 import Feature from 'ol/Feature';
 import { Style, Fill, Stroke } from 'ol/style';
-import type { Geofence as DbGeofence } from '@/actions/maps';
 import type MapAdapterInterface from 'ol/Map';
 
 
@@ -160,6 +159,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<Map | null>(null);
     const vectorSourceRef = useRef<VectorSource>(new VectorSource());
+    const adapterRef = useRef<MapAdapterInterface | null>(null);
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
         if(shapeBeingSaved?.id === featureId) {
@@ -214,45 +214,16 @@ const OpenLayersMap: React.FC<MapProps> = ({
             style: (feature) => feature.get('style'),
         });
         vectorLayer.set('id', 'geofence-layer');
-        
-        // --- START OF LOGIC CHANGE ---
-        // Determine the initial view based on the default geofence or initial position
-        let initialView;
-        const defaultGeofence = dbGeofences.find(gf => gf.id === defaultGeofenceId);
-        
-        if (defaultGeofence) {
-            const geofenceGeom = readLegacyOrStandardGeoJSON(defaultGeofence);
-            if (geofenceGeom) {
-                initialView = new View({
-                    // The view will be fitted to the geometry extent shortly after map creation
-                });
-            }
-        }
-        
-        // Fallback if no default geofence or geometry is found
-        if (!initialView) {
-             initialView = new View({
-                center: initialPosition ? fromLonLat([initialPosition.lng, initialPosition.lat]) : fromLonLat([-51.9253, -14.235]),
-                zoom: initialPosition ? 15 : 4,
-            });
-        }
-        // --- END OF LOGIC CHANGE ---
 
         const map = new Map({
             target: mapContainerRef.current!,
             layers: [initialLayer, vectorLayer],
-            view: initialView,
+            view: new View({
+                center: fromLonLat([-51.9253, -14.235]),
+                zoom: 4,
+            }),
             controls: [],
         });
-
-        // If we had a default geofence, fit the view to it now.
-        if (defaultGeofence) {
-            const geofenceGeom = readLegacyOrStandardGeoJSON(defaultGeofence);
-            if(geofenceGeom) {
-                const padding = map.getSize()![0] * 0.1; // 10% padding
-                map.getView().fit(geofenceGeom, { padding: [padding, padding, padding, padding], duration: 0 });
-            }
-        }
         
         mapRef.current = map;
         
@@ -288,6 +259,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             },
             getMapInstance: () => map,
         };
+        adapterRef.current = adapter;
 
         onMapLoad(map, vectorSourceRef.current, adapter);
 
@@ -296,7 +268,27 @@ const OpenLayersMap: React.FC<MapProps> = ({
             if (zoom) onZoomChange(Math.round(zoom));
         });
 
-    }, [provider, onMapLoad, initialPosition, onZoomChange, dbGeofences, defaultGeofenceId]);
+    }, [provider, onMapLoad, onZoomChange]);
+
+    useEffect(() => {
+        const adapter = adapterRef.current;
+        if (!adapter || !mapRef.current) return;
+        
+        const timeoutId = setTimeout(() => {
+             if (defaultGeofenceId) {
+                const source = vectorSourceRef.current;
+                const feature = source.getFeatureById(defaultGeofenceId);
+                if (feature) {
+                    adapter.fitToGeofence(defaultGeofenceId, 0.1);
+                }
+             } else if (initialPosition) {
+                 adapter.setCenter(initialPosition, 15);
+             }
+        }, 100); // Small delay to ensure map size is calculated
+        
+        return () => clearTimeout(timeoutId);
+
+    }, [defaultGeofenceId, initialPosition]);
 
 
     useEffect(() => {
