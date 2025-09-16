@@ -33,7 +33,7 @@ import type { Geometry } from 'ol/geom';
 interface CondoMapTabProps {
   condo: Condominio & { geofences: DbGeofence[] };
   initialPosition: { lat: number; lng: number } | null;
-  searchedPosition: { lat: number; lng: number } | null;
+  searchedPosition: { lat: number, lng: number } | null;
 }
 
 export default function CondoMapTab({ condo, initialPosition, searchedPosition }: CondoMapTabProps) {
@@ -157,15 +157,6 @@ export default function CondoMapTab({ condo, initialPosition, searchedPosition }
     }
 
   }, [mode, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress, mapAdapter]);
-
-  useEffect(() => {
-    if (mapAdapter && dbGeofences.length > 0) {
-        const timeoutId = setTimeout(() => applyZoomLevel(), 200); // Small delay to ensure the map is fully interactive
-        return () => clearTimeout(timeoutId);
-    } else if (mapAdapter && dbGeofences.length === 0) {
-        centerMapOnAddress();
-    }
-  }, [mapAdapter, dbGeofences, applyZoomLevel, centerMapOnAddress]);
 
   useEffect(() => {
     if (searchedPosition && mapAdapter) {
