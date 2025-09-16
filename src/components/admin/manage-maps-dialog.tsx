@@ -5,6 +5,8 @@
 import React, { useState, useEffect, useCallback, useActionState, useTransition, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { Map as OlMap } from 'ol';
+import type VectorSource from 'ol/source/Vector';
+import type MapAdapterInterface from 'ol/Map';
 import {
   Dialog,
   DialogContent,
@@ -66,7 +68,15 @@ const IMMUTABLE_PROVIDER_ID = '00000000-0000-0000-0000-000000000001';
 function TestMapProviderDialog({ provider, onOpenChange, initialPosition }: { provider: MapProvider | null, onOpenChange: (open: boolean) => void, initialPosition: { lat: number, lng: number } }) {
     const { t } = useLocale();
     const isOpen = !!provider;
-    const mapRef = useRef<OlMap | null>(null);
+    
+    // Dummy onMapLoad for testing context
+    const onMapLoad = (map: OlMap, source: VectorSource, adapter: MapAdapterInterface) => {
+        // console.log("Test map loaded");
+    };
+    
+    const onZoomChange = (zoom: number) => {
+        // console.log("Test map zoom changed:", zoom);
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -80,10 +90,11 @@ function TestMapProviderDialog({ provider, onOpenChange, initialPosition }: { pr
                 <div className="h-[50vh] w-full rounded-lg border bg-muted my-4">
                     {provider && (
                          <MapContainer 
-                            mapRef={mapRef}
                             provider={provider} 
-                            onMapLoad={() => {}}
+                            onMapLoad={onMapLoad}
                             initialPosition={initialPosition}
+                            dbGeofences={[]}
+                            onZoomChange={onZoomChange}
                         />
                     )}
                 </div>

@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useContext } from 'react';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
@@ -185,7 +185,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState, shapeBeingSaved]);
     
     useEffect(() => {
-        if (!mapContainerRef.current || mapRef.current) return;
+        if (!mapContainerRef.current || mapRef.current || !provider) return;
 
         let config: any;
         try {
@@ -214,14 +214,16 @@ const OpenLayersMap: React.FC<MapProps> = ({
             style: (feature) => feature.get('style'),
         });
         vectorLayer.set('id', 'geofence-layer');
+        
+        const view = new View({
+            center: fromLonLat([-51.9253, -14.235]),
+            zoom: 4,
+        });
 
         const map = new Map({
             target: mapContainerRef.current!,
             layers: [initialLayer, vectorLayer],
-            view: new View({
-                center: fromLonLat([-51.9253, -14.235]),
-                zoom: 4,
-            }),
+            view: view,
             controls: [],
         });
         
@@ -252,8 +254,11 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 if (feature) {
                     const geometry = feature.getGeometry();
                     if (geometry) {
-                        const padding = map.getSize()![0] * paddingPercentage;
-                        map.getView().fit(geometry, { padding: [padding, padding, padding, padding], duration: 1000 });
+                        const mapSize = map.getSize();
+                        if (mapSize) {
+                             const padding = mapSize[0] * paddingPercentage;
+                             map.getView().fit(geometry, { padding: [padding, padding, padding, padding], duration: 1000 });
+                        }
                     }
                 }
             },
@@ -271,20 +276,17 @@ const OpenLayersMap: React.FC<MapProps> = ({
     }, [provider, onMapLoad, onZoomChange]);
 
     useEffect(() => {
+        const map = mapRef.current;
         const adapter = adapterRef.current;
-        if (!adapter || !mapRef.current) return;
+        if (!map || !adapter) return;
         
         const timeoutId = setTimeout(() => {
              if (defaultGeofenceId) {
-                const source = vectorSourceRef.current;
-                const feature = source.getFeatureById(defaultGeofenceId);
-                if (feature) {
-                    adapter.fitToGeofence(defaultGeofenceId, 0.1);
-                }
+                adapter.fitToGeofence(defaultGeofenceId, 0.1);
              } else if (initialPosition) {
                  adapter.setCenter(initialPosition, 15);
              }
-        }, 100); // Small delay to ensure map size is calculated
+        }, 100);
         
         return () => clearTimeout(timeoutId);
 
@@ -295,46 +297,48 @@ const OpenLayersMap: React.FC<MapProps> = ({
         const source = vectorSourceRef.current;
         if (!source) return;
 
-        const dbGeofenceIds = new Set(dbGeofences.map(g => g.id));
+        const dbGeofenceIds = dbGeofences ? new Set(dbGeofences.map(g => g.id)) : new Set();
 
         // Add or update features from the database
-        dbGeofences.forEach(dbGeofence => {
-            const olGeom = readLegacyOrStandardGeoJSON(dbGeofence);
-            if (!olGeom) return;
+        if (dbGeofences) {
+            dbGeofences.forEach(dbGeofence => {
+                const olGeom = readLegacyOrStandardGeoJSON(dbGeofence);
+                if (!olGeom) return;
 
-            let feature = source.getFeatureById(dbGeofence.id);
-            if (feature) {
-                const currentGeom = feature.getGeometry();
-                if (currentGeom && activeShapeState?.feature !== feature) {
-                    
-                    let hasChanged = false;
-                    if (currentGeom instanceof CircleGeom && olGeom instanceof CircleGeom) {
-                        const currentCenter = currentGeom.getCenter();
-                        const newCenter = olGeom.getCenter();
-                        const currentRadius = currentGeom.getRadius();
-                        const newRadius = olGeom.getRadius();
-                        hasChanged = (
-                            currentCenter[0] !== newCenter[0] ||
-                            currentCenter[1] !== newCenter[1] ||
-                            currentRadius !== newRadius
-                        );
-                    } else if (currentGeom instanceof PolygonGeom && olGeom instanceof PolygonGeom) {
-                        const currentCoords = JSON.stringify(currentGeom.getCoordinates());
-                        const newCoords = JSON.stringify(olGeom.getCoordinates());
-                        hasChanged = currentCoords !== newCoords;
-                    }
+                let feature = source.getFeatureById(dbGeofence.id);
+                if (feature) {
+                    const currentGeom = feature.getGeometry();
+                    if (currentGeom && activeShapeState?.feature !== feature) {
+                        
+                        let hasChanged = false;
+                        if (currentGeom instanceof CircleGeom && olGeom instanceof CircleGeom) {
+                            const currentCenter = currentGeom.getCenter();
+                            const newCenter = olGeom.getCenter();
+                            const currentRadius = currentGeom.getRadius();
+                            const newRadius = olGeom.getRadius();
+                            hasChanged = (
+                                currentCenter[0] !== newCenter[0] ||
+                                currentCenter[1] !== newCenter[1] ||
+                                currentRadius !== newRadius
+                            );
+                        } else if (currentGeom instanceof PolygonGeom && olGeom instanceof PolygonGeom) {
+                            const currentCoords = JSON.stringify(currentGeom.getCoordinates());
+                            const newCoords = JSON.stringify(olGeom.getCoordinates());
+                            hasChanged = currentCoords !== newCoords;
+                        }
 
-                    if(hasChanged) {
-                         feature.setGeometry(olGeom);
+                        if(hasChanged) {
+                             feature.setGeometry(olGeom);
+                        }
                     }
+                } else {
+                    feature = new Feature({ geometry: olGeom });
+                    feature.setId(dbGeofence.id);
+                    feature.set('geometryType', olGeom.get('geometryType'));
+                    source.addFeature(feature);
                 }
-            } else {
-                feature = new Feature({ geometry: olGeom });
-                feature.setId(dbGeofence.id);
-                feature.set('geometryType', olGeom.get('geometryType'));
-                source.addFeature(feature);
-            }
-        });
+            });
+        }
         
         // Add the currently active new shape if it's not already on the map
         if (activeShapeState?.feature && !source.hasFeature(activeShapeState.feature)) {
