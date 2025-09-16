@@ -18,7 +18,6 @@ import { Style, Fill, Stroke } from 'ol/style';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 import { Modify, Translate } from 'ol/interaction';
 
-
 const STYLE_VIEW_MODE = new Style({
     fill: new Fill({ color: 'rgba(67, 133, 245, 0.1)' }),
     stroke: new Stroke({ color: '#4385F5', width: 2 }),
@@ -92,24 +91,31 @@ function readCustomGeoJSON(dbGeofence: DbGeofence): Geometry | null {
 }
 
 const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         if ((window as any).google && (window as any).google.maps) {
             resolve();
             return;
         }
-        
-        const existingScript = document.getElementById('google-maps-api');
-        if (existingScript) {
-             const checkInterval = setInterval(() => {
+
+        if ((window as any).__googleMapsApiLoading__) {
+            // If loading is already in progress, wait for it to finish.
+            const checkInterval = setInterval(() => {
                 if ((window as any).google && (window as any).google.maps) {
                     clearInterval(checkInterval);
                     resolve();
+                } else if (!(window as any).__googleMapsApiLoading__) {
+                    // Loading was aborted for some reason, try again.
+                    clearInterval(checkInterval);
+                    loadGoogleMapsApi(apiKey).then(resolve, reject);
                 }
             }, 100);
             return;
         }
 
+        (window as any).__googleMapsApiLoading__ = true;
+
         (window as any).__googleMapsApiLoaded__ = () => {
+            (window as any).__googleMapsApiLoading__ = false;
             resolve();
         };
         
@@ -118,6 +124,10 @@ const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=__googleMapsApiLoaded__`;
         script.async = true;
         script.defer = true;
+        script.onerror = () => {
+            (window as any).__googleMapsApiLoading__ = false;
+            reject(new Error("Failed to load Google Maps script."));
+        };
         document.head.appendChild(script);
     });
 };
@@ -160,23 +170,39 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
     // Effect for loading external APIs
     useEffect(() => {
-        if (provider.provider_type === 'google') {
-            const apiKey = provider.config_json?.api_config?.parameters?.apiKey || googleMapsApiKey;
-            if (apiKey) {
-                loadGoogleMapsApi(apiKey).then(() => {
-                    setIsApiReady(true);
-                });
+        let isMounted = true;
+        async function loadApi() {
+            if (provider.provider_type === 'google') {
+                const apiKey = provider.config_json?.api_config?.parameters?.apiKey || googleMapsApiKey;
+                if (apiKey) {
+                    try {
+                        await loadGoogleMapsApi(apiKey);
+                        if (isMounted) setIsApiReady(true);
+                    } catch (error) {
+                        console.error(error);
+                        if (isMounted) setIsApiReady(false); // Indicate failure
+                    }
+                } else {
+                    console.error("Google Maps API key is missing.");
+                    if (isMounted) setIsApiReady(false);
+                }
             } else {
-                console.error("Google Maps API key is missing.");
+                if (isMounted) setIsApiReady(true);
             }
-        } else {
-            setIsApiReady(true);
         }
+        loadApi();
+        return () => { isMounted = false; };
     }, [provider, googleMapsApiKey]);
 
     // Effect for initializing the map once API is ready
     useEffect(() => {
-        if (!isApiReady || !mapContainerRef.current || mapRef.current) {
+        if (!isApiReady || !mapContainerRef.current) {
+            return;
+        }
+
+        // Prevent re-initialization if map already exists
+        if (mapRef.current) {
+            mapRef.current.setTarget(mapContainerRef.current);
             return;
         }
         
@@ -186,7 +212,9 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
         if (provider.provider_type === 'google') {
             const GoogleSource = require('ol/source/Google').default;
+            const apiKey = apiConfig.parameters?.apiKey || googleMapsApiKey;
             source = new GoogleSource({
+                key: apiKey,
                 mapTypeId: 'roadmap',
             });
         } else {
@@ -215,7 +243,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 mapRef.current.setTarget(undefined);
             }
         };
-    }, [isApiReady, provider, initialPosition, onMapLoad, mapRef]);
+    }, [isApiReady, provider, initialPosition, onMapLoad, mapRef, googleMapsApiKey]);
 
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
