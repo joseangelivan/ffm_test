@@ -77,8 +77,8 @@ async function geocodeWithService(
     for (const [key, paramConfig] of Object.entries(parameters)) {
         let rawValue: any;
 
-        if (typeof paramConfig === 'object' && paramConfig !== null) {
-            rawValue = (paramConfig as any).value;
+        if (typeof paramConfig === 'object' && paramConfig !== null && 'value' in paramConfig) {
+            rawValue = (paramConfig as { value: any }).value;
         } else {
             rawValue = paramConfig;
         }
@@ -428,5 +428,7 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
         if (client) client.release();
     }
 }
+
+    
 
     
