@@ -93,14 +93,15 @@ function readCustomGeoJSON(dbGeofence: DbGeofence): Geometry | null {
 
 const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
     return new Promise((resolve) => {
-        if (window.google && window.google.maps) {
-            return resolve();
+        if ((window as any).google && (window as any).google.maps) {
+            resolve();
+            return;
         }
-
+        
         const existingScript = document.getElementById('google-maps-api');
         if (existingScript) {
              const checkInterval = setInterval(() => {
-                if (window.google && window.google.maps) {
+                if ((window as any).google && (window as any).google.maps) {
                     clearInterval(checkInterval);
                     resolve();
                 }
@@ -108,10 +109,10 @@ const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
             return;
         }
 
-        window.__googleMapsApiLoaded__ = () => {
+        (window as any).__googleMapsApiLoaded__ = () => {
             resolve();
         };
-
+        
         const script = document.createElement('script');
         script.id = 'google-maps-api';
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=__googleMapsApiLoaded__`;
@@ -155,6 +156,66 @@ const OpenLayersMap: React.FC<MapProps> = ({
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const vectorSourceRef = useRef<VectorSource>(new VectorSource());
+    const [isApiReady, setIsApiReady] = useState(false);
+
+    // Effect for loading external APIs
+    useEffect(() => {
+        if (provider.provider_type === 'google') {
+            const apiKey = provider.config_json?.api_config?.parameters?.apiKey || googleMapsApiKey;
+            if (apiKey) {
+                loadGoogleMapsApi(apiKey).then(() => {
+                    setIsApiReady(true);
+                });
+            } else {
+                console.error("Google Maps API key is missing.");
+            }
+        } else {
+            setIsApiReady(true);
+        }
+    }, [provider, googleMapsApiKey]);
+
+    // Effect for initializing the map once API is ready
+    useEffect(() => {
+        if (!isApiReady || !mapContainerRef.current || mapRef.current) {
+            return;
+        }
+        
+        let source;
+        const config = provider.config_json || {};
+        const apiConfig = config.api_config || {};
+
+        if (provider.provider_type === 'google') {
+            const GoogleSource = require('ol/source/Google').default;
+            source = new GoogleSource({
+                mapTypeId: 'roadmap',
+            });
+        } else {
+            const baseUrl = apiConfig.base_url;
+            source = baseUrl ? new XYZ({ url: baseUrl, maxZoom: 20 }) : new OSM();
+        }
+
+        const map = new Map({
+            target: mapContainerRef.current!,
+            layers: [
+                new TileLayer({ source }),
+                new VectorLayer({ source: vectorSourceRef.current, style: (feature) => feature.get('style') })
+            ],
+            view: new View({
+                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+                zoom: 15,
+            }),
+            controls: [],
+        });
+
+        (mapRef as React.MutableRefObject<Map>).current = map;
+        if (onMapLoad) onMapLoad(map, vectorSourceRef.current);
+
+        return () => {
+            if (mapRef.current) {
+                mapRef.current.setTarget(undefined);
+            }
+        };
+    }, [isApiReady, provider, initialPosition, onMapLoad, mapRef]);
 
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
@@ -179,62 +240,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
             return STYLE_EDIT_MODE_UNSELECTED;
         }
     }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState, shapeBeingSaved]);
-    
-    // Effect for initializing the map
-    useEffect(() => {
-        const initializeMap = async () => {
-            if (!mapContainerRef.current || mapRef.current) {
-                return;
-            }
-
-            const config = provider.config_json || {};
-            const apiConfig = config.api_config || {};
-            let source;
-
-            if (provider.provider_type === 'google') {
-                const apiKey = apiConfig.parameters?.apiKey || googleMapsApiKey;
-                if (!apiKey) {
-                    console.error("Google Maps API key is missing.");
-                    return;
-                }
-                const GoogleSource = (await import('ol/source/Google')).default;
-                await loadGoogleMapsApi(apiKey);
-                source = new GoogleSource({
-                    key: apiKey,
-                    mapTypeId: 'roadmap',
-                });
-            } else {
-                 const baseUrl = apiConfig.base_url;
-                 source = baseUrl ? new XYZ({ url: baseUrl, maxZoom: 20 }) : new OSM();
-            }
-
-            const view = new View({
-                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
-                zoom: 15,
-            });
-
-            const map = new Map({
-                target: mapContainerRef.current,
-                layers: [
-                    new TileLayer({ source }),
-                    new VectorLayer({ source: vectorSourceRef.current, style: (feature) => feature.get('style') })
-                ],
-                view: view,
-                controls: [],
-            });
-
-            (mapRef as React.MutableRefObject<Map>).current = map;
-            if (onMapLoad) onMapLoad(map, vectorSourceRef.current);
-        };
-
-        initializeMap();
-       
-        return () => {
-             if (mapRef?.current) {
-                 mapRef.current.setTarget(undefined);
-             }
-        };
-    }, [provider, initialPosition, onMapLoad, mapRef, googleMapsApiKey]);
 
 
     // Effect for updating features and styles
