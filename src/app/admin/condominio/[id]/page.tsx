@@ -68,26 +68,33 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
   
   let initialPosition: { lat: number; lng: number } | null = null;
   
-  // Geocode the condo's address to get the initial position for the "center on address" button
-  const geocodeResult = await geocodeAddress({
-    street: condo.street || '',
-    city: condo.city || '',
-    state: condo.state || '',
-    country: condo.country || '',
-  });
+  // Logic Priority:
+  // 1. Try to use the default geofence center.
+  // 2. If no default geofence, geocode the condo's address.
+  // 3. If geocoding fails, use an absolute fallback.
+  const defaultGeofence = geofences.find(g => g.is_default);
 
-  if (geocodeResult.success && geocodeResult.data?.geometry.location) {
-      initialPosition = geocodeResult.data.geometry.location;
+  if (defaultGeofence?.geometry?.center) {
+      initialPosition = { 
+          lat: defaultGeofence.geometry.center[1], 
+          lng: defaultGeofence.geometry.center[0] 
+      };
   } else {
-      // Fallback to geofence center if geocoding fails
-      const defaultGeofence = geofences.find(g => g.is_default);
-      if (defaultGeofence?.geometry?.center) {
-          initialPosition = { lat: defaultGeofence.geometry.center[1], lng: defaultGeofence.geometry.center[0] };
+      const geocodeResult = await geocodeAddress({
+        street: condo.street || '',
+        city: condo.city || '',
+        state: condo.state || '',
+        country: condo.country || '',
+      });
+
+      if (geocodeResult.success && geocodeResult.data?.geometry.location) {
+          initialPosition = geocodeResult.data.geometry.location;
       } else {
           // Absolute fallback
           initialPosition = { lat: -14.235, lng: -51.9253 };
       }
   }
+
 
   const condoWithGeofences = { ...condo, geofences: geofences || [] };
   
