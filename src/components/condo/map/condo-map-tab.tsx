@@ -50,7 +50,6 @@ export default function CondoMapTab({ condo, initialPosition, searchedPosition }
   const [showAllGeofences, setShowAllGeofences] = useState(false);
   
   const [fitLevel, setFitLevel] = useState<'1' | '2' | '3'>('2');
-  const [condoAddressPosition] = useState(initialPosition);
   const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
   const [selectedModule, setSelectedModule] = useState('geofence');
   
@@ -127,9 +126,9 @@ export default function CondoMapTab({ condo, initialPosition, searchedPosition }
   }, [condo.id, selectedGeofenceId, toast, t]);
 
   const centerMapOnAddress = useCallback(() => {
-    if (!condoAddressPosition || !mapAdapter) return;
-    mapAdapter.setCenter(condoAddressPosition, 17);
-  }, [condoAddressPosition, mapAdapter]);
+    if (!initialPosition || !mapAdapter) return;
+    mapAdapter.setCenter(initialPosition, 17);
+  }, [initialPosition, mapAdapter]);
 
   const applyZoomLevel = useCallback(() => {
     if(!mapAdapter) return;
@@ -349,3 +348,5 @@ export default function CondoMapTab({ condo, initialPosition, searchedPosition }
     </>
   );
 }
+
+    
