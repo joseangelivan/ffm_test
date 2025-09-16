@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Loader } from 'lucide-react';
 import { useLocale } from '@/lib/i18n';
@@ -11,6 +11,11 @@ import type { Map as OlMap, Feature } from 'ol';
 import type { Vector as VectorSource } from 'ol/source';
 
 const OpenLayersMap = dynamic(() => import('./providers/openlayers/map'), {
+    ssr: false,
+    loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
+});
+
+const GoogleMap = dynamic(() => import('./providers/google/map'), {
     ssr: false,
     loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
 });
@@ -34,6 +39,22 @@ type MapContainerProps = {
 
 const MapContainer: React.FC<MapContainerProps> = (props) => {
     const { t } = useLocale();
+    const { provider } = props;
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        if (provider) {
+            setIsLoading(false);
+        }
+    }, [provider]);
+
+    if (isLoading) {
+        return <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>;
+    }
+
+    if (provider.provider_type === 'google') {
+        return <GoogleMap {...props} />;
+    }
     
     return (
         <Suspense fallback={<div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>}>

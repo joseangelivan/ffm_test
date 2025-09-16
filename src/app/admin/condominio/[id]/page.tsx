@@ -86,9 +86,12 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
   const condo = condoResult.data;
   
   const defaultGeofence = geofences.find(g => g.is_default);
-  const initialPosition = defaultGeofence?.geometry?.center 
-    ? { lat: defaultGeofence.geometry.center[1], lng: defaultGeofence.geometry.center[0] } 
-    : { lat: -14.235, lng: -51.9253 }; // Fallback to Brazil center
+  
+  let initialPosition = { lat: -14.235, lng: -51.9253 }; // Fallback to Brazil center
+  
+  if (defaultGeofence?.geometry?.center) {
+      initialPosition = { lat: defaultGeofence.geometry.center[1], lng: defaultGeofence.geometry.center[0] };
+  }
   
   const condoWithGeofences = { ...condo, geofences: geofences || [] };
   
