@@ -36,10 +36,9 @@ import type { Geometry } from 'ol/geom';
 interface CondoMapTabProps {
   condo: Condominio & { geofences: DbGeofence[] };
   initialPosition: { lat: number; lng: number };
-  googleMapsApiKey: string | undefined;
 }
 
-export default function CondoMapTab({ condo, initialPosition, googleMapsApiKey }: CondoMapTabProps) {
+export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps) {
   const { t } = useLocale();
   const { toast } = useToast();
   const { mapProvider } = useCondoDashboard();
@@ -313,7 +312,6 @@ export default function CondoMapTab({ condo, initialPosition, googleMapsApiKey }
                                 mapRef={olMapRef}
                                 onMapLoad={handleMapLoad}
                                 dbGeofences={dbGeofences}
-                                googleMapsApiKey={googleMapsApiKey}
                                 activeShapeState={activeShapeState}
                                 showAllGeofences={showAllGeofences}
                                 selectedGeofenceId={selectedGeofenceId}

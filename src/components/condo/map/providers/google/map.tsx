@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -30,6 +31,8 @@ const loadGoogleMapsApi = (apiKey: string, language: string, onAuthFailure: () =
         // Define failure callback FIRST
         window.gm_authFailure = () => {
             onAuthFailure();
+            // We don't reject the promise here, because the script itself loaded.
+            // We just let the UI handle the error state.
         };
 
         // Define success callback
@@ -65,6 +68,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
     initialPosition = { lat: -14.235, lng: -51.9253 } 
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
+    const mapInstanceRef = useRef<google.maps.Map | null>(null);
     const [apiStatus, setApiStatus] = useState<'loading' | 'ready' | 'error'>('loading');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const { t, locale } = useLocale();
@@ -81,19 +85,17 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
 
         const apiKey = provider.config_json?.api_config?.parameters?.apiKey;
         if (apiKey) {
+            setApiStatus('loading');
             loadGoogleMapsApi(apiKey, locale, handleAuthFailure)
                 .then(() => { 
-                    if (isMounted) {
-                       // Only set to ready if no error has occurred yet
-                        if (apiStatus !== 'error') {
-                            setApiStatus('ready');
-                        }
+                    if (isMounted && apiStatus !== 'error') {
+                        setApiStatus('ready');
                     }
                 })
                 .catch(err => {
                     console.error("Google Maps API script failed to load:", err);
                     if (isMounted) {
-                        setErrorMessage("Failed to load Google Maps API. Please check your API key and network connection.");
+                        setErrorMessage(t('toast.mapsBillingError.description'));
                         setApiStatus('error');
                     }
                 });
@@ -106,16 +108,24 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
             isMounted = false;
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [provider.id, locale]); // Rerun if provider or language changes
+    }, [provider.id, locale]); 
 
     useEffect(() => {
-        // This effect runs ONLY when the API is ready and the container is available.
-        if (apiStatus === 'ready' && mapContainerRef.current) {
-            const mapInstance = new window.google.maps.Map(mapContainerRef.current, {
+        // Initialize map only when API is ready and container is available
+        if (apiStatus === 'ready' && mapContainerRef.current && !mapInstanceRef.current) {
+            const map = new window.google.maps.Map(mapContainerRef.current, {
                 center: initialPosition,
                 zoom: 15,
                 disableDefaultUI: true,
             });
+            mapInstanceRef.current = map;
+        }
+
+        // Cleanup on unmount
+        return () => {
+            if (mapInstanceRef.current) {
+                mapInstanceRef.current = null;
+            }
         }
     }, [apiStatus, initialPosition]);
 
@@ -137,7 +147,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
                     </Alert>
                </div>
            )}
-            {/* The map div is always present to be targeted, but the map is only initialized when ready */}
+            {/* The map div is always present to be targeted */}
             <div ref={mapContainerRef} className="w-full h-full" />
        </div>
     );
