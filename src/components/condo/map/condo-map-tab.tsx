@@ -159,6 +159,12 @@ export default function CondoMapTab({ condo, initialPosition, searchedPosition }
   }, [mode, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress, mapAdapter]);
 
   useEffect(() => {
+    if (mapAdapter) {
+      applyZoomLevel();
+    }
+  }, [mapAdapter, applyZoomLevel]);
+
+  useEffect(() => {
     if (searchedPosition && mapAdapter) {
       mapAdapter.setCenter(searchedPosition, 18);
     }
