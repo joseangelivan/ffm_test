@@ -51,19 +51,14 @@ const STYLE_HIDDEN = new Style({
 
 
 function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
-    const geometryObject = { ...dbGeofence.geometry };
+    const geometryObject = dbGeofence.geometry;
 
     if (!geometryObject) {
         return null;
     }
     
-    if (typeof geometryObject !== 'object') {
-        console.warn(`Invalid geometry object passed to reader (not an object):`, geometryObject);
-        return null;
-    }
-
-    if (Object.keys(geometryObject).length === 0 && geometryObject.constructor === Object) {
-        console.warn(`Invalid geometry object passed to reader (empty object):`, geometryObject);
+    if (typeof geometryObject !== 'object' || Object.keys(geometryObject).length === 0) {
+        console.warn(`Invalid geometry object passed to reader:`, geometryObject);
         return null;
     }
 
@@ -80,33 +75,37 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
             ].map(coord => fromLonLat(coord));
             
             const Polygon = require('ol/geom/Polygon').default;
-            const newPolygon = new Polygon([coords]);
-            newPolygon.set('geometryType', 'Rectangle');
-            return newPolygon;
-        } else {
-            console.warn(`Invalid coordinate structure for legacy Rectangle geometry:`, bounds);
-            return null;
+            return new Polygon([coords]);
         }
-    }
-    
-    if (geometryObject.type === 'rectangle') {
-        geometryObject.type = 'Polygon';
     }
 
     // Standard GeoJSON handling
     if ('type' in geometryObject && 'coordinates' in geometryObject) {
        try {
             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
-            const geometry = format.readGeometry(geometryObject);
-            // If it's a polygon and has 5 coordinates (4 vertices + closing point), it's a rectangle
-            if (geometry.getType() === 'Polygon' && (geometry as any).getCoordinates()[0].length === 5) {
-                geometry.set('geometryType', 'Rectangle');
+            
+            // If the type is our custom 'Rectangle', we treat it as a Polygon for OL.
+            if (geometryObject.type === 'Rectangle') {
+                const standardGeoJsonPolygon = {
+                    type: 'Polygon',
+                    coordinates: geometryObject.coordinates
+                };
+                return format.readGeometry(standardGeoJsonPolygon);
             }
-            return geometry;
+
+            // For standard types like 'Polygon' or 'Circle' (if stored as GeoJSON point with radius)
+            return format.readGeometry(geometryObject);
         } catch (e) {
             console.error("Error reading standard GeoJSON:", e, geometryObject);
             return null;
         }
+    }
+    
+    // Handle custom Circle format
+    if ('type' in geometryObject && geometryObject.type === 'Circle' && 'center' in geometryObject && 'radius' in geometryObject) {
+         const Circle = require('ol/geom/Circle').default;
+         const center = fromLonLat(geometryObject.center as [number, number]);
+         return new Circle(center, geometryObject.radius as number);
     }
     
     console.warn(`Invalid geometry object passed to reader (no type or incompatible structure):`, geometryObject);
@@ -117,6 +116,7 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
 interface MapProps {
     mapRef: React.RefObject<Map | null>;
     vectorSourceRef: React.RefObject<VectorSource | null>;
+    provider: DbMapProvider;
     dbGeofences: DbGeofence[];
     mode: 'view' | 'editing';
     showAllGeofences: boolean;
@@ -129,6 +129,7 @@ interface MapProps {
 const OpenLayersMap: React.FC<MapProps> = ({ 
     mapRef,
     vectorSourceRef,
+    provider,
     dbGeofences,
     mode,
     showAllGeofences,
@@ -195,7 +196,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
             } else {
                 feature = new Feature({ geometry: olGeom });
                 feature.setId(dbGeofence.id);
-                feature.set('geometryType', olGeom.get('geometryType'));
                 source.addFeature(feature);
             }
         });
@@ -232,3 +232,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
+
+  
+
