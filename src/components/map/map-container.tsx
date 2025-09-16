@@ -1,8 +1,7 @@
 
-
 "use client";
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { Loader } from 'lucide-react';
 import { useLocale } from '@/lib/i18n';
@@ -36,8 +35,11 @@ type MapContainerProps = {
 const MapContainer: React.FC<MapContainerProps> = (props) => {
     const { t } = useLocale();
     
-    // OpenLayers is now the single entry point for all map types.
-    return <OpenLayersMap {...props} />;
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>}>
+            <OpenLayersMap {...props} />
+        </Suspense>
+    );
 }
 
 export default MapContainer;
