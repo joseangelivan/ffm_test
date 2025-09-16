@@ -401,23 +401,20 @@ export function GeofenceControls({
                         return;
                     }
                     
-                    const originalVertices = (originalGeometryOnModifyStart.current as Polygon).getCoordinates()[0].slice(0, 4);
-                    const newVertices = finalGeometry.getCoordinates()[0].slice(0, 4);
-                    
+                    const originalCoordsFlat = (originalGeometryOnModifyStart.current as Polygon).getCoordinates()[0].slice(0, 4).flat();
+                    const newCoordsFlat = finalGeometry.getCoordinates()[0].slice(0, 4).flat();
+
                     let movedIndex = -1;
-                    
-                    for (let i = 0; i < originalVertices.length; i++) {
-                        const oldVertex = originalVertices[i];
-                        const newVertexIndex = newVertices.findIndex(nv => nv[0] === oldVertex[0] && nv[1] === oldVertex[1]);
-                        if (newVertexIndex === -1) {
-                            movedIndex = i;
+                    for (let i = 0; i < newCoordsFlat.length; i++) {
+                        if (newCoordsFlat[i] !== originalCoordsFlat[i]) {
+                            movedIndex = Math.floor(i / 2);
                             break;
                         }
                     }
 
                     if (movedIndex !== -1) {
-                        const movedPoint = newVertices[movedIndex];
-                        const oppositePoint = originalVertices[(movedIndex + 2) % 4];
+                        const movedPoint = finalGeometry.getCoordinates()[0][movedIndex];
+                        const oppositePoint = (originalGeometryOnModifyStart.current as Polygon).getCoordinates()[0][(movedIndex + 2) % 4];
                         const correctedCoords = RecalcularRectangulo(oppositePoint, movedPoint);
                         const newGeom = new Polygon([correctedCoords]);
                         feature.setGeometry(newGeom);
