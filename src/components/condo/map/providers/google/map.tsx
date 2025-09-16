@@ -29,10 +29,10 @@ const loadGoogleMapsApi = (apiKey: string, language: string): Promise<void> => {
 
     window.__googleMapsApiLoading__ = true;
     window.__googleMapsApiPromise__ = new Promise<void>((resolve, reject) => {
-        (window as any).initGoogleMapsApi = () => {
+        window.initGoogleMapsApi = () => {
             window.__googleMapsApiLoading__ = false;
             resolve();
-            delete (window as any).initGoogleMapsApi;
+            delete window.initGoogleMapsApi;
         };
 
         const script = document.createElement('script');
@@ -43,7 +43,7 @@ const loadGoogleMapsApi = (apiKey: string, language: string): Promise<void> => {
         script.onerror = () => {
             window.__googleMapsApiLoading__ = false;
             reject(new Error("Failed to load Google Maps script."));
-            delete (window as any).initGoogleMapsApi;
+            delete window.initGoogleMapsApi;
         };
         document.head.appendChild(script);
     });
@@ -95,7 +95,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
     }, [provider, locale, t]);
 
     useEffect(() => {
-        if (!isApiReady || !mapContainerRef.current) {
+        if (!isApiReady || !mapContainerRef.current || error) {
             return;
         }
 
@@ -111,7 +111,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
             // y asegurar que el contenedor del DOM se elimine es suficiente.
         };
 
-    }, [isApiReady, initialPosition]);
+    }, [isApiReady, initialPosition, error]);
 
     return (
        <div ref={mapContainerRef} className="w-full h-full relative">
