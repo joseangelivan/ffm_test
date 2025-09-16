@@ -10,13 +10,12 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 declare global {
   interface Window {
     __googleMapsApiPromise__: Promise<void>;
-    __googleMapsApiLoading__: boolean;
     initGoogleMapsApi: () => void;
     gm_authFailure: () => void;
   }
 }
 
-const loadGoogleMapsApi = (apiKey: string, language: string): Promise<void> => {
+const loadGoogleMapsApi = (apiKey: string, language: string, onAuthFailure: () => void): Promise<void> => {
     if (typeof window === 'undefined') {
         return Promise.reject(new Error("Cannot load Google Maps API in SSR."));
     }
@@ -27,29 +26,33 @@ const loadGoogleMapsApi = (apiKey: string, language: string): Promise<void> => {
         return window.__googleMapsApiPromise__;
     }
 
-    window.__googleMapsApiLoading__ = true;
     window.__googleMapsApiPromise__ = new Promise<void>((resolve, reject) => {
+        // Define failure callback FIRST
+        window.gm_authFailure = () => {
+            onAuthFailure();
+        };
+
+        // Define success callback
         window.initGoogleMapsApi = () => {
-            window.__googleMapsApiLoading__ = false;
             resolve();
+            // Clean up global callbacks after load
             delete window.initGoogleMapsApi;
         };
 
         const script = document.createElement('script');
-        const langParam = language.split('-')[0]; // Use 'es' or 'pt', not 'pt-BR'
+        const langParam = language.split('-')[0];
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMapsApi&language=${langParam}`;
         script.async = true;
         script.defer = true;
-        script.onerror = () => {
-            window.__googleMapsApiLoading__ = false;
-            reject(new Error("Failed to load Google Maps script."));
-            delete window.initGoogleMapsApi;
+        script.onerror = (error) => {
+            reject(new Error("Failed to load Google Maps script. Check network and script URL."));
         };
         document.head.appendChild(script);
     });
 
     return window.__googleMapsApiPromise__;
 };
+
 
 // --- TIPOS Y COMPONENTE PRINCIPAL ---
 interface GoogleMapProps {
@@ -62,75 +65,80 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
     initialPosition = { lat: -14.235, lng: -51.9253 } 
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const [isApiReady, setIsApiReady] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [apiStatus, setApiStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const { t, locale } = useLocale();
 
     useEffect(() => {
         let isMounted = true;
-        
-        // Define el manejador de errores de autenticación de Google Maps
-        window.gm_authFailure = () => {
-             if (isMounted) {
-                setError(t('toast.mapsBillingError.description'));
+
+        const handleAuthFailure = () => {
+            if (isMounted) {
+                setErrorMessage(t('toast.mapsBillingError.description'));
+                setApiStatus('error');
             }
         };
 
         const apiKey = provider.config_json?.api_config?.parameters?.apiKey;
         if (apiKey) {
-            loadGoogleMapsApi(apiKey, locale)
-                .then(() => { if (isMounted) setIsApiReady(true); })
+            loadGoogleMapsApi(apiKey, locale, handleAuthFailure)
+                .then(() => { 
+                    if (isMounted) {
+                       // Only set to ready if no error has occurred yet
+                        if (apiStatus !== 'error') {
+                            setApiStatus('ready');
+                        }
+                    }
+                })
                 .catch(err => {
-                    console.error("Google Maps API failed to load:", err);
-                    if (isMounted) setError("Failed to load Google Maps API. Please check your API key and network connection.");
+                    console.error("Google Maps API script failed to load:", err);
+                    if (isMounted) {
+                        setErrorMessage("Failed to load Google Maps API. Please check your API key and network connection.");
+                        setApiStatus('error');
+                    }
                 });
         } else {
-            setError("Google Maps API Key is missing in the provider configuration.");
+            setErrorMessage("Google Maps API Key is missing in the provider configuration.");
+            setApiStatus('error');
         }
+
         return () => { 
-            isMounted = false; 
-            // Limpia el manejador global cuando el componente se desmonta
-            delete window.gm_authFailure;
+            isMounted = false;
         };
-    }, [provider, locale, t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [provider.id, locale]); // Rerun if provider or language changes
 
     useEffect(() => {
-        if (!isApiReady || !mapContainerRef.current || error) {
-            return;
+        // This effect runs ONLY when the API is ready and the container is available.
+        if (apiStatus === 'ready' && mapContainerRef.current) {
+            const mapInstance = new window.google.maps.Map(mapContainerRef.current, {
+                center: initialPosition,
+                zoom: 15,
+                disableDefaultUI: true,
+            });
         }
-
-        const mapInstance = new window.google.maps.Map(mapContainerRef.current, {
-            center: initialPosition,
-            zoom: 15,
-            disableDefaultUI: true,
-        });
-
-        // Limpieza al desmontar el componente
-        return () => {
-            // No hay una función de 'destroy' explícita, pero eliminar la referencia
-            // y asegurar que el contenedor del DOM se elimine es suficiente.
-        };
-
-    }, [isApiReady, initialPosition, error]);
+    }, [apiStatus, initialPosition]);
 
     return (
-       <div ref={mapContainerRef} className="w-full h-full relative">
-           {!isApiReady && !error && (
-                <div className="absolute inset-0 flex items-center justify-center h-full bg-muted z-10">
+       <div className="w-full h-full relative bg-muted">
+           {apiStatus === 'loading' && (
+                <div className="absolute inset-0 flex items-center justify-center h-full z-10">
                     <Loader className="h-6 w-6 animate-spin" />
                 </div>
            )}
-           {error && (
+           {apiStatus === 'error' && (
                <div className="absolute top-2 left-2 right-2 z-10">
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
                       <AlertTitle>{t('toast.mapsBillingError.title')}</AlertTitle>
                       <AlertDescription>
-                        {error}
+                        {errorMessage}
                       </AlertDescription>
                     </Alert>
                </div>
            )}
+            {/* The map div is always present to be targeted, but the map is only initialized when ready */}
+            <div ref={mapContainerRef} className="w-full h-full" />
        </div>
     );
 };
