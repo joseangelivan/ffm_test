@@ -91,11 +91,42 @@ function readCustomGeoJSON(dbGeofence: DbGeofence): Geometry | null {
     return null;
 }
 
+const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
+    return new Promise((resolve) => {
+        if (window.google && window.google.maps) {
+            return resolve();
+        }
+
+        const existingScript = document.getElementById('google-maps-api');
+        if (existingScript) {
+             const checkInterval = setInterval(() => {
+                if (window.google && window.google.maps) {
+                    clearInterval(checkInterval);
+                    resolve();
+                }
+            }, 100);
+            return;
+        }
+
+        window.__googleMapsApiLoaded__ = () => {
+            resolve();
+        };
+
+        const script = document.createElement('script');
+        script.id = 'google-maps-api';
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=__googleMapsApiLoaded__`;
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+    });
+};
+
 
 interface MapProps {
     provider: DbMapProvider;
-    mapRef?: React.RefObject<Map | null>;
+    mapRef: React.RefObject<Map | null>;
     onMapLoad?: (map: Map, source: VectorSource) => void;
+    googleMapsApiKey?: string,
     dbGeofences?: DbGeofence[];
     mode?: 'view' | 'editing';
     showAllGeofences?: boolean;
@@ -111,6 +142,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     provider, 
     mapRef,
     onMapLoad, 
+    googleMapsApiKey,
     dbGeofences = [],
     mode = 'view',
     showAllGeofences = false,
@@ -150,48 +182,59 @@ const OpenLayersMap: React.FC<MapProps> = ({
     
     // Effect for initializing the map
     useEffect(() => {
-        const mapExists = mapRef && mapRef.current;
-        if (!mapContainerRef.current || mapExists) {
-            if (mapExists && mapRef) {
-                mapRef.current.setTarget(mapContainerRef.current ?? undefined);
+        const initializeMap = async () => {
+            if (!mapContainerRef.current || mapRef.current) {
+                return;
             }
-            return;
+
+            const config = provider.config_json || {};
+            const apiConfig = config.api_config || {};
+            let source;
+
+            if (provider.provider_type === 'google') {
+                const apiKey = apiConfig.parameters?.apiKey || googleMapsApiKey;
+                if (!apiKey) {
+                    console.error("Google Maps API key is missing.");
+                    return;
+                }
+                const GoogleSource = (await import('ol/source/Google')).default;
+                await loadGoogleMapsApi(apiKey);
+                source = new GoogleSource({
+                    key: apiKey,
+                    mapTypeId: 'roadmap',
+                });
+            } else {
+                 const baseUrl = apiConfig.base_url;
+                 source = baseUrl ? new XYZ({ url: baseUrl, maxZoom: 20 }) : new OSM();
+            }
+
+            const view = new View({
+                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+                zoom: 15,
+            });
+
+            const map = new Map({
+                target: mapContainerRef.current,
+                layers: [
+                    new TileLayer({ source }),
+                    new VectorLayer({ source: vectorSourceRef.current, style: (feature) => feature.get('style') })
+                ],
+                view: view,
+                controls: [],
+            });
+
+            (mapRef as React.MutableRefObject<Map>).current = map;
+            if (onMapLoad) onMapLoad(map, vectorSourceRef.current);
         };
 
-        const config = provider.config_json || {};
-        const apiConfig = config.api_config || {};
-
-        const baseUrl = apiConfig.base_url;
-        const source = baseUrl ? new XYZ({ url: baseUrl, maxZoom: 20 }) : new OSM();
-
-        const defaultGeofence = dbGeofences.find(g => g.id === defaultGeofenceId);
-        
-        const view = new View({
-            center: fromLonLat([initialPosition.lng, initialPosition.lat]),
-            zoom: 15,
-        });
-
-        const map = new Map({
-            target: mapContainerRef.current,
-            layers: [
-                new TileLayer({ source }),
-                new VectorLayer({ source: vectorSourceRef.current, style: (feature) => feature.get('style') })
-            ],
-            view: view,
-            controls: [],
-        });
-
-        if (mapRef) {
-            (mapRef as React.MutableRefObject<Map>).current = map;
-        }
-        if (onMapLoad) onMapLoad(map, vectorSourceRef.current);
+        initializeMap();
        
         return () => {
              if (mapRef?.current) {
                  mapRef.current.setTarget(undefined);
              }
         };
-    }, [provider, dbGeofences, defaultGeofenceId, initialPosition, onMapLoad, mapRef]);
+    }, [provider, initialPosition, onMapLoad, mapRef, googleMapsApiKey]);
 
 
     // Effect for updating features and styles
