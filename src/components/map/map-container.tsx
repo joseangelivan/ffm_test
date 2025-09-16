@@ -4,32 +4,20 @@ import React, { Suspense, useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Loader } from 'lucide-react';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
-import type { Geofence as DbGeofence } from '@/actions/maps';
-import type { Map as OlMap, Feature } from 'ol';
-import type { Vector as VectorSource } from 'ol/source';
 
+// Carga dinámica de los componentes de mapa específicos del proveedor
 const OpenLayersMap = dynamic(() => import('./providers/openlayers/map'), {
     ssr: false,
     loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
 });
 
-type MapContainerProps = {
-    provider: DbMapProvider | null;
-    mapRef?: React.RefObject<OlMap | null>;
-    onMapLoad?: (map: OlMap | any, source?: VectorSource) => void;
-    googleMapsApiKey?: string;
-    dbGeofences?: DbGeofence[];
-    mode?: 'view' | 'editing';
-    showAllGeofences?: boolean;
-    selectedGeofenceId?: string | null;
-    defaultGeofenceId?: string | null;
-    initialPosition?: { lat: number; lng: number };
-    activeShapeState?: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
-    shapeBeingSaved?: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
-    children?: React.ReactNode;
-}
+const GoogleMap = dynamic(() => import('../condo/map/providers/google/map'), {
+    ssr: false,
+    loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
+});
 
-const MapContainer: React.FC<MapContainerProps> = (props) => {
+
+const MapContainer: React.FC<any> = (props) => {
     const { provider } = props;
     const [isLoading, setIsLoading] = useState(true);
 
@@ -42,8 +30,11 @@ const MapContainer: React.FC<MapContainerProps> = (props) => {
     if (isLoading || !provider) {
         return <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>;
     }
+
+    if (provider.provider_type === 'google') {
+        return <GoogleMap {...props} />;
+    }
     
-    // Siempre renderiza OpenLayersMap, que ahora es genérico.
     return <OpenLayersMap {...props} />;
 }
 
