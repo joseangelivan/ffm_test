@@ -100,15 +100,9 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
        try {
             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
             const geometry = format.readGeometry(geometryObject);
-            // If it's a polygon and has 5 coordinates (4 vertices + closing point), it's a rectangle
-            if (geometry.getType() === 'Polygon' && (geometry as any).getCoordinates()[0].length === 5) {
-                const coordinates = (geometry as any).getCoordinates()[0];
-                const isRectangle = 
-                    coordinates[0][0] === coordinates[3][0] && coordinates[0][1] === coordinates[1][1] &&
-                    coordinates[1][0] === coordinates[2][0] && coordinates[2][1] === coordinates[3][1];
-                if (isRectangle) {
-                    geometry.set('geometryType', 'Rectangle');
-                }
+
+            if (dbGeofence.geometry.type === 'Rectangle') {
+                 geometry.set('geometryType', 'Rectangle');
             }
             return geometry;
         } catch (e) {
@@ -358,3 +352,6 @@ export default OpenLayersMap;
 
   
 
+
+
+    

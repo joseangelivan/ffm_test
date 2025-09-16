@@ -393,10 +393,14 @@ export function GeofenceControls({
                 
                 modifyInteraction.on('modifyend', (e) => {
                     const feature = e.features.getArray()[0] as OlFeature<Polygon>;
+                    if (!feature) return;
+
                     const finalGeometry = feature.getGeometry();
                     if (!finalGeometry) return;
+                    
+                    const shapeType = feature.get('geometryType');
 
-                    if (geometryType !== 'Rectangle' || !originalGeometryOnModifyStart.current) {
+                    if (shapeType !== 'Rectangle' || !originalGeometryOnModifyStart.current) {
                         pushToHistory(finalGeometry.clone());
                         return;
                     }
@@ -405,17 +409,18 @@ export function GeofenceControls({
                     const newCoords = finalGeometry.getCoordinates()[0].slice(0, 4);
                     
                     let movedIndex = -1;
-                    for (let i = 0; i < newCoords.length; i++) {
-                        if (newCoords[i][0] !== originalCoords[i][0] || newCoords[i][1] !== originalCoords[i][1]) {
-                             movedIndex = i;
-                             break;
+                    const movedPoint = newCoords.find(nc => !originalCoords.some(oc => oc[0] === nc[0] && oc[1] === nc[1]));
+
+                    if (movedPoint) {
+                        const originalMovedPoint = originalCoords.find(oc => !newCoords.some(nc => nc[0] === oc[0] && nc[1] === oc[1]));
+                        if (originalMovedPoint) {
+                            movedIndex = originalCoords.findIndex(oc => oc[0] === originalMovedPoint[0] && oc[1] === originalMovedPoint[1]);
                         }
                     }
 
                     if (movedIndex !== -1) {
-                        const movedPoint = newCoords[movedIndex];
                         const oppositePoint = originalCoords[(movedIndex + 2) % 4];
-                        const correctedCoords = RecalcularRectangulo(oppositePoint, movedPoint);
+                        const correctedCoords = RecalcularRectangulo(oppositePoint, movedPoint!);
                         const newGeom = new Polygon([correctedCoords]);
                         feature.setGeometry(newGeom);
                         pushToHistory(newGeom);
@@ -624,3 +629,5 @@ export function GeofenceControls({
         </div>
     );
 }
+
+    
