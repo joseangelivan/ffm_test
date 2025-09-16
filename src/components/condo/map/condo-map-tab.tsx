@@ -60,19 +60,17 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [drawingMode, setDrawingMode] = useState<DrawingMode>('Polygon');
 
-  const mapRef = useRef<OlMap | null>(null);
-  const geofenceSourceRef = useRef<VectorSource | null>(null);
+  const [mapInstance, setMapInstance] = useState<OlMap | null>(null);
+  const [vectorSource, setVectorSource] = useState<VectorSource | null>(null);
   const [mapAdapter, setMapAdapter] = useState<MapAdapterInterface | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   
   const [zoomLevel, setZoomLevel] = useState(15);
 
 
-  const handleMapLoad = useCallback((adapter: MapAdapterInterface, source: VectorSource) => {
+  const handleMapLoad = useCallback((map: OlMap, source: VectorSource, adapter: MapAdapterInterface) => {
+    setMapInstance(map);
+    setVectorSource(source);
     setMapAdapter(adapter);
-    mapRef.current = adapter.getMapInstance();
-    geofenceSourceRef.current = source;
-    setIsLoading(false);
   }, []);
 
 
@@ -161,13 +159,13 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   }, [mode, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress, mapAdapter]);
 
   useEffect(() => {
-    if (!isLoading && mapAdapter && dbGeofences.length > 0) {
+    if (mapAdapter && dbGeofences.length > 0) {
         const timeoutId = setTimeout(() => applyZoomLevel(), 200); // Small delay to ensure the map is fully interactive
         return () => clearTimeout(timeoutId);
-    } else if (!isLoading && mapAdapter && dbGeofences.length === 0) {
+    } else if (mapAdapter && dbGeofences.length === 0) {
         centerMapOnAddress();
     }
-  }, [isLoading, mapAdapter, dbGeofences, applyZoomLevel, centerMapOnAddress]);
+  }, [mapAdapter, dbGeofences, applyZoomLevel, centerMapOnAddress]);
     
   
   const handleUndo = () => {
@@ -189,11 +187,11 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
   };
 
   const onShapeDrawn = useCallback((feature: OlFeature<any>) => {
-    if (!feature) return;
+    if (!feature || !vectorSource) return;
 
-    if (activeShapeState?.feature && geofenceSourceRef.current) {
-      if(geofenceSourceRef.current.hasFeature(activeShapeState.feature)) {
-        geofenceSourceRef.current.removeFeature(activeShapeState.feature);
+    if (activeShapeState?.feature) {
+      if(vectorSource.hasFeature(activeShapeState.feature)) {
+        vectorSource.removeFeature(activeShapeState.feature);
       }
     }
 
@@ -209,7 +207,7 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
       setHistoryStack([]);
       setHistoryIndex(-1);
     }
-  }, [activeShapeState, geofenceSourceRef, setActiveShapeState, setHistoryStack, setHistoryIndex]);
+  }, [activeShapeState, vectorSource, setActiveShapeState, setHistoryStack, setHistoryIndex]);
   
   if (!mapProvider) {
     return null;
@@ -308,12 +306,12 @@ export default function CondoMapTab({ condo, initialPosition }: CondoMapTabProps
                                     showAllGeofences={showAllGeofences}
                                     setShowAllGeofences={setShowAllGeofences}
                                     onSettingsClick={() => setIsMapSettingsOpen(true)}
-                                    mapRef={mapRef}
+                                    mapInstance={mapInstance}
                                     historyStack={historyStack}
                                     setHistoryStack={setHistoryStack}
                                     historyIndex={historyIndex}
                                     setHistoryIndex={setHistoryIndex}
-                                    geofenceSource={geofenceSourceRef.current}
+                                    vectorSource={vectorSource}
                                     drawingMode={drawingMode}
                                     setDrawingMode={setDrawingMode}
                                     setShapeBeingSaved={setShapeBeingSaved}

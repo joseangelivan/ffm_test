@@ -17,6 +17,7 @@ import type { Geometry, Polygon as OlPolygon, Circle as OlCircle } from 'ol/geom
 import Feature from 'ol/Feature';
 import { Style, Fill, Stroke } from 'ol/style';
 import type { Geofence as DbGeofence } from '@/actions/maps';
+import type MapAdapterInterface from 'ol/Map';
 
 
 const STYLE_VIEW_MODE = new Style({
@@ -129,14 +130,13 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
 
 interface MapProps {
     provider: DbMapProvider;
-    onMapLoad: (map: Map, source: VectorSource) => void;
+    onMapLoad: (map: Map, source: VectorSource, adapter: MapAdapterInterface) => void;
     dbGeofences: DbGeofence[];
     mode: 'view' | 'editing';
     showAllGeofences: boolean;
     selectedGeofenceId: string | null;
     defaultGeofenceId: string | null;
     initialPosition: { lat: number, lng: number };
-    mapRef: React.RefObject<Map | null>;
     activeShapeState: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     shapeBeingSaved: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     onZoomChange: (zoom: number) => void;
@@ -152,13 +152,13 @@ const OpenLayersMap: React.FC<MapProps> = ({
     selectedGeofenceId,
     defaultGeofenceId,
     initialPosition,
-    mapRef,
     activeShapeState,
     shapeBeingSaved,
     onZoomChange,
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<Map | null>(null);
     const vectorSourceRef = useRef<VectorSource>(new VectorSource());
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
@@ -185,13 +185,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState, shapeBeingSaved]);
     
     useEffect(() => {
-        if (!mapContainerRef.current) return;
-        
-        // Prevent re-initialization
-        if (mapRef.current) {
-            mapRef.current.setTarget(mapContainerRef.current);
-            return;
-        }
+        if (!mapContainerRef.current || mapRef.current) return;
 
         let config: any;
         try {
@@ -231,20 +225,49 @@ const OpenLayersMap: React.FC<MapProps> = ({
             controls: [],
         });
         
-        (mapRef as React.MutableRefObject<Map | null>).current = map;
-        onMapLoad(map, vectorSourceRef.current);
+        mapRef.current = map;
+        
+        const adapter = {
+            onMoveEnd: (callback: (zoom: number) => void) => {
+               map.on('moveend', () => {
+                    const zoom = map.getView().getZoom();
+                    if(zoom) callback(Math.round(zoom));
+               });
+            },
+            setCenter: (coords: { lat: number, lng: number }, zoom?: number) => {
+                map.getView().setCenter(fromLonLat([coords.lng, coords.lat]));
+                if(zoom) map.getView().setZoom(zoom);
+            },
+            zoomIn: () => {
+                const view = map.getView();
+                view.animate({ zoom: view.getZoom()! + 1, duration: 250 });
+            },
+            zoomOut: () => {
+                 const view = map.getView();
+                view.animate({ zoom: view.getZoom()! - 1, duration: 250 });
+            },
+            fitToGeofence: (geofenceId: string, paddingPercentage: number) => {
+                const source = vectorSourceRef.current;
+                const feature = source.getFeatureById(geofenceId);
+                if (feature) {
+                    const geometry = feature.getGeometry();
+                    if (geometry) {
+                        const padding = map.getSize()![0] * paddingPercentage;
+                        map.getView().fit(geometry, { padding: [padding, padding, padding, padding], duration: 1000 });
+                    }
+                }
+            },
+            getMapInstance: () => map,
+        };
+
+        onMapLoad(map, vectorSourceRef.current, adapter);
 
         map.on('moveend', () => {
             const zoom = map.getView().getZoom();
             if (zoom) onZoomChange(Math.round(zoom));
         });
 
-        return () => {
-            if (mapRef.current) {
-                mapRef.current.setTarget(undefined);
-            }
-        };
-    }, [provider, onMapLoad, initialPosition, mapRef, onZoomChange]);
+    }, [provider, onMapLoad, initialPosition, onZoomChange]);
 
 
     useEffect(() => {
@@ -324,6 +347,3 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
-
-  
-

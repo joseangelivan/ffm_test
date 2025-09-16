@@ -71,12 +71,12 @@ type GeofenceControlsProps = {
     showAllGeofences: boolean;
     setShowAllGeofences: React.Dispatch<React.SetStateAction<boolean>>;
     onSettingsClick: () => void;
-    mapRef: React.RefObject<OlMap | null>;
+    mapInstance: OlMap | null;
     historyStack: Geometry[];
     setHistoryStack: React.Dispatch<React.SetStateAction<Geometry[]>>;
     historyIndex: number;
     setHistoryIndex: React.Dispatch<React.SetStateAction<number>>;
-    geofenceSource: VectorSource | null;
+    vectorSource: VectorSource | null;
     drawingMode: DrawingMode;
     setDrawingMode: React.Dispatch<React.SetStateAction<DrawingMode>>;
     setShapeBeingSaved: React.Dispatch<React.SetStateAction<{ id: string; feature: OlFeature<any> | null; originalGeometry?: any; } | null>>;
@@ -99,12 +99,12 @@ export function GeofenceControls({
     showAllGeofences,
     setShowAllGeofences,
     onSettingsClick,
-    mapRef,
+    mapInstance,
     historyStack,
     setHistoryStack,
     historyIndex,
     setHistoryIndex,
-    geofenceSource,
+    vectorSource,
     drawingMode,
     setDrawingMode,
     setShapeBeingSaved,
@@ -154,7 +154,7 @@ export function GeofenceControls({
     }, [geofences, t]);
 
     const removeAllInteractions = useCallback(() => {
-        const map = mapRef.current;
+        const map = mapInstance;
         if (!map) return;
         if (interactionsRef.current.draw) map.removeInteraction(interactionsRef.current.draw);
         if (interactionsRef.current.modify) {
@@ -163,10 +163,10 @@ export function GeofenceControls({
         }
         if (interactionsRef.current.translate) map.removeInteraction(interactionsRef.current.translate);
         interactionsRef.current = { draw: null, modify: null, translate: null };
-    }, [mapRef]);
+    }, [mapInstance]);
 
     const cancelCurrentAction = useCallback(() => {
-        if (!geofenceSource) return;
+        if (!vectorSource) return;
 
         if (activeShapeState?.feature) {
              const { feature, originalGeometry } = activeShapeState;
@@ -175,8 +175,8 @@ export function GeofenceControls({
                 const olGeom = format.readGeometry(originalGeometry);
                 if (olGeom) feature.setGeometry(olGeom);
              } else if (feature.getId()?.toString().startsWith('new-shape-')) {
-                if (geofenceSource.hasFeature(feature)) {
-                    geofenceSource.removeFeature(feature);
+                if (vectorSource.hasFeature(feature)) {
+                    vectorSource.removeFeature(feature);
                 }
              }
         }
@@ -186,7 +186,7 @@ export function GeofenceControls({
         setCurrentGeofenceName('');
         setHistoryStack([]);
         setHistoryIndex(-1);
-    }, [activeShapeState, geofenceSource, removeAllInteractions, setActiveShapeState, setHistoryStack, setHistoryIndex]);
+    }, [activeShapeState, vectorSource, removeAllInteractions, setActiveShapeState, setHistoryStack, setHistoryIndex]);
     
     const saveCurrentAction = useCallback(async () => {
         if (!activeShapeState?.feature) return;
@@ -305,12 +305,12 @@ export function GeofenceControls({
     }
     
     const startEditingSelected = useCallback(() => {
-        if (!selectedGeofenceId || !geofenceSource) {
+        if (!selectedGeofenceId || !vectorSource) {
             console.error("Source or selectedGeofenceId is missing.");
             return;
         }
 
-        const featureToEdit = geofenceSource.getFeatureById(selectedGeofenceId) as OlFeature<Polygon> | null;
+        const featureToEdit = vectorSource.getFeatureById(selectedGeofenceId) as OlFeature<Polygon> | null;
         
         if (featureToEdit) {
             cancelCurrentAction(); 
@@ -336,18 +336,18 @@ export function GeofenceControls({
              toast({ title: "Error", description: "No se pudo encontrar la forma en el mapa para editar.", variant: "destructive" });
         }
 
-    }, [geofences, selectedGeofenceId, geofenceSource, cancelCurrentAction, pushToHistory, toast, setActiveShapeState, setCurrentGeofenceName, setIsDrawing]);
+    }, [geofences, selectedGeofenceId, vectorSource, cancelCurrentAction, pushToHistory, toast, setActiveShapeState, setCurrentGeofenceName, setIsDrawing]);
     
      useEffect(() => {
-        const map = mapRef.current;
-        if (!map || !geofenceSource) return;
+        const map = mapInstance;
+        if (!map || !vectorSource) return;
 
         removeAllInteractions();
 
         if (mode === 'editing') {
             if (isDrawing) {
                 const newInteraction = new Draw({
-                    source: geofenceSource,
+                    source: vectorSource,
                     type: drawingMode === 'Rectangle' ? 'Circle' : drawingMode,
                     geometryFunction: drawingMode === 'Rectangle' ? createBox() : undefined,
                 });
@@ -445,7 +445,7 @@ export function GeofenceControls({
         
         return () => removeAllInteractions();
 
-    }, [mode, isDrawing, activeShapeState, drawingMode, pushToHistory, removeAllInteractions, onShapeDrawn, mapRef, geofenceSource]);
+    }, [mode, isDrawing, activeShapeState, drawingMode, pushToHistory, removeAllInteractions, onShapeDrawn, mapInstance, vectorSource]);
 
     const isBusy = isSaving || isDeleting || isSettingDefault;
 
@@ -629,5 +629,3 @@ export function GeofenceControls({
         </div>
     );
 }
-
-    
