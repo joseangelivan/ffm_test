@@ -7,6 +7,7 @@ import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
+import GoogleSource from 'ol/source/Google';
 import 'ol/ol.css';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { fromLonLat } from 'ol/proj';
@@ -17,37 +18,68 @@ import Feature from 'ol/Feature';
 import { Style, Fill, Stroke } from 'ol/style';
 import type { Geofence as DbGeofence } from '@/actions/maps';
 
+
+// --- ESTILOS ---
 const STYLE_VIEW_MODE = new Style({
     fill: new Fill({ color: 'rgba(67, 133, 245, 0.1)' }),
     stroke: new Stroke({ color: '#4385F5', width: 2 }),
 });
-
 const STYLE_EDIT_MODE_SELECTED = new Style({
     fill: new Fill({ color: 'rgba(234, 67, 53, 0.2)' }),
     stroke: new Stroke({ color: '#EA4335', width: 3 }),
 });
-
 const STYLE_NEW_SHAPE = new Style({
     fill: new Fill({ color: 'rgba(52, 168, 83, 0.2)' }),
     stroke: new Stroke({ color: '#34A853', width: 3 }),
 });
-
 const STYLE_EDIT_MODE_UNSELECTED = new Style({
     fill: new Fill({ color: 'rgba(100, 100, 100, 0.1)' }),
     stroke: new Stroke({ color: '#646464', width: 1.5, lineDash: [5, 5] }),
 });
-
 const STYLE_EDIT_MODE_FOCUSED = new Style({
     fill: new Fill({ color: 'rgba(67, 133, 245, 0.1)' }),
     stroke: new Stroke({ color: '#4385F5', width: 3 }),
 });
-
 const STYLE_HIDDEN = new Style({
     fill: new Fill({ color: 'transparent' }),
     stroke: new Stroke({ color: 'transparent', width: 0 }),
 });
 
+
+// --- LÓGICA DE CARGA DE API DE GOOGLE ---
+declare global {
+  interface Window {
+    __googleMapsApiPromise__: Promise<void>;
+  }
+}
+
+const loadGoogleMapsApi = (apiKey: string): Promise<void> => {
+  if (!window.__googleMapsApiPromise__) {
+    window.__googleMapsApiPromise__ = new Promise<void>((resolve, reject) => {
+      // Función de callback que la API de Google llamará
+      (window as any).initGoogleMapsApi = () => {
+        resolve();
+        delete (window as any).initGoogleMapsApi;
+      };
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMapsApi`;
+      script.async = true;
+      script.defer = true;
+      script.onerror = () => {
+        reject(new Error("Failed to load Google Maps script."));
+        delete (window as any).initGoogleMapsApi;
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return window.__googleMapsApiPromise__;
+};
+
+
+// --- LECTOR DE GEOJSON PERSONALIZADO ---
 function readCustomGeoJSON(dbGeofence: DbGeofence): Geometry | null {
+    // ... (El resto de la función se mantiene igual)
     const geometryObject = dbGeofence.geometry;
 
     if (!geometryObject || typeof geometryObject !== 'object') {
@@ -86,6 +118,8 @@ function readCustomGeoJSON(dbGeofence: DbGeofence): Geometry | null {
     return null;
 }
 
+
+// --- TIPOS Y COMPONENTE PRINCIPAL ---
 interface MapProps {
     provider: DbMapProvider;
     mapRef: React.RefObject<Map | null>;
@@ -116,41 +150,78 @@ const OpenLayersMap: React.FC<MapProps> = ({
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const vectorSourceRef = useRef<VectorSource>(new VectorSource());
-
+    const [isApiReady, setIsApiReady] = useState(false);
+    
+    // Efecto para cargar APIs externas
     useEffect(() => {
-        let map: Map | null = null;
-        if (mapContainerRef.current) {
-            const config = provider.config_json || {};
-            const apiConfig = config.api_config || {};
-            const baseUrl = apiConfig.base_url;
-            const source = baseUrl ? new XYZ({ url: baseUrl, maxZoom: 20 }) : new OSM();
-            
-            map = new Map({
-                target: mapContainerRef.current!,
-                layers: [
-                    new TileLayer({ source }),
-                    new VectorLayer({ source: vectorSourceRef.current, style: (feature) => feature.get('style') })
-                ],
-                view: new View({
-                    center: fromLonLat([initialPosition.lng, initialPosition.lat]),
-                    zoom: 15,
-                }),
-                controls: [],
-            });
+      let isMounted = true;
+      if (provider.provider_type === 'google') {
+          const apiKey = provider.config_json?.api_config?.parameters?.apiKey;
+          if (apiKey) {
+              loadGoogleMapsApi(apiKey)
+                  .then(() => {
+                      if (isMounted) setIsApiReady(true);
+                  })
+                  .catch(error => console.error(error));
+          } else {
+              console.error("Google Maps API Key is missing.");
+          }
+      } else {
+          setIsApiReady(true);
+      }
+      return () => { isMounted = false; };
+    }, [provider]);
 
-            (mapRef as React.MutableRefObject<Map | null>).current = map;
-            if (onMapLoad) onMapLoad(map, vectorSourceRef.current);
+    // Efecto para inicializar y destruir el mapa
+    useEffect(() => {
+        if (!isApiReady || !mapContainerRef.current) {
+            return;
         }
+
+        let map: Map | null = null;
+        
+        const apiConfig = provider.config_json?.api_config || {};
+        const baseUrl = apiConfig.base_url;
+
+        let source;
+        if (provider.provider_type === 'google') {
+            source = new GoogleSource({
+                key: provider.config_json?.api_config?.parameters?.apiKey,
+            });
+        } else if (baseUrl) {
+            source = new XYZ({ url: baseUrl, maxZoom: 20 });
+        } else {
+            source = new OSM();
+        }
+        
+        map = new Map({
+            target: mapContainerRef.current!,
+            layers: [
+                new TileLayer({ source }),
+                new VectorLayer({ source: vectorSourceRef.current, style: (feature) => feature.get('style') })
+            ],
+            view: new View({
+                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
+                zoom: 15,
+            }),
+            controls: [],
+        });
+
+        (mapRef as React.MutableRefObject<Map | null>).current = map;
+        if (onMapLoad) onMapLoad(map, vectorSourceRef.current);
         
         return () => {
             if (map) {
                 map.setTarget(undefined);
+                (mapRef as React.MutableRefObject<Map | null>).current = null;
             }
         };
-    }, [provider, initialPosition, onMapLoad, mapRef]);
+    }, [provider, initialPosition, onMapLoad, mapRef, isApiReady]);
 
 
+    // Efecto para actualizar estilos y geometrías
     const getFeatureStyle = useCallback((featureId: string): Style => {
+        // ... (el resto de la función de estilos se mantiene igual)
         if (shapeBeingSaved && featureId === shapeBeingSaved.id) {
             return STYLE_EDIT_MODE_SELECTED;
         }
@@ -172,7 +243,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
             return STYLE_EDIT_MODE_UNSELECTED;
         }
     }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState, shapeBeingSaved]);
-
 
     useEffect(() => {
         const source = vectorSourceRef.current;
