@@ -13,7 +13,7 @@ import 'ol/ol.css';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { fromLonLat, transform } from 'ol/proj';
 import GeoJSON from 'ol/format/GeoJSON';
-import type { Geometry } from 'ol/geom';
+import type { Geometry, Polygon as OlPolygon, Circle as OlCircle } from 'ol/geom';
 import Feature from 'ol/Feature';
 import { Style, Fill, Stroke } from 'ol/style';
 import type { Geofence as DbGeofence } from '@/actions/maps';
@@ -49,6 +49,10 @@ const STYLE_HIDDEN = new Style({
     stroke: new Stroke({ color: 'transparent', width: 0 }),
 });
 
+// Explicitly import geometry types to use for type checks
+const CircleGeom = require('ol/geom/Circle').default;
+const PolygonGeom = require('ol/geom/Polygon').default;
+
 
 function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
     const geometryObject = { ...dbGeofence.geometry };
@@ -79,8 +83,7 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
                 [bounds.west, bounds.south]
             ].map(coord => fromLonLat(coord));
             
-            const Polygon = require('ol/geom/Polygon').default;
-            const newPolygon = new Polygon([coords]);
+            const newPolygon = new PolygonGeom([coords]);
             newPolygon.set('geometryType', 'Rectangle');
             return newPolygon;
         } else {
@@ -113,9 +116,8 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
     
     // Handle custom Circle format
     if ('type' in geometryObject && geometryObject.type === 'Circle' && 'center' in geometryObject && 'radius' in geometryObject) {
-         const Circle = require('ol/geom/Circle').default;
          const center = fromLonLat(geometryObject.center as [number, number]);
-         const newCircle = new Circle(center, geometryObject.radius as number);
+         const newCircle = new CircleGeom(center, geometryObject.radius as number);
          newCircle.set('geometryType', 'Circle');
          return newCircle;
     }
@@ -127,13 +129,14 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
 
 interface MapProps {
     provider: DbMapProvider;
-    onMapLoad: (adapter: any, source: VectorSource) => void;
+    onMapLoad: (map: Map, source: VectorSource) => void;
     dbGeofences: DbGeofence[];
     mode: 'view' | 'editing';
     showAllGeofences: boolean;
     selectedGeofenceId: string | null;
     defaultGeofenceId: string | null;
     initialPosition: { lat: number, lng: number };
+    mapRef: React.RefObject<Map | null>;
     activeShapeState: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     shapeBeingSaved: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     onZoomChange: (zoom: number) => void;
@@ -149,14 +152,14 @@ const OpenLayersMap: React.FC<MapProps> = ({
     selectedGeofenceId,
     defaultGeofenceId,
     initialPosition,
+    mapRef,
     activeShapeState,
     shapeBeingSaved,
     onZoomChange,
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const mapRef = useRef<Map | null>(null);
-    const vectorSourceRef = useRef<VectorSource | null>(null);
+    const vectorSourceRef = useRef<VectorSource>(new VectorSource());
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
         if(shapeBeingSaved?.id === featureId) {
@@ -184,6 +187,12 @@ const OpenLayersMap: React.FC<MapProps> = ({
     useEffect(() => {
         if (!mapContainerRef.current) return;
         
+        // Prevent re-initialization
+        if (mapRef.current) {
+            mapRef.current.setTarget(mapContainerRef.current);
+            return;
+        }
+
         let config: any;
         try {
             config = typeof provider.config_json === 'string' 
@@ -205,12 +214,9 @@ const OpenLayersMap: React.FC<MapProps> = ({
         }
         
         const initialLayer = new TileLayer({ source });
-        
-        const vectorSource = new VectorSource();
-        vectorSourceRef.current = vectorSource;
 
         const vectorLayer = new VectorLayer({
-            source: vectorSource,
+            source: vectorSourceRef.current,
             style: (feature) => feature.get('style'),
         });
         vectorLayer.set('id', 'geofence-layer');
@@ -225,54 +231,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
             controls: [],
         });
         
-        mapRef.current = map;
-
-        const adapter = {
-            onMoveEnd: (callback: (zoom: number) => void) => {
-               map.on('moveend', () => {
-                    const zoom = map.getView().getZoom();
-                    if(zoom) callback(Math.round(zoom));
-               });
-            },
-            setCenter: (coords: { lat: number, lng: number }, zoom?: number) => {
-                map.getView().animate({
-                    center: fromLonLat([coords.lng, coords.lat]),
-                    zoom: zoom || map.getView().getZoom(),
-                    duration: 500
-                });
-            },
-            zoomIn: () => {
-                const view = map.getView();
-                view.animate({ zoom: view.getZoom()! + 1, duration: 250 });
-            },
-            zoomOut: () => {
-                const view = map.getView();
-                view.animate({ zoom: view.getZoom()! - 1, duration: 250 });
-            },
-            fitToGeofence: (geofenceId: string, paddingPercentage: number) => {
-                const feature = vectorSource.getFeatureById(geofenceId);
-                if (feature) {
-                    const geometry = feature.getGeometry();
-                    if (geometry) {
-                        const extent = geometry.getExtent();
-                        map.getView().fit(extent, { 
-                            padding: [
-                                map.getSize()![1] * paddingPercentage, 
-                                map.getSize()![0] * paddingPercentage, 
-                                map.getSize()![1] * paddingPercentage, 
-                                map.getSize()![0] * paddingPercentage
-                            ], 
-                            duration: 500 
-                        });
-                    }
-                }
-            },
-            getMapInstance: () => map,
-        };
-
-        if (onMapLoad) {
-            onMapLoad(adapter, vectorSource);
-        }
+        (mapRef as React.MutableRefObject<Map | null>).current = map;
+        onMapLoad(map, vectorSourceRef.current);
 
         map.on('moveend', () => {
             const zoom = map.getView().getZoom();
@@ -284,8 +244,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
                 mapRef.current.setTarget(undefined);
             }
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [provider, initialPosition, onMapLoad]);
+    }, [provider, onMapLoad, initialPosition, mapRef, onZoomChange]);
 
 
     useEffect(() => {
@@ -303,9 +262,25 @@ const OpenLayersMap: React.FC<MapProps> = ({
             if (feature) {
                 const currentGeom = feature.getGeometry();
                 if (currentGeom && activeShapeState?.feature !== feature) {
-                    const currentCoords = JSON.stringify(currentGeom.getCoordinates());
-                    const newCoords = JSON.stringify(olGeom.getCoordinates());
-                    if(currentCoords !== newCoords) {
+                    
+                    let hasChanged = false;
+                    if (currentGeom instanceof CircleGeom && olGeom instanceof CircleGeom) {
+                        const currentCenter = currentGeom.getCenter();
+                        const newCenter = olGeom.getCenter();
+                        const currentRadius = currentGeom.getRadius();
+                        const newRadius = olGeom.getRadius();
+                        hasChanged = (
+                            currentCenter[0] !== newCenter[0] ||
+                            currentCenter[1] !== newCenter[1] ||
+                            currentRadius !== newRadius
+                        );
+                    } else if (currentGeom instanceof PolygonGeom && olGeom instanceof PolygonGeom) {
+                        const currentCoords = JSON.stringify(currentGeom.getCoordinates());
+                        const newCoords = JSON.stringify(olGeom.getCoordinates());
+                        hasChanged = currentCoords !== newCoords;
+                    }
+
+                    if(hasChanged) {
                          feature.setGeometry(olGeom);
                     }
                 }
@@ -352,6 +327,3 @@ export default OpenLayersMap;
 
   
 
-
-
-    
