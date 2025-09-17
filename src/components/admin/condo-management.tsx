@@ -434,6 +434,9 @@ function CondoFormWrapper({
   const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData);
   const [isVerifyingAddress, setIsVerifyingAddress] = useState(false);
 
+  // The APIs used for location data are:
+  // - Countries: RestCountries API (https://restcountries.com/)
+  // - States and Cities: CountriesNow API (https://countriesnow.space/)
   const fetchCountries = useCallback((continent: string) => getCachedData(`countries_${continent}`, async () => {
     try {
         const res = await fetch(`https://restcountries.com/v3.1/region/${continent}?fields=name`);
