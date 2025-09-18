@@ -1,0 +1,48 @@
+{
+  "geocoordinates": {
+    "request": {
+      "api_config": {
+        "base_url": "https://nominatim.openstreetmap.org/search",
+        "parameters": {
+          "q": "$Address",
+          "format": "json"
+        }
+      }
+    },
+    "response": {
+      "lat": "0.lat",
+      "lon": "0.lon"
+    }
+  },
+  "autocomplete": {
+    "request": {
+      "api_config": {
+        "base_url": "https://nominatim.openstreetmap.org/search",
+        "parameters": {
+          "q": "$Address",
+          "countrycodes": {
+            "value": "$country_cca2",
+            "optional": true
+          },
+          "state": {
+            "value": "$state",
+            "optional": true
+          },
+          "city": {
+            "value": "$city",
+            "optional": true
+          },
+          "format": "json",
+          "addressdetails": 1,
+          "limit": 5
+        }
+      }
+    },
+    "response": {
+      "results_path": "",
+      "address_path": "display_name",
+      "lat_path": "lat",
+      "lon_path": "lon"
+    }
+  }
+}
