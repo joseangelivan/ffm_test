@@ -34,6 +34,7 @@ const SCHEMA_FILES_ORDER = [
     'maps/base_schema.sql',
     'geocoding_services/base_schema.sql',
     'map_providers/base_schema.sql',
+    'address_services/base_schema.sql',
 ];
 
 const TABLES_FOR_RLS = [
@@ -41,7 +42,8 @@ const TABLES_FOR_RLS = [
     'condominiums', 'residents', 'gatekeepers', 'device_types', 'protocols',
     'devices', 'devices_communication', 'languages', 'sessions', 'admin_settings',
     'smtp_configurations', 'themes', 'app_settings', 'translation_services',
-    'geofences', 'map_element_types', 'geocoding_services', 'map_providers', 'migrations_log'
+    'geofences', 'map_element_types', 'geocoding_services', 'map_providers', 'migrations_log',
+    'address_services',
 ];
 
 async function applySqlFile(client: PoolClient, filePath: string, log: string[]): Promise<void> {
@@ -139,6 +141,13 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
         log.push('SUCCESS: Default map provider seeded.');
     } catch(e: any) {
         log.push(`ERROR: Seeding map provider failed: ${e.message}`);
+        throw e;
+    }
+     try {
+        await applySqlFile(client, 'address_services/seed.sql', log);
+        log.push('SUCCESS: Default address service seeded.');
+    } catch(e: any) {
+        log.push(`ERROR: Seeding address service failed: ${e.message}`);
         throw e;
     }
 }
@@ -396,3 +405,5 @@ export async function clearDatabase(
         }
     }
 }
+
+    

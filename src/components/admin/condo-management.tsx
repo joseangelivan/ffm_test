@@ -71,6 +71,7 @@ import { useLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { createCondominio, getCondominios, updateCondominio, deleteCondominio, type Condominio } from '@/actions/condos';
 import { geocodeAddress, type GeocodeResult } from '@/actions/geocoding';
+import { fetchAddressData, type AddressData, type AddressDataItem } from '@/actions/address';
 
 type LocationData = {
     name: string;
@@ -80,8 +81,9 @@ type LocationData = {
     city: string;
     street: string;
     number: string;
-    countries: { name: string }[];
-    states: { name: string }[];
+    continents: string[];
+    countries: AddressDataItem[];
+    states: AddressDataItem[];
     cities: string[];
 };
 
@@ -95,7 +97,6 @@ const LocationSelector = ({
   isFormDisabled?: boolean;
 }) => {
   const { t } = useLocale();
-  const continents = ["Africa", "Americas", "Asia", "Europe", "Oceania"];
 
   return (
     <div className="grid grid-cols-2 gap-4">
@@ -104,13 +105,13 @@ const LocationSelector = ({
         <Select
           onValueChange={(value) => onLocationChange('continent', value)}
           value={locationData.continent}
-          disabled={isFormDisabled}
+          disabled={isFormDisabled || !locationData.continents?.length}
         >
           <SelectTrigger id="continent-display">
             <SelectValue placeholder="Seleccionar continente" />
           </SelectTrigger>
           <SelectContent>
-            {continents.map((continent) => (
+            {locationData.continents?.map((continent) => (
               <SelectItem key={continent} value={continent}>
                 {continent}
               </SelectItem>
@@ -131,6 +132,7 @@ const LocationSelector = ({
           <SelectContent>
             {locationData.countries?.map((country) => (
               <SelectItem key={country.name} value={country.name}>
+                <span className="mr-2">{country.flag}</span>
                 {country.name}
               </SelectItem>
             ))}
@@ -435,37 +437,6 @@ function CondoFormWrapper({
   const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData);
   const [isVerifyingAddress, setIsVerifyingAddress] = useState(false);
 
-  // APIs para datos de ubicación: RestCountries y CountriesNow.
-  const fetchCountries = useCallback((continent: string) => getCachedData(`countries_${continent}`, async () => {
-    try {
-        const res = await fetch(`https://restcountries.com/v3.1/region/${continent}?fields=name`);
-        const data = await res.json();
-        return (data || []).map((c: any) => ({ name: c.name.common })).sort((a: any, b: any) => a.name.localeCompare(b.name));
-    } catch (e) { return []; }
-  }), [getCachedData]);
-
-  const fetchStates = useCallback((country: string) => getCachedData(`states_${country}`, async () => {
-    try {
-        const res = await fetch(`https://countriesnow.space/api/v0.1/countries/states`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country })
-        });
-        const data = await res.json();
-        if (data.error) return [];
-        return (data.data?.states || []).sort((a: any, b: any) => a.name.localeCompare(b.name));
-    } catch (e) { return []; }
-  }), [getCachedData]);
-
-  const fetchCities = useCallback((country: string, state: string) => getCachedData(`cities_${country}_${state}`, async () => {
-    try {
-        const res = await fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country, state })
-        });
-        const data = await res.json();
-        if (data.error) return [];
-        return (Array.isArray(data.data) ? data.data : []).sort();
-    } catch (e) { return []; }
-  }), [getCachedData]);
-  
   const [isLocationLoading, startLocationTransition] = useTransition();
 
   const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
@@ -482,31 +453,46 @@ function CondoFormWrapper({
   }, []);
   
   useEffect(() => {
+    startLocationTransition(async () => {
+        const addressData = await fetchAddressData({});
+        if (addressData.success && addressData.data?.continents) {
+            setLocationData(current => ({...current, continents: addressData.data.continents}));
+        }
+    })
+  }, []);
+
+  useEffect(() => {
     if (locationData.continent && !locationData.countries?.length) {
         startLocationTransition(async () => {
-            const countries = await fetchCountries(locationData.continent!);
-            setLocationData(current => ({ ...current, countries }));
+            const countriesData = await fetchAddressData({ continent: locationData.continent! });
+            if (countriesData.success && countriesData.data?.countries) {
+                setLocationData(current => ({ ...current, countries: countriesData.data.countries }));
+            }
         });
     }
-  }, [locationData.continent, locationData.countries, fetchCountries]);
+  }, [locationData.continent, locationData.countries]);
 
   useEffect(() => {
       if (locationData.country && !locationData.states?.length) {
           startLocationTransition(async () => {
-              const states = await fetchStates(locationData.country!);
-              setLocationData(current => ({...current, states}));
+            const statesData = await fetchAddressData({ country: locationData.country! });
+              if (statesData.success && statesData.data?.states) {
+                  setLocationData(current => ({...current, states: statesData.data.states}));
+              }
           });
       }
-  }, [locationData.country, locationData.states, fetchStates]);
+  }, [locationData.country, locationData.states]);
 
   useEffect(() => {
       if (locationData.country && locationData.state && !locationData.cities?.length) {
           startLocationTransition(async () => {
-              const cities = await fetchCities(locationData.country!, locationData.state!);
-              setLocationData(current => ({...current, cities}));
+              const citiesData = await fetchAddressData({ country: locationData.country!, state: locationData.state! });
+              if (citiesData.success && citiesData.data?.cities) {
+                  setLocationData(current => ({...current, cities: citiesData.data.cities}));
+              }
           });
       }
-  }, [locationData.country, locationData.state, locationData.cities, fetchCities]);
+  }, [locationData.country, locationData.state, locationData.cities]);
 
   const handleSelectAddress = (address: Pick<GeocodeResult, 'route' | 'street_number'>) => {
       const streetInput = formRef.current?.elements.namedItem('street') as HTMLInputElement | null;
@@ -634,24 +620,6 @@ export function CondoManagement() {
     const prepareAndOpenEditDialog = useCallback(async (condo: Condominio) => {
         setIsPreparingEdit(true);
 
-        const fetchCountries = (continent: string) => getCachedData(`countries_${continent}`, () => 
-            fetch(`https://restcountries.com/v3.1/region/${continent}?fields=name`).then(res => res.json())
-            .then(data => (data || []).map((c: any) => ({ name: c.name.common })).sort((a: any, b: any) => a.name.localeCompare(b.name)))
-            .catch(() => [])
-        );
-
-        const fetchStates = (country: string) => getCachedData(`states_${country}`, () => 
-            fetch(`https://countriesnow.space/api/v0.1/countries/states`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country }) }).then(res => res.json())
-            .then(data => data.error ? [] : (data.data?.states || []).sort((a: any, b: any) => a.name.localeCompare(b.name)))
-            .catch(() => [])
-        );
-
-        const fetchCities = (country: string, state: string) => getCachedData(`cities_${country}_${state}`, () =>
-            fetch(`https://countriesnow.space/api/v0.1/countries/state/cities`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country, state }) }).then(res => res.json())
-            .then(data => data.error ? [] : (Array.isArray(data.data) ? data.data : []).sort())
-            .catch(() => [])
-        );
-    
         try {
             if (!condo.continent || !condo.country || !condo.state) {
                 toast({ title: t('toast.errorTitle'), description: "Condominio con datos de ubicación incompletos.", variant: 'destructive' });
@@ -659,17 +627,19 @@ export function CondoManagement() {
                 return;
             }
 
-            const [countries, states, cities] = await Promise.all([
-                fetchCountries(condo.continent),
-                fetchStates(condo.country),
-                fetchCities(condo.country, condo.state)
+            const [continentsData, countriesData, statesData, citiesData] = await Promise.all([
+                fetchAddressData({}),
+                fetchAddressData({ continent: condo.continent }),
+                fetchAddressData({ country: condo.country }),
+                fetchAddressData({ country: condo.country, state: condo.state }),
             ]);
         
             setEditingCondoData({
                 ...condo,
-                countries,
-                states,
-                cities,
+                continents: continentsData.data?.continents || [],
+                countries: countriesData.data?.countries || [],
+                states: statesData.data?.states || [],
+                cities: citiesData.data?.cities || [],
             });
 
             setIsEditCondoDialogOpen(true);
@@ -860,5 +830,8 @@ export function CondoManagement() {
 }
 
     
+
+    
+
 
     

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useTransition } from 'react';
@@ -43,6 +44,7 @@ import {
   User,
   MapPin,
   Map as MapIcon,
+  Home,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -58,6 +60,7 @@ import { ManageCatalogsDialog } from './manage-catalogs-dialog';
 import { ManageTranslatorDialog } from './manage-translator-dialog';
 import { ManageGeocodingDialog } from './manage-geocoding-dialog';
 import { ManageMapsDialog } from './manage-maps-dialog';
+import { ManageAddressDialog } from './manage-address-dialog';
 
 
 export function LoadingOverlay({ text }: { text: string }) {
@@ -168,6 +171,7 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess }: Admi
                                             <ManageTranslatorDialog />
                                             <ManageGeocodingDialog />
                                             <ManageMapsDialog />
+                                            <ManageAddressDialog />
                                         </DropdownMenuSubContent>
                                     </DropdownMenuPortal>
                                 </DropdownMenuSub>
@@ -202,3 +206,5 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess }: Admi
         </header>
     );
 }
+
+    
