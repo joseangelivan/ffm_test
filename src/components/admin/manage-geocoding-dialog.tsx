@@ -25,7 +25,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -370,20 +370,30 @@ export function ManageGeocodingDialog() {
                                         <p>{t('adminDashboard.geocoding.setAsDefault')}</p>
                                     </TooltipContent>
                                 </Tooltip>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" onClick={() => handleTest(service.id)} disabled={isSubmitting}>
-                                            {testingId === service.id ? (
-                                                <Loader className="h-4 w-4 animate-spin"/>
-                                            ) : (
-                                                <TestTube2 className="h-4 w-4"/>
-                                            )}
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{t('adminDashboard.geocoding.test')}</p>
-                                    </TooltipContent>
-                                </Tooltip>
+                                
+                                <DropdownMenu>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" disabled={isSubmitting}>
+                                                     {testingId === service.id ? <Loader className="h-4 w-4 animate-spin"/> : <TestTube2 className="h-4 w-4"/>}
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>{t('adminDashboard.geocoding.test')}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                    <DropdownMenuContent>
+                                        <DropdownMenuItem onClick={() => handleTest(service.id)}>
+                                            Probar Geocoordenadas
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem disabled>
+                                            Probar Autocompletar
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button variant="ghost" size="icon" onClick={() => handleEditClick(service)} disabled={isSubmitting}><Edit className="h-4 w-4"/></Button>
