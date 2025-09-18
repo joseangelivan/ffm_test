@@ -20,20 +20,10 @@ type ActionState<T = null> = {
 
 const ServiceSchema = z.object({
     name: z.string().min(1, "El nombre es obligatorio."),
-    request_config: z.string().refine((val) => {
-        try { JSON.parse(val); return true; } catch (e) { return false; }
-    }, { message: "La configuración de solicitud debe ser un JSON válido."}),
-    response_config: z.string().refine((val) => {
-        try { JSON.parse(val); return true; } catch (e) { return false; }
-    }, { message: "La configuración de respuesta debe ser un JSON válido."}),
-    autocomplete_request_config: z.string().nullable().optional().refine((val) => {
-        if (!val || val.trim() === '') return true;
-        try { JSON.parse(val); return true; } catch (e) { return false; }
-    }, { message: "La configuración de autocompletar debe ser un JSON válido."}),
-    autocomplete_response_config: z.string().nullable().optional().refine((val) => {
-        if (!val || val.trim() === '') return true;
-        try { JSON.parse(val); return true; } catch (e) { return false; }
-    }, { message: "La configuración de autocompletar debe ser un JSON válido."}),
+    request_config: z.string().nullable().optional(),
+    response_config: z.string().nullable().optional(),
+    autocomplete_request_config: z.string().nullable().optional(),
+    autocomplete_response_config: z.string().nullable().optional(),
 });
 
 
@@ -185,14 +175,18 @@ export async function getGeocodingServices(): Promise<GeocodingService[]> {
 export async function createGeocodingService(prevState: any, formData: FormData): Promise<ActionState> {
     const validatedFields = ServiceSchema.safeParse({
         name: formData.get('name'),
-        request_config: formData.get('request_config'),
-        response_config: formData.get('response_config'),
+        request_config: formData.get('request_config') || null,
+        response_config: formData.get('response_config') || null,
         autocomplete_request_config: formData.get('autocomplete_request_config') || null,
         autocomplete_response_config: formData.get('autocomplete_response_config') || null,
     });
 
     if (!validatedFields.success) {
         return { success: false, message: validatedFields.error.errors[0].message };
+    }
+
+    if (!validatedFields.data.request_config || !validatedFields.data.response_config) {
+        return { success: false, message: "La configuración de geocoordenadas (solicitud y respuesta) es obligatoria." };
     }
     
     const { 
@@ -215,8 +209,8 @@ export async function createGeocodingService(prevState: any, formData: FormData)
                 response: autocomplete_response_config ? JSON.parse(autocomplete_response_config) : null,
             }
         };
-    } catch (e) {
-        return { success: false, message: 'Formato JSON inválido.' };
+    } catch (e: any) {
+        return { success: false, message: `Formato JSON inválido: ${e.message}` };
     }
 
     let client;
@@ -251,64 +245,67 @@ export async function updateGeocodingService(prevState: any, formData: FormData)
     const id = formData.get('id') as string;
     if (!id) return { success: false, message: "ID no proporcionado." };
 
-    const validatedFields = ServiceSchema.safeParse({
-        name: formData.get('name'),
-        request_config: formData.get('request_config'),
-        response_config: formData.get('response_config'),
-        autocomplete_request_config: formData.get('autocomplete_request_config') || null,
-        autocomplete_response_config: formData.get('autocomplete_response_config') || null,
-    });
-
-    if (!validatedFields.success) {
-        return { success: false, message: validatedFields.error.errors[0].message };
-    }
-
-    const { 
-        name, 
-        request_config, 
-        response_config,
-        autocomplete_request_config,
-        autocomplete_response_config
-    } = validatedFields.data;
-    
-    let combinedConfig;
-    try {
-        combinedConfig = {
-            geocoordinates: {
-                request: JSON.parse(request_config),
-                response: JSON.parse(response_config)
-            },
-            autocomplete: {
-                request: autocomplete_request_config ? JSON.parse(autocomplete_request_config) : null,
-                response: autocomplete_response_config ? JSON.parse(autocomplete_response_config) : null,
-            }
-        };
-    } catch (e: any) {
-        return { success: false, message: `Error de formato JSON: ${e.message}` };
-    }
-
     let client;
     try {
         const pool = await getDbPool();
         if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
-        const result = await client.query(
-            'UPDATE geocoding_services SET name = $1, config_json = $2, updated_at = NOW() WHERE id = $3',
-            [name, combinedConfig, id]
-        );
 
-        if (result.rowCount === 0) {
+        // 1. Fetch the existing service configuration
+        const existingResult = await client.query('SELECT config_json FROM geocoding_services WHERE id = $1', [id]);
+        if (existingResult.rows.length === 0) {
             return { success: false, message: "Servicio no encontrado." };
         }
+        let currentConfig = existingResult.rows[0].config_json || {};
+
+        // 2. Validate form data
+        const validatedFields = ServiceSchema.safeParse({
+            name: formData.get('name'),
+            request_config: formData.get('request_config'),
+            response_config: formData.get('response_config'),
+            autocomplete_request_config: formData.get('autocomplete_request_config'),
+            autocomplete_response_config: formData.get('autocomplete_response_config'),
+        });
+
+        if (!validatedFields.success) {
+            return { success: false, message: validatedFields.error.errors[0].message };
+        }
+        const { name, ...configs } = validatedFields.data;
+
+        // 3. Merge new data over existing data
+        if (configs.request_config && configs.response_config) {
+             currentConfig.geocoordinates = {
+                request: JSON.parse(configs.request_config),
+                response: JSON.parse(configs.response_config),
+             };
+        }
         
+        if (configs.autocomplete_request_config || configs.autocomplete_response_config) {
+            currentConfig.autocomplete = {
+                request: configs.autocomplete_request_config ? JSON.parse(configs.autocomplete_request_config) : currentConfig.autocomplete?.request || null,
+                response: configs.autocomplete_response_config ? JSON.parse(configs.autocomplete_response_config) : currentConfig.autocomplete?.response || null,
+            };
+        }
+
+
+        // 4. Update the database with the merged config
+        const result = await client.query(
+            'UPDATE geocoding_services SET name = $1, config_json = $2, updated_at = NOW() WHERE id = $3',
+            [name, currentConfig, id]
+        );
+
         return { success: true, message: `Servicio "${name}" actualizado.` };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error updating geocoding service:", error);
+         if (error instanceof SyntaxError) {
+            return { success: false, message: `Error de formato JSON: ${error.message}` };
+        }
         return { success: false, message: 'Error del servidor.' };
     } finally {
         if (client) client.release();
     }
 }
+
 
 export async function deleteGeocodingService(id: string): Promise<ActionState> {
     if (!id) return { success: false, message: "ID no proporcionado." };
@@ -466,3 +463,4 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
         if (client) client.release();
     }
 }
+

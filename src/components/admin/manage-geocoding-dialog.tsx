@@ -158,6 +158,7 @@ function ServiceFormFields({ service, onCancel }: { service: GeocodingService | 
                         </div>
                     </TabsContent>
                     <TabsContent value="autocomplete" className="mt-4 space-y-4">
+                         <input type="hidden" name="active_tab" value="autocomplete" />
                          <div className="grid gap-2">
                             <Label htmlFor="autocomplete_request_config">Request Config (Autocomplete)</Label>
                             <Textarea 
