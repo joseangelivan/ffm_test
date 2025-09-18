@@ -25,15 +25,16 @@ const ServiceSchema = z.object({
     response_config: z.string().refine((val) => {
         try { JSON.parse(val); return true; } catch (e) { return false; }
     }, { message: "La configuración de respuesta debe ser un JSON válido."}),
-    autocomplete_request_config: z.string().optional().refine((val) => {
-        if (!val) return true; // Optional
+    autocomplete_request_config: z.string().nullable().optional().refine((val) => {
+        if (!val) return true; // Optional and can be empty
         try { JSON.parse(val); return true; } catch (e) { return false; }
     }, { message: "La configuración de autocompletar debe ser un JSON válido."}),
-    autocomplete_response_config: z.string().optional().refine((val) => {
-        if (!val) return true; // Optional
+    autocomplete_response_config: z.string().nullable().optional().refine((val) => {
+        if (!val) return true; // Optional and can be empty
         try { JSON.parse(val); return true; } catch (e) { return false; }
     }, { message: "La configuración de autocompletar debe ser un JSON válido."}),
 });
+
 
 function getNestedValue(obj: any, path: string): any {
     if (!path) return undefined;
@@ -72,14 +73,14 @@ async function geocodeWithService(
         config = service.config_json;
     }
 
-    const requestConfig = config?.geocoordinates?.request?.api_config;
-    const responseConfig = config?.geocoordinates?.response;
+    const requestConfig = config?.geocoordinates?.request || config?.request;
+    const responseConfig = config?.geocoordinates?.response || config?.response;
 
-    if (!requestConfig?.base_url || typeof requestConfig?.parameters !== 'object') {
+    if (!requestConfig?.api_config?.base_url || typeof requestConfig?.api_config?.parameters !== 'object') {
         return { success: false, error: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
     }
 
-    const { base_url, parameters } = requestConfig;
+    const { base_url, parameters } = requestConfig.api_config;
     const urlParams = new URLSearchParams();
 
     for (const [key, paramConfig] of Object.entries(parameters)) {
@@ -181,12 +182,12 @@ export async function getGeocodingServices(): Promise<GeocodingService[]> {
 }
 
 export async function createGeocodingService(prevState: any, formData: FormData): Promise<ActionState> {
-    const validatedFields = ServiceSchema.safeParse({
+     const validatedFields = ServiceSchema.safeParse({
         name: formData.get('name'),
         request_config: formData.get('request_config'),
         response_config: formData.get('response_config'),
-        autocomplete_request_config: formData.get('autocomplete_request_config'),
-        autocomplete_response_config: formData.get('autocomplete_response_config'),
+        autocomplete_request_config: formData.get('autocomplete_request_config') || null,
+        autocomplete_response_config: formData.get('autocomplete_response_config') || null,
     });
 
     if (!validatedFields.success) {
@@ -253,8 +254,8 @@ export async function updateGeocodingService(prevState: any, formData: FormData)
         name: formData.get('name'),
         request_config: formData.get('request_config'),
         response_config: formData.get('response_config'),
-        autocomplete_request_config: formData.get('autocomplete_request_config'),
-        autocomplete_response_config: formData.get('autocomplete_response_config'),
+        autocomplete_request_config: formData.get('autocomplete_request_config') || null,
+        autocomplete_response_config: formData.get('autocomplete_response_config') || null,
     });
 
     if (!validatedFields.success) {
@@ -470,3 +471,4 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
     
 
     
+

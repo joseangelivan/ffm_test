@@ -212,7 +212,7 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
     const handleAction = async (prevState: any, formData: FormData) => {
         const result = await formAction(prevState, formData);
         if (result?.success === false) {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
         }
         if (result?.success === true) {
             toast({ title: t('toast.successTitle'), description: result.message });
@@ -288,7 +288,7 @@ export function ManageGeocodingDialog() {
            toast({ title: t('toast.successTitle'), description: result.message });
            fetchServices();
        } else {
-           toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+           toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
        }
     });
   }
@@ -300,7 +300,7 @@ export function ManageGeocodingDialog() {
             toast({ title: t('toast.successTitle'), description: result.message });
             fetchServices();
         } else {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
         }
     });
   }
