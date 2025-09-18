@@ -62,26 +62,25 @@ function ServiceFormFields({ service, onCancel }: { service: GeocodingService | 
     const isEditMode = !!service;
     const { t } = useLocale();
 
-    const getInitialJson = (configPart: any) => {
-        if (!configPart) return '';
+    const getInitialJson = (configPart: any, fallbackPart?: any) => {
+        const data = configPart || fallbackPart;
+        if (!data) return '';
         try {
-            return JSON.stringify(configPart, null, 2);
+            return JSON.stringify(data, null, 2);
         } catch {
             return '';
         }
     };
     
-    // States for Geocoordinates tab
     const [requestConfig, setRequestConfig] = useState(
-        isEditMode ? getInitialJson(service?.config_json?.geocoordinates?.request) : ''
+        isEditMode ? getInitialJson(service?.config_json?.geocoordinates?.request, service?.config_json?.request) : ''
     );
     const [responseConfig, setResponseConfig] = useState(
-       isEditMode ? getInitialJson(service?.config_json?.geocoordinates?.response) : ''
+       isEditMode ? getInitialJson(service?.config_json?.geocoordinates?.response, service?.config_json?.response) : ''
     );
     const [isRequestJsonValid, setIsRequestJsonValid] = useState(true);
     const [isResponseJsonValid, setIsResponseJsonValid] = useState(true);
 
-    // States for Autocomplete tab
     const [autocompleteRequestConfig, setAutocompleteRequestConfig] = useState(
         isEditMode ? getInitialJson(service?.config_json?.autocomplete?.request) : ''
     );
