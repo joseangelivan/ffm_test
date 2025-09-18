@@ -26,11 +26,11 @@ const ServiceSchema = z.object({
         try { JSON.parse(val); return true; } catch (e) { return false; }
     }, { message: "La configuración de respuesta debe ser un JSON válido."}),
     autocomplete_request_config: z.string().nullable().optional().refine((val) => {
-        if (!val) return true; // Optional and can be empty
+        if (!val || val.trim() === '') return true;
         try { JSON.parse(val); return true; } catch (e) { return false; }
     }, { message: "La configuración de autocompletar debe ser un JSON válido."}),
     autocomplete_response_config: z.string().nullable().optional().refine((val) => {
-        if (!val) return true; // Optional and can be empty
+        if (!val || val.trim() === '') return true;
         try { JSON.parse(val); return true; } catch (e) { return false; }
     }, { message: "La configuración de autocompletar debe ser un JSON válido."}),
 });
@@ -211,7 +211,7 @@ export async function createGeocodingService(prevState: any, formData: FormData)
             },
             autocomplete: {
                 request: autocomplete_request_config ? JSON.parse(autocomplete_request_config) : null,
-                response: autocomplete_response_config ? JSON.parse(autocomplete_response_config) : null
+                response: autocomplete_response_config ? JSON.parse(autocomplete_response_config) : null,
             }
         };
     } catch (e) {
@@ -279,7 +279,7 @@ export async function updateGeocodingService(prevState: any, formData: FormData)
             },
             autocomplete: {
                 request: autocomplete_request_config ? JSON.parse(autocomplete_request_config) : null,
-                response: autocomplete_response_config ? JSON.parse(autocomplete_response_config) : null
+                response: autocomplete_response_config ? JSON.parse(autocomplete_response_config) : null,
             }
         };
     } catch (e) {
@@ -465,10 +465,3 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
         if (client) client.release();
     }
 }
-
-    
-
-    
-
-    
-
