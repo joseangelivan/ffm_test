@@ -361,6 +361,7 @@ function CondoFormFields({
                         required
                         disabled={isFormPending}
                     />
+                     {/* El botón de verificación utiliza la API de geocodificación predeterminada configurada en el sistema para validar la dirección. */}
                      <Button type="button" variant="outline" size="sm" onClick={onVerifyAddress} disabled={isFormPending || !locationData.city}>
                         {t('addressVerification.checkButton')}
                     </Button>
@@ -434,9 +435,9 @@ function CondoFormWrapper({
   const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData);
   const [isVerifyingAddress, setIsVerifyingAddress] = useState(false);
 
-  // The APIs used for location data are:
-  // - Countries: RestCountries API (https://restcountries.com/)
-  // - States and Cities: CountriesNow API (https://countriesnow.space/)
+  // Las API utilizadas para los datos de ubicación son:
+  // - Países: API RestCountries (https://restcountries.com/)
+  // - Estados y Ciudades: API CountriesNow (https://countriesnow.space/)
   const fetchCountries = useCallback((continent: string) => getCachedData(`countries_${continent}`, async () => {
     try {
         const res = await fetch(`https://restcountries.com/v3.1/region/${continent}?fields=name`);
