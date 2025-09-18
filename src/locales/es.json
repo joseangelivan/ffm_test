@@ -1,5 +1,4 @@
 
-
 {
     "login": {
       "welcome": "Bienvenido de Nuevo",
@@ -368,6 +367,20 @@
         "test": "Probar Servicio",
         "deleteConfirmation": "Esto eliminará permanentemente el servicio de geocodificación \"{name}\"."
       },
+      "address": {
+        "title": "Configurar API de Dirección",
+        "description": "Gestiona los servicios para obtener listas de continentes, países, estados y ciudades.",
+        "noServices": "No hay servicios de dirección configurados.",
+        "addButton": "Agregar Servicio",
+        "editTitle": "Editar Servicio de Dirección",
+        "newTitle": "Nuevo Servicio de Dirección",
+        "formDescription": "Define un nombre y proporciona la configuración JSON para la API de direcciones.",
+        "nameLabel": "Nombre del Servicio",
+        "configLabel": "Configuración (JSON)",
+        "invalidJson": "El formato JSON no es válido.",
+        "setAsDefault": "Establecer como predeterminado",
+        "deleteConfirmation": "Esto eliminará permanentemente el servicio de dirección \"{name}\"."
+      },
       "maps": {
         "title": "Configurar Mapas",
         "description": "Gestiona los proveedores de mapas para la aplicación.",
@@ -679,5 +692,6 @@
     
 
     
+
 
 

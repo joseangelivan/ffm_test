@@ -1,5 +1,4 @@
 
-
 {
     "login": {
       "welcome": "Bem-vindo de Volta",
@@ -368,6 +367,20 @@
         "test": "Testar Serviço",
         "deleteConfirmation": "Isso excluirá permanentemente o serviço de geocodificação \"{name}\"."
       },
+      "address": {
+        "title": "Configurar API de Endereço",
+        "description": "Gerencie os serviços para obter listas de continentes, países, estados e cidades.",
+        "noServices": "Não há serviços de endereço configurados.",
+        "addButton": "Adicionar Serviço",
+        "editTitle": "Editar Serviço de Endereço",
+        "newTitle": "Novo Serviço de Endereço",
+        "formDescription": "Defina um nome e forneça a configuração JSON para a API de endereços.",
+        "nameLabel": "Nome do Serviço",
+        "configLabel": "Configuração (JSON)",
+        "invalidJson": "O formato JSON é inválido.",
+        "setAsDefault": "Definir como padrão",
+        "deleteConfirmation": "Isso excluirá permanentemente o serviço de endereço \"{name}\"."
+      },
       "maps": {
         "title": "Configurar Mapas",
         "description": "Gerencie os provedores de mapas para a aplicação.",
@@ -679,5 +692,6 @@
     
 
     
+
 
 
