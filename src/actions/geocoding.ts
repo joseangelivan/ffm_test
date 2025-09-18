@@ -25,6 +25,14 @@ const ServiceSchema = z.object({
     response_config: z.string().refine((val) => {
         try { JSON.parse(val); return true; } catch (e) { return false; }
     }, { message: "La configuración de respuesta debe ser un JSON válido."}),
+    autocomplete_request_config: z.string().optional().refine((val) => {
+        if (!val) return true; // Optional
+        try { JSON.parse(val); return true; } catch (e) { return false; }
+    }, { message: "La configuración de autocompletar debe ser un JSON válido."}),
+    autocomplete_response_config: z.string().optional().refine((val) => {
+        if (!val) return true; // Optional
+        try { JSON.parse(val); return true; } catch (e) { return false; }
+    }, { message: "La configuración de autocompletar debe ser un JSON válido."}),
 });
 
 function getNestedValue(obj: any, path: string): any {
@@ -64,8 +72,8 @@ async function geocodeWithService(
         config = service.config_json;
     }
 
-    const requestConfig = config?.request?.api_config;
-    const responseConfig = config?.response;
+    const requestConfig = config?.geocoordinates?.request?.api_config;
+    const responseConfig = config?.geocoordinates?.response;
 
     if (!requestConfig?.base_url || typeof requestConfig?.parameters !== 'object') {
         return { success: false, error: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
@@ -177,19 +185,33 @@ export async function createGeocodingService(prevState: any, formData: FormData)
         name: formData.get('name'),
         request_config: formData.get('request_config'),
         response_config: formData.get('response_config'),
+        autocomplete_request_config: formData.get('autocomplete_request_config'),
+        autocomplete_response_config: formData.get('autocomplete_response_config'),
     });
 
     if (!validatedFields.success) {
         return { success: false, message: validatedFields.error.errors[0].message };
     }
     
-    const { name, request_config, response_config } = validatedFields.data;
+    const { 
+        name, 
+        request_config, 
+        response_config,
+        autocomplete_request_config,
+        autocomplete_response_config
+    } = validatedFields.data;
     
     let combinedConfig;
     try {
         combinedConfig = {
-            request: JSON.parse(request_config),
-            response: JSON.parse(response_config)
+            geocoordinates: {
+                request: JSON.parse(request_config),
+                response: JSON.parse(response_config)
+            },
+            autocomplete: {
+                request: autocomplete_request_config ? JSON.parse(autocomplete_request_config) : null,
+                response: autocomplete_response_config ? JSON.parse(autocomplete_response_config) : null
+            }
         };
     } catch (e) {
         return { success: false, message: 'Formato JSON inválido.' };
@@ -227,23 +249,37 @@ export async function updateGeocodingService(prevState: any, formData: FormData)
     const id = formData.get('id') as string;
     if (!id) return { success: false, message: "ID no proporcionado." };
 
-    const validatedFields = ServiceSchema.safeParse({
+     const validatedFields = ServiceSchema.safeParse({
         name: formData.get('name'),
         request_config: formData.get('request_config'),
         response_config: formData.get('response_config'),
+        autocomplete_request_config: formData.get('autocomplete_request_config'),
+        autocomplete_response_config: formData.get('autocomplete_response_config'),
     });
 
     if (!validatedFields.success) {
         return { success: false, message: validatedFields.error.errors[0].message };
     }
 
-    const { name, request_config, response_config } = validatedFields.data;
+     const { 
+        name, 
+        request_config, 
+        response_config,
+        autocomplete_request_config,
+        autocomplete_response_config
+    } = validatedFields.data;
     
     let combinedConfig;
     try {
         combinedConfig = {
-            request: JSON.parse(request_config),
-            response: JSON.parse(response_config)
+            geocoordinates: {
+                request: JSON.parse(request_config),
+                response: JSON.parse(response_config)
+            },
+            autocomplete: {
+                request: autocomplete_request_config ? JSON.parse(autocomplete_request_config) : null,
+                response: autocomplete_response_config ? JSON.parse(autocomplete_response_config) : null
+            }
         };
     } catch (e) {
         return { success: false, message: 'Formato JSON inválido.' };

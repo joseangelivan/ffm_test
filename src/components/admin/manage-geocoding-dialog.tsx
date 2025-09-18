@@ -54,30 +54,42 @@ import {
 } from 'lucide-react';
 import { LoadingOverlay } from './admin-header';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 function ServiceFormFields({ service, onCancel }: { service: GeocodingService | null, onCancel: () => void}) {
     const { pending } = useFormStatus();
     const isEditMode = !!service;
     const { t } = useLocale();
 
-    const getInitialJson = (config: any) => {
-        if (!config) return '';
+    const getInitialJson = (configPart: any) => {
+        if (!configPart) return '';
         try {
-            return JSON.stringify(config, null, 2);
+            return JSON.stringify(configPart, null, 2);
         } catch {
             return '';
         }
     };
     
+    // States for Geocoordinates tab
     const [requestConfig, setRequestConfig] = useState(
-        isEditMode ? getInitialJson(service.config_json?.request) : ''
+        isEditMode ? getInitialJson(service?.config_json?.geocoordinates?.request) : ''
     );
     const [responseConfig, setResponseConfig] = useState(
-       isEditMode ? getInitialJson(service.config_json?.response) : ''
+       isEditMode ? getInitialJson(service?.config_json?.geocoordinates?.response) : ''
     );
-
     const [isRequestJsonValid, setIsRequestJsonValid] = useState(true);
     const [isResponseJsonValid, setIsResponseJsonValid] = useState(true);
+
+    // States for Autocomplete tab
+    const [autocompleteRequestConfig, setAutocompleteRequestConfig] = useState(
+        isEditMode ? getInitialJson(service?.config_json?.autocomplete?.request) : ''
+    );
+    const [autocompleteResponseConfig, setAutocompleteResponseConfig] = useState(
+       isEditMode ? getInitialJson(service?.config_json?.autocomplete?.response) : ''
+    );
+    const [isAutocompleteRequestJsonValid, setIsAutocompleteRequestJsonValid] = useState(true);
+    const [isAutocompleteResponseJsonValid, setIsAutocompleteResponseJsonValid] = useState(true);
 
     const handleJsonChange = (setter: React.Dispatch<React.SetStateAction<string>>, validator: React.Dispatch<React.SetStateAction<boolean>>) => (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const text = e.target.value;
@@ -94,6 +106,8 @@ function ServiceFormFields({ service, onCancel }: { service: GeocodingService | 
         }
     };
     
+    const allJsonsValid = isRequestJsonValid && isResponseJsonValid && isAutocompleteRequestJsonValid && isAutocompleteResponseJsonValid;
+    
     return (
         <div className={cn("relative transition-opacity")}>
             {pending && <LoadingOverlay text={isEditMode ? t('adminDashboard.loadingOverlay.updating') : t('adminDashboard.loadingOverlay.creating')} />}
@@ -108,38 +122,75 @@ function ServiceFormFields({ service, onCancel }: { service: GeocodingService | 
                     <Label htmlFor="name">{t('adminDashboard.geocoding.nameLabel')}</Label>
                     <Input id="name" name="name" defaultValue={service?.name} placeholder="LocationIQ" required disabled={pending}/>
                 </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="request_config">{t('adminDashboard.geocoding.requestConfigLabel')}</Label>
-                    <Textarea 
-                        id="request_config"
-                        name="request_config"
-                        value={requestConfig}
-                        onChange={handleJsonChange(setRequestConfig, setIsRequestJsonValid)}
-                        placeholder='{ "api_config": { "base_url": "...", "parameters": { ... } } }' 
-                        required 
-                        disabled={pending}
-                        className={cn("min-h-[150px] font-mono text-xs", !isRequestJsonValid && "border-destructive focus-visible:ring-destructive")}
-                    />
-                    {!isRequestJsonValid && <p className="text-sm text-destructive">{t('adminDashboard.geocoding.invalidJson')}</p>}
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="response_config">{t('adminDashboard.geocoding.responseConfigLabel')}</Label>
-                    <Textarea 
-                        id="response_config"
-                        name="response_config"
-                        value={responseConfig}
-                        onChange={handleJsonChange(setResponseConfig, setIsResponseJsonValid)}
-                        placeholder='{\n  "lat": "...",\n  "lon": "..."\n}'
-                        required 
-                        disabled={pending}
-                        className={cn("min-h-[100px] font-mono text-xs", !isResponseJsonValid && "border-destructive focus-visible:ring-destructive")}
-                    />
-                    {!isResponseJsonValid && <p className="text-sm text-destructive">{t('adminDashboard.geocoding.invalidJson')}</p>}
-                </div>
+                
+                <Tabs defaultValue="geocoordinates">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="geocoordinates">Geocoordenadas</TabsTrigger>
+                        <TabsTrigger value="autocomplete">Autocompletar</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="geocoordinates" className="mt-4 space-y-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="request_config">{t('adminDashboard.geocoding.requestConfigLabel')}</Label>
+                            <Textarea 
+                                id="request_config"
+                                name="request_config"
+                                value={requestConfig}
+                                onChange={handleJsonChange(setRequestConfig, setIsRequestJsonValid)}
+                                placeholder='{ "api_config": { "base_url": "...", "parameters": { ... } } }' 
+                                required 
+                                disabled={pending}
+                                className={cn("min-h-[150px] font-mono text-xs", !isRequestJsonValid && "border-destructive focus-visible:ring-destructive")}
+                            />
+                            {!isRequestJsonValid && <p className="text-sm text-destructive">{t('adminDashboard.geocoding.invalidJson')}</p>}
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="response_config">{t('adminDashboard.geocoding.responseConfigLabel')}</Label>
+                            <Textarea 
+                                id="response_config"
+                                name="response_config"
+                                value={responseConfig}
+                                onChange={handleJsonChange(setResponseConfig, setIsResponseJsonValid)}
+                                placeholder='{\n  "lat": "...",\n  "lon": "..."\n}'
+                                required 
+                                disabled={pending}
+                                className={cn("min-h-[100px] font-mono text-xs", !isResponseJsonValid && "border-destructive focus-visible:ring-destructive")}
+                            />
+                            {!isResponseJsonValid && <p className="text-sm text-destructive">{t('adminDashboard.geocoding.invalidJson')}</p>}
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="autocomplete" className="mt-4 space-y-4">
+                         <div className="grid gap-2">
+                            <Label htmlFor="autocomplete_request_config">Request Config (Autocomplete)</Label>
+                            <Textarea 
+                                id="autocomplete_request_config"
+                                name="autocomplete_request_config"
+                                value={autocompleteRequestConfig}
+                                onChange={handleJsonChange(setAutocompleteRequestConfig, setIsAutocompleteRequestJsonValid)}
+                                placeholder='{ "api_config": { ... } }' 
+                                disabled={pending}
+                                className={cn("min-h-[150px] font-mono text-xs", !isAutocompleteRequestJsonValid && "border-destructive focus-visible:ring-destructive")}
+                            />
+                            {!isAutocompleteRequestJsonValid && <p className="text-sm text-destructive">{t('adminDashboard.geocoding.invalidJson')}</p>}
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="autocomplete_response_config">Response Config (Autocomplete)</Label>
+                            <Textarea 
+                                id="autocomplete_response_config"
+                                name="autocomplete_response_config"
+                                value={autocompleteResponseConfig}
+                                onChange={handleJsonChange(setAutocompleteResponseConfig, setIsAutocompleteResponseJsonValid)}
+                                placeholder='{\n  "results_path": "...",\n  "address_path": "..."\n}'
+                                disabled={pending}
+                                className={cn("min-h-[100px] font-mono text-xs", !isAutocompleteResponseJsonValid && "border-destructive focus-visible:ring-destructive")}
+                            />
+                            {!isAutocompleteResponseJsonValid && <p className="text-sm text-destructive">{t('adminDashboard.geocoding.invalidJson')}</p>}
+                        </div>
+                    </TabsContent>
+                </Tabs>
             </div>
             <DialogFooter>
                 <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
-                <Button type="submit" disabled={pending || !isRequestJsonValid || !isResponseJsonValid}>
+                <Button type="submit" disabled={pending || !allJsonsValid}>
                     {pending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
                     {isEditMode ? t('common.saveChanges') : t('common.create')}
                 </Button>
