@@ -191,7 +191,7 @@ function ServiceFormFields({ service, onCancel }: { service: GeocodingService | 
                 <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
                 <Button type="submit" disabled={pending || !allJsonsValid}>
                     {pending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-                    {isEditMode ? t('common.saveChanges') : t('common.create')}
+                    {isEditMode ? t('adminDashboard.editCondoDialog.save') : t('common.create')}
                 </Button>
             </DialogFooter>
         </div>

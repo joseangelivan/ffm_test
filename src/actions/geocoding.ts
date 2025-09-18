@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { z } from 'zod';
@@ -182,7 +183,7 @@ export async function getGeocodingServices(): Promise<GeocodingService[]> {
 }
 
 export async function createGeocodingService(prevState: any, formData: FormData): Promise<ActionState> {
-     const validatedFields = ServiceSchema.safeParse({
+    const validatedFields = ServiceSchema.safeParse({
         name: formData.get('name'),
         request_config: formData.get('request_config'),
         response_config: formData.get('response_config'),
@@ -250,7 +251,7 @@ export async function updateGeocodingService(prevState: any, formData: FormData)
     const id = formData.get('id') as string;
     if (!id) return { success: false, message: "ID no proporcionado." };
 
-     const validatedFields = ServiceSchema.safeParse({
+    const validatedFields = ServiceSchema.safeParse({
         name: formData.get('name'),
         request_config: formData.get('request_config'),
         response_config: formData.get('response_config'),
@@ -262,7 +263,7 @@ export async function updateGeocodingService(prevState: any, formData: FormData)
         return { success: false, message: validatedFields.error.errors[0].message };
     }
 
-     const { 
+    const { 
         name, 
         request_config, 
         response_config,
@@ -282,8 +283,8 @@ export async function updateGeocodingService(prevState: any, formData: FormData)
                 response: autocomplete_response_config ? JSON.parse(autocomplete_response_config) : null,
             }
         };
-    } catch (e) {
-        return { success: false, message: 'Formato JSON inválido.' };
+    } catch (e: any) {
+        return { success: false, message: `Error de formato JSON: ${e.message}` };
     }
 
     let client;
