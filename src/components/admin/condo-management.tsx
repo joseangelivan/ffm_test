@@ -440,16 +440,7 @@ function CondoFormWrapper({
   const [isLocationLoading, startLocationTransition] = useTransition();
 
   const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
-    let resetFields: Partial<LocationData> = {};
-    if (field === 'continent') {
-        resetFields = { country: '', state: '', city: '', states: [], cities: [] };
-    } else if (field === 'country') {
-        resetFields = { state: '', city: '', cities: [] };
-    } else if (field === 'state') {
-        resetFields = { city: '' };
-    }
-
-    setLocationData(currentData => ({ ...currentData, [field]: value, ...resetFields }));
+    setLocationData(currentData => ({ ...currentData, [field]: value }));
   }, []);
   
   useEffect(() => {
@@ -464,8 +455,7 @@ function CondoFormWrapper({
   useEffect(() => {
     if (locationData.continent) {
         startLocationTransition(async () => {
-            // When continent changes, reset dependent fields and fetch new countries
-            setLocationData(current => ({...current, country: '', state: '', city: '', countries: [], states: [], cities: []}));
+            setLocationData(current => ({...current, country: '', state: '', city: '', states: [], cities: []}));
             const countriesData = await fetchAddressData({ continent: locationData.continent });
             if (countriesData.success && countriesData.data?.countries) {
                 setLocationData(current => ({ ...current, countries: countriesData.data.countries }));
@@ -477,6 +467,7 @@ function CondoFormWrapper({
   useEffect(() => {
       if (locationData.country) {
           startLocationTransition(async () => {
+            setLocationData(current => ({...current, state: '', city: '', cities: []}));
             const statesData = await fetchAddressData({ country: locationData.country! });
               if (statesData.success && statesData.data?.states) {
                   setLocationData(current => ({...current, states: statesData.data.states}));
@@ -488,6 +479,7 @@ function CondoFormWrapper({
   useEffect(() => {
       if (locationData.country && locationData.state) {
           startLocationTransition(async () => {
+            setLocationData(current => ({...current, city: ''}));
               const citiesData = await fetchAddressData({ country: locationData.country!, state: locationData.state! });
               if (citiesData.success && citiesData.data?.cities) {
                   setLocationData(current => ({...current, cities: citiesData.data.cities}));
@@ -837,4 +829,5 @@ export function CondoManagement() {
 
 
     
+
 
