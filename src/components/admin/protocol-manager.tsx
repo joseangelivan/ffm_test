@@ -54,10 +54,10 @@ function ProtocolForm({
     onCancel: () => void;
 }) {
     const { toast } = useToast();
-    const { t } = useLocale();
+    const { t, locale } = useLocale();
     const isEditMode = !!item;
     const formAction = isEditMode ? updateProtocol : createProtocol;
-    const [selectedLang, setSelectedLang] = useState<'es' | 'pt-BR'>('pt-BR');
+    const [selectedLang, setSelectedLang] = useState<'es' | 'pt-BR'>(locale);
     
     const featuresEsRef = useRef<HTMLTextAreaElement>(null);
     const featuresPtRef = useRef<HTMLTextAreaElement>(null);
@@ -70,7 +70,7 @@ function ProtocolForm({
             toast({ title: t('toast.successTitle'), description: result.message });
             onSuccess();
         } else {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
         }
         return result;
     }
@@ -94,11 +94,11 @@ function ProtocolForm({
                 if (featuresResult.success && featuresResult.data && targetFeaturesRef.current) {
                     targetFeaturesRef.current.value = featuresResult.data;
                 } else if (!featuresResult.success) {
-                     toast({ title: t('toast.errorTitle'), description: featuresResult.message, variant: 'destructive' });
+                     toast({ title: t('toast.errorTitle'), description: featuresResult.message, variant: 'destructive', copyable: true });
                 }
 
             } catch (error) {
-                 toast({ title: t('toast.errorTitle'), description: t('toast.adminLogin.serverError'), variant: 'destructive' });
+                 toast({ title: t('toast.errorTitle'), description: t('toast.adminLogin.serverError'), variant: 'destructive', copyable: true });
             }
         });
     }
@@ -224,7 +224,7 @@ export default function ProtocolManager() {
                 toast({ title: t('toast.successTitle'), description: result.message });
                 fetchData();
             } else {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
             }
         });
     }

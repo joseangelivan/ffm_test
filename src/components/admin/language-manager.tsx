@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useActionState, useTransition, useRef } from 'react';
@@ -43,12 +44,12 @@ import { useFormStatus } from 'react-dom';
 import { ScrollArea } from '../ui/scroll-area';
 
 function LanguageForm({ item, onSuccess, onCancel }: { item: Language | null, onSuccess: () => void, onCancel: () => void }) {
-    const { t } = useLocale();
+    const { t, locale } = useLocale();
     const { toast } = useToast();
     const isEditMode = !!item;
     const formAction = isEditMode ? updateLanguage : createLanguage;
 
-    const [selectedLang, setSelectedLang] = useState<'es' | 'pt-BR'>('pt-BR');
+    const [selectedLang, setSelectedLang] = useState<'es' | 'pt-BR'>(locale);
     const nameEsRef = useRef<HTMLInputElement>(null);
     const namePtRef = useRef<HTMLInputElement>(null);
 
@@ -60,7 +61,7 @@ function LanguageForm({ item, onSuccess, onCancel }: { item: Language | null, on
             toast({ title: t('toast.successTitle'), description: result.message });
             onSuccess();
         } else {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
         }
         return result;
     };
@@ -83,10 +84,10 @@ function LanguageForm({ item, onSuccess, onCancel }: { item: Language | null, on
                 if (nameResult.success && nameResult.data && targetNameRef.current) {
                     targetNameRef.current.value = nameResult.data;
                 } else if (!nameResult.success) {
-                     toast({ title: t('toast.errorTitle'), description: nameResult.message, variant: 'destructive' });
+                     toast({ title: t('toast.errorTitle'), description: nameResult.message, variant: 'destructive', copyable: true });
                 }
             } catch (error) {
-                 toast({ title: t('toast.errorTitle'), description: t('toast.adminLogin.serverError'), variant: 'destructive' });
+                 toast({ title: t('toast.errorTitle'), description: t('toast.adminLogin.serverError'), variant: 'destructive', copyable: true });
             }
         });
     }
@@ -204,7 +205,7 @@ export default function LanguageManager() {
                 toast({ title: t('toast.successTitle'), description: result.message });
                 fetchData();
             } else {
-                 toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+                 toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
             }
         });
     }
