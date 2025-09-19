@@ -462,7 +462,7 @@ function CondoFormWrapper({
   }, []);
 
   useEffect(() => {
-    if (locationData.continent && !locationData.countries?.length) {
+    if (locationData.continent) {
         startLocationTransition(async () => {
             const countriesData = await fetchAddressData({ continent: locationData.continent! });
             if (countriesData.success && countriesData.data?.countries) {
@@ -470,7 +470,7 @@ function CondoFormWrapper({
             }
         });
     }
-  }, [locationData.continent, locationData.countries]);
+  }, [locationData.continent]);
 
   useEffect(() => {
       if (locationData.country && !locationData.states?.length) {
