@@ -4,8 +4,6 @@
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
 import Link from 'next/link';
-import { useDebounce } from 'use-debounce';
-
 import {
   Building,
   PlusCircle,
@@ -14,9 +12,7 @@ import {
   Trash2,
   Eye,
   Loader,
-  MapPin,
   CheckCircle,
-  AlertCircle,
   Search,
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -60,16 +56,11 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-
 
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
@@ -77,6 +68,7 @@ import { cn } from '@/lib/utils';
 import { createCondominio, getCondominios, updateCondominio, deleteCondominio, type Condominio } from '@/actions/condos';
 import { autocompleteAddress, type AutocompleteResult } from '@/actions/geocoding';
 import { fetchAddressData, type AddressData, type AddressDataItem } from '@/actions/address';
+import { ScrollArea } from '../ui/scroll-area';
 
 type LocationData = {
     name: string;
@@ -188,89 +180,59 @@ const LocationSelector = ({
   );
 };
 
-function StreetAutocomplete({
-    initialValue,
+function AddressVerificationDialog({ 
+    results, 
+    isLoading, 
     onSelect,
-    locationContext,
-    isDisabled,
-}: {
-    initialValue?: string;
-    onSelect: (suggestion: AutocompleteResult) => void;
-    locationContext: Partial<Pick<LocationData, 'city' | 'state' | 'country'>>;
-    isDisabled?: boolean;
+    isOpen,
+    onOpenChange,
+}: { 
+    results: AutocompleteResult[], 
+    isLoading: boolean, 
+    onSelect: (result: AutocompleteResult) => void,
+    isOpen: boolean,
+    onOpenChange: (open: boolean) => void,
 }) {
-    const [inputValue, setInputValue] = useState(initialValue || '');
-    const [suggestions, setSuggestions] = useState<AutocompleteResult[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [debouncedInputValue] = useDebounce(inputValue, 300);
-    const [popoverOpen, setPopoverOpen] = useState(false);
-    const inputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        if (debouncedInputValue.length < 3) {
-            setSuggestions([]);
-            setPopoverOpen(false);
-            return;
-        }
-
-        async function fetchSuggestions() {
-            setIsLoading(true);
-            const result = await autocompleteAddress({
-                address: debouncedInputValue,
-                city: locationContext.city,
-                state: locationContext.state,
-                country: locationContext.country,
-            });
-            if (result.success && result.data) {
-                setSuggestions(result.data);
-                setPopoverOpen(result.data.length > 0);
-            } else {
-                setSuggestions([]);
-                setPopoverOpen(false);
-            }
-            setIsLoading(false);
-        }
-        fetchSuggestions();
-    }, [debouncedInputValue, locationContext]);
-
-    const handleSelect = (suggestion: AutocompleteResult) => {
-        setInputValue(suggestion.address);
-        onSelect(suggestion);
-        setPopoverOpen(false);
-    }
+    const { t } = useLocale();
 
     return (
-        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-            <PopoverTrigger asChild>
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        ref={inputRef}
-                        id="street"
-                        name="street"
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        placeholder="Ex: Rua das Flores"
-                        required
-                        disabled={isDisabled}
-                        className="pl-10"
-                        autoComplete="off"
-                    />
-                    {isLoading && <Loader className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin" />}
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>{t('addressVerification.title')}</DialogTitle>
+                    <DialogDescription>{t('addressVerification.description')}</DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    {isLoading ? (
+                         <div className="flex items-center justify-center h-40 gap-2 text-muted-foreground">
+                            <Loader className="h-5 w-5 animate-spin" />
+                            <span>{t('addressVerification.loading')}</span>
+                        </div>
+                    ) : results.length === 0 ? (
+                        <div className="flex items-center justify-center h-40 text-muted-foreground">
+                           {t('addressVerification.notFound')}
+                        </div>
+                    ) : (
+                        <ScrollArea className="h-64 border rounded-md">
+                            <div className="p-2 space-y-1">
+                            {results.map((result, index) => (
+                                <div key={index} className="p-2 rounded-md hover:bg-muted">
+                                    <p className="font-semibold">{result.address.split(',')[0]}</p>
+                                    <p className="text-sm text-muted-foreground">{result.address.split(',').slice(1).join(',')}</p>
+                                    <Button size="sm" variant="link" className="p-0 h-auto" onClick={() => onSelect(result)}>
+                                        {t('addressVerification.selectButton')}
+                                    </Button>
+                                </div>
+                            ))}
+                            </div>
+                        </ScrollArea>
+                    )}
                 </div>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                    <CommandList>
-                        {suggestions.map((s, i) => (
-                            <CommandItem key={i} onSelect={() => handleSelect(s)}>
-                                {s.address}
-                            </CommandItem>
-                        ))}
-                    </CommandList>
-                </Command>
-            </PopoverContent>
-        </Popover>
+                 <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.close')}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     )
 }
 
@@ -280,14 +242,16 @@ function CondoFormFields({
   isFormPending,
   locationData,
   onLocationChange,
-  onAddressSelect,
+  onStreetChange,
+  onVerifyAddress,
 }: {
   isEditMode: boolean,
   initialData: Partial<Condominio>,
   isFormPending: boolean,
   locationData: Partial<LocationData>;
   onLocationChange: (field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => void;
-  onAddressSelect: (suggestion: AutocompleteResult) => void;
+  onStreetChange: (value: string) => void;
+  onVerifyAddress: () => void;
 }) {
     const { t } = useLocale();
     
@@ -337,12 +301,21 @@ function CondoFormFields({
                 <Label htmlFor="street">
                   {t('adminDashboard.newCondoDialog.streetLabel')}
                 </Label>
-                 <StreetAutocomplete
-                    initialValue={initialData.street}
-                    locationContext={locationData}
-                    onSelect={onAddressSelect}
-                    isDisabled={isFormPending || !locationData.city}
-                />
+                <div className="flex gap-2">
+                    <Input
+                        id="street"
+                        name="street"
+                        value={locationData.street || ''}
+                        onChange={(e) => onStreetChange(e.target.value)}
+                        placeholder="Ex: Rua das Flores"
+                        required
+                        disabled={isFormPending}
+                        autoComplete="off"
+                    />
+                    <Button type="button" variant="outline" onClick={onVerifyAddress} disabled={isFormPending || !locationData.city}>
+                        <Search className="h-4 w-4" />
+                    </Button>
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="number">
@@ -406,31 +379,50 @@ function CondoFormWrapper({
   const [state, dispatchFormAction, isFormPending] = useActionState(handleAction, undefined);
   
   const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData);
-  
   const [isLocationLoading, startLocationTransition] = useTransition();
+
+  const [verificationResults, setVerificationResults] = useState<AutocompleteResult[]>([]);
+  const [isVerificationLoading, startVerificationTransition] = useTransition();
+  const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false);
 
   const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
     setLocationData(currentData => ({ ...currentData, [field]: value }));
   }, []);
 
+  const handleStreetChange = (value: string) => {
+      setLocationData(current => ({ ...current, street: value }));
+  }
+
+  const handleVerifyAddress = () => {
+    if (!locationData.street) return;
+    setIsVerificationDialogOpen(true);
+    startVerificationTransition(async () => {
+        const result = await autocompleteAddress({
+            address: locationData.street!,
+            city: locationData.city,
+            state: locationData.state,
+            country: locationData.country,
+        });
+        if (result.success) {
+            setVerificationResults(result.data || []);
+        } else {
+            setVerificationResults([]);
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+        }
+    });
+  }
+
   const handleAddressSelect = (suggestion: AutocompleteResult) => {
-      // This is a simplified split, might need improvement based on real data
       const parts = suggestion.address.split(',');
       const street = parts[0] || '';
-      const city = parts.length > 2 ? parts[parts.length - 3]?.trim() : locationData.city;
-      const state = parts.length > 2 ? parts[parts.length - 2]?.trim() : locationData.state;
-      
-      const numberInput = formRef.current?.elements.namedItem('number') as HTMLInputElement | null;
-      if (numberInput) numberInput.value = ''; // Clear number as it's often part of street
       
       setLocationData(current => ({
           ...current,
           street: street,
-          city: city,
-          state: state,
           latitude: suggestion.lat,
           longitude: suggestion.lon,
       }));
+      setIsVerificationDialogOpen(false);
   }
   
   useEffect(() => {
@@ -501,10 +493,18 @@ function CondoFormWrapper({
                 isFormPending={isFormDisabled}
                 locationData={locationData}
                 onLocationChange={handleLocationChange}
-                onAddressSelect={handleAddressSelect}
+                onStreetChange={handleStreetChange}
+                onVerifyAddress={handleVerifyAddress}
             />
             </form>
         </div>
+        <AddressVerificationDialog
+            isOpen={isVerificationDialogOpen}
+            onOpenChange={setIsVerificationDialogOpen}
+            isLoading={isVerificationLoading}
+            results={verificationResults}
+            onSelect={handleAddressSelect}
+        />
     </>
   );
 }
