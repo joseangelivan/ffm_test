@@ -26,7 +26,6 @@ const ServiceSchema = z.object({
     autocomplete_response_config: z.string().nullable().optional(),
 });
 
-
 function getNestedValue(obj: any, path: string): any {
     if (!path || path === '.') return obj;
     
@@ -40,6 +39,49 @@ function getNestedValue(obj: any, path: string): any {
     }
     return result;
 }
+
+type ValueMap = { [key: string]: string | undefined };
+
+function buildApiUrl(
+    apiConfig: any, 
+    valueMap: ValueMap
+): string {
+    const { base_url, parameters } = apiConfig;
+    const urlParams = new URLSearchParams();
+
+    for (const [key, paramConfig] of Object.entries(parameters)) {
+        let rawValue: any;
+        let isOptional = false;
+
+        if (typeof paramConfig === 'object' && paramConfig !== null && 'value' in paramConfig) {
+            rawValue = paramConfig.value;
+            isOptional = paramConfig.optional || false;
+        } else {
+            rawValue = paramConfig;
+        }
+
+        let paramValue = String(rawValue || '');
+
+        if (paramValue.startsWith('$')) {
+            const varName = paramValue.substring(1);
+            if (varName in valueMap) {
+                paramValue = valueMap[varName] || '';
+            } else if (process.env[varName]) {
+                paramValue = process.env[varName]!;
+            } else {
+                console.warn(`Geocoding Service: Variable "${varName}" not found.`);
+                paramValue = '';
+            }
+        }
+        
+        if (paramValue || !isOptional) {
+             urlParams.append(key, paramValue);
+        }
+    }
+    
+    return `${base_url}?${urlParams.toString()}`;
+}
+
 
 async function geocodeWithService(
     service: GeocodingService,
@@ -63,43 +105,7 @@ async function geocodeWithService(
         return { success: false, error: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
     }
 
-    const { base_url, parameters } = requestConfig.api_config;
-    const urlParams = new URLSearchParams();
-
-    for (const [key, paramConfig] of Object.entries(parameters)) {
-        let isOptional = false;
-        let rawValue: any;
-
-        if (typeof paramConfig === 'object' && paramConfig !== null && 'value' in paramConfig) {
-            rawValue = paramConfig.value;
-            isOptional = paramConfig.optional || false;
-        } else {
-            rawValue = paramConfig;
-        }
-        
-        let paramValue = String(rawValue || '');
-            
-        if (typeof paramValue === 'string' && paramValue.startsWith('$')) {
-            const varName = paramValue.substring(1);
-            if (varName === 'Address') {
-                paramValue = address;
-            } else {
-                const envValue = process.env[varName];
-                 if (envValue) {
-                    paramValue = envValue;
-                } else {
-                    console.warn(`Geocoding Service: Environment variable "${varName}" not found.`);
-                    paramValue = '';
-                }
-            }
-        }
-        
-        if (paramValue) {
-            urlParams.append(key, paramValue);
-        }
-    }
-    
-    const finalUrl = `${base_url}?${urlParams.toString()}`;
+    const finalUrl = buildApiUrl(requestConfig.api_config, { 'Address': address });
 
     try {
         const response = await fetch(finalUrl, { cache: 'no-store' });
@@ -410,41 +416,15 @@ export async function testGeocodingAutocompleteService(id: string): Promise<Acti
         if (client) client.release();
     }
     
-    if (!service?.config_json?.autocomplete?.request?.api_config) {
+    const config = service?.config_json?.autocomplete;
+    if (!config?.request?.api_config) {
         return { success: false, message: "La configuración de autocompletado es inválida o no existe." };
     }
     
-    const config = service.config_json.autocomplete;
-    const { base_url, parameters } = config.request.api_config;
-    const urlParams = new URLSearchParams();
-    const testAddress = "Francisco"; 
-
-    for (const [key, paramConfig] of Object.entries(parameters)) {
-        let isOptional = false;
-        let rawValue: any;
-        if (typeof paramConfig === 'object' && paramConfig !== null) {
-            rawValue = (paramConfig as any).value;
-            isOptional = (paramConfig as any).optional || false;
-        } else {
-            rawValue = paramConfig;
-        }
-        let paramValue = String(rawValue || '');
-
-        if (paramValue.startsWith('$')) {
-            const varName = paramValue.substring(1);
-            if (varName === 'Address') paramValue = testAddress;
-            else if (process.env[varName]) paramValue = process.env[varName]!;
-            else paramValue = '';
-        }
-        
-        if (paramValue) {
-             urlParams.append(key, paramValue);
-        } else if (!isOptional) {
-             urlParams.append(key, '');
-        }
-    }
-    
-    const finalUrl = `${base_url}?${urlParams.toString()}`;
+    const finalUrl = buildApiUrl(
+        config.request.api_config, 
+        { 'Address': "Francisco" }
+    );
 
     try {
         const response = await fetch(finalUrl);
@@ -511,44 +491,15 @@ export async function autocompleteAddress(request: AutocompleteRequest): Promise
             return { success: false, message: "La configuración de autocompletado es inválida." };
         }
         
-        const { base_url, parameters } = config.request.api_config;
-        const urlParams = new URLSearchParams();
+        const valueMap: ValueMap = {
+            'Address': request.address,
+            'country_cca2': request.country_cca2,
+            'state': request.state,
+            'city': request.city,
+        };
 
-        for (const [key, paramConfig] of Object.entries(parameters)) {
-            let isOptional = false;
-            let rawValue: any;
-
-            if (typeof paramConfig === 'object' && paramConfig !== null && 'value' in paramConfig) {
-                rawValue = paramConfig.value;
-                isOptional = paramConfig.optional || false;
-            } else {
-                rawValue = paramConfig;
-            }
-
-            let paramValue = String(rawValue || '');
-
-            if (paramValue.startsWith('$')) {
-                const varName = paramValue.substring(1);
-                const requestValue = request[varName as keyof AutocompleteRequest];
-                if (requestValue) {
-                    paramValue = requestValue;
-                } else if (process.env[varName]) {
-                    paramValue = process.env[varName]!;
-                } else {
-                    paramValue = '';
-                }
-            }
-            
-            if (paramValue) {
-                urlParams.append(key, paramValue);
-            } else if (!isOptional) {
-                // If the parameter is mandatory but has no value, it might still be required by the API.
-                // Depending on the API, it might expect an empty value. We'll append it.
-                urlParams.append(key, '');
-            }
-        }
+        const finalUrl = buildApiUrl(config.request.api_config, valueMap);
         
-        const finalUrl = `${base_url}?${urlParams.toString()}`;
         const apiResponse = await fetch(finalUrl);
         
         if (!apiResponse.ok) {
@@ -612,9 +563,3 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
         if (client) client.release();
     }
 }
-
-
-    
-
-
-    
