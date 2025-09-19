@@ -232,7 +232,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         let data: AddressData = {};
 
         // Continents
-        const continentsPath = responseConfig.continents?.path;
+        const continentsPath = responseConfig.continents?.value;
         if (continentsPath) {
             data.continents = getNestedValue({ request: config.request }, continentsPath) || [];
         }
@@ -243,7 +243,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             const response = await fetch(url, { method: 'GET' });
             const countriesJson = await response.json();
             
-            const countriesPath = responseConfig.countries?.path;
+            const countriesPath = responseConfig.countries?.value;
             const countryList = countriesPath ? getNestedValue(countriesJson, countriesPath) : countriesJson;
 
             if (Array.isArray(countryList)) {
@@ -262,7 +262,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
             const statesJson = await response.json();
 
-            const statesPath = responseConfig.states?.path;
+            const statesPath = responseConfig.states?.value;
             const stateList = statesPath ? getNestedValue(statesJson, statesPath) : [];
             
             if (Array.isArray(stateList)) {
@@ -279,7 +279,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
              const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
              const citiesJson = await response.json();
              
-             const citiesPath = responseConfig.cities?.path;
+             const citiesPath = responseConfig.cities?.value;
              data.cities = (citiesPath ? getNestedValue(citiesJson, citiesPath) : []).sort();
         }
 
@@ -292,5 +292,91 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         if (client) client.release();
     }
 }
+
+
+export async function testAddressService(id: string): Promise<ActionState> {
+    if (!id) return { success: false, message: "ID de servicio no proporcionado." };
+
+    let client;
+    let service;
+    try {
+        const pool = await getDbPool();
+        if (!pool) return { success: false, message: "Error del servidor." };
+        client = await pool.connect();
+        const serviceResult = await client.query('SELECT * FROM address_services WHERE id = $1', [id]);
+        if (serviceResult.rows.length === 0) {
+            return { success: false, message: "Servicio de dirección no encontrado." };
+        }
+        service = serviceResult.rows[0];
+    } catch (error) {
+        return { success: false, message: "Error de base de datos al buscar el servicio." };
+    } finally {
+        if (client) client.release();
+    }
+
+    const config = service.config_json;
+    const requestConfig = config.request?.api_config?.parameters;
+    const responseConfig = config.response;
+
+    if (!requestConfig || !responseConfig) {
+        return { success: false, message: 'La configuración del servicio de dirección es inválida.' };
+    }
+
+    try {
+        // 1. Test Continents
+        const continentsPath = responseConfig.continents?.value;
+        const continents = continentsPath ? getNestedValue({ request: config.request }, continentsPath) : [];
+        if (!Array.isArray(continents) || continents.length === 0) {
+            return { success: false, message: "Prueba de continentes fallida: No se encontró una lista de continentes." };
+        }
+
+        // 2. Test Countries
+        const testContinent = "Americas";
+        if (requestConfig.countries?.url) {
+            const url = requestConfig.countries.url.replace('$continent', testContinent);
+            const response = await fetch(url, { method: 'GET' });
+            const countriesJson = await response.json();
+            const countriesPath = responseConfig.countries?.value;
+            const countryList = countriesPath ? getNestedValue(countriesJson, countriesPath) : countriesJson;
+            if (!Array.isArray(countryList) || countryList.length === 0) {
+                return { success: false, message: `Prueba de países fallida para el continente '${testContinent}'.` };
+            }
+        }
+
+        // 3. Test States
+        const testCountry = "Brazil";
+        if (requestConfig.states?.url) {
+            const url = requestConfig.states.url.replace('$country', testCountry);
+            const body = JSON.stringify({ country: testCountry });
+            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
+            const statesJson = await response.json();
+            const statesPath = responseConfig.states?.value;
+            const stateList = statesPath ? getNestedValue(statesJson, statesPath) : [];
+            if (!Array.isArray(stateList) || stateList.length === 0) {
+                return { success: false, message: `Prueba de estados fallida para el país '${testCountry}'.` };
+            }
+        }
+
+        // 4. Test Cities
+        const testState = "São Paulo";
+        if (requestConfig.cities?.url) {
+            const url = requestConfig.cities.url.replace('$country', testCountry).replace('$state', testState);
+            const body = JSON.stringify({ country: testCountry, state: testState });
+            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
+            const citiesJson = await response.json();
+            const citiesPath = responseConfig.cities?.value;
+            const cityList = citiesPath ? getNestedValue(citiesJson, citiesPath) : [];
+            if (!Array.isArray(cityList) || cityList.length === 0) {
+                return { success: false, message: `Prueba de ciudades fallida para '${testState}, ${testCountry}'.` };
+            }
+        }
+
+        return { success: true, message: "¡Prueba exitosa! Se obtuvieron correctamente los datos de continentes, países, estados y ciudades." };
+
+    } catch (error: any) {
+        return { success: false, message: `Error durante la prueba: ${error.message}` };
+    }
+}
+    
 
     

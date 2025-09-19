@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useActionState } from 'react';
+import React, { useState, useEffect, useCallback, useActionState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
   Dialog,
@@ -39,6 +39,7 @@ import {
     updateAddressService,
     deleteAddressService,
     setAddressServiceAsDefault,
+    testAddressService,
     type AddressService
 } from '@/actions/address';
 import { 
@@ -48,6 +49,7 @@ import {
     Edit,
     Trash2,
     PlusCircle,
+    TestTube2,
 } from 'lucide-react';
 import { LoadingOverlay } from './admin-header';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
@@ -157,6 +159,7 @@ export function ManageAddressDialog() {
   const [services, setServices] = useState<AddressService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, startSubmitting] = React.useTransition();
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isListOpen, setIsListOpen] = useState(false);
@@ -219,6 +222,25 @@ export function ManageAddressDialog() {
         }
     });
   }
+  
+  const handleTest = (id: string) => {
+      setTestingId(id);
+      startSubmitting(async () => {
+          const result = await testAddressService(id);
+          if (result.success) {
+              toast({ title: t('toast.successTitle'), description: result.message, duration: 10000 });
+          } else {
+              toast({ 
+                title: t('toast.errorTitle'), 
+                description: result.message, 
+                variant: 'destructive',
+                copyable: true,
+                duration: 15000 
+              });
+          }
+          setTestingId(null);
+      });
+  }
 
   return (
     <>
@@ -231,7 +253,7 @@ export function ManageAddressDialog() {
         </DialogTrigger>
         <DialogContent className="sm:max-w-2xl">
             <div className={cn("relative")}>
-                {isSubmitting && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
+                {(isSubmitting && !testingId) && <LoadingOverlay text={t('adminDashboard.loadingOverlay.processing')} />}
                 <DialogHeader>
                     <DialogTitle>{t('adminDashboard.address.title')}</DialogTitle>
                     <DialogDescription>
@@ -265,7 +287,16 @@ export function ManageAddressDialog() {
                                         <p>{t('adminDashboard.address.setAsDefault')}</p>
                                     </TooltipContent>
                                 </Tooltip>
-                                
+                                 <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" onClick={() => handleTest(service.id)} disabled={isSubmitting}>
+                                            {testingId === service.id ? <Loader className="h-4 w-4 animate-spin"/> : <TestTube2 className="h-4 w-4"/>}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Probar Servicio</p>
+                                    </TooltipContent>
+                                </Tooltip>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button variant="ghost" size="icon" onClick={() => handleEditClick(service)} disabled={isSubmitting}><Edit className="h-4 w-4"/></Button>
@@ -323,5 +354,7 @@ export function ManageAddressDialog() {
     </>
   );
 }
+
+    
 
     
