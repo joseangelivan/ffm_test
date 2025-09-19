@@ -28,7 +28,7 @@ const ServiceSchema = z.object({
 
 
 function getNestedValue(obj: any, path: string): any {
-    if (!path) return obj;
+    if (!path || path === '.') return obj;
     
     const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
     let result = obj;
@@ -269,7 +269,10 @@ export async function updateGeocodingService(prevState: any, formData: FormData)
              };
         }
         
-        if (configs.autocomplete_request_config || configs.autocomplete_response_config) {
+        // This ensures autocomplete can be edited independently.
+        // It checks if the "active" tab was autocomplete.
+        // Even without this, we should handle partial updates gracefully.
+        if (formData.has('active_tab') && formData.get('active_tab') === 'autocomplete') {
             currentConfig.autocomplete = {
                 request: configs.autocomplete_request_config ? JSON.parse(configs.autocomplete_request_config) : currentConfig.autocomplete?.request || null,
                 response: configs.autocomplete_response_config ? JSON.parse(configs.autocomplete_response_config) : currentConfig.autocomplete?.response || null,
@@ -504,16 +507,18 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
         const serviceResult = await geocodeWithService(defaultService, fullAddress);
 
         if (serviceResult.success && serviceResult.data) {
-             const customResult: GeocodeResult = {
+             // This is a minimal conversion. A real implementation might use another API call
+             // to reverse geocode and get more address components.
+             const geocodedResult: GeocodeResult = {
                 geometry: { location: { lat: serviceResult.data.lat, lng: serviceResult.data.lon } },
                 formatted_address: fullAddress,
-                street_number: null, // Dynamic services might not parse this level of detail
+                street_number: null,
                 route: street,
                 locality: city,
                 administrative_area_level_1: state,
                 country: country,
             };
-            return { success: true, message: "Dirección encontrada.", data: customResult };
+            return { success: true, message: "Dirección encontrada.", data: geocodedResult };
         } else {
              return { success: false, message: serviceResult.error || "Error en el servicio de geocodificación." };
         }
@@ -525,4 +530,3 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
         if (client) client.release();
     }
 }
-

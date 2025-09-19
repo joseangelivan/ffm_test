@@ -57,7 +57,13 @@ export const LocaleProvider: React.FC<{ children: React.ReactNode, initialLocale
 
 
   const t = useCallback((key: string, replacements?: Record<string, string>) => {
-    const translation = getNestedValue(translations[locale], key) || getNestedValue(translations['pt-BR'], key) || key;
+    const primaryTranslation = getNestedValue(translations[locale], key);
+    // Fallback to pt-BR if spanish is selected but translation is missing
+    const fallbackTranslation = locale === 'es' 
+        ? getNestedValue(translations['pt-BR'], key)
+        : undefined;
+
+    const translation = primaryTranslation || fallbackTranslation || key;
 
     if (replacements) {
         return Object.entries(replacements).reduce((acc, [k, v]) => {
