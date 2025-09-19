@@ -39,6 +39,9 @@ const ServiceSchema = z.object({
 });
 
 function getNestedValue(obj: any, path: string): any {
+  // If path is "." or empty, return the object itself, as it's the root.
+  if (path === '.' || path === '') return obj;
+
   const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
   let result = obj;
   for (const key of keys) {
@@ -245,7 +248,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             const countriesJson = await response.json();
             
             const countriesPath = responseConfig.countries?.path;
-            const countryList = countriesPath ? getNestedValue(countriesJson, countriesPath) : countriesJson;
+            const countryList = (countriesPath === '.' || countriesPath === '') ? countriesJson : getNestedValue(countriesJson, countriesPath);
 
             if (Array.isArray(countryList)) {
                 data.countries = countryList.map((item: any) => ({
@@ -264,7 +267,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             const statesJson = await response.json();
 
             const statesPath = responseConfig.states?.path;
-            const stateList = statesPath ? getNestedValue(statesJson, statesPath) : [];
+            const stateList = (statesPath === '.' || statesPath === '') ? statesJson : getNestedValue(statesJson, statesPath);
             
             if (Array.isArray(stateList)) {
                 data.states = stateList.map((item: any) => ({
@@ -281,7 +284,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
              const citiesJson = await response.json();
              
              const citiesPath = responseConfig.cities?.path;
-             data.cities = (citiesPath ? getNestedValue(citiesJson, citiesPath) : []).sort();
+             data.cities = ((citiesPath === '.' || citiesPath === '') ? citiesJson : getNestedValue(citiesJson, citiesPath)).sort();
         }
 
         return { success: true, message: 'Datos de dirección obtenidos.', data };
@@ -338,7 +341,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const response = await fetch(url, { method: 'GET' });
             const countriesJson = await response.json();
             const countriesPath = responseConfig.countries?.path;
-            const countryList = countriesPath ? getNestedValue(countriesJson, countriesPath) : countriesJson;
+            const countryList = (countriesPath === '.' || countriesPath === '') ? countriesJson : getNestedValue(countriesJson, countriesPath);
             if (!Array.isArray(countryList) || countryList.length === 0) {
                 return { success: false, message: `Prueba de países fallida para el continente '${testContinent}'.` };
             }
@@ -352,7 +355,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
             const statesJson = await response.json();
             const statesPath = responseConfig.states?.path;
-            const stateList = statesPath ? getNestedValue(statesJson, statesPath) : [];
+            const stateList = (statesPath === '.' || statesPath === '') ? statesJson : getNestedValue(statesJson, statesPath);
             if (!Array.isArray(stateList) || stateList.length === 0) {
                 return { success: false, message: `Prueba de estados fallida para el país '${testCountry}'.` };
             }
@@ -366,7 +369,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
             const citiesJson = await response.json();
             const citiesPath = responseConfig.cities?.path;
-            const cityList = citiesPath ? getNestedValue(citiesJson, citiesPath) : [];
+            const cityList = (citiesPath === '.' || citiesPath === '') ? citiesJson : getNestedValue(citiesJson, citiesPath);
             if (!Array.isArray(cityList) || cityList.length === 0) {
                 return { success: false, message: `Prueba de ciudades fallida para '${testState}, ${testCountry}'.` };
             }
@@ -381,3 +384,4 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
     
+
