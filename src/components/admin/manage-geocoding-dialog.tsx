@@ -41,6 +41,7 @@ import {
     deleteGeocodingService,
     setGeocodingServiceAsDefault,
     testGeocodingService,
+    testGeocodingAutocompleteService,
     type GeocodingService
 } from '@/actions/geocoding';
 import { 
@@ -62,8 +63,10 @@ function ServiceFormFields({ service, onCancel }: { service: GeocodingService | 
     const isEditMode = !!service;
     const { t } = useLocale();
 
-    const getInitialJson = (configPart: any, fallbackPart?: any) => {
-        const data = configPart || fallbackPart;
+    const getInitialJson = (config: any, part: 'request' | 'response', fallbackPart?: 'request' | 'response') => {
+        const primaryData = config?.geocoordinates?.[part];
+        const fallbackData = config?.[fallbackPart || part];
+        const data = primaryData || fallbackData;
         if (!data) return '';
         try {
             return JSON.stringify(data, null, 2);
@@ -73,19 +76,19 @@ function ServiceFormFields({ service, onCancel }: { service: GeocodingService | 
     };
     
     const [requestConfig, setRequestConfig] = useState(
-        isEditMode ? getInitialJson(service?.config_json?.geocoordinates?.request, service?.config_json?.request) : ''
+        isEditMode ? getInitialJson(service?.config_json, 'request') : ''
     );
     const [responseConfig, setResponseConfig] = useState(
-       isEditMode ? getInitialJson(service?.config_json?.geocoordinates?.response, service?.config_json?.response) : ''
+       isEditMode ? getInitialJson(service?.config_json, 'response') : ''
     );
     const [isRequestJsonValid, setIsRequestJsonValid] = useState(true);
     const [isResponseJsonValid, setIsResponseJsonValid] = useState(true);
 
     const [autocompleteRequestConfig, setAutocompleteRequestConfig] = useState(
-        isEditMode ? getInitialJson(service?.config_json?.autocomplete?.request) : ''
+        isEditMode ? getInitialJson(service?.config_json?.autocomplete, 'request') : ''
     );
     const [autocompleteResponseConfig, setAutocompleteResponseConfig] = useState(
-       isEditMode ? getInitialJson(service?.config_json?.autocomplete?.response) : ''
+       isEditMode ? getInitialJson(service?.config_json?.autocomplete, 'response') : ''
     );
     const [isAutocompleteRequestJsonValid, setIsAutocompleteRequestJsonValid] = useState(true);
     const [isAutocompleteResponseJsonValid, setIsAutocompleteResponseJsonValid] = useState(true);
@@ -136,7 +139,6 @@ function ServiceFormFields({ service, onCancel }: { service: GeocodingService | 
                                 value={requestConfig}
                                 onChange={handleJsonChange(setRequestConfig, setIsRequestJsonValid)}
                                 placeholder='{ "api_config": { "base_url": "...", "parameters": { ... } } }' 
-                                required 
                                 disabled={pending}
                                 className={cn("min-h-[150px] font-mono text-xs", !isRequestJsonValid && "border-destructive focus-visible:ring-destructive")}
                             />
@@ -150,7 +152,6 @@ function ServiceFormFields({ service, onCancel }: { service: GeocodingService | 
                                 value={responseConfig}
                                 onChange={handleJsonChange(setResponseConfig, setIsResponseJsonValid)}
                                 placeholder='{\n  "lat": "...",\n  "lon": "..."\n}'
-                                required 
                                 disabled={pending}
                                 className={cn("min-h-[100px] font-mono text-xs", !isResponseJsonValid && "border-destructive focus-visible:ring-destructive")}
                             />
@@ -192,7 +193,7 @@ function ServiceFormFields({ service, onCancel }: { service: GeocodingService | 
                 <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>{t('common.cancel')}</Button>
                 <Button type="submit" disabled={pending || !allJsonsValid}>
                     {pending && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-                    {isEditMode ? t('adminDashboard.editCondoDialog.save') : t('common.create')}
+                    {t('adminDashboard.editCondoDialog.save')}
                 </Button>
             </DialogFooter>
         </div>
@@ -325,6 +326,26 @@ export function ManageGeocodingDialog() {
       });
   }
 
+  const handleTestAutocomplete = (id: string) => {
+      setTestingId(id);
+      startSubmitting(async () => {
+          const result = await testGeocodingAutocompleteService(id);
+          if (result.success) {
+              toast({ title: t('toast.successTitle'), description: result.message, duration: 9000, copyable: true });
+          } else {
+              toast({ 
+                title: t('toast.errorTitle'), 
+                description: result.message, 
+                variant: 'destructive',
+                copyable: true,
+                duration: 15000 
+              });
+          }
+          setTestingId(null);
+      });
+  }
+
+
   return (
     <>
       <Dialog open={isListOpen} onOpenChange={setIsListOpen}>
@@ -388,7 +409,7 @@ export function ManageGeocodingDialog() {
                                         <DropdownMenuItem onClick={() => handleTest(service.id)}>
                                             Probar Geocoordenadas
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem disabled>
+                                        <DropdownMenuItem onClick={() => handleTestAutocomplete(service.id)}>
                                             Probar Autocompletar
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
@@ -451,3 +472,4 @@ export function ManageGeocodingDialog() {
     </>
   );
 }
+

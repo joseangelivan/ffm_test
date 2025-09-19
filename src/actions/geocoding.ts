@@ -28,25 +28,17 @@ const ServiceSchema = z.object({
 
 
 function getNestedValue(obj: any, path: string): any {
-    if (!path) return undefined;
+    if (!path) return obj;
     
-    // Extraer y procesar condicionales tipo "path{(condición)?valorTrue:valorFalse}"
-    const conditionalMatch = path.match(/^(.+)\{(.*)\}$/);
-    
-    if (conditionalMatch) {
-        const [_, basePath, condition] = conditionalMatch;
-        const value = basePath.split('.').reduce((o, k) => (o || {})[k], obj);
-        
-        try {
-            const ternario = condition.replace(/"/g, "'");
-            const expresion = `return ${ternario.replace(/value/g, JSON.stringify(value))}`;
-            return new Function('value', expresion)(value);
-        } catch {
-            return value; 
-        }
+    const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
+    let result = obj;
+    for (const key of keys) {
+      if (result === null || result === undefined) {
+        return undefined;
+      }
+      result = result[key];
     }
-
-    return path.split('.').reduce((o, k) => (o || {})[k], obj);
+    return result;
 }
 
 async function geocodeWithService(
@@ -184,10 +176,6 @@ export async function createGeocodingService(prevState: any, formData: FormData)
     if (!validatedFields.success) {
         return { success: false, message: validatedFields.error.errors[0].message };
     }
-
-    if (!validatedFields.data.request_config || !validatedFields.data.response_config) {
-        return { success: false, message: "La configuración de geocoordenadas (solicitud y respuesta) es obligatoria." };
-    }
     
     const { 
         name, 
@@ -196,6 +184,10 @@ export async function createGeocodingService(prevState: any, formData: FormData)
         autocomplete_request_config,
         autocomplete_response_config
     } = validatedFields.data;
+
+    if (!request_config || !response_config) {
+        return { success: false, message: "La configuración de geocoordenadas (solicitud y respuesta) es obligatoria." };
+    }
     
     let combinedConfig;
     try {
@@ -251,28 +243,25 @@ export async function updateGeocodingService(prevState: any, formData: FormData)
         if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
 
-        // 1. Fetch the existing service configuration
         const existingResult = await client.query('SELECT config_json FROM geocoding_services WHERE id = $1', [id]);
         if (existingResult.rows.length === 0) {
             return { success: false, message: "Servicio no encontrado." };
         }
         let currentConfig = existingResult.rows[0].config_json || {};
 
-        // 2. Validate form data
         const validatedFields = ServiceSchema.safeParse({
             name: formData.get('name'),
-            request_config: formData.get('request_config'),
-            response_config: formData.get('response_config'),
-            autocomplete_request_config: formData.get('autocomplete_request_config'),
-            autocomplete_response_config: formData.get('autocomplete_response_config'),
+            request_config: formData.get('request_config') || null,
+            response_config: formData.get('response_config') || null,
+            autocomplete_request_config: formData.get('autocomplete_request_config') || null,
+            autocomplete_response_config: formData.get('autocomplete_response_config') || null,
         });
-
+        
         if (!validatedFields.success) {
             return { success: false, message: validatedFields.error.errors[0].message };
         }
         const { name, ...configs } = validatedFields.data;
 
-        // 3. Merge new data over existing data
         if (configs.request_config && configs.response_config) {
              currentConfig.geocoordinates = {
                 request: JSON.parse(configs.request_config),
@@ -288,7 +277,6 @@ export async function updateGeocodingService(prevState: any, formData: FormData)
         }
 
 
-        // 4. Update the database with the merged config
         const result = await client.query(
             'UPDATE geocoding_services SET name = $1, config_json = $2, updated_at = NOW() WHERE id = $3',
             [name, currentConfig, id]
@@ -375,7 +363,6 @@ export async function testGeocodingService(id: string): Promise<ActionState> {
          return { success: false, message: "Servicio no encontrado." };
     }
     
-    // Example address for testing
     const testAddress = "1600 Amphitheatre Parkway, Mountain View, CA";
     const result = await geocodeWithService(service, testAddress);
 
@@ -400,6 +387,81 @@ export async function testGeocodingService(id: string): Promise<ActionState> {
         return { success: false, message: detailedError };
     }
 }
+
+export async function testGeocodingAutocompleteService(id: string): Promise<ActionState> {
+    if (!id) {
+        return { success: false, message: "ID no proporcionado." };
+    }
+
+    let service: GeocodingService | null = null;
+    let client;
+    try {
+        const pool = await getDbPool();
+        if (!pool) return { success: false, message: "Error al leer la configuración de la base de datos." };
+        client = await pool.connect();
+        const result = await client.query('SELECT * FROM geocoding_services WHERE id = $1', [id]);
+        if (result.rows.length === 0) return { success: false, message: "Servicio no encontrado." };
+        service = result.rows[0];
+    } catch (dbError: any) {
+        return { success: false, message: "Error al leer la configuración de la base de datos." };
+    } finally {
+        if (client) client.release();
+    }
+    
+    if (!service?.config_json?.autocomplete?.request?.api_config) {
+        return { success: false, message: "La configuración de autocompletado es inválida o no existe." };
+    }
+    
+    const config = service.config_json.autocomplete;
+    const { base_url, parameters } = config.request.api_config;
+    const urlParams = new URLSearchParams();
+    const testAddress = "Francisco"; 
+
+    for (const [key, paramConfig] of Object.entries(parameters)) {
+        let rawValue: any;
+        if (typeof paramConfig === 'object' && paramConfig !== null && 'value' in paramConfig) {
+            rawValue = (paramConfig as { value: any }).value;
+        } else {
+            rawValue = paramConfig;
+        }
+        let paramValue = String(rawValue || '');
+
+        if (paramValue.startsWith('$')) {
+            const varName = paramValue.substring(1);
+            if (varName === 'Address') paramValue = testAddress;
+            else if (process.env[varName]) paramValue = process.env[varName]!;
+            else paramValue = '';
+        }
+        if (paramValue) urlParams.append(key, paramValue);
+    }
+    
+    const finalUrl = `${base_url}?${urlParams.toString()}`;
+
+    try {
+        const response = await fetch(finalUrl);
+        const responseData = await response.json();
+
+        if (!response.ok) {
+            throw new Error(`La API respondió con el estado ${response.status}. Respuesta: ${JSON.stringify(responseData)}`);
+        }
+
+        const results = getNestedValue(responseData, config.response.results_path);
+        if (!Array.isArray(results) || results.length === 0) {
+            return { success: false, message: "No se encontraron resultados en la ruta especificada." };
+        }
+
+        const addresses = results.map(r => getNestedValue(r, config.response.address_path)).filter(Boolean);
+        if (addresses.length > 0) {
+            return { success: true, message: `Prueba exitosa. Se encontraron ${addresses.length} sugerencias. Las primeras son:\n- ${addresses.slice(0, 3).join('\n- ')}` };
+        } else {
+            return { success: false, message: "Se encontraron resultados, pero no se pudo extraer ninguna dirección." };
+        }
+
+    } catch (apiError: any) {
+        return { success: false, message: `Error al probar el autocompletado: ${apiError.message}` };
+    }
+}
+
 
 type GeocodeRequest = {
   street: string;
