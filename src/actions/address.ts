@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { z } from 'zod';
@@ -232,9 +233,9 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         let data: AddressData = {};
 
         // Continents
-        const continentsPath = responseConfig.continents?.value;
+        const continentsPath = responseConfig.continents?.path;
         if (continentsPath) {
-            data.continents = getNestedValue({ request: config.request }, continentsPath) || [];
+            data.continents = getNestedValue(config, continentsPath) || [];
         }
 
         // Countries
@@ -243,7 +244,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             const response = await fetch(url, { method: 'GET' });
             const countriesJson = await response.json();
             
-            const countriesPath = responseConfig.countries?.value;
+            const countriesPath = responseConfig.countries?.path;
             const countryList = countriesPath ? getNestedValue(countriesJson, countriesPath) : countriesJson;
 
             if (Array.isArray(countryList)) {
@@ -262,7 +263,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
             const statesJson = await response.json();
 
-            const statesPath = responseConfig.states?.value;
+            const statesPath = responseConfig.states?.path;
             const stateList = statesPath ? getNestedValue(statesJson, statesPath) : [];
             
             if (Array.isArray(stateList)) {
@@ -279,7 +280,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
              const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
              const citiesJson = await response.json();
              
-             const citiesPath = responseConfig.cities?.value;
+             const citiesPath = responseConfig.cities?.path;
              data.cities = (citiesPath ? getNestedValue(citiesJson, citiesPath) : []).sort();
         }
 
@@ -324,8 +325,8 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
     try {
         // 1. Test Continents
-        const continentsPath = responseConfig.continents?.value;
-        const continents = continentsPath ? getNestedValue({ request: config }, continentsPath) : [];
+        const continentsPath = responseConfig.continents?.path;
+        const continents = continentsPath ? getNestedValue(config, continentsPath) : [];
         if (!Array.isArray(continents) || continents.length === 0) {
             return { success: false, message: "Prueba de continentes fallida: No se encontró una lista de continentes." };
         }
@@ -336,7 +337,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const url = requestConfig.countries.url.replace('$continent', testContinent);
             const response = await fetch(url, { method: 'GET' });
             const countriesJson = await response.json();
-            const countriesPath = responseConfig.countries?.value;
+            const countriesPath = responseConfig.countries?.path;
             const countryList = countriesPath ? getNestedValue(countriesJson, countriesPath) : countriesJson;
             if (!Array.isArray(countryList) || countryList.length === 0) {
                 return { success: false, message: `Prueba de países fallida para el continente '${testContinent}'.` };
@@ -350,7 +351,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const body = JSON.stringify({ country: testCountry });
             const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
             const statesJson = await response.json();
-            const statesPath = responseConfig.states?.value;
+            const statesPath = responseConfig.states?.path;
             const stateList = statesPath ? getNestedValue(statesJson, statesPath) : [];
             if (!Array.isArray(stateList) || stateList.length === 0) {
                 return { success: false, message: `Prueba de estados fallida para el país '${testCountry}'.` };
@@ -364,7 +365,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const body = JSON.stringify({ country: testCountry, state: testState });
             const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
             const citiesJson = await response.json();
-            const citiesPath = responseConfig.cities?.value;
+            const citiesPath = responseConfig.cities?.path;
             const cityList = citiesPath ? getNestedValue(citiesJson, citiesPath) : [];
             if (!Array.isArray(cityList) || cityList.length === 0) {
                 return { success: false, message: `Prueba de ciudades fallida para '${testState}, ${testCountry}'.` };
