@@ -56,6 +56,7 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
+    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -227,7 +228,7 @@ function AddressVerificationDialog({
                 </div>
                  <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.close')}</Button>
-                </DialogFooter>
+                 </DialogFooter>
             </DialogContent>
         </Dialog>
     )
@@ -367,7 +368,7 @@ function CondoFormWrapper({
   const handleAction = async (prevState: any, formData: FormData) => {
     const result = await formAction(prevState, formData);
     if (result?.success === false) {
-      toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+      toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
     }
     if (result?.success === true) {
       toast({ title: t('toast.successTitle'), description: result.message });
@@ -401,11 +402,12 @@ function CondoFormWrapper({
     if (!locationData.street) return;
     setIsVerificationDialogOpen(true);
     startVerificationTransition(async () => {
+        const countryData = locationData.countries?.find(c => c.name === locationData.country);
         const result = await autocompleteAddress({
             address: locationData.street!,
             city: locationData.city,
             state: locationData.state,
-            country: locationData.country,
+            country_cca2: countryData?.cca2,
         });
         if (result.success) {
             setVerificationResults(result.data || []);
@@ -533,10 +535,10 @@ export function CondoManagement() {
             if (result?.success && result.data) {
                 setCondominios(result.data);
             } else if (result) {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
             }
         } catch (error: any) {
-             toast({ title: t('toast.errorTitle'), description: error.message || t('toast.adminLogin.serverError'), variant: 'destructive' });
+             toast({ title: t('toast.errorTitle'), description: error.message || t('toast.adminLogin.serverError'), variant: 'destructive', copyable: true });
         } finally {
             setLoading(false);
         }
@@ -583,7 +585,7 @@ export function CondoManagement() {
 
             setIsEditCondoDialogOpen(true);
         } catch (error: any) {
-            toast({ title: t('toast.errorTitle'), description: error.message || t('toast.preloadError'), variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: error.message || t('toast.preloadError'), variant: 'destructive', copyable: true });
         } finally {
             setIsPreparingEdit(false);
         }
@@ -604,6 +606,7 @@ export function CondoManagement() {
                     title: t('toast.errorTitle'),
                     description: result.message,
                     variant: 'destructive',
+                    copyable: true,
                 });
             }
             setDeletingId(null);
@@ -762,3 +765,5 @@ export function CondoManagement() {
         </div>
     );
 }
+
+    
