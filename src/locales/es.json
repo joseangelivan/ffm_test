@@ -616,13 +616,13 @@
     },
     "addressVerification": {
         "checkButton": "Verificar",
-        "title": "Resultados da Verificação de Endereço",
-        "description": "Encontramos os seguintes endereços. Selecione o correto para preencher automaticamente.",
-        "loading": "Procurando endereços...",
-        "notFound": "Endereço não encontrado.",
-        "selectButton": "Selecionar",
+        "title": "Resultados de la Verificación de Dirección",
+        "description": "Encontramos las siguientes direcciones. Selecciona la correcta para autocompletar.",
+        "loading": "Buscando direcciones...",
+        "notFound": "Dirección no encontrada.",
+        "selectButton": "Seleccionar",
         "error": {
-            "missingInfo": "Por favor, selecione continente, país, estado e cidade antes de verificar a rua."
+            "missingInfo": "Por favor, selecciona continente, país, estado y ciudad antes de verificar la calle."
         }
     },
     "userTypes": {
@@ -692,6 +692,7 @@
     
 
     
+
 
 
 
