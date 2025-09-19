@@ -56,7 +56,6 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -217,12 +216,9 @@ function AddressVerificationDialog({
                         <ScrollArea className="h-64 border rounded-md">
                             <div className="p-2 space-y-1">
                             {results.map((result, index) => (
-                                <div key={index} className="p-2 rounded-md hover:bg-muted">
+                                <div key={index} className="p-2 rounded-md hover:bg-muted cursor-pointer" onClick={() => onSelect(result)}>
                                     <p className="font-semibold">{result.address.split(',')[0]}</p>
                                     <p className="text-sm text-muted-foreground">{result.address.split(',').slice(1).join(',')}</p>
-                                    <Button size="sm" variant="link" className="p-0 h-auto" onClick={() => onSelect(result)}>
-                                        {t('addressVerification.selectButton')}
-                                    </Button>
                                 </div>
                             ))}
                             </div>
@@ -244,6 +240,7 @@ function CondoFormFields({
   locationData,
   onLocationChange,
   onStreetChange,
+  onNumberChange,
   onVerifyAddress,
 }: {
   isEditMode: boolean,
@@ -252,6 +249,7 @@ function CondoFormFields({
   locationData: Partial<LocationData>;
   onLocationChange: (field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => void;
   onStreetChange: (value: string) => void;
+  onNumberChange: (value: string) => void;
   onVerifyAddress: () => void;
 }) {
     const { t } = useLocale();
@@ -313,7 +311,7 @@ function CondoFormFields({
                         disabled={isFormPending}
                         autoComplete="off"
                     />
-                    <Button type="button" variant="outline" onClick={onVerifyAddress} disabled={isFormPending || !locationData.city}>
+                    <Button type="button" variant="outline" onClick={onVerifyAddress} disabled={isFormPending || !locationData.street}>
                         <Search className="h-4 w-4" />
                     </Button>
                 </div>
@@ -325,7 +323,8 @@ function CondoFormFields({
                 <Input
                   id="number"
                   name="number"
-                  defaultValue={initialData.number}
+                  value={locationData.number || ''}
+                  onChange={(e) => onNumberChange(e.target.value)}
                   placeholder="Ex: 123"
                   required
                   disabled={isFormPending}
@@ -393,6 +392,10 @@ function CondoFormWrapper({
   const handleStreetChange = (value: string) => {
       setLocationData(current => ({ ...current, street: value }));
   }
+   const handleNumberChange = (value: string) => {
+      setLocationData(current => ({ ...current, number: value }));
+  }
+
 
   const handleVerifyAddress = () => {
     if (!locationData.street) return;
@@ -408,7 +411,7 @@ function CondoFormWrapper({
             setVerificationResults(result.data || []);
         } else {
             setVerificationResults([]);
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
         }
     });
   }
@@ -492,6 +495,7 @@ function CondoFormWrapper({
                 locationData={locationData}
                 onLocationChange={handleLocationChange}
                 onStreetChange={handleStreetChange}
+                onNumberChange={handleNumberChange}
                 onVerifyAddress={handleVerifyAddress}
             />
             </form>

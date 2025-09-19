@@ -417,9 +417,11 @@ export async function testGeocodingAutocompleteService(id: string): Promise<Acti
     const testAddress = "Francisco"; 
 
     for (const [key, paramConfig] of Object.entries(parameters)) {
+        let isOptional = false;
         let rawValue: any;
-        if (typeof paramConfig === 'object' && paramConfig !== null && 'value' in paramConfig) {
-            rawValue = (paramConfig as { value: any }).value;
+        if (typeof paramConfig === 'object' && paramConfig !== null) {
+            rawValue = (paramConfig as any).value;
+            isOptional = (paramConfig as any).optional || false;
         } else {
             rawValue = paramConfig;
         }
@@ -431,7 +433,10 @@ export async function testGeocodingAutocompleteService(id: string): Promise<Acti
             else if (process.env[varName]) paramValue = process.env[varName]!;
             else paramValue = '';
         }
-        if (paramValue) urlParams.append(key, paramValue);
+        
+        if (paramValue || !isOptional) {
+             urlParams.append(key, paramValue);
+        }
     }
     
     const finalUrl = `${base_url}?${urlParams.toString()}`;
@@ -558,7 +563,7 @@ export async function autocompleteAddress(request: AutocompleteRequest): Promise
 
     } catch (error: any) {
         console.error("Error in autocompleteAddress:", error);
-        return { success: false, message: error.message };
+        return { success: false, message: `Error: ${error.message}` };
     } finally {
         if(client) client.release();
     }
@@ -596,4 +601,3 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
 
 
     
-
