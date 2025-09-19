@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useActionState, useTransition } from 'react';
@@ -64,7 +65,7 @@ const AddElementTypeDialog = ({
             toast({title: t('toast.successTitle'), description: result.message});
             onSuccess();
         } else {
-            toast({title: t('toast.errorTitle'), description: result.message, variant: 'destructive'});
+            toast({title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true});
         }
         return result;
      }

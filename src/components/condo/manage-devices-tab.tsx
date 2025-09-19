@@ -91,7 +91,7 @@ function ManageProtocolForm({
             toast({ title: t('toast.successTitle'), description: result.message });
             onSuccess();
         } else {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
         }
         return result;
     }
@@ -106,7 +106,7 @@ function ManageProtocolForm({
                 toast({ title: t('toast.successTitle'), description: result.message });
                 onSuccess();
             } else {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
             }
         });
     }
@@ -182,7 +182,7 @@ function DeviceForm({
             toast({ title: t('toast.successTitle'), description: result.message });
             onSuccess();
         } else {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
         }
         return result;
     };
@@ -265,7 +265,7 @@ export default function ManageDevicesTab({
             setDevices(devicesData || []);
         } catch (error) {
             console.error("Failed to fetch device catalogs:", error);
-            toast({ title: t('toast.errorTitle'), description: "Error al cargar los catálogos.", variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: "Error al cargar los catálogos.", variant: 'destructive', copyable: true });
         } finally {
             setIsLoading(false);
         }
@@ -282,7 +282,7 @@ export default function ManageDevicesTab({
                  toast({ title: t('toast.successTitle'), description: result.message });
                  fetchAllData();
             } else {
-                 toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+                 toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
             }
         });
     }

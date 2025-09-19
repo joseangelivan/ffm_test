@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useActionState, useTransition } from 'react';
@@ -47,7 +46,7 @@ export function ManageDomainDialog() {
                 toast({ title: t('toast.successTitle'), description: result.message });
                 setIsOpen(false);
             } else {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
             }
         });
     };

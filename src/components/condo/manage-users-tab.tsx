@@ -89,7 +89,7 @@ function UserForm({
             toast({ title: t('toast.successTitle'), description: result.message });
             onSuccess();
         } else {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
         }
         return result;
     }
@@ -206,6 +206,7 @@ export default function ManageUsersTab({ condoId, initialUsers }: { condoId: str
                     title: t('toast.errorTitle'),
                     description: result.message,
                     variant: 'destructive',
+                    copyable: true,
                 });
             }
         });

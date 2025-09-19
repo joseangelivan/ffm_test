@@ -133,7 +133,7 @@ function AddGoogleMapProviderDialog({ isOpen, onOpenChange, onSuccess }: { isOpe
             toast({ title: t('toast.successTitle'), description: result.message });
             onSuccess();
         } else if(result) {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
         }
         return result;
     }
@@ -179,7 +179,7 @@ function ServiceFormDialog({ isOpen, onOpenChange, service, onSuccess }: { isOpe
     const handleAction = async (prevState: any, formData: FormData) => {
         const result = await formAction(prevState, formData);
         if (result?.success === false) {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
         }
         if (result?.success === true) {
             toast({ title: t('toast.successTitle'), description: result.message });
@@ -353,7 +353,7 @@ export function ManageMapsDialog() {
            toast({ title: t('toast.successTitle'), description: result.message });
            fetchServices();
        } else {
-           toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+           toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
        }
     });
   }
@@ -368,7 +368,7 @@ export function ManageMapsDialog() {
                 condoDashboardContext.refreshMapProvider();
             }
         } else {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
         }
     });
   }

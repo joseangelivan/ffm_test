@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useActionState, useTransition } from 'react';
@@ -79,7 +78,7 @@ function TwoFactorAuthSetup({ session, onSetupComplete }: { session: SessionPayl
                 const dataUrl = await generateQrCodeDataUrl(result.data.qrCodeUrl);
                 setQrCodeUrl(dataUrl);
             } else {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
             }
         });
     }, [session.email, t, toast]);
@@ -91,7 +90,7 @@ function TwoFactorAuthSetup({ session, onSetupComplete }: { session: SessionPayl
                 toast({ title: t('toast.successTitle'), description: result.message });
                 onSetupComplete();
             } else {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
             }
         });
     };
@@ -146,7 +145,7 @@ function TwoFactorAuthManagement({ session, onDisable }: { session: SessionPaylo
                 toast({ title: t('toast.successTitle'), description: result.message });
                 onDisable();
             } else {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
             }
         });
     };
@@ -216,7 +215,7 @@ function ManageAccountFields({ session, formState, isFormPending }: { session: S
                 toast({ title: t('toast.successTitle'), description: result.message });
                 setPinVerificationState({ status: 'idle', message: t('adminDashboard.account.pinValidation.sent') });
             } else {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
             }
         });
     };
@@ -229,7 +228,7 @@ function ManageAccountFields({ session, formState, isFormPending }: { session: S
                 toast({ title: t('toast.successTitle'), description: result.message });
             } else {
                 setPinVerificationState({ status: 'error', message: result.message });
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
             }
         });
     };
@@ -429,6 +428,7 @@ export function ManageAccountDialog({
             title: t('toast.errorTitle'),
             description: state.message,
             variant: 'destructive',
+            copyable: true,
         });
     }
   }, [state, toast, t, onSuccess, onOpenChange]);

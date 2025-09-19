@@ -136,6 +136,7 @@ function AddDeviceDialog({
         title: t('toast.errorTitle'),
         description: t('toast.addDeviceError'),
         variant: 'destructive',
+        copyable: true,
       });
       return;
     }
@@ -302,7 +303,8 @@ export default function DashboardClient({
     toast({
       title: "Función no implementada",
       description: "La creación de dispositivos se manejará en un próximo paso.",
-      variant: "destructive"
+      variant: "destructive",
+      copyable: true
     });
   };
 
@@ -311,7 +313,8 @@ export default function DashboardClient({
     toast({
       title: "Función no implementada",
       description: "La eliminación de dispositivos se manejará en un próximo paso.",
-      variant: "destructive"
+      variant: "destructive",
+      copyable: true
     });
   };
 

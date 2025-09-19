@@ -198,7 +198,7 @@ export function GeofenceControls({
         const geometry = feature.getGeometry();
         
         if (!geometry) {
-            toast({ title: t('toast.errorTitle'), description: "Geometría inválida.", variant: "destructive" });
+            toast({ title: t('toast.errorTitle'), description: "Geometría inválida.", variant: "destructive", copyable: true });
             return;
         }
 
@@ -219,7 +219,7 @@ export function GeofenceControls({
         }
     
         if (!currentGeofenceName) {
-            toast({ title: t('toast.errorTitle'), description: "El nombre de la geocerca es obligatorio.", variant: "destructive" });
+            toast({ title: t('toast.errorTitle'), description: "El nombre de la geocerca es obligatorio.", variant: "destructive", copyable: true });
             return;
         }
         
@@ -251,7 +251,7 @@ export function GeofenceControls({
 
 
             } else if (result) {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive", copyable: true });
                 setShapeBeingSaved(null); // Clear on failure too
             }
         });
@@ -284,9 +284,9 @@ export function GeofenceControls({
                 toast({ title: t('toast.successTitle'), description: t('condoDashboard.map.toast.geofenceDeleted')});
                 await onDataNeedsRefresh();
             } else if (result) {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive", copyable: true });
             } else {
-                toast({ title: t('toast.errorTitle'), description: t('toast.adminLogin.serverError'), variant: "destructive" });
+                toast({ title: t('toast.errorTitle'), description: t('toast.adminLogin.serverError'), variant: "destructive", copyable: true });
             }
         });
     }
@@ -299,7 +299,7 @@ export function GeofenceControls({
                 setDefaultGeofenceId(selectedGeofenceId);
                 toast({ title: t('condoDashboard.map.toast.defaultSet.title'), description: t('condoDashboard.map.toast.defaultSet.description')});
             } else {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive" });
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: "destructive", copyable: true });
             }
         });
     }
@@ -333,7 +333,7 @@ export function GeofenceControls({
                 pushToHistory(originalGeom);
             }
         } else {
-             toast({ title: "Error", description: "No se pudo encontrar la forma en el mapa para editar.", variant: "destructive" });
+             toast({ title: "Error", description: "No se pudo encontrar la forma en el mapa para editar.", variant: "destructive", copyable: true });
         }
 
     }, [geofences, selectedGeofenceId, vectorSource, cancelCurrentAction, pushToHistory, toast, setActiveShapeState, setCurrentGeofenceName, setIsDrawing]);

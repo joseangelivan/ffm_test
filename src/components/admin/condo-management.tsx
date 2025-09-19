@@ -538,44 +538,41 @@ export function CondoManagement() {
     };
   
     const prepareAndOpenEditDialog = useCallback(async (condo: Condominio) => {
-        setIsPreparingEdit(true);
-
         const cacheKey = `${condo.continent}-${condo.country}-${condo.state}`;
-        let fullLocationData: AddressData;
+        const hasCache = !!locationCache[cacheKey];
 
-        if (locationCache[cacheKey]) {
-            fullLocationData = locationCache[cacheKey];
-            setIsPreparingEdit(false);
-        } else {
-            try {
-                const [continentsData, countriesData, statesData, citiesData] = await Promise.all([
-                    fetchAddressData({}),
-                    fetchAddressData({ continent: condo.continent }),
-                    fetchAddressData({ country: condo.country }),
-                    fetchAddressData({ country: condo.country, state: condo.state }),
-                ]);
-                
-                fullLocationData = {
-                    continents: continentsData.data?.continents || [],
-                    countries: countriesData.data?.countries || [],
-                    states: statesData.data?.states || [],
-                    cities: citiesData.data?.cities || [],
-                };
-                setLocationCache(prev => ({...prev, [cacheKey]: fullLocationData}));
-            } catch (error: any) {
-                 toast({ title: t('toast.errorTitle'), description: error.message || t('toast.preloadError'), variant: 'destructive', copyable: true });
-                 setIsPreparingEdit(false);
-                 return;
-            } finally {
+        if (!hasCache) {
+            setIsPreparingEdit(true);
+        }
+
+        try {
+            const continentsData = await fetchAddressData({});
+            const countriesData = await fetchAddressData({ continent: condo.continent });
+            const statesData = await fetchAddressData({ country: condo.country });
+            const citiesData = await fetchAddressData({ country: condo.country, state: condo.state });
+
+            const fullLocationData: AddressData = {
+                continents: continentsData.data?.continents || [],
+                countries: countriesData.data?.countries || [],
+                states: statesData.data?.states || [],
+                cities: citiesData.data?.cities || [],
+            };
+            
+            setLocationCache(prev => ({...prev, [cacheKey]: fullLocationData}));
+
+            setEditingCondoData({
+                ...condo,
+                ...fullLocationData
+            });
+
+        } catch (error: any) {
+            toast({ title: t('toast.errorTitle'), description: error.message || t('toast.preloadError'), variant: 'destructive', copyable: true });
+        } finally {
+            if (!hasCache) {
                 setIsPreparingEdit(false);
             }
+            setIsEditCondoDialogOpen(true);
         }
-        
-        setEditingCondoData({
-            ...condo,
-            ...fullLocationData
-        });
-        setIsEditCondoDialogOpen(true);
     }, [toast, t, locationCache]);
   
     const handleDeleteCondo = (condoId: string) => {

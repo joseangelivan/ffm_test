@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useActionState, useTransition } from 'react';
@@ -94,11 +93,11 @@ function AdminFormDialog({
         if (result?.success) {
             toast({ title: t('toast.successTitle'), description: result.message });
             if (result.data?.emailFailed) {
-                toast({ title: t('toast.errorTitle'), description: result.data.message, variant: 'destructive' });
+                toast({ title: t('toast.errorTitle'), description: result.data.message, variant: 'destructive', copyable: true });
             }
             onSuccess();
         } else if (result) {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
         }
         return result;
     };
@@ -176,7 +175,7 @@ export function ManageAdminsDialog({ session }: { session: SessionPayload }) {
         if (result.admins) {
             setAdmins(result.admins);
         } else {
-            toast({ title: t('toast.errorTitle'), description: result.error, variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: result.error, variant: 'destructive', copyable: true });
         }
         setLoadingAdmins(false);
     }, [toast, t]);
@@ -194,7 +193,7 @@ export function ManageAdminsDialog({ session }: { session: SessionPayload }) {
                toast({ title: t('toast.successTitle'), description: result.message });
                fetchAdmins();
            } else {
-               toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+               toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
            }
        });
     };
@@ -205,7 +204,7 @@ export function ManageAdminsDialog({ session }: { session: SessionPayload }) {
              if (result.success) {
                toast({ title: t('toast.successTitle'), description: result.message });
            } else {
-               toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+               toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
            }
         });
     }

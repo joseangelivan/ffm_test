@@ -118,7 +118,7 @@ function SmtpFormDialog({ config, onSuccess, onCancel }: { config: SmtpConfigura
     const handleAction = async (prevState: any, formData: FormData) => {
         const result = await formAction(prevState, formData);
         if (result?.success === false) {
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
         }
         if (result?.success === true) {
             toast({ title: t('toast.successTitle'), description: result.message });
@@ -184,7 +184,7 @@ export function SmtpConfigDialog() {
        if (result.success) {
            toast({ title: t('toast.successTitle'), description: result.message });
        } else {
-           toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+           toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
            fetchConfigs(); // Revert on error
        }
     });
@@ -208,7 +208,7 @@ export function SmtpConfigDialog() {
            toast({ title: t('toast.successTitle'), description: result.message });
            fetchConfigs();
        } else {
-           toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+           toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
        }
     });
   }
@@ -220,7 +220,7 @@ export function SmtpConfigDialog() {
           if (result.success) {
               toast({ title: t('toast.successTitle'), description: result.message, duration: 9000 });
           } else {
-              toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', duration: 9000 });
+              toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', duration: 9000, copyable: true });
           }
           setTestingId(null);
       });
