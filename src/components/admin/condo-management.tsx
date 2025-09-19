@@ -442,11 +442,11 @@ function CondoFormWrapper({
   const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
     let resetFields: Partial<LocationData> = {};
     if (field === 'continent') {
-        resetFields = { country: '', state: '', city: '', countries: [], states: [], cities: [] };
+        resetFields = { country: '', state: '', city: '', states: [], cities: [] };
     } else if (field === 'country') {
-        resetFields = { state: '', city: '', states: [], cities: [] };
+        resetFields = { state: '', city: '', cities: [] };
     } else if (field === 'state') {
-        resetFields = { city: '', cities: [] };
+        resetFields = { city: '' };
     }
 
     setLocationData(currentData => ({ ...currentData, [field]: value, ...resetFields }));
@@ -464,7 +464,9 @@ function CondoFormWrapper({
   useEffect(() => {
     if (locationData.continent) {
         startLocationTransition(async () => {
-            const countriesData = await fetchAddressData({ continent: locationData.continent! });
+            // When continent changes, reset dependent fields and fetch new countries
+            setLocationData(current => ({...current, country: '', state: '', city: '', countries: [], states: [], cities: []}));
+            const countriesData = await fetchAddressData({ continent: locationData.continent });
             if (countriesData.success && countriesData.data?.countries) {
                 setLocationData(current => ({ ...current, countries: countriesData.data.countries }));
             }
@@ -473,7 +475,7 @@ function CondoFormWrapper({
   }, [locationData.continent]);
 
   useEffect(() => {
-      if (locationData.country && !locationData.states?.length) {
+      if (locationData.country) {
           startLocationTransition(async () => {
             const statesData = await fetchAddressData({ country: locationData.country! });
               if (statesData.success && statesData.data?.states) {
@@ -481,10 +483,10 @@ function CondoFormWrapper({
               }
           });
       }
-  }, [locationData.country, locationData.states]);
+  }, [locationData.country]);
 
   useEffect(() => {
-      if (locationData.country && locationData.state && !locationData.cities?.length) {
+      if (locationData.country && locationData.state) {
           startLocationTransition(async () => {
               const citiesData = await fetchAddressData({ country: locationData.country!, state: locationData.state! });
               if (citiesData.success && citiesData.data?.cities) {
@@ -492,7 +494,7 @@ function CondoFormWrapper({
               }
           });
       }
-  }, [locationData.country, locationData.state, locationData.cities]);
+  }, [locationData.country, locationData.state]);
 
   const handleSelectAddress = (address: Pick<GeocodeResult, 'route' | 'street_number'>) => {
       const streetInput = formRef.current?.elements.namedItem('street') as HTMLInputElement | null;
@@ -835,3 +837,4 @@ export function CondoManagement() {
 
 
     
+
