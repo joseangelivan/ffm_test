@@ -401,17 +401,6 @@ function CondoFormWrapper({
     });
   }, [locationData.country]);
   
-  useEffect(() => {
-    if (!initialData.continent) {
-        startLocationTransition(async () => {
-            const addressData = await fetchAddressData({});
-            if (addressData.success && addressData.data?.continents) {
-                setLocationData(current => ({...current, continents: addressData.data.continents}));
-            }
-        });
-    }
-  }, [initialData.continent]);
-
 
   const handleStreetChange = (value: string) => {
       setLocationData(current => ({ ...current, street: value }));
