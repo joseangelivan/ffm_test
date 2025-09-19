@@ -40,7 +40,7 @@ function getNestedValue(obj: any, path: string): any {
     return result;
 }
 
-type ValueMap = { [key: string]: string | undefined };
+type ValueMap = { [key: string]: string | number | undefined };
 
 function buildApiUrl(
     apiConfig: any, 
@@ -55,27 +55,22 @@ function buildApiUrl(
 
         if (typeof paramConfig === 'object' && paramConfig !== null && 'value' in paramConfig) {
             rawValue = paramConfig.value;
-            isOptional = paramConfig.optional || false;
+            isOptional = paramConfig.optional === true;
         } else {
             rawValue = paramConfig;
         }
 
-        let paramValue = String(rawValue || '');
+        let paramValue: string | undefined;
 
-        if (paramValue.startsWith('$')) {
-            const varName = paramValue.substring(1);
-            if (varName in valueMap) {
-                paramValue = valueMap[varName] || '';
-            } else if (process.env[varName]) {
-                paramValue = process.env[varName]!;
-            } else {
-                console.warn(`Geocoding Service: Variable "${varName}" not found.`);
-                paramValue = '';
-            }
+        if (typeof rawValue === 'string' && rawValue.startsWith('$')) {
+            const varName = rawValue.substring(1);
+            paramValue = valueMap[varName]?.toString() || process.env[varName] || '';
+        } else {
+            paramValue = rawValue?.toString();
         }
         
         if (paramValue || !isOptional) {
-             urlParams.append(key, paramValue);
+             urlParams.append(key, paramValue || '');
         }
     }
     
@@ -431,6 +426,13 @@ export async function testGeocodingAutocompleteService(id: string): Promise<Acti
         const responseData = await response.json();
 
         if (!response.ok) {
+            const errorPath = config.response?.error_path;
+            if (errorPath) {
+                const apiError = getNestedValue(responseData, errorPath);
+                if (apiError) {
+                    throw new Error(`La API respondió con el estado ${response.status}. Mensaje: ${apiError}`);
+                }
+            }
             throw new Error(`La API respondió con el estado ${response.status}. Respuesta: ${JSON.stringify(responseData)}`);
         }
 
@@ -501,13 +503,19 @@ export async function autocompleteAddress(request: AutocompleteRequest): Promise
         const finalUrl = buildApiUrl(config.request.api_config, valueMap);
         
         const apiResponse = await fetch(finalUrl);
+        const responseData = await apiResponse.json();
         
         if (!apiResponse.ok) {
-            throw new Error(`La API respondió con el estado ${apiResponse.status}.`);
+            const errorPath = config.response?.error_path;
+            if (errorPath) {
+                const apiError = getNestedValue(responseData, errorPath);
+                if (apiError) {
+                    return { success: false, message: `Error: ${apiError}` };
+                }
+            }
+            return { success: false, message: `Error: La API respondió con el estado ${apiResponse.status}.` };
         }
         
-        const responseData = await apiResponse.json();
-
         const results = getNestedValue(responseData, config.response.results_path);
         
         if (!Array.isArray(results)) {
