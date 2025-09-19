@@ -325,7 +325,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
     try {
         // 1. Test Continents
         const continentsPath = responseConfig.continents?.value;
-        const continents = continentsPath ? getNestedValue({ request: config.request }, continentsPath) : [];
+        const continents = continentsPath ? getNestedValue({ request: config }, continentsPath) : [];
         if (!Array.isArray(continents) || continents.length === 0) {
             return { success: false, message: "Prueba de continentes fallida: No se encontró una lista de continentes." };
         }
