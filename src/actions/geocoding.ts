@@ -507,12 +507,10 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
         const serviceResult = await geocodeWithService(defaultService, fullAddress);
 
         if (serviceResult.success && serviceResult.data) {
-             // This is a minimal conversion. A real implementation might use another API call
-             // to reverse geocode and get more address components.
              const geocodedResult: GeocodeResult = {
                 geometry: { location: { lat: serviceResult.data.lat, lng: serviceResult.data.lon } },
                 formatted_address: fullAddress,
-                street_number: null,
+                street_number: null, // This part would require a reverse geocoding call, which is out of scope for now.
                 route: street,
                 locality: city,
                 administrative_area_level_1: state,
@@ -520,7 +518,7 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
             };
             return { success: true, message: "Dirección encontrada.", data: geocodedResult };
         } else {
-             return { success: false, message: serviceResult.error || "Error en el servicio de geocodificación." };
+             return { success: false, message: serviceResult.error || "Error en el servicio de geocodificación.", data: null };
         }
 
     } catch (error: any) {
