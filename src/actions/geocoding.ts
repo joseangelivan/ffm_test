@@ -67,10 +67,12 @@ async function geocodeWithService(
     const urlParams = new URLSearchParams();
 
     for (const [key, paramConfig] of Object.entries(parameters)) {
+        let isOptional = false;
         let rawValue: any;
 
         if (typeof paramConfig === 'object' && paramConfig !== null && 'value' in paramConfig) {
-            rawValue = (paramConfig as { value: any }).value;
+            rawValue = paramConfig.value;
+            isOptional = paramConfig.optional || false;
         } else {
             rawValue = paramConfig;
         }
@@ -435,8 +437,10 @@ export async function testGeocodingAutocompleteService(id: string): Promise<Acti
             else paramValue = '';
         }
         
-        if (paramValue || !isOptional) {
+        if (paramValue) {
              urlParams.append(key, paramValue);
+        } else if (!isOptional) {
+             urlParams.append(key, '');
         }
     }
     
@@ -514,9 +518,9 @@ export async function autocompleteAddress(request: AutocompleteRequest): Promise
             let isOptional = false;
             let rawValue: any;
 
-            if (typeof paramConfig === 'object' && paramConfig !== null) {
-                rawValue = (paramConfig as any).value;
-                isOptional = (paramConfig as any).optional || false;
+            if (typeof paramConfig === 'object' && paramConfig !== null && 'value' in paramConfig) {
+                rawValue = paramConfig.value;
+                isOptional = paramConfig.optional || false;
             } else {
                 rawValue = paramConfig;
             }
@@ -535,18 +539,23 @@ export async function autocompleteAddress(request: AutocompleteRequest): Promise
                 }
             }
             
-            if (paramValue || !isOptional) {
+            if (paramValue) {
                 urlParams.append(key, paramValue);
+            } else if (!isOptional) {
+                // If the parameter is mandatory but has no value, it might still be required by the API.
+                // Depending on the API, it might expect an empty value. We'll append it.
+                urlParams.append(key, '');
             }
         }
         
         const finalUrl = `${base_url}?${urlParams.toString()}`;
         const apiResponse = await fetch(finalUrl);
-        const responseData = await apiResponse.json();
         
         if (!apiResponse.ok) {
             throw new Error(`La API respondió con el estado ${apiResponse.status}.`);
         }
+        
+        const responseData = await apiResponse.json();
 
         const results = getNestedValue(responseData, config.response.results_path);
         
