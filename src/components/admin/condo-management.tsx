@@ -362,9 +362,14 @@ function CondoFormWrapper({
 }) {
   const { t } = useLocale();
   const { toast } = useToast();
-  const formRef = useRef<HTMLFormElement>(null);
-  const isInitialLoad = useRef(isEditMode);
+  
+  const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData);
+  const [isLocationLoading, startLocationTransition] = useTransition();
 
+  const [verificationResults, setVerificationResults] = useState<AutocompleteResult[]>([]);
+  const [isVerificationLoading, startVerificationTransition] = useTransition();
+  const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false);
+  
   const handleAction = async (prevState: any, formData: FormData) => {
     const result = await formAction(prevState, formData);
     if (result?.success === false) {
@@ -378,17 +383,35 @@ function CondoFormWrapper({
   };
   
   const [state, dispatchFormAction, isFormPending] = useActionState(handleAction, undefined);
+
+  const handleLocationChange = useCallback((field: keyof Pick<LocationData, 'continent' | 'country' | 'state' | 'city'>, value: string) => {
+    startLocationTransition(async () => {
+        if (field === 'continent') {
+            const countriesData = await fetchAddressData({ continent: value });
+            setLocationData(current => ({...current, continent: value, country: '', state: '', city: '', countries: countriesData.data?.countries || [], states: [], cities: [] }));
+        } else if (field === 'country') {
+            const statesData = await fetchAddressData({ country: value });
+            setLocationData(current => ({...current, country: value, state: '', city: '', states: statesData.data?.states || [], cities: [] }));
+        } else if (field === 'state') {
+            const citiesData = await fetchAddressData({ country: locationData.country, state: value });
+            setLocationData(current => ({...current, state: value, city: '', cities: citiesData.data?.cities || [] }));
+        } else {
+             setLocationData(current => ({ ...current, [field]: value }));
+        }
+    });
+  }, [locationData.country]);
   
-  const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData);
-  const [isLocationLoading, startLocationTransition] = useTransition();
+  useEffect(() => {
+    if (!initialData.continent) {
+        startLocationTransition(async () => {
+            const addressData = await fetchAddressData({});
+            if (addressData.success && addressData.data?.continents) {
+                setLocationData(current => ({...current, continents: addressData.data.continents}));
+            }
+        });
+    }
+  }, [initialData.continent]);
 
-  const [verificationResults, setVerificationResults] = useState<AutocompleteResult[]>([]);
-  const [isVerificationLoading, startVerificationTransition] = useTransition();
-  const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false);
-
-  const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
-    setLocationData(currentData => ({ ...currentData, [field]: value }));
-  }, []);
 
   const handleStreetChange = (value: string) => {
       setLocationData(current => ({ ...current, street: value }));
@@ -396,7 +419,6 @@ function CondoFormWrapper({
    const handleNumberChange = (value: string) => {
       setLocationData(current => ({ ...current, number: value }));
   }
-
 
   const handleVerifyAddress = () => {
     if (!locationData.street) return;
@@ -430,58 +452,6 @@ function CondoFormWrapper({
       }));
       setIsVerificationDialogOpen(false);
   }
-  
-  useEffect(() => {
-    startLocationTransition(async () => {
-        const addressData = await fetchAddressData({});
-        if (addressData.success && addressData.data?.continents) {
-            setLocationData(current => ({...current, continents: addressData.data.continents}));
-        }
-    })
-  }, []);
-
-  useEffect(() => {
-    if (!locationData.continent) return;
-    startLocationTransition(async () => {
-        if (!isInitialLoad.current) {
-            setLocationData(current => ({...current, country: '', state: '', city: '', countries: [], states: [], cities: []}));
-        }
-        const countriesData = await fetchAddressData({ continent: locationData.continent });
-        if (countriesData.success && countriesData.data?.countries) {
-            setLocationData(current => ({ ...current, countries: countriesData.data.countries }));
-        }
-    });
-  }, [locationData.continent]);
-
-  useEffect(() => {
-      if (!locationData.country) return;
-      startLocationTransition(async () => {
-        if (!isInitialLoad.current) {
-            setLocationData(current => ({...current, state: '', city: '', states: [], cities: []}));
-        }
-        const statesData = await fetchAddressData({ country: locationData.country! });
-          if (statesData.success && statesData.data?.states) {
-              setLocationData(current => ({...current, states: statesData.data.states}));
-          }
-      });
-  }, [locationData.country]);
-
-  useEffect(() => {
-      if (!locationData.state) return;
-      startLocationTransition(async () => {
-        if (!isInitialLoad.current) {
-            setLocationData(current => ({...current, city: '', cities: []}));
-        }
-        const citiesData = await fetchAddressData({ country: locationData.country!, state: locationData.state! });
-        if (citiesData.success && citiesData.data?.cities) {
-            setLocationData(current => ({...current, cities: citiesData.data.cities}));
-        }
-        // This is the last step of the initial load
-        if (isInitialLoad.current) {
-            isInitialLoad.current = false;
-        }
-      });
-  }, [locationData.state, locationData.country]);
 
   const isFormDisabled = isFormPending || isLocationLoading;
 
@@ -498,7 +468,7 @@ function CondoFormWrapper({
                     </div>
                 </div>
             )}
-            <form ref={formRef} action={dispatchFormAction}>
+            <form action={dispatchFormAction}>
             <input type="hidden" name="id" value={initialData.id || ''} />
             <CondoFormFields
                 isEditMode={isEditMode}
@@ -775,7 +745,3 @@ export function CondoManagement() {
         </div>
     );
 }
-
-    
-
-    
