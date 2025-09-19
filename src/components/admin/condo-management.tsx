@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
@@ -45,6 +43,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
     AlertDialog,
@@ -401,7 +400,6 @@ function CondoFormWrapper({
     });
   }, [locationData.country]);
   
-
   const handleStreetChange = (value: string) => {
       setLocationData(current => ({ ...current, street: value }));
   }
@@ -443,6 +441,16 @@ function CondoFormWrapper({
   }
 
   const isFormDisabled = isFormPending || isLocationLoading;
+
+  useEffect(() => {
+    // Only fetch initial data if not in edit mode (or for a new condo)
+    if (!isEditMode) {
+      startLocationTransition(async () => {
+        const continentsData = await fetchAddressData({});
+        setLocationData(current => ({...current, continents: continentsData.data?.continents || []}));
+      });
+    }
+  }, [isEditMode]);
 
   return (
     <>
@@ -531,13 +539,15 @@ export function CondoManagement() {
   
     const prepareAndOpenEditDialog = useCallback(async (condo: Condominio) => {
         setIsPreparingEdit(true);
-        try {
-            const cacheKey = `${condo.continent}-${condo.country}-${condo.state}`;
-            let fullLocationData: AddressData;
 
-            if (locationCache[cacheKey]) {
-                fullLocationData = locationCache[cacheKey];
-            } else {
+        const cacheKey = `${condo.continent}-${condo.country}-${condo.state}`;
+        let fullLocationData: AddressData;
+
+        if (locationCache[cacheKey]) {
+            fullLocationData = locationCache[cacheKey];
+            setIsPreparingEdit(false);
+        } else {
+            try {
                 const [continentsData, countriesData, statesData, citiesData] = await Promise.all([
                     fetchAddressData({}),
                     fetchAddressData({ continent: condo.continent }),
@@ -552,19 +562,20 @@ export function CondoManagement() {
                     cities: citiesData.data?.cities || [],
                 };
                 setLocationCache(prev => ({...prev, [cacheKey]: fullLocationData}));
+            } catch (error: any) {
+                 toast({ title: t('toast.errorTitle'), description: error.message || t('toast.preloadError'), variant: 'destructive', copyable: true });
+                 setIsPreparingEdit(false);
+                 return;
+            } finally {
+                setIsPreparingEdit(false);
             }
-        
-            setEditingCondoData({
-                ...condo,
-                ...fullLocationData
-            });
-            setIsEditCondoDialogOpen(true);
-
-        } catch (error: any) {
-            toast({ title: t('toast.errorTitle'), description: error.message || t('toast.preloadError'), variant: 'destructive', copyable: true });
-        } finally {
-            setIsPreparingEdit(false);
         }
+        
+        setEditingCondoData({
+            ...condo,
+            ...fullLocationData
+        });
+        setIsEditCondoDialogOpen(true);
     }, [toast, t, locationCache]);
   
     const handleDeleteCondo = (condoId: string) => {
@@ -598,15 +609,12 @@ export function CondoManagement() {
 
     return (
         <div className="grid gap-4 relative">
-             {(isPreparingEdit || (isDeleting && !deletingId)) && (
+             {isPreparingEdit && (
                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
                     <div className="flex items-center gap-4 text-2xl text-muted-foreground">
                         <Loader className="h-12 w-12 animate-spin" />
                         <span>
-                            {isPreparingEdit 
-                                ? t('adminDashboard.loadingOverlay.preparingEdit') 
-                                : t('adminDashboard.loadingOverlay.processing')
-                            }
+                            {t('adminDashboard.loadingOverlay.preparingEdit')}
                         </span>
                     </div>
                 </div>
