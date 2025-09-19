@@ -45,7 +45,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
     AlertDialog,
@@ -364,6 +363,7 @@ function CondoFormWrapper({
   const { t } = useLocale();
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
+  const isInitialLoad = useRef(isEditMode);
 
   const handleAction = async (prevState: any, formData: FormData) => {
     const result = await formAction(prevState, formData);
@@ -443,7 +443,9 @@ function CondoFormWrapper({
   useEffect(() => {
     if (!locationData.continent) return;
     startLocationTransition(async () => {
-        setLocationData(current => ({...current, country: '', state: '', city: '', countries: [], states: [], cities: []}));
+        if (!isInitialLoad.current) {
+            setLocationData(current => ({...current, country: '', state: '', city: '', countries: [], states: [], cities: []}));
+        }
         const countriesData = await fetchAddressData({ continent: locationData.continent });
         if (countriesData.success && countriesData.data?.countries) {
             setLocationData(current => ({ ...current, countries: countriesData.data.countries }));
@@ -454,7 +456,9 @@ function CondoFormWrapper({
   useEffect(() => {
       if (!locationData.country) return;
       startLocationTransition(async () => {
-        setLocationData(current => ({...current, state: '', city: '', states: [], cities: []}));
+        if (!isInitialLoad.current) {
+            setLocationData(current => ({...current, state: '', city: '', states: [], cities: []}));
+        }
         const statesData = await fetchAddressData({ country: locationData.country! });
           if (statesData.success && statesData.data?.states) {
               setLocationData(current => ({...current, states: statesData.data.states}));
@@ -465,13 +469,19 @@ function CondoFormWrapper({
   useEffect(() => {
       if (!locationData.state) return;
       startLocationTransition(async () => {
-        setLocationData(current => ({...current, city: '', cities: []}));
-          const citiesData = await fetchAddressData({ country: locationData.country!, state: locationData.state! });
-          if (citiesData.success && citiesData.data?.cities) {
-              setLocationData(current => ({...current, cities: citiesData.data.cities}));
-          }
+        if (!isInitialLoad.current) {
+            setLocationData(current => ({...current, city: '', cities: []}));
+        }
+        const citiesData = await fetchAddressData({ country: locationData.country!, state: locationData.state! });
+        if (citiesData.success && citiesData.data?.cities) {
+            setLocationData(current => ({...current, cities: citiesData.data.cities}));
+        }
+        // This is the last step of the initial load
+        if (isInitialLoad.current) {
+            isInitialLoad.current = false;
+        }
       });
-  }, [locationData.state]);
+  }, [locationData.state, locationData.country]);
 
   const isFormDisabled = isFormPending || isLocationLoading;
 
