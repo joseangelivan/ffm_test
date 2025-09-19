@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { z } from 'zod';
@@ -506,8 +505,8 @@ export async function autocompleteAddress(request: AutocompleteRequest): Promise
         const urlParams = new URLSearchParams();
 
         for (const [key, paramConfig] of Object.entries(parameters)) {
-            let rawValue: any;
             let isOptional = false;
+            let rawValue: any;
 
             if (typeof paramConfig === 'object' && paramConfig !== null) {
                 rawValue = (paramConfig as any).value;
@@ -529,7 +528,7 @@ export async function autocompleteAddress(request: AutocompleteRequest): Promise
                     paramValue = '';
                 }
             }
-
+            
             if (paramValue || !isOptional) {
                 urlParams.append(key, paramValue);
             }
@@ -597,3 +596,4 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
 
 
     
+
