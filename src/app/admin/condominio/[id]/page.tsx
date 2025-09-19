@@ -86,15 +86,11 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
             lng: defaultGeofence.geometry.center[0] 
         };
     } else {
-        const geocodeResult = await geocodeAddress({
-          street: `${condo.street || ''} ${condo.number || ''}`.trim(),
-          city: condo.city || '',
-          state: condo.state || '',
-          country: condo.country || '',
-        });
+        const fullAddress = [condo.street, condo.number, condo.city, condo.state, condo.country].filter(Boolean).join(', ');
+        const geocodeResult = await geocodeAddress(fullAddress);
 
-        if (geocodeResult.success && geocodeResult.data?.geometry.location) {
-            initialPosition = geocodeResult.data.geometry.location;
+        if (geocodeResult.success && geocodeResult.data) {
+            initialPosition = { lat: geocodeResult.data.lat, lng: geocodeResult.data.lon };
             // Fire-and-forget update to the database for future requests
             updateCondoCoordinates(condo.id, initialPosition.lat, initialPosition.lng);
         } else {

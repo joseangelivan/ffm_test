@@ -269,9 +269,6 @@ export async function updateGeocodingService(prevState: any, formData: FormData)
              };
         }
         
-        // This ensures autocomplete can be edited independently.
-        // It checks if the "active" tab was autocomplete.
-        // Even without this, we should handle partial updates gracefully.
         if (formData.has('active_tab') && formData.get('active_tab') === 'autocomplete') {
             currentConfig.autocomplete = {
                 request: configs.autocomplete_request_config ? JSON.parse(configs.autocomplete_request_config) : currentConfig.autocomplete?.request || null,
@@ -473,25 +470,103 @@ type GeocodeRequest = {
   country: string;
 };
 
-export type GeocodeResult = {
-    street_number: string | null;
-    route: string; // Street name
-    locality: string; // City
-    administrative_area_level_1: string; // State
-    country: string;
-    formatted_address: string;
-    geometry: {
-        location: {
-            lat: number;
-            lng: number;
+export type AutocompleteRequest = {
+  address: string;
+  country_cca2?: string;
+  state?: string;
+  city?: string;
+}
+
+export type AutocompleteResult = {
+    address: string;
+    lat: number;
+    lon: number;
+}
+
+export async function autocompleteAddress(request: AutocompleteRequest): Promise<ActionState<AutocompleteResult[]>> {
+    let client;
+    try {
+        const pool = await getDbPool();
+        if (!pool) return { success: false, message: "Error de servidor." };
+        client = await pool.connect();
+        const serviceResult = await client.query('SELECT * FROM geocoding_services WHERE is_default = TRUE LIMIT 1');
+        
+        if (serviceResult.rows.length === 0) {
+            return { success: false, message: "No se ha configurado un servicio de geocodificación predeterminado." };
         }
+        
+        const service = serviceResult.rows[0];
+        const config = service.config_json?.autocomplete;
+
+        if (!config?.request?.api_config || !config?.response) {
+            return { success: false, message: "La configuración de autocompletado es inválida." };
+        }
+        
+        const { base_url, parameters } = config.request.api_config;
+        const urlParams = new URLSearchParams();
+
+        for (const [key, paramConfig] of Object.entries(parameters)) {
+            let rawValue: any;
+            let isOptional = false;
+
+            if (typeof paramConfig === 'object' && paramConfig !== null) {
+                rawValue = (paramConfig as any).value;
+                isOptional = (paramConfig as any).optional || false;
+            } else {
+                rawValue = paramConfig;
+            }
+
+            let paramValue = String(rawValue || '');
+
+            if (paramValue.startsWith('$')) {
+                const varName = paramValue.substring(1);
+                const requestValue = request[varName as keyof AutocompleteRequest];
+                if (requestValue) {
+                    paramValue = requestValue;
+                } else if (process.env[varName]) {
+                    paramValue = process.env[varName]!;
+                } else {
+                    paramValue = '';
+                }
+            }
+
+            if (paramValue || !isOptional) {
+                urlParams.append(key, paramValue);
+            }
+        }
+        
+        const finalUrl = `${base_url}?${urlParams.toString()}`;
+        const apiResponse = await fetch(finalUrl);
+        const responseData = await apiResponse.json();
+        
+        if (!apiResponse.ok) {
+            throw new Error(`La API respondió con el estado ${apiResponse.status}.`);
+        }
+
+        const results = getNestedValue(responseData, config.response.results_path);
+        
+        if (!Array.isArray(results)) {
+            return { success: false, message: "No se encontraron resultados en la ruta especificada." };
+        }
+        
+        const suggestions = results.map(r => ({
+            address: getNestedValue(r, config.response.address_path),
+            lat: parseFloat(getNestedValue(r, config.response.lat_path)),
+            lon: parseFloat(getNestedValue(r, config.response.lon_path)),
+        })).filter(s => s.address && !isNaN(s.lat) && !isNaN(s.lon));
+        
+        return { success: true, message: "Sugerencias obtenidas.", data: suggestions };
+
+    } catch (error: any) {
+        console.error("Error in autocompleteAddress:", error);
+        return { success: false, message: error.message };
+    } finally {
+        if(client) client.release();
     }
-};
+}
 
-export async function geocodeAddress(request: GeocodeRequest): Promise<ActionState<GeocodeResult | null>> {
-    const { street, city, state, country } = request;
-    const fullAddress = [street, city, state, country].filter(Boolean).join(', ');
 
+export async function geocodeAddress(fullAddress: string): Promise<ActionState<any>> {
     let client;
     try {
         const pool = await getDbPool();
@@ -507,16 +582,7 @@ export async function geocodeAddress(request: GeocodeRequest): Promise<ActionSta
         const serviceResult = await geocodeWithService(defaultService, fullAddress);
 
         if (serviceResult.success && serviceResult.data) {
-             const geocodedResult: GeocodeResult = {
-                geometry: { location: { lat: serviceResult.data.lat, lng: serviceResult.data.lon } },
-                formatted_address: fullAddress,
-                street_number: null, // This part would require a reverse geocoding call, which is out of scope for now.
-                route: street,
-                locality: city,
-                administrative_area_level_1: state,
-                country: country,
-            };
-            return { success: true, message: "Dirección encontrada.", data: geocodedResult };
+             return { success: true, message: "Dirección encontrada.", data: { lat: serviceResult.data.lat, lon: serviceResult.data.lon } };
         } else {
              return { success: false, message: serviceResult.error || "Error en el servicio de geocodificación.", data: null };
         }

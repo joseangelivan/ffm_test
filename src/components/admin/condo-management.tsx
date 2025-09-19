@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
 import Link from 'next/link';
+import { useDebounce } from 'use-debounce';
 
 import {
   Building,
@@ -16,6 +17,7 @@ import {
   MapPin,
   CheckCircle,
   AlertCircle,
+  Search,
 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -65,12 +67,15 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
+
 
 import { useToast } from '@/hooks/use-toast';
 import { useLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { createCondominio, getCondominios, updateCondominio, deleteCondominio, type Condominio } from '@/actions/condos';
-import { geocodeAddress, type GeocodeResult } from '@/actions/geocoding';
+import { autocompleteAddress, type AutocompleteResult } from '@/actions/geocoding';
 import { fetchAddressData, type AddressData, type AddressDataItem } from '@/actions/address';
 
 type LocationData = {
@@ -85,6 +90,8 @@ type LocationData = {
     countries: AddressDataItem[];
     states: AddressDataItem[];
     cities: string[];
+    latitude?: number | null;
+    longitude?: number | null;
 };
 
 const LocationSelector = ({
@@ -181,116 +188,90 @@ const LocationSelector = ({
   );
 };
 
-function AddressVerificationDialog({
-  locationData,
-  onSelectAddress,
-  onSelectCoordinates,
-  onClose,
-  getCachedData,
+function StreetAutocomplete({
+    initialValue,
+    onSelect,
+    locationContext,
+    isDisabled,
 }: {
-  locationData: Partial<Pick<LocationData, 'street' | 'city' | 'state' | 'country'>>;
-  onSelectAddress: (address: Pick<GeocodeResult, 'route' | 'street_number'>) => void;
-  onSelectCoordinates: (coords: { lat: number, lng: number }) => void;
-  onClose: () => void;
-  getCachedData: (key: string, fetcher: () => Promise<any>) => Promise<any>;
+    initialValue?: string;
+    onSelect: (suggestion: AutocompleteResult) => void;
+    locationContext: Partial<Pick<LocationData, 'city' | 'state' | 'country'>>;
+    isDisabled?: boolean;
 }) {
-  const { t } = useLocale();
-  const [isLoading, setIsLoading] = useState(true);
-  const [result, setResult] = useState<GeocodeResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+    const [inputValue, setInputValue] = useState(initialValue || '');
+    const [suggestions, setSuggestions] = useState<AutocompleteResult[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [debouncedInputValue] = useDebounce(inputValue, 300);
+    const [popoverOpen, setPopoverOpen] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    async function verify() {
-      if (!locationData.street || !locationData.city || !locationData.state || !locationData.country) {
-        setError(t('addressVerification.error.missingInfo'));
-        setIsLoading(false);
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-      
-      const { street, city, state, country } = locationData;
-      const cacheKey = `geocode_${country}_${state}_${city}_${street}`;
-      
-      try {
-        const response = await getCachedData(cacheKey, () => geocodeAddress({
-            street: street!,
-            city: city!,
-            state: state!,
-            country: country!,
-        }));
-
-        if (response && response.success && response.data) {
-            setResult(response.data);
-        } else if (response && !response.success) {
-            setError(response.message);
-        } else if (!response) {
-            setError('La respuesta del servidor de geocodificación fue inválida.');
+    useEffect(() => {
+        if (debouncedInputValue.length < 3) {
+            setSuggestions([]);
+            setPopoverOpen(false);
+            return;
         }
 
-      } catch (err: any) {
-         setError(err.message || "An unexpected error occurred.");
-      }
-      setIsLoading(false);
-    }
-    verify();
-  }, [locationData, t, getCachedData]);
+        async function fetchSuggestions() {
+            setIsLoading(true);
+            const result = await autocompleteAddress({
+                address: debouncedInputValue,
+                city: locationContext.city,
+                state: locationContext.state,
+                country: locationContext.country,
+            });
+            if (result.success && result.data) {
+                setSuggestions(result.data);
+                setPopoverOpen(result.data.length > 0);
+            } else {
+                setSuggestions([]);
+                setPopoverOpen(false);
+            }
+            setIsLoading(false);
+        }
+        fetchSuggestions();
+    }, [debouncedInputValue, locationContext]);
 
-  const handleSelect = (selectedResult: GeocodeResult) => {
-    onSelectAddress({
-      route: selectedResult.route,
-      street_number: selectedResult.street_number,
-    });
-    if (selectedResult.geometry?.location) {
-        onSelectCoordinates(selectedResult.geometry.location);
+    const handleSelect = (suggestion: AutocompleteResult) => {
+        setInputValue(suggestion.address);
+        onSelect(suggestion);
+        setPopoverOpen(false);
     }
-    onClose();
-  };
-  
-  return (
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>{t('addressVerification.title')}</DialogTitle>
-        <DialogDescription>
-          {t('addressVerification.description')}
-        </DialogDescription>
-      </DialogHeader>
-      <div className="py-4 max-h-[60vh] overflow-y-auto">
-        {isLoading ? (
-          <div className="flex items-center justify-center gap-2 text-muted-foreground">
-            <Loader className="h-5 w-5 animate-spin" />
-            <span>{t('addressVerification.loading')}</span>
-          </div>
-        ) : error ? (
-           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>{t('toast.errorTitle')}</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : result ? (
-          <button
-            onClick={() => handleSelect(result)}
-            className="w-full text-left p-3 rounded-md border hover:bg-accent transition-colors flex items-start gap-4"
-          >
-            <MapPin className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
-            <div className="flex-grow">
-                <p className="font-semibold">{result.route}{result.street_number ? `, ${result.street_number}` : ''}</p>
-                <p className="text-sm text-muted-foreground">{result.formatted_address}</p>
-            </div>
-            <div className="ml-auto pl-2">
-                <CheckCircle className="h-5 w-5 text-green-500"/>
-            </div>
-          </button>
-        ) : (
-          <p className="text-center text-muted-foreground py-8">{t('addressVerification.notFound')}</p>
-        )}
-      </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose}>{t('common.close')}</Button>
-      </DialogFooter>
-    </DialogContent>
-  );
+
+    return (
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+            <PopoverTrigger asChild>
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        ref={inputRef}
+                        id="street"
+                        name="street"
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        placeholder="Ex: Rua das Flores"
+                        required
+                        disabled={isDisabled}
+                        className="pl-10"
+                        autoComplete="off"
+                    />
+                    {isLoading && <Loader className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin" />}
+                </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                    <CommandList>
+                        {suggestions.map((s, i) => (
+                            <CommandItem key={i} onSelect={() => handleSelect(s)}>
+                                {s.address}
+                            </CommandItem>
+                        ))}
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    )
 }
 
 function CondoFormFields({
@@ -299,14 +280,14 @@ function CondoFormFields({
   isFormPending,
   locationData,
   onLocationChange,
-  onVerifyAddress,
+  onAddressSelect,
 }: {
   isEditMode: boolean,
   initialData: Partial<Condominio>,
   isFormPending: boolean,
   locationData: Partial<LocationData>;
   onLocationChange: (field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => void;
-  onVerifyAddress: () => void;
+  onAddressSelect: (suggestion: AutocompleteResult) => void;
 }) {
     const { t } = useLocale();
     
@@ -329,6 +310,8 @@ function CondoFormFields({
             <input type="hidden" name="country" value={locationData.country || ''} />
             <input type="hidden" name="state" value={locationData.state || ''} />
             <input type="hidden" name="city" value={locationData.city || ''} />
+            <input type="hidden" name="latitude" value={locationData.latitude || ''} />
+            <input type="hidden" name="longitude" value={locationData.longitude || ''} />
             <div className="grid gap-2">
               <Label htmlFor="name">
                 {t('adminDashboard.newCondoDialog.nameLabel')}
@@ -354,20 +337,12 @@ function CondoFormFields({
                 <Label htmlFor="street">
                   {t('adminDashboard.newCondoDialog.streetLabel')}
                 </Label>
-                <div className="flex items-center gap-2">
-                    <Input
-                        id="street"
-                        name="street"
-                        defaultValue={initialData.street}
-                        placeholder="Ex: Rua das Flores"
-                        required
-                        disabled={isFormPending}
-                    />
-                     {/* La API de geocodificación predeterminada configurada en el sistema se utiliza para validar la dirección. */}
-                     <Button type="button" variant="outline" size="sm" onClick={onVerifyAddress} disabled={isFormPending || !locationData.city}>
-                        {t('addressVerification.checkButton')}
-                    </Button>
-                </div>
+                 <StreetAutocomplete
+                    initialValue={initialData.street}
+                    locationContext={locationData}
+                    onSelect={onAddressSelect}
+                    isDisabled={isFormPending || !locationData.city}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="number">
@@ -406,15 +381,11 @@ function CondoFormWrapper({
   formAction,
   initialData,
   isEditMode,
-  getCachedData,
-  onSearchAddress
 }: {
   closeDialog: () => void;
   formAction: (prevState: any, formData: FormData) => Promise<any>;
   initialData: Partial<LocationData> & Partial<Condominio>;
   isEditMode: boolean;
-  getCachedData: (key: string, fetcher: () => Promise<any>) => Promise<any>;
-  onSearchAddress: (coords: { lat: number, lng: number }) => void;
 }) {
   const { t } = useLocale();
   const { toast } = useToast();
@@ -435,13 +406,32 @@ function CondoFormWrapper({
   const [state, dispatchFormAction, isFormPending] = useActionState(handleAction, undefined);
   
   const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData);
-  const [isVerifyingAddress, setIsVerifyingAddress] = useState(false);
-
+  
   const [isLocationLoading, startLocationTransition] = useTransition();
 
   const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
     setLocationData(currentData => ({ ...currentData, [field]: value }));
   }, []);
+
+  const handleAddressSelect = (suggestion: AutocompleteResult) => {
+      // This is a simplified split, might need improvement based on real data
+      const parts = suggestion.address.split(',');
+      const street = parts[0] || '';
+      const city = parts.length > 2 ? parts[parts.length - 3]?.trim() : locationData.city;
+      const state = parts.length > 2 ? parts[parts.length - 2]?.trim() : locationData.state;
+      
+      const numberInput = formRef.current?.elements.namedItem('number') as HTMLInputElement | null;
+      if (numberInput) numberInput.value = ''; // Clear number as it's often part of street
+      
+      setLocationData(current => ({
+          ...current,
+          street: street,
+          city: city,
+          state: state,
+          latitude: suggestion.lat,
+          longitude: suggestion.lon,
+      }));
+  }
   
   useEffect(() => {
     startLocationTransition(async () => {
@@ -455,7 +445,7 @@ function CondoFormWrapper({
   useEffect(() => {
     if (locationData.continent) {
         startLocationTransition(async () => {
-            setLocationData(current => ({...current, country: '', state: '', city: '', states: [], cities: []}));
+            setLocationData(current => ({...current, country: '', state: '', city: '', countries: [], states: [], cities: []}));
             const countriesData = await fetchAddressData({ continent: locationData.continent });
             if (countriesData.success && countriesData.data?.countries) {
                 setLocationData(current => ({ ...current, countries: countriesData.data.countries }));
@@ -467,7 +457,7 @@ function CondoFormWrapper({
   useEffect(() => {
       if (locationData.country) {
           startLocationTransition(async () => {
-            setLocationData(current => ({...current, state: '', city: '', cities: []}));
+            setLocationData(current => ({...current, state: '', city: '', states: [], cities: []}));
             const statesData = await fetchAddressData({ country: locationData.country! });
               if (statesData.success && statesData.data?.states) {
                   setLocationData(current => ({...current, states: statesData.data.states}));
@@ -479,7 +469,7 @@ function CondoFormWrapper({
   useEffect(() => {
       if (locationData.country && locationData.state) {
           startLocationTransition(async () => {
-            setLocationData(current => ({...current, city: ''}));
+            setLocationData(current => ({...current, city: '', cities: []}));
               const citiesData = await fetchAddressData({ country: locationData.country!, state: locationData.state! });
               if (citiesData.success && citiesData.data?.cities) {
                   setLocationData(current => ({...current, cities: citiesData.data.cities}));
@@ -488,25 +478,6 @@ function CondoFormWrapper({
       }
   }, [locationData.country, locationData.state]);
 
-  const handleSelectAddress = (address: Pick<GeocodeResult, 'route' | 'street_number'>) => {
-      const streetInput = formRef.current?.elements.namedItem('street') as HTMLInputElement | null;
-      const numberInput = formRef.current?.elements.namedItem('number') as HTMLInputElement | null;
-      if (streetInput) streetInput.value = address.route || '';
-      if (numberInput) numberInput.value = address.street_number || '';
-  };
-
-  const handleVerifyAddress = () => {
-      const streetInput = formRef.current?.elements.namedItem('street') as HTMLInputElement | null;
-      if (streetInput && streetInput.value && locationData.city && locationData.state && locationData.country) {
-          const dataForVerification = {
-            ...locationData,
-            street: streetInput.value,
-          };
-          setLocationData(dataForVerification);
-          setIsVerifyingAddress(true);
-      }
-  }
-  
   const isFormDisabled = isFormPending || isLocationLoading;
 
   return (
@@ -530,19 +501,10 @@ function CondoFormWrapper({
                 isFormPending={isFormDisabled}
                 locationData={locationData}
                 onLocationChange={handleLocationChange}
-                onVerifyAddress={handleVerifyAddress}
+                onAddressSelect={handleAddressSelect}
             />
             </form>
         </div>
-        <Dialog open={isVerifyingAddress} onOpenChange={setIsVerifyingAddress}>
-            <AddressVerificationDialog
-                locationData={locationData}
-                onSelectAddress={handleSelectAddress}
-                onSelectCoordinates={onSearchAddress}
-                onClose={() => setIsVerifyingAddress(false)}
-                getCachedData={getCachedData}
-            />
-        </Dialog>
     </>
   );
 }
@@ -561,25 +523,6 @@ export function CondoManagement() {
     const [isPreparingEdit, setIsPreparingEdit] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [isDeleting, startDeletingTransition] = useTransition();
-
-    // --- Caching helpers for location data ---
-    const getCachedData = useCallback(async (key: string, fetcher: () => Promise<any>) => {
-        if (typeof window === 'undefined') return fetcher();
-        try {
-            const cached = sessionStorage.getItem(key);
-            if (cached) {
-                return JSON.parse(cached);
-            }
-            const data = await fetcher();
-            if (data) {
-                sessionStorage.setItem(key, JSON.stringify(data));
-            }
-            return data;
-        } catch (error) {
-            console.error(`Failed to get or set cached data for key "${key}":`, error);
-            return fetcher();
-        }
-    }, []);
 
     const fetchCondos = useCallback(async () => {
         setLoading(true);
@@ -642,7 +585,7 @@ export function CondoManagement() {
         } finally {
             setIsPreparingEdit(false);
         }
-    }, [toast, t, getCachedData]);
+    }, [toast, t]);
   
     const handleDeleteCondo = (condoId: string) => {
         setDeletingId(condoId);
@@ -706,8 +649,6 @@ export function CondoManagement() {
                             formAction={createCondominio}
                             isEditMode={false}
                             initialData={{}}
-                            getCachedData={getCachedData}
-                            onSearchAddress={() => {}}
                         />
                     </DialogContent>
                 </Dialog>
@@ -799,7 +740,6 @@ export function CondoManagement() {
                 </CardContent>
             </Card>
             
-            {/* Edit Condo Dialog */}
             <Dialog open={isEditCondoDialogOpen} onOpenChange={(isOpen) => {
                 if (!isOpen) {
                 setEditingCondoData(null);
@@ -813,8 +753,6 @@ export function CondoManagement() {
                             formAction={handleUpdateCondoAction}
                             initialData={editingCondoData}
                             isEditMode={true}
-                            getCachedData={getCachedData}
-                            onSearchAddress={() => {}}
                         />
                     )}
                 </DialogContent>
@@ -822,12 +760,3 @@ export function CondoManagement() {
         </div>
     );
 }
-
-    
-
-    
-
-
-    
-
-

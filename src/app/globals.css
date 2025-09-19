@@ -133,3 +133,20 @@ button.gm-err-close {
     z-index: 101 !important;
     position: relative !important;
 }
+
+/* Custom Popover Content Animation */
+.popover-content-width-full {
+  width: var(--radix-popover-trigger-width);
+}
+
+.popover-content-height-auto {
+  height: var(--radix-popover-content-height);
+}
+
+.animate-popover-up {
+  animation: popover-up 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-popover-down {
+  animation: popover-down 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}

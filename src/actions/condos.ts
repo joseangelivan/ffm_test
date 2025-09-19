@@ -40,6 +40,8 @@ const CondominioSchema = z.object({
     city: z.string().min(2, 'La ciudad es obligatoria.'),
     street: z.string().min(3, 'La calle es obligatoria.'),
     number: z.string().min(1, 'El número es obligatorio.'),
+    latitude: z.coerce.number().optional().nullable(),
+    longitude: z.coerce.number().optional().nullable(),
 });
 
 
@@ -144,6 +146,8 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
         city: formData.get('city'),
         street: formData.get('street'),
         number: formData.get('number'),
+        latitude: formData.get('latitude'),
+        longitude: formData.get('longitude'),
     });
 
     if (!validatedFields.success) {
@@ -155,18 +159,22 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
         };
     }
     
-    const { name, continent, country, state, city, street, number } = validatedFields.data;
+    const { name, continent, country, state, city, street, number, latitude, longitude } = validatedFields.data;
     
-    let lat: number | null = null;
-    let lon: number | null = null;
+    let lat: number | null = latitude || null;
+    let lon: number | null = longitude || null;
 
-    const geocodeResult = await geocodeAddress({ street: `${street} ${number}`, city, state, country });
-    if (geocodeResult.success && geocodeResult.data) {
-        lat = geocodeResult.data.geometry.location.lat;
-        lon = geocodeResult.data.geometry.location.lng;
-    } else {
-        console.warn(`Geocoding failed for new condo "${name}": ${geocodeResult.message}`);
+    if (!lat || !lon) {
+        const fullAddress = [street, number, city, state, country].filter(Boolean).join(', ');
+        const geocodeResult = await geocodeAddress(fullAddress);
+        if (geocodeResult.success && geocodeResult.data) {
+            lat = geocodeResult.data.lat;
+            lon = geocodeResult.data.lon;
+        } else {
+            console.warn(`Geocoding failed for new condo "${name}": ${geocodeResult.message}`);
+        }
     }
+
 
     let client;
     try {
@@ -203,6 +211,8 @@ export async function updateCondominio(prevState: any, formData: FormData): Prom
         city: formData.get('city'),
         street: formData.get('street'),
         number: formData.get('number'),
+        latitude: formData.get('latitude'),
+        longitude: formData.get('longitude'),
     });
 
     if (!validatedFields.success) {
@@ -213,18 +223,22 @@ export async function updateCondominio(prevState: any, formData: FormData): Prom
             message: firstError || "Error de validación."
         };
     }
-    const { name, continent, country, state, city, street, number } = validatedFields.data;
+    const { name, continent, country, state, city, street, number, latitude, longitude } = validatedFields.data;
     
-    let lat: number | null = null;
-    let lon: number | null = null;
+    let lat: number | null = latitude || null;
+    let lon: number | null = longitude || null;
 
-    const geocodeResult = await geocodeAddress({ street: `${street} ${number}`, city, state, country });
-    if (geocodeResult.success && geocodeResult.data) {
-        lat = geocodeResult.data.geometry.location.lat;
-        lon = geocodeResult.data.geometry.location.lng;
-    } else {
-        console.warn(`Geocoding failed while updating condo "${name}": ${geocodeResult.message}`);
+    if (!lat || !lon) {
+        const fullAddress = [street, number, city, state, country].filter(Boolean).join(', ');
+        const geocodeResult = await geocodeAddress(fullAddress);
+        if (geocodeResult.success && geocodeResult.data) {
+            lat = geocodeResult.data.lat;
+            lon = geocodeResult.data.lon;
+        } else {
+            console.warn(`Geocoding failed while updating condo "${name}": ${geocodeResult.message}`);
+        }
     }
+
 
     let client;
     try {
