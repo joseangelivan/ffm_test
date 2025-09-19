@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { z } from 'zod';
@@ -571,6 +572,10 @@ export async function autocompleteAddress(request: AutocompleteRequest): Promise
 
 
 export async function geocodeAddress(fullAddress: string): Promise<ActionState<any>> {
+    if (!fullAddress || fullAddress.trim() === '') {
+        return { success: false, message: 'La dirección no puede estar vacía.' };
+    }
+
     let client;
     try {
         const pool = await getDbPool();
@@ -598,6 +603,9 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
         if (client) client.release();
     }
 }
+
+
+    
 
 
     
