@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 
 import Loading from '@/app/loading';
 import CondoDashboardClient from '@/components/condo-dashboard-client';
-import { getCondominioById } from '@/actions/condos';
+import { getCondominioById, updateCondoCoordinates } from '@/actions/condos';
 import { getDevicesByCondoId } from '@/actions/devices';
 import { getSession } from '@/lib/auth';
 import { getSettings, getDefaultMapProvider, getGeofencesByCondoId } from '@/actions/admin';
@@ -68,31 +68,41 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
   
   let initialPosition: { lat: number; lng: number } | null = null;
   
-  // Logic Priority:
-  // 1. Try to use the default geofence center.
-  // 2. If no default geofence, geocode the condo's address.
-  // 3. If geocoding fails, use an absolute fallback.
-  const defaultGeofence = geofences.find(g => g.is_default);
-
-  if (defaultGeofence?.geometry?.center) {
-      initialPosition = { 
-          lat: defaultGeofence.geometry.center[1], 
-          lng: defaultGeofence.geometry.center[0] 
-      };
+  // --- New Geocoding Logic ---
+  // Priority:
+  // 1. Use coordinates stored in the DB.
+  // 2. If not available, try to use the default geofence center.
+  // 3. If no geofence, geocode the condo's address.
+  // 4. If geocoding fails, use an absolute fallback.
+  
+  if (condo.latitude && condo.longitude) {
+    initialPosition = { lat: condo.latitude, lng: condo.longitude };
   } else {
-      const geocodeResult = await geocodeAddress({
-        street: condo.street || '',
-        city: condo.city || '',
-        state: condo.state || '',
-        country: condo.country || '',
-      });
+    const defaultGeofence = geofences.find(g => g.is_default);
 
-      if (geocodeResult.success && geocodeResult.data?.geometry.location) {
-          initialPosition = geocodeResult.data.geometry.location;
-      } else {
-          // Absolute fallback
-          initialPosition = { lat: -14.235, lng: -51.9253 };
-      }
+    if (defaultGeofence?.geometry?.center) {
+        initialPosition = { 
+            lat: defaultGeofence.geometry.center[1], 
+            lng: defaultGeofence.geometry.center[0] 
+        };
+    } else {
+        const geocodeResult = await geocodeAddress({
+          street: `${condo.street || ''} ${condo.number || ''}`.trim(),
+          city: condo.city || '',
+          state: condo.state || '',
+          country: condo.country || '',
+        });
+
+        if (geocodeResult.success && geocodeResult.data?.geometry.location) {
+            initialPosition = geocodeResult.data.geometry.location;
+            // Fire-and-forget update to the database for future requests
+            updateCondoCoordinates(condo.id, initialPosition.lat, initialPosition.lng);
+        } else {
+            console.warn(`Geocoding failed for condo ${condo.id}: ${geocodeResult.message}`);
+            // Absolute fallback if everything else fails
+            initialPosition = { lat: -14.235, lng: -51.9253 };
+        }
+    }
   }
 
 

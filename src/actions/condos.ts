@@ -4,6 +4,7 @@
 import { Pool } from 'pg';
 import { z } from 'zod';
 import { getDbPool } from '@/lib/db';
+import { geocodeAddress } from './geocoding';
 
 
 export type Condominio = {
@@ -21,6 +22,8 @@ export type Condominio = {
   city?: string;
   street?: string;
   number?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 type ActionState<T> = {
@@ -117,7 +120,9 @@ export async function getCondominioById(id: string): Promise<ActionState<Condomi
             state: condoData.state,
             city: condoData.city,
             street: condoData.street,
-            number: condoData.number
+            number: condoData.number,
+            latitude: condoData.latitude,
+            longitude: condoData.longitude
         };
 
         return { success: true, message: 'Condominio obtenido.', data: fullCondo };
@@ -151,6 +156,17 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
     }
     
     const { name, continent, country, state, city, street, number } = validatedFields.data;
+    
+    let lat: number | null = null;
+    let lon: number | null = null;
+
+    const geocodeResult = await geocodeAddress({ street: `${street} ${number}`, city, state, country });
+    if (geocodeResult.success && geocodeResult.data) {
+        lat = geocodeResult.data.geometry.location.lat;
+        lon = geocodeResult.data.geometry.location.lng;
+    } else {
+        console.warn(`Geocoding failed for new condo "${name}": ${geocodeResult.message}`);
+    }
 
     let client;
     try {
@@ -158,8 +174,8 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
         if (!pool) return { success: false, message: 'Error del servidor al crear el condominio.' };
         client = await pool.connect();
         await client.query(
-            'INSERT INTO condominiums (name, continent, country, state, city, street, number) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-            [name, continent, country, state, city, street, number]
+            'INSERT INTO condominiums (name, continent, country, state, city, street, number, latitude, longitude) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+            [name, continent, country, state, city, street, number, lat, lon]
         );
         return { success: true, message: `Condomínio "${name}" criado com sucesso.` };
     } catch (error: any) {
@@ -199,14 +215,25 @@ export async function updateCondominio(prevState: any, formData: FormData): Prom
     }
     const { name, continent, country, state, city, street, number } = validatedFields.data;
     
+    let lat: number | null = null;
+    let lon: number | null = null;
+
+    const geocodeResult = await geocodeAddress({ street: `${street} ${number}`, city, state, country });
+    if (geocodeResult.success && geocodeResult.data) {
+        lat = geocodeResult.data.geometry.location.lat;
+        lon = geocodeResult.data.geometry.location.lng;
+    } else {
+        console.warn(`Geocoding failed while updating condo "${name}": ${geocodeResult.message}`);
+    }
+
     let client;
     try {
         const pool = await getDbPool();
         if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         const result = await client.query(
-            'UPDATE condominiums SET name = $1, continent = $2, country = $3, state = $4, city = $5, street = $6, number = $7, updated_at = NOW() WHERE id = $8 RETURNING *',
-            [name, continent, country, state, city, street, number, id]
+            'UPDATE condominiums SET name = $1, continent = $2, country = $3, state = $4, city = $5, street = $6, number = $7, latitude = $8, longitude = $9, updated_at = NOW() WHERE id = $10 RETURNING *',
+            [name, continent, country, state, city, street, number, lat, lon, id]
         );
         if (result.rowCount === 0) {
             return { success: false, message: 'No se encontró el condominio para actualizar.' };
@@ -242,6 +269,21 @@ export async function deleteCondominio(id: string): Promise<ActionState<null>> {
     } catch (error) {
         console.error('Error deleting condominio:', error);
         return { success: false, message: 'Error del servidor.' };
+    } finally {
+        if (client) client.release();
+    }
+}
+
+export async function updateCondoCoordinates(condoId: string, lat: number, lon: number): Promise<void> {
+    let client;
+    try {
+        const pool = await getDbPool();
+        if (!pool) return;
+        client = await pool.connect();
+        await client.query('UPDATE condominiums SET latitude = $1, longitude = $2 WHERE id = $3', [lat, lon, condoId]);
+        console.log(`Updated coordinates for condo ${condoId}`);
+    } catch (error) {
+        console.error(`Failed to update coordinates for condo ${condoId}:`, error);
     } finally {
         if (client) client.release();
     }
