@@ -56,6 +56,7 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
+    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -435,40 +436,37 @@ function CondoFormWrapper({
   }, []);
 
   useEffect(() => {
-    if (locationData.continent) {
-        startLocationTransition(async () => {
-            setLocationData(current => ({...current, country: '', state: '', city: '', countries: [], states: [], cities: []}));
-            const countriesData = await fetchAddressData({ continent: locationData.continent });
-            if (countriesData.success && countriesData.data?.countries) {
-                setLocationData(current => ({ ...current, countries: countriesData.data.countries }));
-            }
-        });
-    }
+    if (!locationData.continent) return;
+    startLocationTransition(async () => {
+        setLocationData(current => ({...current, country: '', state: '', city: '', countries: [], states: [], cities: []}));
+        const countriesData = await fetchAddressData({ continent: locationData.continent });
+        if (countriesData.success && countriesData.data?.countries) {
+            setLocationData(current => ({ ...current, countries: countriesData.data.countries }));
+        }
+    });
   }, [locationData.continent]);
 
   useEffect(() => {
-      if (locationData.country) {
-          startLocationTransition(async () => {
-            setLocationData(current => ({...current, state: '', city: '', states: [], cities: []}));
-            const statesData = await fetchAddressData({ country: locationData.country! });
-              if (statesData.success && statesData.data?.states) {
-                  setLocationData(current => ({...current, states: statesData.data.states}));
-              }
-          });
-      }
+      if (!locationData.country) return;
+      startLocationTransition(async () => {
+        setLocationData(current => ({...current, state: '', city: '', states: [], cities: []}));
+        const statesData = await fetchAddressData({ country: locationData.country! });
+          if (statesData.success && statesData.data?.states) {
+              setLocationData(current => ({...current, states: statesData.data.states}));
+          }
+      });
   }, [locationData.country]);
 
   useEffect(() => {
-      if (locationData.country && locationData.state) {
-          startLocationTransition(async () => {
-            setLocationData(current => ({...current, city: '', cities: []}));
-              const citiesData = await fetchAddressData({ country: locationData.country!, state: locationData.state! });
-              if (citiesData.success && citiesData.data?.cities) {
-                  setLocationData(current => ({...current, cities: citiesData.data.cities}));
-              }
-          });
-      }
-  }, [locationData.country, locationData.state]);
+      if (!locationData.state) return;
+      startLocationTransition(async () => {
+        setLocationData(current => ({...current, city: '', cities: []}));
+          const citiesData = await fetchAddressData({ country: locationData.country!, state: locationData.state! });
+          if (citiesData.success && citiesData.data?.cities) {
+              setLocationData(current => ({...current, cities: citiesData.data.cities}));
+          }
+      });
+  }, [locationData.state]);
 
   const isFormDisabled = isFormPending || isLocationLoading;
 
