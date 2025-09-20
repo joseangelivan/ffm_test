@@ -1,4 +1,4 @@
-
+-- src/lib/sql/languages/base_schema.sql
 CREATE TABLE IF NOT EXISTS languages (
     id VARCHAR(10) PRIMARY KEY,
     name_translations JSONB NOT NULL,
@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS languages (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TRIGGER set_timestamp
+-- Trigger para actualizar 'updated_at'
+CREATE OR REPLACE TRIGGER set_timestamp
 BEFORE UPDATE ON languages
 FOR EACH ROW
-EXECUTE PROCEDURE trigger_set_timestamp();
+EXECUTE FUNCTION trigger_set_timestamp();

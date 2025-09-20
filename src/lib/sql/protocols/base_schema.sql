@@ -1,4 +1,4 @@
-
+-- src/lib/sql/protocols/base_schema.sql
 CREATE TABLE IF NOT EXISTS protocols (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL UNIQUE,
@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS protocols (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TRIGGER set_timestamp
+-- Trigger para actualizar 'updated_at'
+CREATE OR REPLACE TRIGGER set_timestamp
 BEFORE UPDATE ON protocols
 FOR EACH ROW
-EXECUTE PROCEDURE trigger_set_timestamp();
+EXECUTE FUNCTION trigger_set_timestamp();
