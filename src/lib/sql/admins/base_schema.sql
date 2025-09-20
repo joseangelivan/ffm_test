@@ -1,45 +1,50 @@
--- src/lib/sql/admins/base_schema.sql
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Admins Table
 CREATE TABLE IF NOT EXISTS admins (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255),
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash TEXT,
     can_create_admins BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Indexes for admins table
-CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email);
-
--- Trigger for admins table
-CREATE TRIGGER set_updated_at_timestamp
-BEFORE UPDATE ON admins
-FOR EACH ROW
-EXECUTE FUNCTION trigger_set_timestamp();
-
-
--- Admin First Login Pins Table
 CREATE TABLE IF NOT EXISTS admin_first_login_pins (
-    admin_id UUID PRIMARY KEY REFERENCES admins(id) ON DELETE CASCADE,
-    pin_hash VARCHAR(255) NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+    pin_hash TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Admin TOTP Secrets Table
 CREATE TABLE IF NOT EXISTS admin_totp_secrets (
-    admin_id UUID PRIMARY KEY REFERENCES admins(id) ON DELETE CASCADE,
-    secret VARCHAR(255) NOT NULL
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID NOT NULL UNIQUE REFERENCES admins(id) ON DELETE CASCADE,
+    secret TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Admin Verification Pins Table for email changes
 CREATE TABLE IF NOT EXISTS admin_verification_pins (
-    admin_id UUID PRIMARY KEY REFERENCES admins(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID NOT NULL UNIQUE REFERENCES admins(id) ON DELETE CASCADE,
     pin VARCHAR(6) NOT NULL,
     email VARCHAR(255) NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Triggers para actualizar 'updated_at'
+DROP TRIGGER IF EXISTS trigger_update_admins_updated_at ON admins;
+CREATE TRIGGER trigger_update_admins_updated_at
+BEFORE UPDATE ON admins
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS trigger_update_admin_totp_secrets_updated_at ON admin_totp_secrets;
+CREATE TRIGGER trigger_update_admin_totp_secrets_updated_at
+BEFORE UPDATE ON admin_totp_secrets
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email);

@@ -1,4 +1,3 @@
--- src/lib/sql/app_settings/base_schema.sql
 
 CREATE TABLE IF NOT EXISTS app_settings (
     id VARCHAR(255) PRIMARY KEY,
@@ -7,8 +6,8 @@ CREATE TABLE IF NOT EXISTS app_settings (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Trigger para actualizar 'updated_at' en cada update
-CREATE TRIGGER set_updated_at_timestamp
+DROP TRIGGER IF EXISTS trigger_update_app_settings_updated_at ON app_settings;
+CREATE TRIGGER trigger_update_app_settings_updated_at
 BEFORE UPDATE ON app_settings
 FOR EACH ROW
-EXECUTE FUNCTION trigger_set_timestamp();
+EXECUTE FUNCTION update_updated_at_column();
