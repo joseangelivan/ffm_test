@@ -1,6 +1,5 @@
--- src/lib/sql/languages/seed.sql
-
-INSERT INTO languages (id, name_translations) VALUES 
+-- Seed data for languages table
+INSERT INTO languages (id, name_translations) VALUES
 ('en', '{"es": "Inglés", "pt-BR": "Inglês"}'),
 ('es', '{"es": "Español", "pt-BR": "Espanhol"}'),
 ('fr', '{"es": "Francés", "pt-BR": "Francês"}'),

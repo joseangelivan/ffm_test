@@ -1,7 +1,6 @@
--- Seed initial protocols
+-- Seed data for protocols table
 INSERT INTO protocols (name, features_translations) VALUES
-('Websocket', '{"es": "Protocolo de comunicación bidireccional y full-duplex sobre un único socket TCP. Ideal para aplicaciones en tiempo real.", "pt-BR": "Protocolo de comunicação bidirecional e full-duplex sobre um único soquete TCP. Ideal para aplicações em tempo real."}'),
-('MQTT', '{"es": "Protocolo de mensajería ligero de publicación/suscripción. Diseñado para conexiones con poco ancho de banda y alta latencia, común en IoT.", "pt-BR": "Protocolo de mensagens leve de publicação/assinatura. Projetado para conexões com baixa largura de banda e alta latência, comum em IoT."}'),
-('CoAP', '{"es": "Protocolo web especializado para dispositivos y redes con recursos restringidos. Similar a HTTP pero mucho más ligero.", "pt-BR": "Protocolo web especializado para dispositivos e redes com recursos restritos. Semelhante ao HTTP, mas muito mais leve."}'),
-('HTTP', '{"es": "Protocolo de transferencia de hipertexto. Un protocolo estándar de solicitud-respuesta para la comunicación cliente-servidor.", "pt-BR": "Protocolo de transferência de hipertexto. Um protocolo padrão de solicitação-resposta para a comunicação cliente-servidor."}')
+('gt06', '{"es": "Protocolo para rastreadores GPS GT06 y compatibles.", "pt-BR": "Protocolo para rastreadores GPS GT06 e compatíveis."}'),
+('osmand', '{"es": "Protocolo para la aplicación de seguimiento OsmAnd.", "pt-BR": "Protocolo para o aplicativo de rastreamento OsmAnd."}'),
+('traccar', '{"es": "Protocolo cliente de Traccar.", "pt-BR": "Protocolo cliente do Traccar."}')
 ON CONFLICT (name) DO NOTHING;

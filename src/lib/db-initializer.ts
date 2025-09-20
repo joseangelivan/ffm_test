@@ -165,7 +165,7 @@ async function seedTestData(client: PoolClient, log: string[]): Promise<void> {
             log.push(`INFO: Test condominium "${testCondoName}" already exists.`);
         } else {
             const newCondoResult = await client.query(
-                "INSERT INTO condominiums (name, continent, country, state, city, street, number) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+                "INSERT INTO condominiums (name, region, country, state, city, street, number) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
                 [testCondoName, 'Americas', 'Brazil', 'São Paulo', 'São Paulo', 'Avenida Paulista', '1000']
             );
             condoId = newCondoResult.rows[0].id;
@@ -405,5 +405,3 @@ export async function clearDatabase(
         }
     }
 }
-
-    
