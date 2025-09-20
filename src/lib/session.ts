@@ -34,7 +34,6 @@ export async function verifySession(sessionToken: string) {
 }
 
 export async function createSession(userId: string, userType: 'admin' | 'resident' | 'gatekeeper', userData: {email: string, name: string, canCreateAdmins?: boolean}) {
-    const { randomUUID } = (await import('crypto'));
     const { SignJWT } = (await import('jose'));
     const { JWT_SECRET } = (await import('@/lib/config'));
     let client;
@@ -64,10 +63,9 @@ export async function createSession(userId: string, userType: 'admin' | 'residen
         // Remove old sessions for this user to avoid conflicts
         await client.query(`DELETE FROM sessions WHERE user_id = $1 AND user_type = $2`, [userId, userType]);
         
-        const sessionId = randomUUID();
         await client.query(
-            'INSERT INTO sessions (id, user_id, user_type, token, expires_at) VALUES ($1, $2, $3, $4, $5)', 
-            [sessionId, userId, userType, token, expirationDate]
+            'INSERT INTO sessions (user_id, user_type, token, expires_at) VALUES ($1, $2, $3, $4)', 
+            [userId, userType, token, expirationDate]
         );
         
         await client.query('COMMIT');
