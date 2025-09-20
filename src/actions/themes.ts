@@ -86,7 +86,7 @@ export async function getThemeById(id: string): Promise<Theme | null> {
     try {
         const pool = await getDbPool();
         client = await pool.connect();
-        const result = await client.query('SELECT * FROM themes WHERE id = $1', [id]);
+        const result = await client.query('SELECT * FROM themes WHERE id = $1::int', [id]);
         return result.rows.length > 0 ? result.rows[0] : null;
     } catch (error) {
         console.error(`Error getting theme by id ${id}:`, error);
