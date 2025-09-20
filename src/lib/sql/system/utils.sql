@@ -1,24 +1,94 @@
--- Reusable function to ensure a column is of a specific data type.
--- This is useful for making schema definitions more robust and idempotent.
-CREATE OR REPLACE FUNCTION ensure_column_type(p_table_name TEXT, p_column_name TEXT, p_expected_type TEXT)
+-- src/lib/sql/system/utils.sql
+
+-- Helper function to safely change a column's type only if it's not already the desired type.
+-- This prevents errors when re-running migration scripts.
+CREATE OR REPLACE FUNCTION ensure_column_type(
+    p_table_name TEXT,
+    p_column_name TEXT,
+    p_new_type TEXT
+)
 RETURNS VOID AS $$
 BEGIN
-    -- Check if the column exists and is not already of the expected type
+    -- Check if the column exists and if its type is different from the desired new type.
     IF EXISTS (
         SELECT 1
         FROM information_schema.columns
         WHERE table_schema = 'public'
           AND table_name = p_table_name
           AND column_name = p_column_name
-          AND data_type <> p_expected_type
+          AND udt_name != p_new_type
     ) THEN
-        -- If it exists with a different type, alter it.
-        -- Using format() with %I for identifiers and %L for literals is the safe way to do dynamic SQL.
-        -- Since the type is a string literal we trust, we can use %s, but %I is safer for table/column names.
-        RAISE NOTICE 'Altering column %.% to type %', p_table_name, p_column_name, p_expected_type;
-        EXECUTE format('ALTER TABLE %I ALTER COLUMN %I TYPE %s;', p_table_name, p_column_name, p_expected_type);
-    ELSE
-        RAISE NOTICE 'Column %.% is already of type % or does not exist, skipping alteration.', p_table_name, p_column_name, p_expected_type;
+        -- If it's different, alter the column type.
+        -- Using format() to safely inject identifiers.
+        EXECUTE format('ALTER TABLE public.%I ALTER COLUMN %I TYPE %s', p_table_name, p_column_name, p_new_type);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- Helper function to add a column to a table if it does not already exist.
+CREATE OR REPLACE FUNCTION add_column_if_not_exists(
+    p_table_name TEXT, 
+    p_column_name TEXT, 
+    p_column_definition TEXT
+)
+RETURNS VOID AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+          AND table_name = p_table_name 
+          AND column_name = p_column_name
+    ) THEN
+        EXECUTE format('ALTER TABLE public.%I ADD COLUMN %I %s', p_table_name, p_column_name, p_column_definition);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- Helper function to drop a column from a table if it exists.
+CREATE OR REPLACE FUNCTION drop_column_if_exists(
+    p_table_name TEXT, 
+    p_column_name TEXT
+)
+RETURNS VOID AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+          AND table_name = p_table_name 
+          AND column_name = p_column_name
+    ) THEN
+        EXECUTE format('ALTER TABLE public.%I DROP COLUMN %I', p_table_name, p_column_name);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- Helper function to rename a column in a table if it exists and the new name doesn't exist.
+CREATE OR REPLACE FUNCTION rename_column_if_exists(
+    p_table_name TEXT, 
+    p_old_column_name TEXT, 
+    p_new_column_name TEXT
+)
+RETURNS VOID AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+          AND table_name = p_table_name 
+          AND column_name = p_old_column_name
+    ) AND NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+        AND table_name = p_table_name
+        AND column_name = p_new_column_name
+    ) THEN
+        EXECUTE format('ALTER TABLE public.%I RENAME COLUMN %I TO %I', p_table_name, p_old_column_name, p_new_column_name);
     END IF;
 END;
 $$ LANGUAGE plpgsql;
