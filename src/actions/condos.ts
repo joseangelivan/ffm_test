@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { Pool } from 'pg';
@@ -16,7 +17,7 @@ export type Condominio = {
   devices_count?: number;
   residents_count?: number;
   gatekeepers_count?: number;
-  continent?: string;
+  region?: string;
   country?: string;
   state?: string;
   city?: string;
@@ -34,7 +35,7 @@ type ActionState<T> = {
 
 const CondominioSchema = z.object({
     name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
-    continent: z.string().min(2, 'El continente es obligatorio.'),
+    region: z.string().min(2, 'La región es obligatoria.'),
     country: z.string().min(2, 'El país es obligatorio.'),
     state: z.string().min(2, 'El estado/provincia es obligatorio.'),
     city: z.string().min(2, 'La ciudad es obligatoria.'),
@@ -53,7 +54,7 @@ export async function getCondominios(): Promise<ActionState<Condominio[]>> {
         client = await pool.connect();
         const result = await client.query(`
             SELECT 
-                id, name, created_at, updated_at, continent, country, state, city, street, number
+                id, name, created_at, updated_at, region, country, state, city, street, number
             FROM 
                 condominiums
             ORDER BY 
@@ -117,7 +118,7 @@ export async function getCondominioById(id: string): Promise<ActionState<Condomi
             address: addressParts.join(', '),
             created_at: condoData.created_at,
             updated_at: condoData.updated_at,
-            continent: condoData.continent,
+            region: condoData.region,
             country: condoData.country,
             state: condoData.state,
             city: condoData.city,
@@ -140,7 +141,7 @@ export async function getCondominioById(id: string): Promise<ActionState<Condomi
 export async function createCondominio(prevState: any, formData: FormData): Promise<ActionState<null>> {
     const validatedFields = CondominioSchema.safeParse({
         name: formData.get('name'),
-        continent: formData.get('continent'),
+        region: formData.get('region'),
         country: formData.get('country'),
         state: formData.get('state'),
         city: formData.get('city'),
@@ -159,7 +160,7 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
         };
     }
     
-    const { name, continent, country, state, city, street, number, latitude, longitude } = validatedFields.data;
+    const { name, region, country, state, city, street, number, latitude, longitude } = validatedFields.data;
     
     let lat: number | null = latitude || null;
     let lon: number | null = longitude || null;
@@ -182,8 +183,8 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
         if (!pool) return { success: false, message: 'Error del servidor al crear el condominio.' };
         client = await pool.connect();
         await client.query(
-            'INSERT INTO condominiums (name, continent, country, state, city, street, number, latitude, longitude) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
-            [name, continent, country, state, city, street, number, lat, lon]
+            'INSERT INTO condominiums (name, region, country, state, city, street, number, latitude, longitude) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+            [name, region, country, state, city, street, number, lat, lon]
         );
         return { success: true, message: `Condomínio "${name}" criado com sucesso.` };
     } catch (error: any) {
@@ -205,7 +206,7 @@ export async function updateCondominio(prevState: any, formData: FormData): Prom
     
     const validatedFields = CondominioSchema.safeParse({
         name: formData.get('name'),
-        continent: formData.get('continent'),
+        region: formData.get('region'),
         country: formData.get('country'),
         state: formData.get('state'),
         city: formData.get('city'),
@@ -223,7 +224,7 @@ export async function updateCondominio(prevState: any, formData: FormData): Prom
             message: firstError || "Error de validación."
         };
     }
-    const { name, continent, country, state, city, street, number, latitude, longitude } = validatedFields.data;
+    const { name, region, country, state, city, street, number, latitude, longitude } = validatedFields.data;
     
     let lat: number | null = latitude || null;
     let lon: number | null = longitude || null;
@@ -246,8 +247,8 @@ export async function updateCondominio(prevState: any, formData: FormData): Prom
         if (!pool) return { success: false, message: 'Error del servidor.' };
         client = await pool.connect();
         const result = await client.query(
-            'UPDATE condominiums SET name = $1, continent = $2, country = $3, state = $4, city = $5, street = $6, number = $7, latitude = $8, longitude = $9, updated_at = NOW() WHERE id = $10 RETURNING *',
-            [name, continent, country, state, city, street, number, lat, lon, id]
+            'UPDATE condominiums SET name = $1, region = $2, country = $3, state = $4, city = $5, street = $6, number = $7, latitude = $8, longitude = $9, updated_at = NOW() WHERE id = $10 RETURNING *',
+            [name, region, country, state, city, street, number, lat, lon, id]
         );
         if (result.rowCount === 0) {
             return { success: false, message: 'No se encontró el condominio para actualizar.' };

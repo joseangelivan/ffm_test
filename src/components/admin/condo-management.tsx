@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
@@ -71,13 +72,13 @@ import { ScrollArea } from '../ui/scroll-area';
 
 type LocationData = {
     name: string;
-    continent: string;
+    region: string;
     country: string;
     state: string;
     city: string;
     street: string;
     number: string;
-    continents: string[];
+    regions: string[];
     countries: AddressDataItem[];
     states: AddressDataItem[];
     cities: string[];
@@ -99,19 +100,19 @@ const LocationSelector = ({
   return (
     <div className="grid grid-cols-2 gap-4">
       <div className="grid gap-2 col-span-2">
-        <Label htmlFor="continent-display">Continente</Label>
+        <Label htmlFor="region-display">Región</Label>
         <Select
-          onValueChange={(value) => onLocationChange('continent', value)}
-          value={locationData.continent}
-          disabled={isFormDisabled || !locationData.continents?.length}
+          onValueChange={(value) => onLocationChange('region', value)}
+          value={locationData.region}
+          disabled={isFormDisabled || !locationData.regions?.length}
         >
-          <SelectTrigger id="continent-display">
-            <SelectValue placeholder="Seleccionar continente" />
+          <SelectTrigger id="region-display">
+            <SelectValue placeholder="Seleccionar región" />
           </SelectTrigger>
           <SelectContent>
-            {locationData.continents?.map((continent) => (
-              <SelectItem key={continent} value={continent}>
-                {continent}
+            {locationData.regions?.map((region) => (
+              <SelectItem key={region} value={region}>
+                {region}
               </SelectItem>
             ))}
           </SelectContent>
@@ -122,10 +123,10 @@ const LocationSelector = ({
         <Select
           onValueChange={(value) => onLocationChange('country', value)}
           value={locationData.country}
-          disabled={!locationData.continent || isFormDisabled || !locationData.countries?.length}
+          disabled={!locationData.region || isFormDisabled || !locationData.countries?.length}
         >
           <SelectTrigger id="country-display">
-            <SelectValue placeholder={!locationData.continent ? "Seleccionar continente primero" : "Seleccionar país"} />
+            <SelectValue placeholder={!locationData.region ? "Seleccionar región primero" : "Seleccionar país"} />
           </SelectTrigger>
           <SelectContent>
             {locationData.countries?.map((country) => (
@@ -268,7 +269,7 @@ function CondoFormFields({
             </DialogDescription>
           </DialogHeader>
            <div className="grid gap-4 py-4">
-            <input type="hidden" name="continent" value={locationData.continent || ''} />
+            <input type="hidden" name="region" value={locationData.region || ''} />
             <input type="hidden" name="country" value={locationData.country || ''} />
             <input type="hidden" name="state" value={locationData.state || ''} />
             <input type="hidden" name="city" value={locationData.city || ''} />
@@ -364,6 +365,7 @@ function CondoFormWrapper({
   
   const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData);
   const [isLocationLoading, startLocationTransition] = useTransition();
+  const isInitialLoad = useRef(true);
 
   const [verificationResults, setVerificationResults] = useState<AutocompleteResult[]>([]);
   const [isVerificationLoading, startVerificationTransition] = useTransition();
@@ -383,11 +385,11 @@ function CondoFormWrapper({
   
   const [state, dispatchFormAction, isFormPending] = useActionState(handleAction, undefined);
 
-  const handleLocationChange = useCallback((field: keyof Pick<LocationData, 'continent' | 'country' | 'state' | 'city'>, value: string) => {
+  const handleLocationChange = useCallback((field: keyof Pick<LocationData, 'region' | 'country' | 'state' | 'city'>, value: string) => {
     startLocationTransition(async () => {
-        if (field === 'continent') {
-            const countriesData = await fetchAddressData({ continent: value });
-            setLocationData(current => ({...current, continent: value, country: '', state: '', city: '', countries: countriesData.data?.countries || [], states: [], cities: [] }));
+        if (field === 'region') {
+            const countriesData = await fetchAddressData({ region: value });
+            setLocationData(current => ({...current, region: value, country: '', state: '', city: '', countries: countriesData.data?.countries || [], states: [], cities: [] }));
         } else if (field === 'country') {
             const statesData = await fetchAddressData({ country: value });
             setLocationData(current => ({...current, country: value, state: '', city: '', states: statesData.data?.states || [], cities: [] }));
@@ -443,15 +445,12 @@ function CondoFormWrapper({
   const isFormDisabled = isFormPending || isLocationLoading;
 
   useEffect(() => {
-    // Only fetch initial data if not in edit mode (or for a new condo)
-    if (!isEditMode) {
-      startLocationTransition(async () => {
-        const continentsData = await fetchAddressData({});
-        setLocationData(current => ({...current, continents: continentsData.data?.continents || []}));
-      });
-    }
-  }, [isEditMode]);
-
+    startLocationTransition(async () => {
+        const regionsData = await fetchAddressData({});
+        setLocationData(current => ({ ...current, regions: regionsData.data?.regions || [] }));
+    });
+  }, []);
+  
   return (
     <>
         <div className={cn('relative transition-opacity', isFormDisabled && 'opacity-50')}>
@@ -538,7 +537,7 @@ export function CondoManagement() {
     };
   
     const prepareAndOpenEditDialog = useCallback(async (condo: Condominio) => {
-        const cacheKey = `${condo.continent}-${condo.country}-${condo.state}`;
+        const cacheKey = `${condo.region}-${condo.country}-${condo.state}`;
         const hasCache = !!locationCache[cacheKey];
 
         if (!hasCache) {
@@ -546,13 +545,13 @@ export function CondoManagement() {
         }
 
         try {
-            const continentsData = await fetchAddressData({});
-            const countriesData = await fetchAddressData({ continent: condo.continent });
+            const regionsData = await fetchAddressData({});
+            const countriesData = await fetchAddressData({ region: condo.region });
             const statesData = await fetchAddressData({ country: condo.country });
             const citiesData = await fetchAddressData({ country: condo.country, state: condo.state });
 
             const fullLocationData: AddressData = {
-                continents: continentsData.data?.continents || [],
+                regions: regionsData.data?.regions || [],
                 countries: countriesData.data?.countries || [],
                 states: statesData.data?.states || [],
                 cities: citiesData.data?.cities || [],
