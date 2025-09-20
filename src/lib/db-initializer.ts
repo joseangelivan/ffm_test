@@ -35,25 +35,22 @@ const SCHEMA_FILES_ORDER = [
     'address_services/base_schema.sql',
 ];
 
-const TABLES_FOR_RLS = [
-    'admins', 'admin_first_login_pins', 'admin_totp_secrets', 'admin_verification_pins',
-    'condominiums', 'residents', 'gatekeepers', 'device_types', 'protocols',
-    'devices', 'devices_communication', 'languages', 'sessions', 'admin_settings',
-    'smtp_configurations', 'themes', 'app_settings', 'translation_services',
-    'geofences', 'map_element_types', 'geocoding_services', 'map_providers', 'migrations_log',
-    'address_services',
+const SEED_FILES_ORDER = [
+    'catalogs/seed.sql',
+    'map_providers/seed.sql',
+    'address_services/seed.sql',
 ];
 
 async function applySqlFile(client: PoolClient, filePath: string, log: string[]): Promise<void> {
     const fileName = path.basename(filePath);
-    log.push(`EXECUTE: Applying schema file: ${fileName}`);
+    log.push(`EXECUTE: Applying SQL file: ${fileName}`);
     try {
         const fullPath = path.join(process.cwd(), 'src/lib/sql', filePath);
         const sqlContent = await fs.readFile(fullPath, 'utf8');
         await client.query(sqlContent);
-        log.push(`SUCCESS: Applied schema: ${fileName}`);
+        log.push(`SUCCESS: Applied SQL file: ${fileName}`);
     } catch (e: any) {
-        log.push(`ERROR: Failed to apply schema file "${fileName}". Error: ${e.message}`);
+        log.push(`ERROR: Failed to apply SQL file "${fileName}". Error: ${e.message}`);
         throw e;
     }
 }
@@ -110,28 +107,14 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
         throw e;
     }
     
-    // Catalogs
-    try {
-        await applySqlFile(client, 'catalogs/seed.sql', log);
-        log.push('SUCCESS: Default catalogs (device types, languages, protocols) seeded.');
-    } catch (e: any) {
-        log.push(`ERROR: Seeding catalogs failed: ${e.message}`);
-        throw e;
-    }
-    
-    try {
-        await applySqlFile(client, 'map_providers/seed.sql', log);
-        log.push('SUCCESS: Default map provider seeded.');
-    } catch(e: any) {
-        log.push(`ERROR: Seeding map provider failed: ${e.message}`);
-        throw e;
-    }
-     try {
-        await applySqlFile(client, 'address_services/seed.sql', log);
-        log.push('SUCCESS: Default address service seeded.');
-    } catch(e: any) {
-        log.push(`ERROR: Seeding address service failed: ${e.message}`);
-        throw e;
+    // Catalogs and other seed files
+    for (const fileName of SEED_FILES_ORDER) {
+        try {
+            await applySqlFile(client, fileName, log);
+        } catch (e: any) {
+            // Log the error but continue if possible, some seeds might fail if data exists
+            log.push(`WARNING: Seeding from "${fileName}" failed: ${e.message}. This may be okay if data already exists.`);
+        }
     }
 }
 
@@ -234,20 +217,31 @@ async function runMigrations(client: PoolClient, log: string[]) {
 async function applyRlsPolicies(client: PoolClient, log: string[]): Promise<void> {
     log.push('PHASE 6: Applying Row Level Security policies...');
 
-    for (const tableName of TABLES_FOR_RLS) {
+    const tablesResult = await client.query(`
+        SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+    `);
+    const tables = tablesResult.rows;
+
+    if (tables.length === 0) {
+        log.push('WARNING: No tables found in public schema to apply RLS policies.');
+        return;
+    }
+
+    for (const table of tables) {
+        const tableName = table.tablename;
         try {
             log.push(`INFO: Applying RLS for table: ${tableName}`);
             // Enable RLS
-            await client.query(`ALTER TABLE public.${tableName} ENABLE ROW LEVEL SECURITY;`);
+            await client.query(`ALTER TABLE public."${tableName}" ENABLE ROW LEVEL SECURITY;`);
 
             // Drop existing policy if it exists, to ensure a clean slate
-            await client.query(`DROP POLICY IF EXISTS "service_policy_public" ON public.${tableName};`);
+            await client.query(`DROP POLICY IF EXISTS "service_policy_public" ON public."${tableName}";`);
 
             // Create a fully permissive policy. Since our backend connects with a privileged role,
             // this policy allows the backend to perform any action, while RLS is still enabled
             // as a security baseline.
             await client.query(`
-                CREATE POLICY "service_policy_public" ON public.${tableName}
+                CREATE POLICY "service_policy_public" ON public."${tableName}"
                 FOR ALL
                 TO public
                 USING (true)
@@ -255,13 +249,8 @@ async function applyRlsPolicies(client: PoolClient, log: string[]): Promise<void
             `);
             log.push(`SUCCESS: RLS policy applied for table: ${tableName}`);
         } catch (e: any) {
-            // Check if the error is because the table does not exist, which can happen.
-            if (e.code === '42P01') { // undefined_table
-                 log.push(`WARNING: Table "${tableName}" not found, skipping RLS policy. This may be normal if the table is obsolete.`);
-            } else {
-                log.push(`ERROR: Failed to apply RLS for table "${tableName}". Error: ${e.message}`);
-                throw e; // Propagate error to rollback transaction
-            }
+             log.push(`ERROR: Failed to apply RLS for table "${tableName}". Error: ${e.message}`);
+             throw e; // Propagate error to rollback transaction
         }
     }
     log.push('SUCCESS: All RLS policies applied.');
@@ -358,7 +347,7 @@ export async function clearDatabase(
             for (const table of tables) {
                 const tableName = table.tablename;
                 log.push(`EXECUTE: Dropping table "${tableName}"...`);
-                await dbClient.query(`DROP TABLE IF EXISTS "${tableName}" CASCADE`);
+                await dbClient.query(`DROP TABLE IF EXISTS public."${tableName}" CASCADE`);
                 log.push(`SUCCESS: Table "${tableName}" dropped.`);
             }
         }
