@@ -2,49 +2,60 @@
 CREATE TABLE IF NOT EXISTS admins (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash TEXT,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255),
     can_create_admins BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS admin_first_login_pins (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
-    pin_hash TEXT NOT NULL,
+    pin_hash VARCHAR(255) NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS admin_totp_secrets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    admin_id UUID NOT NULL UNIQUE REFERENCES admins(id) ON DELETE CASCADE,
+    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
     secret TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(admin_id)
 );
 
 CREATE TABLE IF NOT EXISTS admin_verification_pins (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    admin_id UUID NOT NULL UNIQUE REFERENCES admins(id) ON DELETE CASCADE,
+    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
     pin VARCHAR(6) NOT NULL,
     email VARCHAR(255) NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(admin_id)
 );
 
--- Triggers para actualizar 'updated_at'
-DROP TRIGGER IF EXISTS trigger_update_admins_updated_at ON admins;
-CREATE TRIGGER trigger_update_admins_updated_at
+
+-- Apply the trigger to all tables
+CREATE TRIGGER set_timestamp_admins
 BEFORE UPDATE ON admins
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+EXECUTE PROCEDURE trigger_set_timestamp();
 
-DROP TRIGGER IF EXISTS trigger_update_admin_totp_secrets_updated_at ON admin_totp_secrets;
-CREATE TRIGGER trigger_update_admin_totp_secrets_updated_at
+CREATE TRIGGER set_timestamp_admin_first_login_pins
+BEFORE UPDATE ON admin_first_login_pins
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp_admin_totp_secrets
 BEFORE UPDATE ON admin_totp_secrets
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+EXECUTE PROCEDURE trigger_set_timestamp();
 
-CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email);
+CREATE TRIGGER set_timestamp_admin_verification_pins
+BEFORE UPDATE ON admin_verification_pins
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();

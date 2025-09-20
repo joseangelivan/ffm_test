@@ -1,7 +1,7 @@
 
 CREATE TABLE IF NOT EXISTS themes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(255) UNIQUE NOT NULL,
     background_hsl VARCHAR(50) NOT NULL,
     foreground_hsl VARCHAR(50) NOT NULL,
     card_hsl VARCHAR(50) NOT NULL,
@@ -21,12 +21,11 @@ CREATE TABLE IF NOT EXISTS themes (
     border_hsl VARCHAR(50) NOT NULL,
     input_hsl VARCHAR(50) NOT NULL,
     ring_hsl VARCHAR(50) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-DROP TRIGGER IF EXISTS trigger_update_themes_updated_at ON themes;
-CREATE TRIGGER trigger_update_themes_updated_at
+CREATE TRIGGER set_timestamp
 BEFORE UPDATE ON themes
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+EXECUTE PROCEDURE trigger_set_timestamp();
