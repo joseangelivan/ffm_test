@@ -15,7 +15,7 @@ export type DbInitResult = {
 
 const SCHEMA_FILES_ORDER = [
     'system/migrations_log.sql',
-    'system/update_timestamp_function.sql',
+    'system/trigger_set_timestamp_function.sql',
     'system/utils.sql',
     'admins/base_schema.sql',
     'condominiums/base_schema.sql',
@@ -58,7 +58,7 @@ async function applySqlFile(client: PoolClient, filePath: string, log: string[])
 async function ensureSystemObjects(client: PoolClient, log: string[]): Promise<void> {
     log.push('PHASE 1: Ensuring core system objects exist...');
     await applySqlFile(client, 'system/migrations_log.sql', log);
-    await applySqlFile(client, 'system/update_timestamp_function.sql', log);
+    await applySqlFile(client, 'system/trigger_set_timestamp_function.sql', log);
     await applySqlFile(client, 'system/utils.sql', log);
     log.push('SUCCESS: Core system objects are in place.');
 }
@@ -275,6 +275,9 @@ export async function initializeDatabase(
     try {
         log.push('INFO: Obtaining database pool connection...');
         const pool = await getDbPool();
+        if (!pool) {
+            throw new Error("Failed to get database pool. Check connection details.");
+        }
         dbClient = await pool.connect();
         log.push('SUCCESS: Database pool connected.');
 
@@ -334,6 +337,9 @@ export async function clearDatabase(
     try {
         log.push('INFO: Obtaining database pool connection for clearing...');
         const pool = await getDbPool();
+        if (!pool) {
+            throw new Error("Failed to get database pool. Check connection details.");
+        }
         dbClient = await pool.connect();
         log.push('SUCCESS: Database pool connected.');
 
