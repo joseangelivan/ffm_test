@@ -388,5 +388,3 @@ export async function clearDatabase(
         }
     }
 }
-
-    
