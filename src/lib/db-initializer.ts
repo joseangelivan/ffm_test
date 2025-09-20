@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import type { PoolClient } from 'pg';
@@ -15,6 +14,9 @@ export type DbInitResult = {
 };
 
 const SCHEMA_FILES_ORDER = [
+    'system/migrations_log.sql',
+    'system/update_timestamp_function.sql',
+    'system/utils.sql',
     'admins/base_schema.sql',
     'condominiums/base_schema.sql',
     'residents/base_schema.sql',
@@ -57,6 +59,7 @@ async function ensureSystemObjects(client: PoolClient, log: string[]): Promise<v
     log.push('PHASE 1: Ensuring core system objects exist...');
     await applySqlFile(client, 'system/migrations_log.sql', log);
     await applySqlFile(client, 'system/update_timestamp_function.sql', log);
+    await applySqlFile(client, 'system/utils.sql', log);
     log.push('SUCCESS: Core system objects are in place.');
 }
 
@@ -68,7 +71,18 @@ async function runBaseSchemas(client: PoolClient, log: string[]): Promise<void> 
     // This works because we use idempotent statements like
     // `CREATE TABLE IF NOT EXISTS` and `CREATE OR REPLACE TRIGGER/FUNCTION`.
     for (const fileName of SCHEMA_FILES_ORDER) {
-        await applySqlFile(client, fileName, log);
+        // The file might not exist if it's a new setup, so we handle that.
+        const fullPath = path.join(process.cwd(), 'src/lib/sql', fileName);
+        try {
+            await fs.access(fullPath); // Check if file exists
+            await applySqlFile(client, fileName, log);
+        } catch (error: any) {
+            if (error.code === 'ENOENT') {
+                log.push(`INFO: SQL file not found, skipping: ${fileName}`);
+            } else {
+                throw error; // Re-throw other errors
+            }
+        }
     }
     
     log.push('SUCCESS: All base schemas applied.');
@@ -267,10 +281,7 @@ export async function initializeDatabase(
         await dbClient.query('BEGIN');
         log.push('INFO: Transaction started.');
         
-        // Always ensure system objects like migrations_log table exist first.
-        await ensureSystemObjects(dbClient, log);
-
-        // Run base schemas if they haven't been logged yet.
+        // Run all base schemas. This is idempotent.
         await runBaseSchemas(dbClient, log);
 
         // Seed initial data required for the app to function.
