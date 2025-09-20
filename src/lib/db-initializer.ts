@@ -21,10 +21,8 @@ const SCHEMA_FILES_ORDER = [
     'condominiums/base_schema.sql',
     'residents/base_schema.sql',
     'gatekeepers/base_schema.sql',
-    'device_types/base_schema.sql',
-    'protocols/base_schema.sql',
+    'catalogs/base_schema.sql',
     'devices/base_schema.sql',
-    'languages/base_schema.sql',
     'sessions/base_schema.sql',
     'admin_settings/base_schema.sql',
     'smtp_configurations/base_schema.sql',
@@ -114,29 +112,14 @@ async function seedInitialData(client: PoolClient, log: string[]): Promise<void>
     
     // Catalogs
     try {
-        await applySqlFile(client, 'device_types/seed.sql', log);
-        log.push('SUCCESS: Default device types seeded.');
+        await applySqlFile(client, 'catalogs/seed.sql', log);
+        log.push('SUCCESS: Default catalogs (device types, languages, protocols) seeded.');
     } catch (e: any) {
-        log.push(`ERROR: Seeding device types failed: ${e.message}`);
+        log.push(`ERROR: Seeding catalogs failed: ${e.message}`);
         throw e;
     }
     
     try {
-        await applySqlFile(client, 'languages/seed.sql', log);
-        log.push('SUCCESS: Default languages seeded.');
-    } catch (e: any) {
-        log.push(`ERROR: Seeding languages failed: ${e.message}`);
-        throw e;
-    }
-    
-    try {
-        await applySqlFile(client, 'protocols/seed.sql', log);
-        log.push('SUCCESS: Default protocols seeded.');
-    } catch(e: any) {
-        log.push(`ERROR: Seeding protocols failed: ${e.message}`);
-        throw e;
-    }
-     try {
         await applySqlFile(client, 'map_providers/seed.sql', log);
         log.push('SUCCESS: Default map provider seeded.');
     } catch(e: any) {
@@ -405,3 +388,5 @@ export async function clearDatabase(
         }
     }
 }
+
+    
