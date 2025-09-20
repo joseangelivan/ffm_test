@@ -8,8 +8,6 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import bcryptjs from 'bcryptjs';
 
-let migrationsRan = false;
-
 export type DbInitResult = {
     success: boolean;
     message: string;
@@ -66,19 +64,14 @@ async function ensureSystemObjects(client: PoolClient, log: string[]): Promise<v
 async function runBaseSchemas(client: PoolClient, log: string[]): Promise<void> {
     log.push('PHASE 2: Applying base schemas...');
     
-    const executedResult = await client.query('SELECT filename FROM migrations_log');
-    const executedFiles = new Set(executedResult.rows.map(r => r.filename));
-
+    // Execute all base schema files on every initialization.
+    // This works because we use idempotent statements like
+    // `CREATE TABLE IF NOT EXISTS` and `CREATE OR REPLACE TRIGGER/FUNCTION`.
     for (const fileName of SCHEMA_FILES_ORDER) {
-        if (!executedFiles.has(fileName)) {
-            await applySqlFile(client, fileName, log);
-            await client.query('INSERT INTO migrations_log (filename) VALUES ($1)', [fileName]);
-            log.push(`INFO: Logged base schema "${fileName}" as migrated.`);
-        } else {
-            log.push(`INFO: Base schema "${fileName}" already migrated, skipping.`);
-        }
+        await applySqlFile(client, fileName, log);
     }
-     log.push('SUCCESS: All base schemas are up to date.');
+    
+    log.push('SUCCESS: All base schemas applied.');
 }
 
 
