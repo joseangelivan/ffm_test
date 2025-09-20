@@ -1,15 +1,15 @@
--- src/lib/sql/translation_services/base_schema.sql
+-- Base schema for 'translation_services' table
 CREATE TABLE IF NOT EXISTS translation_services (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL UNIQUE,
-    config_json JSONB,
+    config_json JSONB NOT NULL,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
     supported_languages JSONB,
-    is_default BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Trigger para actualizar 'updated_at'
+-- Trigger for updating the 'updated_at' column
 CREATE OR REPLACE TRIGGER set_timestamp
 BEFORE UPDATE ON translation_services
 FOR EACH ROW
