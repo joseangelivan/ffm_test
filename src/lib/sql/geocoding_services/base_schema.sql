@@ -1,14 +1,13 @@
-
 CREATE TABLE IF NOT EXISTS geocoding_services (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
     config_json JSONB NOT NULL,
-    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    is_default BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TRIGGER set_timestamp
+CREATE OR REPLACE TRIGGER trigger_update_geocoding_services_updated_at
 BEFORE UPDATE ON geocoding_services
 FOR EACH ROW
-EXECUTE PROCEDURE trigger_set_timestamp();
+EXECUTE FUNCTION update_updated_at_column();
