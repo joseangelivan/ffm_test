@@ -8,7 +8,6 @@ import { updateAppSetting } from './settings';
 export type Theme = {
     id: string;
     name: string;
-    is_default?: boolean;
     background_hsl: string;
     foreground_hsl: string;
     card_hsl: string;
