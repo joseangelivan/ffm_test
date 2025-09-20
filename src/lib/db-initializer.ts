@@ -17,7 +17,7 @@ const SCHEMA_FILES_ORDER = [
     'system/migrations_log.sql',
     'system/trigger_set_timestamp_function.sql',
     'system/utils.sql',
-    'system/sessions_schema.sql',
+    'system/sessions/base_schema.sql',
     'admins/base_schema.sql',
     'condominiums/base_schema.sql',
     'residents/base_schema.sql',
