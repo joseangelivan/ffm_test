@@ -40,18 +40,18 @@ const ServiceSchema = z.object({
 });
 
 function getNestedValue(obj: any, path: string | string[]): any {
-  if (path === '' || path === '.' || (Array.isArray(path) && path.length === 0)) {
-    return obj;
-  }
-  const keys = Array.isArray(path) ? path : path.replace(/\[(\d+)\]/g, '.$1').split('.');
-  let result = obj;
-  for (const key of keys) {
-    if (result === null || result === undefined) {
-      return undefined;
+    if (path === '' || path === '.' || (Array.isArray(path) && path.length === 0)) {
+        return obj;
     }
-    result = result[key];
-  }
-  return result;
+    const keys = Array.isArray(path) ? path : path.replace(/\[(\d+)\]/g, '.$1').split('.');
+    let result = obj;
+    for (const key of keys) {
+        if (result === null || result === undefined) {
+            return undefined;
+        }
+        result = result[key];
+    }
+    return result;
 }
 
 // --- Service Management Actions ---
@@ -245,9 +245,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                 
                 if (Array.isArray(regionList)) {
                     let regionCodes: string[] = [];
-                    const codeConfig = regionsResponseConfig.code;
-                    const codeObject = getNestedValue(config, codeConfig);
-
+                    const codeObject = getNestedValue(config, regionsResponseConfig.code);
                     if (codeObject && codeObject[regionsResponseConfig.name] && Array.isArray(codeObject[regionsResponseConfig.name])) {
                         regionCodes = codeObject[regionsResponseConfig.name];
                     }
@@ -357,7 +355,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
             // STEP 1: Test Regions
             const regionsResult = await fetchAddressData({});
             if (!regionsResult.success) {
-                throw new Error(`Prueba de regiones fallida: ${regionsResult.message}`);
+                throw new Error(`Prueba de regiones fallida: ${regionsResult.message}. Resultado: ${JSON.stringify(regionsResult)}`);
             }
             if (!regionsResult.data?.regions) {
                  throw new Error(`Prueba de regiones fallida: fetchAddressData tuvo éxito pero no devolvió datos en data.regions. Resultado: ${JSON.stringify(regionsResult)}`);
@@ -366,7 +364,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
                 throw new Error(`Prueba de regiones fallida: se esperaba un array en data.regions, pero se obtuvo un ${typeof regionsResult.data.regions}.`);
             }
              if (regionsResult.data.regions.length === 0) {
-                 throw new Error(`Prueba de regiones fallida: data.regions es un array vacío.`);
+                 throw new Error(`Prueba de regiones fallida: data.regions es un array vacío. Resultado: ${JSON.stringify(regionsResult)}`);
             }
             console.log("Regions test passed.");
 
@@ -378,6 +376,9 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const countriesResult = await fetchAddressData({ region: testRegion.name, region_code: regionCode });
             if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
                 let debugMessage = `Resultado: ${JSON.stringify(countriesResult, null, 2)}`;
+                if (Array.isArray(countriesResult.data) && countriesResult.data.length > 0) {
+                     debugMessage += `\nPrimer elemento de la respuesta de países: ${JSON.stringify(countriesResult.data[0], null, 2)}`
+                }
                 throw new Error(`Prueba de países fallida para la región '${testRegion.name}'. ${countriesResult.message}. ${debugMessage}`);
             }
             console.log("Countries test passed.");
