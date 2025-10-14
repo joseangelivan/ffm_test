@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
@@ -461,8 +462,8 @@ function CondoFormWrapper({
             try {
                 const result = await fetchAddressData({});
                 if (result.success && result.data) {
-                    
-                     if (result.data.regionCodeMap && Object.keys(result.data.regionCodeMap).length > 0) {
+
+                    if (result.data.regionCodeMap && Object.keys(result.data.regionCodeMap).length > 0) {
                         const firstKey = Object.keys(result.data.regionCodeMap)[0];
                         const firstValue = result.data.regionCodeMap[firstKey];
                         const debugMessage = `Mapa: ${JSON.stringify(result.data.regionCodeMap)}\n\nPrimer Elemento: { Clave: '${firstKey}', Valor: '${firstValue}' }`;
@@ -481,7 +482,7 @@ function CondoFormWrapper({
                             copyable: true,
                         });
                     }
-                    
+
                     const initialAvailable: LocationData = {
                         regions: result.data.regions || [],
                         countries: [], states: [], cities: [],
@@ -546,7 +547,7 @@ function CondoFormWrapper({
                     let fullDebugMessage = `${result.message || "An unknown error occurred."}`;
                     if (result.debug) {
                          const { region_received, region_code_received, curl, debug_log } = result.debug;
-                        fullDebugMessage += `\n\nDEBUG: ${t('adminDashboard.table.condo')}\nRegion: ${region_received}\nRegion Code: ${region_code_received || 'undefined'}`;
+                        fullDebugMessage += `\n\nDEBUG: Error al Obtener Países\nRegion: ${region_received}\nRegion Code: ${region_code_received || 'undefined'}`;
                         if (debug_log) {
                             fullDebugMessage += `\nLog: ${JSON.stringify(debug_log, null, 2)}`;
                         }
