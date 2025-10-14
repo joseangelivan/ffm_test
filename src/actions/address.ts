@@ -198,7 +198,7 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
                 cache: 'no-store'
             };
 
-            if (Object.keys(body).length > 0) {
+            if (Object.keys(body).length > 0 && fetchOptions.method !== 'GET' && fetchOptions.method !== 'HEAD') {
                 fetchOptions.body = JSON.stringify(body);
                 (fetchOptions.headers as any)['Content-Type'] = 'application/json';
             }
@@ -594,7 +594,7 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
             try {
                 config = JSON.parse(defaultService.config_json);
             } catch(e: any) {
-                return { success: false, error: `Error interno al procesar la configuración JSON: ${e.message}` };
+                return { success: false, message: `Error interno al procesar la configuración JSON: ${e.message}` };
             }
         } else {
             config = defaultService.config_json;
@@ -604,7 +604,7 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
         const responseConfig = config?.geocoordinates?.response || config?.response;
 
         if (!requestConfig?.api_config?.base_url || typeof requestConfig?.api_config?.parameters !== 'object') {
-            return { success: false, error: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
+            return { success: false, message: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
         }
 
         const finalUrl = buildApiUrl(requestConfig.api_config, { 'Address': fullAddress }, process.env);
@@ -631,5 +631,3 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
         if (client) client.release();
     }
 }
-
-    
