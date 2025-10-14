@@ -392,6 +392,9 @@ function CondoFormWrapper({
                 setLocationData(current => ({ ...current, region: value, country: '', state: '', city: '' }));
                 const result = await fetchAddressData({ region: value, region_code: regionCode });
                 if (result.success && result.data?.countries) {
+                    if (result.data.countries.length === 0) {
+                        toast({ title: "Sin Datos", description: "La región seleccionada no tiene países disponibles.", variant: 'default' });
+                    }
                     setLocationData(current => ({ ...current, countries: result.data.countries, states: [], cities: [] }));
                 } else {
                      toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
@@ -400,6 +403,9 @@ function CondoFormWrapper({
                 setLocationData(current => ({ ...current, country: value, state: '', city: '' }));
                 const result = await fetchAddressData({ country: value });
                 if (result.success && result.data?.states) {
+                    if (result.data.states.length === 0) {
+                        toast({ title: "Sin Datos", description: "El país seleccionado no tiene estados/provincias disponibles.", variant: 'default' });
+                    }
                     setLocationData(current => ({ ...current, states: result.data.states, cities: [] }));
                 } else {
                     toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
@@ -408,6 +414,9 @@ function CondoFormWrapper({
                 setLocationData(current => ({ ...current, state: value, city: '' }));
                 const result = await fetchAddressData({ country: locationData.country, state: value });
                 if (result.success && result.data?.cities) {
+                     if (result.data.cities.length === 0) {
+                        toast({ title: "Sin Datos", description: "El estado seleccionado no tiene ciudades disponibles.", variant: 'default' });
+                    }
                     setLocationData(current => ({ ...current, cities: result.data.cities }));
                 } else {
                     toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
