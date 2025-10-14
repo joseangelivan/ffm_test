@@ -212,7 +212,7 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
             const dataList = getNestedValue(jsonResponse, responseConfig.path || 'data.states');
 
             if (!Array.isArray(dataList)) {
-                throw new Error(`La respuesta de la API no contiene un array de estados en el path especificado.\n--- RESPUESTA API ---\n${JSON.stringify(jsonResponse, null, 2)}`);
+                throw new Error(`La respuesta de la API no contiene un array de estados en el path especificado: '${responseConfig.path || 'data.states'}'.\n--- RESPUESTA API ---\n${JSON.stringify(jsonResponse, null, 2)}`);
             }
 
             const mappedData = dataList.map((item: any) => ({
@@ -632,5 +632,3 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
         if (client) client.release();
     }
 }
-
-    
