@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { z } from 'zod';
@@ -240,21 +239,17 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         
         if (Object.keys(params).length === 0) {
             const regionsResponseConfig = responseConfig.regions;
-            if (regionsResponseConfig) {
-                const regionNames = getNestedValue(config, regionsResponseConfig.name);
-                const regionCodes = getNestedValue(config, regionsResponseConfig.code);
-                
-                if (Array.isArray(regionNames)) {
-                     data.regions = regionNames.map((name, index) => ({
-                        name: name,
-                        code: Array.isArray(regionCodes) ? regionCodes[index] : undefined,
-                    }));
+            if (regionsResponseConfig && regionsResponseConfig.path) {
+                const regionList = getNestedValue(config, regionsResponseConfig.path);
+                const regionCodeMap = getNestedValue(config, regionsResponseConfig.codes_map);
 
-                    if (data.regions && data.regions.length > 0 && Array.isArray(regionCodes)) {
-                        data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                            if (curr.name && curr.code) acc[curr.name] = curr.code;
-                            return acc;
-                        }, {} as Record<string, string>);
+                if (Array.isArray(regionList)) {
+                     data.regions = regionList.map((name) => ({
+                        name: name,
+                        code: regionCodeMap ? regionCodeMap[name] : undefined,
+                    }));
+                    if(regionCodeMap) {
+                        data.regionCodeMap = regionCodeMap;
                     }
                 }
             }
