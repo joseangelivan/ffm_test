@@ -193,21 +193,37 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
                 }
             }
 
-            const method = requestConfig.method || 'POST';
-            const headers = { ...requestConfig.headers, 'Content-Type': 'application/json' };
-            const bodyString = JSON.stringify(body);
+            const fetchOptions: RequestInit = {
+                method: requestConfig.method || 'POST',
+                headers: { ...requestConfig.headers },
+                cache: 'no-store'
+            };
 
-            // --- GENERATE CURL COMMAND FOR DEBUGGING ---
-            let curlCommand = `curl -X ${method} \\\n  ${requestConfig.url}`;
-            for (const key in headers) {
-                curlCommand += ` \\\n  -H "${key}: ${headers[key as keyof typeof headers]}"`;
+            if (Object.keys(body).length > 0 && fetchOptions.method !== 'GET' && fetchOptions.method !== 'HEAD') {
+                fetchOptions.body = JSON.stringify(body);
+                (fetchOptions.headers as any)['Content-Type'] = 'application/json';
             }
-            if (bodyString !== '{}') {
-                 curlCommand += ` \\\n  -d '${bodyString}'`;
-            }
-            throw new Error(curlCommand);
-            // --- END OF CURL COMMAND GENERATION ---
+            
+            const response = await fetch(requestConfig.url, fetchOptions);
 
+            const jsonResponse = await response.json();
+
+            if (!response.ok) {
+                 throw new Error(`El servidor respondió con el estado ${response.status}. Respuesta: ${JSON.stringify(jsonResponse)}`);
+            }
+
+            const dataList = getNestedValue(jsonResponse, responseConfig.path);
+            
+            if (!Array.isArray(dataList)) {
+                throw new Error(`La respuesta de la API no contiene un array de estados en '${responseConfig.path}'. Respuesta: ${JSON.stringify(jsonResponse)}`);
+            }
+
+            const mappedData = dataList.map((item: any) => ({
+                name: getNestedValue(item, responseConfig.name),
+                code: getNestedValue(item, responseConfig.code)
+            }));
+            
+            return { success: true, data: mappedData };
 
         } catch (e: any) {
             return { success: false, error: `Error en la API de 'states': ${e.message}` };
@@ -461,12 +477,16 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (!regionsResult.success || !Array.isArray(regionsResult.data) || regionsResult.data.length === 0) {
              throw new Error(`Prueba de regiones fallida: ${regionsResult.error || 'data.regions no es un array o está vacío.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(regionsResult, null, 2)}`);
         }
-        const firstRegion = regionsResult.data[0];
         
+        const testRegion = regionsResult.data.find(r => r.name.toLowerCase().includes('america')) || regionsResult.data[0];
+        if (!testRegion) {
+             throw new Error('No se encontró una región adecuada para la prueba (se buscó "america").');
+        }
+
         // --- STEP 2: Test Countries ---
-        const countriesResult = await fetchCountries(tempConfig, { region: firstRegion.name, region_code: firstRegion.code });
+        const countriesResult = await fetchCountries(tempConfig, { region: testRegion.name, region_code: testRegion.code });
         if (!countriesResult.success || !countriesResult.data || countriesResult.data.length === 0) {
-            throw new Error(`Prueba de países fallida para la región '${firstRegion.name}': ${countriesResult.error || 'No se obtuvieron datos de países.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(countriesResult, null, 2)}`);
+            throw new Error(`Prueba de países fallida para la región '${testRegion.name}': ${countriesResult.error || 'No se obtuvieron datos de países.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(countriesResult, null, 2)}`);
         }
         const firstCountry = countriesResult.data[0];
 
@@ -486,7 +506,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
         return { 
             success: true, 
-            message: `¡Prueba exitosa!\nRegión: ${firstRegion.name}\nPaís: ${firstCountry.name}\nEstado: ${firstState.name}\nCiudad: ${firstCity}`
+            message: `¡Prueba exitosa!\nRegión: ${testRegion.name}\nPaís: ${firstCountry.name}\nEstado: ${firstState.name}\nCiudad: ${firstCity}`
         };
             
     } catch (err: any) {
@@ -620,5 +640,3 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
         if (client) client.release();
     }
 }
-
-    
