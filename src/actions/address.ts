@@ -114,10 +114,10 @@ type FetchParams = {
 
 // --- NEW DEDICATED FETCH FUNCTIONS ---
 
-async function fetchRegions(config: any): Promise<{ success: boolean, data?: any, error?: string }> {
+async function fetchRegions(config: any): Promise<{ success: boolean, data?: any, error?: string, regionCodeMap?: any }> {
     const requestConfig = config.request?.api_config?.parameters?.regions;
     const responseConfig = config.response?.regions;
-    if (!requestConfig || !responseConfig) return { success: true, data: [] };
+    if (!requestConfig) return { success: true, data: [] };
 
     if (requestConfig.url) {
         try {
@@ -146,7 +146,7 @@ async function fetchRegions(config: any): Promise<{ success: boolean, data?: any
 async function fetchCountries(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string }> {
     const requestConfig = config.request?.api_config?.parameters?.countries;
     const responseConfig = config.response?.countries;
-    if (!requestConfig || !responseConfig) return { success: true, data: [] };
+    if (!requestConfig) return { success: true, data: [] };
 
     if (requestConfig.url) {
         try {
@@ -173,7 +173,7 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
 async function fetchStates(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string }> {
     const requestConfig = config.request?.api_config?.parameters?.countries?.states;
     const responseConfig = config.response?.countries?.states;
-    if (!requestConfig || !responseConfig) return { success: true, data: [] };
+    if (!requestConfig) return { success: true, data: [] };
 
     if (requestConfig.url) {
         try {
@@ -201,7 +201,17 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
             const jsonResponse = await response.json();
             const dataList = getNestedValue(jsonResponse, responseConfig.path);
 
-            if (!Array.isArray(dataList)) throw new Error("La respuesta no contiene un array de estados.");
+            if (!Array.isArray(dataList)) {
+                 // Try a deeper path for countriesnow-like structures
+                 const deeperData = getNestedValue(jsonResponse, 'data.states');
+                 if (Array.isArray(deeperData)) {
+                    const mappedData = deeperData.map((item: any) => ({
+                        name: getNestedValue(item, responseConfig.name)
+                    }));
+                    return { success: true, data: mappedData };
+                 }
+                throw new Error("La respuesta no contiene un array de estados.");
+            }
             
             const mappedData = dataList.map((item: any) => ({
                 name: getNestedValue(item, responseConfig.name)
@@ -211,8 +221,8 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
         } catch (e: any) {
             return { success: false, error: `Error en la API de 'states': ${e.message}` };
         }
-    } else if (requestConfig.value) {
-        return { success: true, data: requestConfig.value[params.country!]?.states || [] };
+    } else if (requestConfig.value && params.country && requestConfig.value[params.country]) {
+        return { success: true, data: requestConfig.value[params.country].states || [] };
     }
     return { success: true, data: [] };
 }
@@ -458,8 +468,8 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
         // --- STEP 1: Test Regions ---
         const regionsResult = await fetchRegions(tempConfig);
-        if (!regionsResult.success || !regionsResult.data || regionsResult.data.length === 0) {
-             throw new Error(`Prueba de regiones fallida: ${regionsResult.error || 'No se obtuvieron datos de regiones.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(regionsResult, null, 2)}`);
+        if (!regionsResult.success || !Array.isArray(regionsResult.data) || regionsResult.data.length === 0) {
+             throw new Error(`Prueba de regiones fallida: ${regionsResult.error || 'data.regions no es un array o está vacío.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(regionsResult, null, 2)}`);
         }
         const firstRegion = regionsResult.data[0];
         
@@ -494,3 +504,5 @@ export async function testAddressService(id: string): Promise<ActionState> {
         return { success: false, message: `Error durante la prueba: ${err.message}` };
     }
 }
+
+    
