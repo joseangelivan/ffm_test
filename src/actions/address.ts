@@ -74,8 +74,7 @@ function buildApiUrl(
     valueMap: ValueMap,
     env: NodeJS.ProcessEnv
 ): string {
-    const { base_url, parameters } = apiConfig;
-    let finalUrlString = base_url;
+    let finalUrlString = apiConfig.base_url;
     
     // Replace placeholders in the base_url itself
     for (const [key, value] of Object.entries(valueMap)) {
@@ -86,7 +85,7 @@ function buildApiUrl(
     
     const urlParams = new URLSearchParams();
 
-    for (const [key, paramConfig] of Object.entries(parameters)) {
+    for (const [key, paramConfig] of Object.entries(apiConfig.parameters || {})) {
         let rawValue: any;
         let isOptional = false;
 
@@ -195,17 +194,17 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         return { success: true, data: [] };
     }
     
-    const { url, method = 'GET', headers = {}, parameters = {} } = countriesConfig;
+    const { method = 'GET', headers = {}, parameters = {} } = countriesConfig;
     
-    let finalUrlString = url;
+    let finalUrlString = countriesConfig.url;
     if (finalUrlString.includes('$region_code') && params.region_code) {
-        finalUrlString = finalUrlString.replace('$region_code', params.region_code);
+        finalUrlString = finalUrlString.replace('$region_code', encodeURIComponent(params.region_code));
     }
     if (finalUrlString.includes('$region') && params.region) {
-        finalUrlString = finalUrlString.replace('$region', params.region);
+        finalUrlString = finalUrlString.replace('$region', encodeURIComponent(params.region));
     }
     
-    if (finalUrlString.includes('$region_code') && !params.region_code) {
+    if (finalUrlString.includes('$region_code') && !params.region_code && params.region_code !== "") {
         return { success: false, error: `Error interno: 'region_code' es indefinido.`, debug: { ...baseDebugInfo, ...params } };
     }
     if (finalUrlString.includes('$region') && !params.region) {
@@ -243,7 +242,7 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         try {
             jsonResponse = JSON.parse(responseText);
         } catch (e) {
-             return { success: false, error: `Error en la API de 'countries': La respuesta no es un JSON válido.`, debug: { ...debugInfo, response: responseText } };
+             return { success: false, error: `La respuesta de la API de 'countries' no es un JSON válido.`, debug: { ...debugInfo, response: responseText } };
         }
 
         if (!response.ok) {
@@ -326,6 +325,10 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
             const dataList = getNestedValue(jsonResponse, responseConfig.path);
             
             if (!Array.isArray(dataList)) {
+                // For countriesnow, if no states, it returns an empty data object not an array
+                if (Object.keys(dataList).length === 0) {
+                     return { success: true, data: [] };
+                }
                 throw new Error(`La respuesta de la API no contiene un array de estados en '${responseConfig.path}'. Respuesta: ${JSON.stringify(jsonResponse)}`);
             }
 
@@ -354,6 +357,58 @@ async function fetchCities(config: any, params: FetchParams): Promise<{ success:
         const cities = requestConfig.value[params.country]?.cities?.[params.state] || [];
         return { success: true, data: cities };
     }
+     if (requestConfig.url) {
+        try {
+            const body: { [key: string]: any } = {};
+            if (requestConfig.body) {
+                for (const key in requestConfig.body) {
+                    const value = requestConfig.body[key];
+                    if (typeof value === 'string' && value.startsWith('$')) {
+                        const paramName = value.substring(1) as keyof FetchParams;
+                        if (paramName in params) {
+                            body[key] = params[paramName as keyof FetchParams];
+                        }
+                    } else {
+                        body[key] = value;
+                    }
+                }
+            }
+
+            const fetchOptions: RequestInit = {
+                method: requestConfig.method || 'POST',
+                headers: { ...requestConfig.headers },
+                cache: 'no-store'
+            };
+
+            if (Object.keys(body).length > 0 && fetchOptions.method !== 'GET' && fetchOptions.method !== 'HEAD') {
+                fetchOptions.body = JSON.stringify(body);
+                (fetchOptions.headers as any)['Content-Type'] = 'application/json';
+            }
+            
+            const response = await fetch(requestConfig.url, fetchOptions);
+
+            const jsonResponse = await response.json();
+
+            if (!response.ok) {
+                 throw new Error(`El servidor respondió con el estado ${response.status}. Respuesta: ${JSON.stringify(jsonResponse)}`);
+            }
+
+            const dataList = getNestedValue(jsonResponse, responseConfig.path);
+            
+            if (!Array.isArray(dataList)) {
+                 if (Object.keys(dataList).length === 0) {
+                     return { success: true, data: [] };
+                }
+                throw new Error(`La respuesta de la API no contiene un array de ciudades en '${responseConfig.path}'. Respuesta: ${JSON.stringify(jsonResponse)}`);
+            }
+
+            return { success: true, data: dataList };
+
+        } catch (e: any) {
+            return { success: false, error: `Error en la API de 'cities': ${e.message}` };
+        }
+    }
+    
     return { success: true, data: [] };
 }
 
@@ -537,7 +592,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
     let data: AddressData = {};
     let result: { success: boolean, data?: any, error?: string, regionCodeMap?: any, debug?: any };
     
-    if (Object.keys(params).length === 0 || (Object.keys(params).length === 1 && 'regionCodeMap' in params)) {
+    if (Object.keys(params).length === 0 || (!params.region && !params.country && !params.state)) {
         result = await fetchRegions(config);
         if (!result.success) return { success: false, message: result.error! };
         data.regions = result.data;
@@ -585,6 +640,9 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
     try {
         const tempConfig = service.config_json;
+        const StringRegionTest = "america";
+        const StringRegionTest2 = "latin";
+        const StringCountryTest = "Brazil";
 
         // --- STEP 1: Test Regions ---
         const regionsResult = await fetchRegions(tempConfig);
@@ -592,7 +650,11 @@ export async function testAddressService(id: string): Promise<ActionState> {
              throw new Error(`Prueba de regiones fallida: ${regionsResult.error || 'data.regions no es un array o está vacío.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(regionsResult, null, 2)}`);
         }
         
-        const testRegion = regionsResult.data.find(r => r.name.toLowerCase().includes('america') || r.name.toLowerCase().includes('latam')) || regionsResult.data[0];
+        const testRegion = 
+            regionsResult.data.find(r => r.name.toLowerCase().includes(StringRegionTest) && r.name.toLowerCase().includes(StringRegionTest2)) ||
+            regionsResult.data.find(r => r.name.toLowerCase().includes(StringRegionTest)) || 
+            regionsResult.data[0];
+
         if (!testRegion) {
              throw new Error('No se encontró una región adecuada para la prueba (se buscó "america" o "latam").');
         }
@@ -607,25 +669,33 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (!countriesResult.success || !countriesResult.data || countriesResult.data.length === 0) {
             throw new Error(`Prueba de países fallida para la región '${testRegion.name}': ${countriesResult.error || 'No se obtuvieron datos de países.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(countriesResult, null, 2)}`);
         }
-        const firstCountry = countriesResult.data[0];
+        
+        const testCountry = countriesResult.data.find((c: any) => c.name.toLowerCase() === StringCountryTest.toLowerCase()) || countriesResult.data[0];
 
         // --- STEP 3: Test States ---
-        const statesResult = await fetchStates(tempConfig, { country: firstCountry.name });
-         if (!statesResult.success || !statesResult.data || !Array.isArray(statesResult.data) || statesResult.data.length === 0) {
-            throw new Error(`Prueba de estados fallida para el país '${firstCountry.name}': ${statesResult.error || 'No se obtuvieron datos de estados.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(statesResult, null, 2)}`);
+        const statesResult = await fetchStates(tempConfig, { country: testCountry.name });
+         if (!statesResult.success || !Array.isArray(statesResult.data) || statesResult.data.length === 0) {
+            // This is not a failure if the country has no states, e.g., small island nations.
+            if(statesResult.data && statesResult.data.length === 0) {
+                 return { 
+                    success: true, 
+                    message: `¡Prueba parcialmente exitosa!\nRegión: ${testRegion.name}\nPaís: ${testCountry.name}\nEl país no tiene estados, la prueba se detuvo aquí.`
+                };
+            }
+            throw new Error(`Prueba de estados fallida para el país '${testCountry.name}': ${statesResult.error || 'No se obtuvieron datos de estados.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(statesResult, null, 2)}`);
         }
         const firstState = statesResult.data[0];
 
         // --- STEP 4: Test Cities ---
-        const citiesResult = await fetchCities(tempConfig, { country: firstCountry.name, state: firstState.name });
-         if (!citiesResult.success || !citiesResult.data || !Array.isArray(citiesResult.data) || citiesResult.data.length === 0) {
+        const citiesResult = await fetchCities(tempConfig, { country: testCountry.name, state: firstState.name });
+         if (!citiesResult.success || !Array.isArray(citiesResult.data) || citiesResult.data.length === 0) {
             throw new Error(`Prueba de ciudades fallida para el estado '${firstState.name}': ${citiesResult.error || 'No se obtuvieron datos de ciudades.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(citiesResult, null, 2)}`);
         }
         const firstCity = citiesResult.data[0];
 
         return { 
             success: true, 
-            message: `¡Prueba exitosa!\nRegión: ${testRegion.name}\nPaís: ${firstCountry.name}\nEstado: ${firstState.name}\nCiudad: ${firstCity}`
+            message: `¡Prueba exitosa!\nRegión: ${testRegion.name}\nPaís: ${testCountry.name}\nEstado: ${firstState.name}\nCiudad: ${firstCity}`
         };
             
     } catch (err: any) {
