@@ -413,31 +413,28 @@ function CondoFormWrapper({
 
         try {
             if (field === 'region') {
-                setLocationSelection(current => ({ ...current, region: value, country: '', state: '', city: '' }));
                 const regionCode = availableData.regionCodeMap?.[value];
                 result = await fetchAddressData({ region: value, region_code: regionCode });
 
                 if (result.success && result.data) {
                     const countries = result.data.countries || [];
-                    toast({
+                     toast({
                       title: 'DEBUG: Países Obtenidos',
                       description: <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4"><code className="text-white">{JSON.stringify(countries, null, 2)}</code></pre>,
                       duration: 15000,
                       copyable: true,
                     });
-                    setAvailableData(current => ({ ...current, countries, states: [], cities: [] }));
-                    if (countries.length === 0) {
-                       toast({ title: "Sin Datos", description: "La región seleccionada no tiene países disponibles.", variant: 'default' });
-                    }
+                    
+                    // STOP FLOW HERE, DO NOT UPDATE STATE
+                    return; 
                 }
 
             } else if (field === 'country') {
                 setLocationSelection(current => ({ ...current, country: value, state: '', city: '' }));
                 result = await fetchAddressData({ country: value });
                 if (result.success && result.data) {
-                    const states = result.data.states || [];
-                    setAvailableData(current => ({ ...current, states, cities: [] }));
-                     if (states.length === 0) {
+                    setAvailableData(current => ({ ...current, states: result.data?.states || [], cities: [] }));
+                    if (!result.data.states || result.data.states.length === 0) {
                         toast({ title: "Sin Datos", description: "El país seleccionado no tiene estados/provincias disponibles.", variant: 'default' });
                     }
                 }
@@ -446,9 +443,8 @@ function CondoFormWrapper({
                 setLocationSelection(current => ({ ...current, state: value, city: '' }));
                 result = await fetchAddressData({ country: locationSelection.country, state: value });
                 if (result.success && result.data) {
-                    const cities = result.data.cities || [];
-                    setAvailableData(current => ({ ...current, cities }));
-                    if (cities.length === 0) {
+                    setAvailableData(current => ({ ...current, cities: result.data?.cities || [] }));
+                     if (!result.data.cities || result.data.cities.length === 0) {
                         toast({ title: "Sin Datos", description: "El estado seleccionado no tiene ciudades disponibles.", variant: 'default' });
                     }
                 }
@@ -505,34 +501,34 @@ function CondoFormWrapper({
   useEffect(() => {
     startLocationTransition(async () => {
       try {
-        const regionsResult = await fetchAddressData({});
-        if (!regionsResult.success || !regionsResult.data) {
-            throw new Error("Failed to fetch regions.");
-        }
-        
-        const newAvailableData: Partial<typeof availableData> = {
-            regions: regionsResult.data.regions || [],
-            regionCodeMap: regionsResult.data.regionCodeMap || {}
-        };
-        
-        if (isEditMode && initialData.region) {
-            const regionCode = regionsResult.data.regionCodeMap?.[initialData.region];
-            const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionCode });
-            newAvailableData.countries = countriesResult.data?.countries || [];
+        const result = await fetchAddressData({});
+        if (result.success && result.data) {
+            
+            const initialAvailableData: Partial<typeof availableData> = {
+                regions: result.data.regions || [],
+                regionCodeMap: result.data.regionCodeMap || {}
+            };
 
-            if(initialData.country) {
-                const statesResult = await fetchAddressData({ country: initialData.country });
-                newAvailableData.states = statesResult.data?.states || [];
-            }
-            if(initialData.country && initialData.state) {
-                const citiesResult = await fetchAddressData({ country: initialData.country, state: initialData.state });
-                newAvailableData.cities = citiesResult.data?.cities || [];
-            }
-        }
-        setAvailableData(newAvailableData);
+            if (isEditMode && initialData.region) {
+                const regionCode = result.data.regionCodeMap?.[initialData.region];
+                const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionCode });
+                initialAvailableData.countries = countriesResult.data?.countries || [];
 
-      } catch (error) {
-         toast({ title: t('toast.errorTitle'), description: "No se pudieron cargar los datos de ubicación inicial.", variant: 'destructive', copyable: true });
+                if(initialData.country) {
+                    const statesResult = await fetchAddressData({ country: initialData.country });
+                    initialAvailableData.states = statesResult.data?.states || [];
+                }
+                if(initialData.country && initialData.state) {
+                    const citiesResult = await fetchAddressData({ country: initialData.country, state: initialData.state });
+                    initialAvailableData.cities = citiesResult.data?.cities || [];
+                }
+            }
+            setAvailableData(initialAvailableData);
+        } else {
+            throw new Error(result.message || "Failed to fetch initial address data.");
+        }
+      } catch (error: any) {
+         toast({ title: t('toast.errorTitle'), description: error.message || "No se pudieron cargar los datos de ubicación inicial.", variant: 'destructive', copyable: true });
       }
     });
   }, [isEditMode, initialData.region, initialData.country, initialData.state, toast, t]);
