@@ -236,7 +236,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         
         let data: AddressData = {};
         
-        // --- REGIONS ---
+        // --- REGIONS (REFACTORED) ---
         const regionsResponseConfig = responseConfig.regions;
         if (regionsResponseConfig) {
             const baseObject = getNestedValue(config, regionsResponseConfig.path || '');
@@ -245,17 +245,17 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                 ? getNestedValue(baseObject, regionsResponseConfig.name) 
                 : baseObject;
             
-            const regionCodes = regionsResponseConfig.code && typeof regionsResponseConfig.code === 'string'
+            const regionCodes = (regionsResponseConfig.code && typeof regionsResponseConfig.code === 'string')
                 ? getNestedValue(baseObject, regionsResponseConfig.code)
                 : [];
 
             if (Array.isArray(regionList)) {
                 data.regions = regionList.map((item: any, index: number) => {
-                    const codeValue = (Array.isArray(regionCodes) && regionCodes[index]) ? regionCodes[index] : "";
+                    const codeValue = (Array.isArray(regionCodes) && regionCodes[index]) ? regionCodes[index] : (item || '');
                     if (typeof item === 'object' && item !== null) {
                         return { name: item.name || '', code: item.code || codeValue || item.name || '' };
                     }
-                    return { name: item, code: codeValue || item };
+                    return { name: item, code: codeValue };
                 }).filter(r => r.name);
 
                 data.regionCodeMap = data.regions.reduce((acc, curr) => {
