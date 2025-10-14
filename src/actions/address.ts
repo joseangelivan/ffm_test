@@ -235,7 +235,6 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         
         let data: AddressData = {};
         
-        // --- REGIONS (REFACTORED AND SIMPLIFIED) ---
         const regionsResponseConfig = responseConfig.regions;
         if (regionsResponseConfig) {
             const baseObject = getNestedValue(config, regionsResponseConfig.path || '');
@@ -259,7 +258,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                 }).filter(r => r.name);
 
                 data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                    if (curr.name) acc[curr.name] = curr.code;
+                    if (curr.name && curr.code) acc[curr.name] = curr.code;
                     return acc;
                 }, {} as Record<string, string>);
             }
@@ -350,62 +349,22 @@ export async function testAddressService(id: string): Promise<ActionState> {
         }
         
         let testError: Error | null = null;
-        let debugInfo: any = null;
         try {
-            // STEP 1: Get config
-            const serviceResult = await client.query('SELECT config_json FROM address_services WHERE id = $1', [id]);
-            if (serviceResult.rows.length === 0) throw new Error("Fallo en el paso 1: Servicio no encontrado.");
-            const config = serviceResult.rows[0]?.config_json;
-            if (!config?.response?.regions) throw new Error("Fallo en el paso 1: Falta config.response.regions.");
-            
-            const regionsResponseConfig = config.response.regions;
-
-            // STEP 2: Get base object
-            const baseObject = getNestedValue(config, regionsResponseConfig.path || '');
-            if (baseObject === undefined || baseObject === null) throw new Error(`Fallo en el paso 2: baseObject es nulo o indefinido. Ruta usada: '${regionsResponseConfig.path || ''}'`);
-
-            // STEP 3: Get region list from base object
-            const regionList = baseObject[regionsResponseConfig.name];
-             if (regionList === undefined) throw new Error(`Fallo en el paso 3: 'regionList' es indefinido. No se pudo encontrar la clave '${regionsResponseConfig.name}' en el baseObject. baseObject: ${JSON.stringify(baseObject)}`);
-
-            // STEP 4: Check if regionList is an array
-            if (!Array.isArray(regionList)) throw new Error(`Fallo en el paso 4: 'regionList' no es un array. Es de tipo: ${typeof regionList}. Contenido: ${JSON.stringify(regionList)}`);
-            if (regionList.length === 0) throw new Error("Fallo en el paso 4: 'regionList' es un array vacío.");
-
+            // STEP 1: Test Regions
+            const regionsResult = await fetchAddressData({});
+            if (!regionsResult.success || !regionsResult.data?.regions || regionsResult.data.regions.length === 0) {
+                 throw new Error(`Prueba de regiones fallida: ${regionsResult.message}.`);
+            }
             console.log("Regions test passed.");
 
-            // 2. Test Countries
-            console.log("Testing Countries...");
-            const testRegion = regionList[0];
-            let regionCode = '';
-            if (Array.isArray(regionsResponseConfig.code)) {
-                regionCode = regionsResponseConfig.code[0] || '';
-            } else if (typeof regionsResponseConfig.code === 'string') {
-                const codes = getNestedValue(baseObject, regionsResponseConfig.code);
-                if (Array.isArray(codes)) {
-                    regionCode = codes[0] || '';
-                }
-            }
-            
-            const countriesResult = await fetchAddressData({ region: testRegion, region_code: regionCode });
-            if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
-                 const countriesConfig = config.response.countries;
-                 if (countriesConfig?.path === '.') {
-                    let urlString = config.request.api_config.parameters.countries.url;
-                    if (regionCode) urlString = urlString.replace('$region_code', regionCode);
-                    if (testRegion) urlString = urlString.replace('$region', testRegion);
-                    const response = await fetch(urlString);
-                    const responseData = await response.json();
-                    if(Array.isArray(responseData)) {
-                        debugInfo = { firstElement: responseData[0] };
-                    }
-                 }
+            // STEP 2: Test Countries
+            const testRegion = regionsResult.data.regions[0];
+            const regionCodeMap = regionsResult.data.regionCodeMap || {};
+            const regionCode = regionCodeMap[testRegion.name] || '';
 
-                 let errorMsg = `Prueba de países fallida para la región '${testRegion}'. Resultado: ${JSON.stringify(countriesResult, null, 2)}`;
-                 if(debugInfo) {
-                    errorMsg += `\nPrimer elemento de la respuesta de países: ${JSON.stringify(debugInfo.firstElement, null, 2)}`;
-                 }
-                 throw new Error(errorMsg);
+            const countriesResult = await fetchAddressData({ region: testRegion.name, region_code: regionCode });
+            if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
+                 throw new Error(`Prueba de países fallida para la región '${testRegion.name}': ${countriesResult.message}`);
             }
             console.log("Countries test passed.");
             
@@ -445,3 +404,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
 
 
+
+
+    
