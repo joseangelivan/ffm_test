@@ -247,23 +247,25 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                 const baseObject = getNestedValue(config, regionsResponseConfig.path);
                 
                 if (baseObject) {
-                    const nameKey = regionsResponseConfig.name.split('.').pop(); // e.g. "value"
-                    const codeKey = regionsResponseConfig.code?.split('.').pop(); // e.g. "code"
+                    const nameKey = regionsResponseConfig.name.split('.').pop();
+                    const codeKey = regionsResponseConfig.code?.split('.').pop();
 
-                    const regionList = nameKey ? baseObject[nameKey] : undefined;
-                    const regionCodes = codeKey ? baseObject[codeKey] : [];
+                    if (nameKey && baseObject[nameKey]) {
+                        const regionList = baseObject[nameKey];
+                        const regionCodes = (codeKey && baseObject[codeKey]) ? baseObject[codeKey] : [];
 
-                    if (Array.isArray(regionList)) {
-                         data.regions = regionList.map((item: any, index: number) => ({
-                            name: typeof item === 'object' ? item.name : item,
-                            code: Array.isArray(regionCodes) ? (regionCodes[index] || '') : ''
-                        })).filter(r => r.name);
+                        if (Array.isArray(regionList)) {
+                             data.regions = regionList.map((item: any, index: number) => ({
+                                name: typeof item === 'object' ? item.name : item,
+                                code: Array.isArray(regionCodes) ? (regionCodes[index] || '') : ''
+                            })).filter(r => r.name);
 
-                        if (data.regions.length > 0) {
-                            data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                                if (curr.name && curr.code) acc[curr.name] = curr.code;
-                                return acc;
-                            }, {} as Record<string, string>);
+                            if (data.regions.length > 0) {
+                                data.regionCodeMap = data.regions.reduce((acc, curr) => {
+                                    if (curr.name && curr.code) acc[curr.name] = curr.code;
+                                    return acc;
+                                }, {} as Record<string, string>);
+                            }
                         }
                     }
                 }
@@ -462,3 +464,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
     
 
+
+
+    
