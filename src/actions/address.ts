@@ -242,9 +242,9 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             const regionsRequestConfig = requestConfig?.parameters?.regions;
             const regionsResponseConfig = responseConfig.regions;
 
-            if (regionsRequestConfig && !regionsRequestConfig.url) { // Embedded data case
-                const regionNamesPath = regionsResponseConfig?.name;
-                const regionCodesPath = regionsResponseConfig?.code;
+            if (regionsRequestConfig && !regionsRequestConfig.url && regionsResponseConfig) {
+                const regionNamesPath = regionsResponseConfig.name;
+                const regionCodesPath = regionsResponseConfig.code;
 
                 if (regionNamesPath && regionCodesPath) {
                     const regionNames = getNestedValue(config, regionNamesPath) as string[];
@@ -258,7 +258,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                         data.regionCodeMap = regionCodes;
                     }
                 }
-            } else if (regionsRequestConfig?.url && regionsResponseConfig?.path) { // Fetch from URL case
+            } else if (regionsRequestConfig?.url && regionsResponseConfig?.path) {
                  const url = regionsRequestConfig.url;
                  const response = await fetch(url);
                  const regionsJson = await response.json();
