@@ -40,7 +40,9 @@ const ServiceSchema = z.object({
 });
 
 function getNestedValue(obj: any, path: string): any {
-    if (!path || path === '.') return obj;
+    if (typeof path !== 'string' || !path || path === '.') {
+      return obj;
+    }
     const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
     let result = obj;
     for (const key of keys) {
@@ -220,7 +222,6 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
     let client;
     let config: any;
 
-    // This initial block only fetches the configuration and should be safe.
     try {
         const pool = await getDbPool();
         if (!pool) return { success: false, message: 'Error del servidor: Pool de DB no disponible.' };
@@ -232,112 +233,118 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         }
         config = serviceResult.rows[0].config_json;
     } catch (dbError: any) {
+        console.error("Error fetching address service config:", dbError);
         return { success: false, message: `Error de base de datos: ${dbError.message}` };
     } finally {
         if (client) client.release();
     }
     
-    // The rest of the logic, now outside the main try/catch to let errors propagate to testAddressService
-    const requestConfig = config.request?.api_config;
-    const responseConfig = config.response;
-    
-    if (!responseConfig) {
-        return { success: false, message: 'La configuración de respuesta del servicio de dirección es inválida.' };
-    }
-    
     let data: AddressData = {};
     
-    // --- REGIONS ---
-    if (Object.keys(params).length === 0) {
-        const regionsRequestConfig = requestConfig?.parameters?.regions;
-        const regionsResponseConfig = responseConfig.regions;
+    try {
+        const requestConfig = config.request?.api_config;
+        const responseConfig = config.response;
+        
+        if (!responseConfig) {
+            return { success: false, message: 'La configuración de respuesta del servicio de dirección es inválida.' };
+        }
+        
+        // --- REGIONS ---
+        if (Object.keys(params).length === 0) {
+            const regionsRequestConfig = requestConfig?.parameters?.regions;
+            const regionsResponseConfig = responseConfig.regions;
 
-        if (regionsRequestConfig && !regionsRequestConfig.url && regionsResponseConfig?.path) {
-            const regionListPath = regionsResponseConfig.path;
-            const regionNamesPath = regionsResponseConfig.name;
-            const regionCodesPath = regionsResponseConfig.code;
+            if (regionsRequestConfig && !regionsRequestConfig.url && regionsResponseConfig?.path) {
+                const regionContainer = getNestedValue(config, regionsResponseConfig.path);
+                if (regionContainer) {
+                    const nameKey = regionsResponseConfig.name; // e.g., "value"
+                    const codeKey = regionsResponseConfig.code; // e.g., "codes"
+                    const regionNames = regionContainer[nameKey];
+                    const regionCodes = regionContainer[codeKey];
+                    
+                    if (Array.isArray(regionNames)) {
+                        data.regions = regionNames.map(name => ({
+                            name: name,
+                            code: regionCodes?.[name] || ''
+                        }));
+                        data.regionCodeMap = regionCodes;
+                    }
+                }
 
-            const regionContainer = getNestedValue(config, regionListPath);
-            const regionNames = getNestedValue(regionContainer, regionNamesPath);
-            const regionCodes = getNestedValue(regionContainer, regionCodesPath);
-
-            if (Array.isArray(regionNames) && typeof regionCodes === 'object') {
-                data.regions = regionNames.map(name => ({
-                    name: name,
-                    code: regionCodes[name] || ''
-                }));
-                data.regionCodeMap = regionCodes;
+            } else if (regionsRequestConfig?.url && regionsResponseConfig?.path) {
+                const url = regionsRequestConfig.url;
+                const response = await fetch(url);
+                const regionsJson = await response.json();
+                const regionList = getNestedValue(regionsJson, regionsResponseConfig.path);
+                
+                if (Array.isArray(regionList)) {
+                    data.regions = regionList.map((item: any) => ({
+                        name: getNestedValue(item, regionsResponseConfig.name),
+                        code: getNestedValue(item, regionsResponseConfig.code)
+                    }));
+                }
             }
-        } else if (regionsRequestConfig?.url && regionsResponseConfig?.path) {
-             const url = regionsRequestConfig.url;
-             const response = await fetch(url);
-             const regionsJson = await response.json();
-             const regionList = getNestedValue(regionsJson, regionsResponseConfig.path);
-             
-             if (Array.isArray(regionList)) {
-                 data.regions = regionList.map((item: any) => ({
-                     name: getNestedValue(item, regionsResponseConfig.name),
-                     code: getNestedValue(item, regionsResponseConfig.code)
-                 }));
-             }
         }
-    }
 
 
-    // --- COUNTRIES ---
-    if ((params.region || params.region_code) && requestConfig?.parameters?.countries?.url) {
-        let urlString = requestConfig.parameters.countries.url;
-        
-        if (params.region_code) urlString = urlString.replace('$region_code', params.region_code);
-        if (params.region) urlString = urlString.replace('$region', params.region);
+        // --- COUNTRIES ---
+        if ((params.region || params.region_code) && requestConfig?.parameters?.countries?.url) {
+            let urlString = requestConfig.parameters.countries.url;
+            
+            if (params.region_code) urlString = urlString.replace('$region_code', params.region_code);
+            if (params.region) urlString = urlString.replace('$region', params.region);
 
-        const response = await fetch(urlString, { method: 'GET' });
-        const countriesJson = await response.json();
-        
-        const countriesPath = responseConfig.countries?.path;
-        const countryList = getNestedValue(countriesJson, countriesPath);
+            const response = await fetch(urlString, { method: 'GET' });
+            const countriesJson = await response.json();
+            
+            const countriesPath = responseConfig.countries?.path;
+            const countryList = getNestedValue(countriesJson, countriesPath);
 
-        if (Array.isArray(countryList)) {
-            data.countries = countryList.map((item: any) => ({
-                name: getNestedValue(item, responseConfig.countries.name),
-                cca2: getNestedValue(item, responseConfig.countries.cca2),
-                flag: getNestedValue(item, responseConfig.countries.flag),
-            })).filter(c => c.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
+            if (Array.isArray(countryList)) {
+                data.countries = countryList.map((item: any) => ({
+                    name: getNestedValue(item, responseConfig.countries.name),
+                    cca2: getNestedValue(item, responseConfig.countries.cca2),
+                    flag: getNestedValue(item, responseConfig.countries.flag),
+                })).filter(c => c.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
+            }
         }
-    }
 
-    // --- STATES ---
-    if (params.country && requestConfig?.parameters?.states?.url) {
-        const url = requestConfig.parameters.states.url.replace('$country', params.country);
-        const body = JSON.stringify({ country: params.country });
-        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
-        const statesJson = await response.json();
+        // --- STATES ---
+        if (params.country && requestConfig?.parameters?.states?.url) {
+            const url = requestConfig.parameters.states.url.replace('$country', params.country);
+            const body = JSON.stringify({ country: params.country });
+            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
+            const statesJson = await response.json();
 
-        const statesPath = responseConfig.states?.path;
-        const stateList = getNestedValue(statesJson, statesPath);
-        
-        if (Array.isArray(stateList)) {
-            data.states = stateList.map((item: any) => ({
-                name: getNestedValue(item, responseConfig.states.name)
-            })).filter(s => s.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
+            const statesPath = responseConfig.states?.path;
+            const stateList = getNestedValue(statesJson, statesPath);
+            
+            if (Array.isArray(stateList)) {
+                data.states = stateList.map((item: any) => ({
+                    name: getNestedValue(item, responseConfig.states.name)
+                })).filter(s => s.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
+            }
         }
-    }
 
-    // --- CITIES ---
-    if (params.country && params.state && requestConfig?.parameters?.cities?.url) {
-         const url = requestConfig.parameters.cities.url.replace('$state', params.state);
-         const body = JSON.stringify({ country: params.country, state: params.state });
-         const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
-         const citiesJson = await response.json();
-         
-         const citiesPath = responseConfig.cities?.path;
-         const rawCities = getNestedValue(citiesJson, citiesPath);
-         if (Array.isArray(rawCities)) {
-            data.cities = rawCities.sort();
-         }
+        // --- CITIES ---
+        if (params.country && params.state && requestConfig?.parameters?.cities?.url) {
+            const url = requestConfig.parameters.cities.url.replace('$state', params.state);
+            const body = JSON.stringify({ country: params.country, state: params.state });
+            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
+            const citiesJson = await response.json();
+            
+            const citiesPath = responseConfig.cities?.path;
+            const rawCities = getNestedValue(citiesJson, citiesPath);
+            if (Array.isArray(rawCities)) {
+                data.cities = rawCities.sort();
+            }
+        }
+        
+        return { success: true, message: 'Datos de dirección obtenidos.', data };
+    } catch (error: any) {
+        console.error("Error processing address data:", error);
+        return { success: false, message: `Error del servidor al obtener los datos de dirección.` };
     }
-
-    return { success: true, message: 'Datos de dirección obtenidos.', data };
 }
 
 
@@ -347,6 +354,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
     let client;
     let originalDefaultId: string | null = null;
     let testError: Error | null = null;
+    let finalMessage = '';
     
     try {
         const pool = await getDbPool();
@@ -368,38 +376,32 @@ export async function testAddressService(id: string): Promise<ActionState> {
             await client.query('COMMIT');
         }
         
-        try {
-            // STEP 1: Test Regions
-            const regionsResult = await fetchAddressData({});
-            
-            if (!regionsResult.success || !regionsResult.data || !Array.isArray(regionsResult.data.regions) || regionsResult.data.regions.length === 0) {
-                 const debugOutput = JSON.stringify(regionsResult, null, 2);
-                 throw new Error(`Prueba de regiones fallida: data.regions no es un array o está vacío.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
-            }
-            
-            const firstRegion = regionsResult.data.regions[0];
-            console.log(`Prueba de Regiones exitosa. Primera región encontrada: ${firstRegion.name}`);
+        // STEP 1: Test Regions
+        const regionsResult = await fetchAddressData({});
+        
+        if (!regionsResult.success || !Array.isArray(regionsResult.data?.regions) || regionsResult.data.regions.length === 0) {
+             const debugOutput = JSON.stringify(regionsResult, null, 2);
+             throw new Error(`Prueba de regiones fallida: data.regions no es un array o está vacío.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
+        }
+        
+        const firstRegion = regionsResult.data.regions[0];
+        console.log(`Prueba de Regiones exitosa. Primera región encontrada: ${firstRegion.name} (${firstRegion.code})`);
+        finalMessage += `Regiones OK. `;
 
-            // STEP 2: Test Countries
-            const regionCodeMap = regionsResult.data.regionCodeMap || {};
-            const regionCode = regionCodeMap[firstRegion.name] || '';
-            
-            const countriesResult = await fetchAddressData({ region: firstRegion.name, region_code: regionCode });
+        // STEP 2: Test Countries
+        const countriesResult = await fetchAddressData({ region: firstRegion.name, region_code: firstRegion.code });
 
-            if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
-                let debugMessage = `Resultado: ${JSON.stringify(countriesResult, null, 2)}`;
-                throw new Error(`Prueba de países fallida para la región '${firstRegion.name}'. ${debugMessage}`);
-            }
-
-            const firstCountry = countriesResult.data.countries[0];
-            console.log(`Prueba de Países exitosa. Primer país encontrado: ${firstCountry.name}`);
-            
-        } catch (err: any) {
-            testError = err;
+        if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
+            const debugOutput = JSON.stringify(countriesResult, null, 2);
+            throw new Error(`Prueba de países fallida para la región '${firstRegion.name}'.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
         }
 
-    } catch (error: any) {
-        testError = error;
+        const firstCountry = countriesResult.data.countries[0];
+        console.log(`Prueba de Países exitosa. Primer país encontrado: ${firstCountry.name}`);
+        finalMessage += `Países OK.`;
+            
+    } catch (err: any) {
+        testError = err;
     } finally {
         // Restore original default if it was changed
         if (client && id !== originalDefaultId) {
@@ -420,8 +422,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
         return { success: false, message: `Error durante la prueba: ${testError.message}` };
     }
 
-    return { success: true, message: "¡Prueba exitosa! El flujo de obtención de datos de dirección funciona correctamente." };
+    return { success: true, message: `¡Prueba exitosa! ${finalMessage}` };
 }
-
-
     
