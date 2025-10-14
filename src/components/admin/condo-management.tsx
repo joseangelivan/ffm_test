@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
@@ -123,7 +124,7 @@ const LocationSelector = ({
           </SelectTrigger>
           <SelectContent>
             {availableData.countries?.map((country) => (
-              <SelectItem key={country.cca2 || country.name} value={country.name}>
+              <SelectItem key={country.name} value={country.name}>
                  {country.flag && <span className="mr-2">{country.flag}</span>}
                 {country.name}
               </SelectItem>
@@ -408,15 +409,17 @@ function CondoFormWrapper({
                 const regionCode = availableData.regionCodeMap?.[value];
                 result = await fetchAddressData({ region: value, region_code: regionCode });
                 
-                const countries = result.data?.countries || [];
+                const countryNames = result.data?.countries?.map(c => c.name) || [];
                 toast({
-                      title: 'DEBUG: Países Obtenidos',
-                      description: JSON.stringify(countries, null, 2),
+                      title: 'DEBUG: Nombres de Países',
+                      description: JSON.stringify(countryNames, null, 2),
                       duration: 15000,
                       copyable: true,
                 });
                 
-                return; // STOP FLOW HERE
+                if (result.success && result.data) {
+                    setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
+                }
 
             } else if (field === 'country') {
                 setLocationSelection(current => ({ ...current, country: value, state: '', city: '' }));

@@ -154,12 +154,25 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
             const response = await fetch(urlString, { cache: 'no-store' });
             if (!response.ok) throw new Error(`El servidor respondió con el estado ${response.status}`);
             const jsonResponse = await response.json();
+            
             const dataList = getNestedValue(jsonResponse, responseConfig.path);
-            const mappedData = dataList.map((item: any) => ({
-                name: getNestedValue(item, responseConfig.name),
-                cca2: getNestedValue(item, responseConfig.cca2),
-                flag: getNestedValue(item, responseConfig.flag),
-            }));
+            
+            const mappedData = dataList.map((item: any) => {
+                const countryData: AddressDataItem = {
+                    name: getNestedValue(item, responseConfig.name),
+                    cca2: getNestedValue(item.flag, responseConfig.cca2)
+                };
+
+                // Only add flag if the config path is not an empty array
+                if (Array.isArray(responseConfig.flag) && responseConfig.flag.length > 0) {
+                     countryData.flag = getNestedValue(item.flag, responseConfig.flag);
+                } else if (typeof responseConfig.flag === 'string' && responseConfig.flag) {
+                     countryData.flag = getNestedValue(item.flag, responseConfig.flag);
+                }
+
+                return countryData;
+            });
+            
             return { success: true, data: mappedData };
         } catch (e: any) {
             return { success: false, error: `Error en la API de 'countries': ${e.message}` };
