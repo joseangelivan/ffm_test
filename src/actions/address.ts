@@ -171,8 +171,10 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
 }
 
 async function fetchStates(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string }> {
-    const requestConfig = config.request?.api_config?.parameters?.countries?.states;
-    const responseConfig = config.response?.countries?.states;
+    // Busca la configuración de estados, puede estar anidada
+    const requestConfig = config.request?.api_config?.parameters?.states || config.request?.api_config?.parameters?.countries?.states;
+    const responseConfig = config.response?.states || config.response?.countries?.states;
+
     if (!requestConfig) return { success: true, data: [] };
 
     if (requestConfig.url) {
@@ -208,10 +210,10 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
             if (!response.ok) throw new Error(`El servidor respondió con el estado ${response.status}. URL: ${requestConfig.url}`);
             
             const jsonResponse = await response.json();
-            const dataList = getNestedValue(jsonResponse, 'data.states');
+            const dataList = getNestedValue(jsonResponse, responseConfig.path || 'data.states');
 
             if (!Array.isArray(dataList)) {
-                throw new Error(`La respuesta de la API no contiene un array de estados en el path 'data.states'.\n--- RESPUESTA API ---\n${JSON.stringify(jsonResponse, null, 2)}`);
+                throw new Error(`La respuesta de la API no contiene un array de estados en el path especificado.\n--- RESPUESTA API ---\n${JSON.stringify(jsonResponse, null, 2)}`);
             }
 
             const mappedData = dataList.map((item: any) => ({
@@ -231,7 +233,7 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
 
 
 async function fetchCities(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string }> {
-    const requestConfig = config.request?.api_config?.parameters?.countries?.states?.cities;
+    const requestConfig = config.request?.api_config?.parameters?.cities || config.request?.api_config?.parameters?.countries?.states?.cities;
     if (!requestConfig) return { success: true, data: [] };
 
     if (requestConfig.value && params.country && params.state) {
@@ -631,3 +633,5 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
         if (client) client.release();
     }
 }
+
+    
