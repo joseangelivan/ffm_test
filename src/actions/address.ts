@@ -243,15 +243,20 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             const regionsResponseConfig = responseConfig.regions;
 
             if (regionsRequestConfig && !regionsRequestConfig.url) { // Embedded data case
-                const regionNames = regionsRequestConfig.value;
-                const regionCodes = regionsRequestConfig.codes;
+                const regionNamesPath = regionsResponseConfig?.name;
+                const regionCodesPath = regionsResponseConfig?.code;
 
-                if (Array.isArray(regionNames) && typeof regionCodes === 'object') {
-                    data.regions = regionNames.map(name => ({
-                        name: name,
-                        code: regionCodes[name] || ''
-                    }));
-                    data.regionCodeMap = regionCodes;
+                if (regionNamesPath && regionCodesPath) {
+                    const regionNames = getNestedValue(config, regionNamesPath) as string[];
+                    const regionCodes = getNestedValue(config, regionCodesPath) as Record<string, string>;
+
+                    if (Array.isArray(regionNames) && typeof regionCodes === 'object') {
+                        data.regions = regionNames.map(name => ({
+                            name: name,
+                            code: regionCodes[name] || ''
+                        }));
+                        data.regionCodeMap = regionCodes;
+                    }
                 }
             } else if (regionsRequestConfig?.url && regionsResponseConfig?.path) { // Fetch from URL case
                  const url = regionsRequestConfig.url;
