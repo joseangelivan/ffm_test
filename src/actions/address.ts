@@ -112,21 +112,24 @@ async function fetchDataFromSource(
 ): Promise<{ success: boolean, data?: any, error?: string }> {
     
     let requestConfig = config.request?.api_config?.parameters?.[dataType];
-    // Fallback to nested config for states/cities if needed
+    let responseConfig = config.response?.[dataType];
+    
+    // --- Nested Config Logic (para 'states' y 'cities') ---
     if (dataType === 'states' && !requestConfig) {
         requestConfig = config.request?.api_config?.parameters?.countries?.states;
+        responseConfig = config.response?.countries?.states;
     }
     if (dataType === 'cities' && !requestConfig) {
         requestConfig = config.request?.api_config?.parameters?.countries?.states?.cities;
+        responseConfig = config.response?.countries?.states?.cities;
     }
 
-    const responseConfig = config.response?.[dataType];
-    
-    if (!responseConfig) {
-        return { success: false, error: `Configuración de respuesta para '${dataType}' no encontrada.` };
+    if (!requestConfig || !responseConfig) {
+        return { success: true, data: [] }; // No hay config, no es un error.
     }
-     // --- Caso 1: Datos obtenidos desde una URL ---
-    if (requestConfig?.url) {
+    
+    // --- Caso 1: Datos obtenidos desde una URL ---
+    if (requestConfig.url) {
         try {
             let urlString = requestConfig.url;
             if (params.region_code) urlString = urlString.replace('$region_code', params.region_code);
@@ -152,7 +155,7 @@ async function fetchDataFromSource(
                     headers['Content-Type'] = 'application/json';
                 }
             }
-
+            
             const response = await fetch(urlString, fetchOptions);
             if (!response.ok) {
                 return { success: false, error: `Error en la API de '${dataType}': El servidor respondió con el estado ${response.status}. URL: ${urlString}` };
@@ -170,7 +173,13 @@ async function fetchDataFromSource(
         }
     }
     // --- Caso 2: Datos incrustados en la configuración ---
-    else if (requestConfig?.value) {
+    else if (requestConfig.value) {
+        if (dataType === 'states' && params.country) {
+            return { success: true, data: requestConfig.value[params.country]?.states || [] };
+        }
+         if (dataType === 'cities' && params.country && params.state) {
+            return { success: true, data: requestConfig.value[params.country]?.cities[params.state] || [] };
+        }
         return { success: true, data: requestConfig };
     }
 
@@ -456,7 +465,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (tempConfig.request.api_config.parameters.regions?.url) { // URL case
             regions = regionsResult.data;
              if (!Array.isArray(regions) || regions.length === 0) {
-                 throw new Error(`Prueba de regiones fallida: los datos de la URL no son un array o están vacíos.`);
+                 throw new Error(`Prueba de regiones fallida: data.regions no es un array o está vacío.`);
              }
             const firstRegionData = regions[0];
             firstRegion = {
@@ -466,7 +475,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
         } else { // Embedded case
              regions = regionsResult.data.value;
              if (!Array.isArray(regions) || regions.length === 0) {
-                 throw new Error(`Prueba de regiones fallida: data.value no es un array o está vacío.`);
+                 throw new Error(`Prueba de regiones fallida: data.regions no es un array o está vacío.`);
              }
             const regionName = regions[0];
             firstRegion = {
@@ -510,22 +519,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
         return { success: false, message: `Error durante la prueba: ${err.message}` };
     }
 }
-    
-
-
-
-
-
-      
-
-
-
-
-
-
-
-
-
     
 
     
