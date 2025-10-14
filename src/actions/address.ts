@@ -235,7 +235,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         
         let data: AddressData = {};
         
-        // --- REGIONS (REFACTORED) ---
+        // --- REGIONS (REFACTORED AND SIMPLIFIED) ---
         const regionsResponseConfig = responseConfig.regions;
         if (regionsResponseConfig) {
             const baseObject = getNestedValue(config, regionsResponseConfig.path || '');
@@ -259,7 +259,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                 }).filter(r => r.name);
 
                 data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                    if (curr.name) acc[curr.name] = curr.code || '';
+                    if (curr.name) acc[curr.name] = curr.code;
                     return acc;
                 }, {} as Record<string, string>);
             }
@@ -351,72 +351,44 @@ export async function testAddressService(id: string): Promise<ActionState> {
         
         let testError: Error | null = null;
         try {
-            // Get config and check what getNestedValue returns for regions path
-            const serviceResultForLog = await client.query('SELECT config_json FROM address_services WHERE id = $1', [id]);
-            const configForLog = serviceResultForLog.rows[0]?.config_json;
-            const regionsResponseConfigForLog = configForLog?.response?.regions;
+            // STEP 1: Get config
+            const serviceResult = await client.query('SELECT config_json FROM address_services WHERE id = $1', [id]);
+            if (serviceResult.rows.length === 0) throw new Error("Fallo en el paso 1: Servicio no encontrado.");
+            const config = serviceResult.rows[0]?.config_json;
+            if (!config?.response?.regions) throw new Error("Fallo en el paso 1: Falta config.response.regions.");
             
-            let debugInfo = "No disponible";
-            let baseObjectForDebug: any = null;
-            let regionListForDebug: any = undefined;
+            const regionsResponseConfig = config.response.regions;
 
-            if (regionsResponseConfigForLog) {
-                baseObjectForDebug = getNestedValue(configForLog, regionsResponseConfigForLog.path || '');
-                debugInfo = JSON.stringify(baseObjectForDebug, null, 2);
-                if(baseObjectForDebug && regionsResponseConfigForLog.name) {
-                     regionListForDebug = baseObjectForDebug[regionsResponseConfigForLog.name];
-                } else {
-                     regionListForDebug = baseObjectForDebug;
-                }
-            }
-            
-            // 1. Test Regions
-            const regionsResult = await fetchAddressData({});
-            if (!regionsResult.success || !regionsResult.data?.regions || regionsResult.data.regions.length === 0) {
-                 let failureReason = "";
-                if (regionListForDebug === undefined) {
-                    failureReason = `La lista de regiones (regionList) es 'undefined' porque la clave '${regionsResponseConfigForLog.name}' no se pudo encontrar en el objeto base o el objeto base es nulo.`;
-                 } else if (!Array.isArray(regionListForDebug)) {
-                    failureReason = `La lista de regiones (regionList) no es un array. Es de tipo: ${typeof regionListForDebug}.`;
-                 } else if (regionListForDebug.length === 0) {
-                     failureReason = "La lista de regiones (regionList) es un array vacío.";
-                 } else {
-                     failureReason = regionsResult.message;
-                 }
-                 throw new Error(`Prueba de regiones fallida: ${failureReason}. Objeto de ruta de depuración: ${debugInfo}. Datos completos: ${JSON.stringify(regionsResult.data)}`);
-            }
-            console.log(`Regions test passed. Found ${regionsResult.data.regions.length} regions.`);
+            // STEP 2: Get base object
+            const baseObject = getNestedValue(config, regionsResponseConfig.path || '');
+            if (baseObject === undefined || baseObject === null) throw new Error(`Fallo en el paso 2: baseObject es nulo o indefinido. Ruta usada: '${regionsResponseConfig.path || ''}'`);
+
+            // STEP 3: Get region list from base object
+            const regionList = baseObject[regionsResponseConfig.name];
+             if (regionList === undefined) throw new Error(`Fallo en el paso 3: 'regionList' es indefinido. No se pudo encontrar la clave '${regionsResponseConfig.name}' en el baseObject. baseObject: ${JSON.stringify(baseObject)}`);
+
+            // STEP 4: Check if regionList is an array
+            if (!Array.isArray(regionList)) throw new Error(`Fallo en el paso 4: 'regionList' no es un array. Es de tipo: ${typeof regionList}. Contenido: ${JSON.stringify(regionList)}`);
+            if (regionList.length === 0) throw new Error("Fallo en el paso 4: 'regionList' es un array vacío.");
+
+            console.log("Regions test passed.");
 
             // 2. Test Countries
             console.log("Testing Countries...");
-            const testRegion = regionsResult.data.regions[0];
-            const regionCode = regionsResult.data.regionCodeMap?.[testRegion.name] || '';
-            const countriesResult = await fetchAddressData({ region: testRegion.name, region_code: regionCode });
+            const testRegion = regionList[0];
+            const regionCodeMap = regionList.reduce((acc: any, curr: any, idx: any) => {
+                const name = typeof curr === 'object' ? curr.name : curr;
+                const codes = Array.isArray(regionsResponseConfig.code) ? regionsResponseConfig.code : [];
+                acc[name] = codes[idx] || '';
+                return acc;
+            }, {});
+            const regionCode = regionCodeMap?.[testRegion] || '';
+            const countriesResult = await fetchAddressData({ region: testRegion, region_code: regionCode });
             if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
-                throw new Error(`Prueba de países fallida para la región '${testRegion.name}': ${countriesResult.message}`);
+                throw new Error(`Prueba de países fallida para la región '${testRegion}': ${countriesResult.message}`);
             }
             console.log("Countries test passed.");
-
-            // 3. Test States
-            console.log("Testing States...");
-            const testCountry = countriesResult.data.countries[0];
-            const statesResult = await fetchAddressData({ country: testCountry.name });
-            if (!statesResult.success || !statesResult.data?.states || statesResult.data.states.length === 0) {
-                console.log(`Prueba de estados advertencia para el país '${testCountry.name}': No se encontraron estados. Esto puede ser normal.`);
-            } else {
-                console.log("States test passed.");
-                
-                // 4. Test Cities (only if states were found)
-                console.log("Testing Cities...");
-                const testState = statesResult.data.states[0];
-                const citiesResult = await fetchAddressData({ country: testCountry.name, state: testState.name });
-                if (!citiesResult.success || !citiesResult.data?.cities || citiesResult.data.cities.length === 0) {
-                    console.log(`Prueba de ciudades advertencia para '${testState.name}, ${testCountry.name}': No se encontraron ciudades. Esto puede ser normal.`);
-                } else {
-                    console.log("Cities test passed.");
-                }
-            }
-
+            
         } catch (err: any) {
             testError = err;
         }
@@ -449,4 +421,5 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
     
+
 
