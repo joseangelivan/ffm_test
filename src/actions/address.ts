@@ -353,7 +353,6 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             return { success: false, message: regionsResult.error || "Error al obtener regiones." };
         }
         
-        // This handles both URL-based and embedded data providers
         if (config.request.api_config.parameters.regions?.url) { // URL case
             data.regions = regionsResult.data.map((item: any) => ({
                 name: getNestedValue(item, responseConfig.regions.name),
@@ -422,19 +421,21 @@ export async function testAddressService(id: string): Promise<ActionState> {
     }
 
     try {
+        const tempConfig = service.config_json;
+
         // --- STEP 1: Test Regions ---
-        const regionsResult = await fetchDataFromSource('regions', service.config_json, {});
-        if (!regionsResult.success || !Array.isArray(regionsResult.data) || regionsResult.data.length === 0) {
-            throw new Error(`Prueba de regiones fallida: ${regionsResult.error || 'data.regions no es un array o está vacío.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(regionsResult, null, 2)}`);
+        const regionsResult = await fetchDataFromSource('regions', tempConfig, {});
+        if (!regionsResult.success || !regionsResult.data || regionsResult.data.length === 0) {
+             throw new Error(`Prueba de regiones fallida: ${regionsResult.error || 'No se obtuvieron datos de regiones.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(regionsResult, null, 2)}`);
         }
         
         let firstRegion: AddressDataItem;
         
-        if (service.config_json.request.api_config.parameters.regions?.url) { // URL case
+        if (tempConfig.request.api_config.parameters.regions?.url) { // URL case
             const firstRegionData = regionsResult.data[0];
             firstRegion = {
-                name: getNestedValue(firstRegionData, service.config_json.response.regions.name),
-                code: getNestedValue(firstRegionData, service.config_json.response.regions.code)
+                name: getNestedValue(firstRegionData, tempConfig.response.regions.name),
+                code: getNestedValue(firstRegionData, tempConfig.response.regions.code)
             };
         } else { // Embedded case
             const regionName = regionsResult.data.value[0];
@@ -445,21 +446,21 @@ export async function testAddressService(id: string): Promise<ActionState> {
         }
 
         // --- STEP 2: Test Countries ---
-        const countriesResult = await fetchDataFromSource('countries', service.config_json, { region: firstRegion.name, region_code: firstRegion.code });
+        const countriesResult = await fetchDataFromSource('countries', tempConfig, { region: firstRegion.name, region_code: firstRegion.code });
         if (!countriesResult.success || !countriesResult.data || countriesResult.data.length === 0) {
             throw new Error(`Prueba de países fallida para la región '${firstRegion.name}': ${countriesResult.error || 'No se obtuvieron datos de países.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(countriesResult, null, 2)}`);
         }
-        const firstCountry = getNestedValue(countriesResult.data[0], service.config_json.response.countries.name);
+        const firstCountry = getNestedValue(countriesResult.data[0], tempConfig.response.countries.name);
 
         // --- STEP 3: Test States ---
-        const statesResult = await fetchDataFromSource('states', service.config_json, { country: firstCountry });
+        const statesResult = await fetchDataFromSource('states', tempConfig, { country: firstCountry });
          if (!statesResult.success || !statesResult.data || statesResult.data.length === 0) {
             throw new Error(`Prueba de estados fallida para el país '${firstCountry}': ${statesResult.error || 'No se obtuvieron datos de estados.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(statesResult, null, 2)}`);
         }
-        const firstState = getNestedValue(statesResult.data[0], service.config_json.response.states.name);
+        const firstState = getNestedValue(statesResult.data[0], tempConfig.response.states.name);
 
         // --- STEP 4: Test Cities ---
-        const citiesResult = await fetchDataFromSource('cities', service.config_json, { country: firstCountry, state: firstState });
+        const citiesResult = await fetchDataFromSource('cities', tempConfig, { country: firstCountry, state: firstState });
          if (!citiesResult.success || !citiesResult.data || citiesResult.data.length === 0) {
             throw new Error(`Prueba de ciudades fallida para el estado '${firstState}': ${citiesResult.error || 'No se obtuvieron datos de ciudades.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(citiesResult, null, 2)}`);
         }
@@ -482,6 +483,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
 
       
+
 
 
 
