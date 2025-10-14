@@ -131,7 +131,7 @@ const LocationSelector = ({
           <SelectContent>
             {locationData.countries?.map((country) => (
               <SelectItem key={country.cca2 || country.name} value={country.name}>
-                {country.flag && <span className="mr-2">{country.flag}</span>}
+                 {country.flag && <span className="mr-2">{country.flag}</span>}
                 {country.name}
               </SelectItem>
             ))}
