@@ -253,7 +253,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                 data.regions = regionList.map((item: any, index: number) => {
                     const codeValue = (Array.isArray(regionCodes) && regionCodes[index]) ? regionCodes[index] : "";
                     if (typeof item === 'object' && item !== null) {
-                        return { name: item.name || '', code: item.code || codeValue || '' };
+                        return { name: item.name || '', code: item.code || codeValue || item.name || '' };
                     }
                     return { name: item, code: codeValue || item };
                 }).filter(r => r.name);
