@@ -161,19 +161,16 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
 
     const { url, method = 'GET', headers = {} } = countriesRequestConfig;
     
-    // Simple, direct URL templating
     let finalUrlString = url;
     if (params.region_code) {
         finalUrlString = finalUrlString.replace('$region_code', params.region_code);
     }
-    if (params.region) {
-        finalUrlString = finalUrlString.replace('$region', params.region);
-    }
+    
     // Replace any remaining environment variables
     finalUrlString = finalUrlString.replace(/\$([A-Z_]+)/g, (match, varName) => process.env[varName] || match);
 
-
     const curlCommand = `curl -X ${method} '${finalUrlString}'`;
+    const debugInfo = { curl: curlCommand, region_code: params.region_code };
 
     try {
         const response = await fetch(finalUrlString, { method, headers, cache: 'no-store' });
@@ -183,17 +180,17 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         try {
             jsonResponse = JSON.parse(responseText);
         } catch (e) {
-             return { success: false, error: `Error en la API de 'countries': La respuesta no es un JSON válido.`, debug: { curl: curlCommand, response: responseText } };
+             return { success: false, error: `Error en la API de 'countries': La respuesta no es un JSON válido.`, debug: { ...debugInfo, response: responseText } };
         }
 
         if (!response.ok) {
-             return { success: false, error: `El servidor respondió con el estado ${response.status}`, debug: { curl: curlCommand, response: jsonResponse } };
+             return { success: false, error: `El servidor respondió con el estado ${response.status}`, debug: { ...debugInfo, response: jsonResponse } };
         }
 
         const dataList = getNestedValue(jsonResponse, responseConfig.path);
         
         if (!Array.isArray(dataList)) {
-            return { success: false, error: `La respuesta de la API no contenía un array en la ruta '${responseConfig.path}'.`, debug: { curl: curlCommand, response: jsonResponse } };
+            return { success: false, error: `La respuesta de la API no contenía un array en la ruta '${responseConfig.path}'.`, debug: { ...debugInfo, response: jsonResponse } };
         }
         
         const mappedData = dataList.map((item: any) => {
@@ -214,9 +211,9 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         }).filter(c => c.name);
 
         
-        return { success: true, data: mappedData, debug: { curl: curlCommand, response: jsonResponse } };
+        return { success: true, data: mappedData, debug: { ...debugInfo, response: jsonResponse } };
     } catch (e: any) {
-        return { success: false, error: `Error en la API de 'countries': ${e.message}`, debug: { curl: curlCommand } };
+        return { success: false, error: `Error en la API de 'countries': ${e.message}`, debug: debugInfo };
     }
 }
 

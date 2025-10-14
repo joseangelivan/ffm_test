@@ -402,30 +402,29 @@ function CondoFormWrapper({
 
   const handleLocationChange = useCallback((field: 'region' | 'country' | 'state' | 'city', value: string) => {
     startLocationTransition(async () => {
-      let result: { success: boolean; data?: AddressData; message?: string; debug?: any };
-      let newSelection = { ...locationSelection, [field]: value };
-      
-      const regionCode = field === 'region' ? availableData.regionCodeMap?.[value] : undefined;
+        let newSelection = { ...locationSelection, [field]: value };
+        if (field === 'region') newSelection = { ...newSelection, country: '', state: '', city: '' };
+        if (field === 'country') newSelection = { ...newSelection, state: '', city: '' };
+        if (field === 'state') newSelection = { ...newSelection, city: '' };
+        setLocationSelection(newSelection);
 
-      // Reset subsequent fields
-      if (field === 'region') newSelection = { ...newSelection, country: '', state: '', city: '' };
-      if (field === 'country') newSelection = { ...newSelection, state: '', city: '' };
-      if (field === 'state') newSelection = { ...newSelection, city: '' };
-      setLocationSelection(newSelection);
-
-      let params: any = {};
-      if (field === 'region') params = { region: value, region_code: regionCode };
-      if (field === 'country') params = { country: value };
-      if (field === 'state') params = { country: newSelection.country, state: value };
-      
-      try {
-        result = await fetchAddressData(params);
+        let params: any = {};
+        if (field === 'region') {
+            const regionCode = availableData.regionCodeMap?.[value];
+            params = { region: value, region_code: regionCode };
+        } else if (field === 'country') {
+            params = { country: value };
+        } else if (field === 'state') {
+            params = { country: newSelection.country, state: value };
+        }
+        
+        const result = await fetchAddressData(params);
         
         if (result?.debug?.curl) {
             const toastTitle = result.success ? 'DEBUG: Países Obtenidos' : 'DEBUG: Error al Obtener Países';
             toast({
               title: toastTitle,
-              description: result.debug.curl,
+              description: `Region Code: ${result.debug.region_code}\n${result.debug.curl}`,
               duration: 20000,
               copyable: true,
               variant: result.success ? 'default' : 'destructive',
@@ -433,18 +432,15 @@ function CondoFormWrapper({
         }
         
         if (result.success && result.data) {
-          if (field === 'region') setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
-          if (field === 'country') setAvailableData(current => ({ ...current, states: result.data?.states || [], cities: [] }));
-          if (field === 'state') setAvailableData(current => ({ ...current, cities: result.data?.cities || [] }));
+            if (field === 'region') setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
+            if (field === 'country') setAvailableData(current => ({ ...current, states: result.data?.states || [], cities: [] }));
+            if (field === 'state') setAvailableData(current => ({ ...current, cities: result.data?.cities || [] }));
         } else if (!result.success) {
-          toast({ title: t('toast.errorTitle'), description: result.message || "An unknown error occurred.", variant: 'destructive', copyable: true });
-          if (field === 'region') setAvailableData(current => ({ ...current, countries: [], states: [], cities: [] }));
-          if (field === 'country') setAvailableData(current => ({ ...current, states: [], cities: [] }));
-          if (field === 'state') setAvailableData(current => ({ ...current, cities: [] }));
+            toast({ title: t('toast.errorTitle'), description: result.message || "An unknown error occurred.", variant: 'destructive', copyable: true });
+            if (field === 'region') setAvailableData(current => ({ ...current, countries: [], states: [], cities: [] }));
+            if (field === 'country') setAvailableData(current => ({ ...current, states: [], cities: [] }));
+            if (field === 'state') setAvailableData(current => ({ ...current, cities: [] }));
         }
-      } catch (error) {
-        toast({ title: t('toast.errorTitle'), description: 'Error de red al obtener datos de dirección.', variant: 'destructive', copyable: true });
-      }
     });
   }, [locationSelection, availableData.regionCodeMap, toast, t]);
   
