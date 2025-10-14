@@ -120,15 +120,23 @@ async function fetchDataFromSource(
             let urlString = requestConfig.url;
             if (params.region_code) urlString = urlString.replace('$region_code', params.region_code);
             if (params.region) urlString = urlString.replace('$region', params.region);
-            if (params.country) urlString = urlString.replace('$country', params.country);
-            if (params.state) urlString = urlString.replace('$state', params.state);
             
             const method = requestConfig.method || 'GET';
             const headers = requestConfig.headers || {};
             const fetchOptions: RequestInit = { method, headers, cache: 'no-store' };
 
             if (method !== 'GET' && method !== 'HEAD' && requestConfig.body) {
-                fetchOptions.body = JSON.stringify(requestConfig.body);
+                const body: { [key: string]: any } = {};
+                for (const key in requestConfig.body) {
+                    const value = requestConfig.body[key];
+                    if (typeof value === 'string' && value.startsWith('$')) {
+                        const paramName = value.substring(1);
+                        body[key] = params[paramName as keyof FetchParams];
+                    } else {
+                        body[key] = value;
+                    }
+                }
+                fetchOptions.body = JSON.stringify(body);
                 if (!headers['Content-Type']) {
                     headers['Content-Type'] = 'application/json';
                 }
@@ -493,5 +501,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
 
 
+
+    
 
     
