@@ -239,7 +239,6 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         const regionsResponseConfig = responseConfig.regions;
         if (regionsResponseConfig) {
             const baseObject = getNestedValue(config, regionsResponseConfig.path || '');
-            
             const regionList = baseObject?.[regionsResponseConfig.name] || baseObject;
             
             let regionCodes: string[] = [];
@@ -361,17 +360,32 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const serviceResultForLog = await client.query('SELECT config_json FROM address_services WHERE id = $1', [id]);
             const configForLog = serviceResultForLog.rows[0]?.config_json;
             const regionsResponseConfigForLog = configForLog?.response?.regions;
+            
             let debugInfo = "No disponible";
+            let baseObjectForDebug: any = null;
+            let regionListForDebug: any = undefined;
+
             if (regionsResponseConfigForLog) {
-                const pathObject = getNestedValue(configForLog, regionsResponseConfigForLog.path || '');
-                debugInfo = JSON.stringify(pathObject, null, 2);
+                baseObjectForDebug = getNestedValue(configForLog, regionsResponseConfigForLog.path || '');
+                debugInfo = JSON.stringify(baseObjectForDebug, null, 2);
+                if(baseObjectForDebug) {
+                     regionListForDebug = baseObjectForDebug[regionsResponseConfigForLog.name] || baseObjectForDebug;
+                }
             }
             
             // 1. Test Regions
             const regionsResult = await fetchAddressData({});
             regionsResultDataForDebug = regionsResult.data || {};
             if (!regionsResult.success || !regionsResult.data?.regions || regionsResult.data.regions.length === 0) {
-                 throw new Error(`Prueba de regiones fallida: ${regionsResult.message}. Objeto de ruta de depuración: ${debugInfo}. Datos completos: ${JSON.stringify(regionsResultDataForDebug)}`);
+                 let failureReason = "";
+                 if (regionListForDebug === undefined) {
+                    failureReason = "La lista de regiones (regionList) es 'undefined'. La clave 'name' no se pudo encontrar en el objeto base.";
+                 } else if (!Array.isArray(regionListForDebug)) {
+                    failureReason = `La lista de regiones (regionList) no es un array. Es de tipo: ${typeof regionListForDebug}.`;
+                 } else if (regionListForDebug.length === 0) {
+                     failureReason = "La lista de regiones (regionList) es un array vacío.";
+                 }
+                 throw new Error(`Prueba de regiones fallida: ${regionsResult.message}. ${failureReason}. Objeto de ruta de depuración: ${debugInfo}. Datos completos: ${JSON.stringify(regionsResultDataForDebug)}`);
             }
             console.log(`Regions test passed. Found ${regionsResult.data.regions.length} regions.`);
 
@@ -434,5 +448,4 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (client) client.release();
     }
 }
-
     
