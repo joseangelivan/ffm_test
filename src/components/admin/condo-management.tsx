@@ -413,8 +413,8 @@ function CondoFormWrapper({
                 if(result.success && result.data?.countries) {
                      const countryNames = result.data.countries.map(c => c.name) || [];
                      toast({
-                      title: 'DEBUG: Países Obtenidos',
-                      description: JSON.stringify(countryNames),
+                      title: 'DEBUG: Nombres de Países Obtenidos',
+                      description: JSON.stringify(countryNames, null, 2),
                       duration: 15000,
                       copyable: true,
                      });

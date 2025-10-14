@@ -150,7 +150,14 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
 
     if (requestConfig.url) {
         try {
-            let urlString = requestConfig.url.replace('$region_code', params.region_code || '').replace('$region', params.region || '');
+            let urlString = requestConfig.url;
+            if (params.region_code) {
+                urlString = urlString.replace('$region_code', params.region_code);
+            }
+            if (params.region) {
+                urlString = urlString.replace('$region', params.region);
+            }
+            
             const response = await fetch(urlString, { cache: 'no-store' });
             if (!response.ok) throw new Error(`El servidor respondió con el estado ${response.status}`);
             const jsonResponse = await response.json();
@@ -164,10 +171,12 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
                 };
 
                 // Only add flag if the config path is not an empty array and is a non-empty string
-                if (responseConfig.flag && Array.isArray(responseConfig.flag) && responseConfig.flag.length > 0) {
-                     countryData.flag = getNestedValue(item, responseConfig.flag.join('.'));
-                } else if (responseConfig.flag && typeof responseConfig.flag === 'string') {
-                     countryData.flag = getNestedValue(item, responseConfig.flag);
+                const flagConfig = responseConfig.flag;
+                if (flagConfig && (!Array.isArray(flagConfig) || flagConfig.length > 0)) {
+                    const flagPath = Array.isArray(flagConfig) ? flagConfig.join('.') : flagConfig;
+                    if(flagPath) {
+                        countryData.flag = getNestedValue(item, flagPath);
+                    }
                 }
 
                 return countryData;
