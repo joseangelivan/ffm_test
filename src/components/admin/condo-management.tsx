@@ -369,6 +369,8 @@ function CondoFormWrapper({
       latitude: initialData.latitude,
       longitude: initialData.longitude
   });
+
+  const [lastChangedField, setLastChangedField] = useState<string | null>(null);
   
   const [availableData, setAvailableData] = useState<LocationData>({
       regions: [],
@@ -399,49 +401,12 @@ function CondoFormWrapper({
   const [state, dispatchFormAction, isFormPending] = useActionState(handleAction, undefined);
 
   const handleLocationChange = (field: 'region' | 'country' | 'state' | 'city', value: string) => {
-    startLocationTransition(async () => {
-        let newSelection = { ...locationSelection, [field]: value };
-        if (field === 'region') newSelection = { ...newSelection, country: '', state: '', city: '' };
-        if (field === 'country') newSelection = { ...newSelection, state: '', city: '' };
-        if (field === 'state') newSelection = { ...newSelection, city: '' };
-        setLocationSelection(newSelection);
-
-        let params: any = {};
-        if (field === 'region') {
-            const regionCode = availableData.regionCodeMap?.[value];
-            params = { region: value, region_code: regionCode };
-        } else if (field === 'country') {
-            params = { country: value };
-        } else if (field === 'state') {
-            params = { country: newSelection.country, state: value };
-        }
-        
-        const result = await fetchAddressData(params);
-        
-        if (result?.success && result.data) {
-            if (field === 'region' && result.data.countries) setAvailableData(current => ({ ...current, countries: result.data.countries || [], states: [], cities: [] }));
-            if (field === 'country' && result.data.states) setAvailableData(current => ({ ...current, states: result.data.states || [], cities: [] }));
-            if (field === 'state' && result.data.cities) setAvailableData(current => ({ ...current, cities: result.data.cities || [] }));
-        } else if (result && !result.success) {
-            let fullDebugMessage = result.message || "An unknown error occurred.";
-            if(result.debug) {
-                const debugRegion = result.debug.region_received;
-                const debugRegionCode = result.debug.region_code_received;
-                const debugCurl = result.debug.curl;
-                fullDebugMessage += `\n\nRegion: ${debugRegion}\nRegion Code: ${debugRegionCode}\nCurl: ${debugCurl}`;
-            }
-            toast({ 
-                title: t('toast.errorTitle'), 
-                description: fullDebugMessage, 
-                variant: 'destructive', 
-                copyable: true,
-                duration: 20000
-            });
-            if (field === 'region') setAvailableData(current => ({ ...current, countries: [], states: [], cities: [] }));
-            if (field === 'country') setAvailableData(current => ({ ...current, states: [], cities: [] }));
-            if (field === 'state') setAvailableData(current => ({ ...current, cities: [] }));
-        }
-    });
+      let newSelection = { ...locationSelection, [field]: value };
+      if (field === 'region') newSelection = { ...newSelection, country: '', state: '', city: '' };
+      if (field === 'country') newSelection = { ...newSelection, state: '', city: '' };
+      if (field === 'state') newSelection = { ...newSelection, city: '' };
+      setLocationSelection(newSelection);
+      setLastChangedField(field);
   };
   
   const handleStreetChange = (value: string) => {
@@ -484,43 +449,87 @@ function CondoFormWrapper({
       setIsVerificationDialogOpen(false);
   }
 
-  useEffect(() => {
-    startLocationTransition(async () => {
-      try {
-        const result = await fetchAddressData({});
-        if (result.success && result.data) {
-            
-            const initialAvailableData: LocationData = {
-                regions: result.data.regions || [],
-                countries: [],
-                states: [],
-                cities: [],
-                regionCodeMap: result.data.regionCodeMap || {}
-            };
+    // Effect for fetching initial data
+    useEffect(() => {
+        startLocationTransition(async () => {
+            try {
+                const result = await fetchAddressData({});
+                if (result.success && result.data) {
+                    const initialAvailable: LocationData = {
+                        regions: result.data.regions || [],
+                        countries: [], states: [], cities: [],
+                        regionCodeMap: result.data.regionCodeMap || {}
+                    };
 
-            if (isEditMode && initialData.region) {
-                const regionCode = result.data.regionCodeMap?.[initialData.region];
-                const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionCode });
-                initialAvailableData.countries = countriesResult.data?.countries || [];
+                    if (isEditMode && initialData.region) {
+                        const regionCode = result.data.regionCodeMap?.[initialData.region];
+                        const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionCode });
+                        initialAvailable.countries = countriesResult.data?.countries || [];
 
-                if(initialData.country) {
-                    const statesResult = await fetchAddressData({ country: initialData.country });
-                    initialAvailableData.states = statesResult.data?.states || [];
+                        if(initialData.country) {
+                            const statesResult = await fetchAddressData({ country: initialData.country });
+                            initialAvailable.states = statesResult.data?.states || [];
+                        }
+                        if(initialData.country && initialData.state) {
+                            const citiesResult = await fetchAddressData({ country: initialData.country, state: initialData.state });
+                            initialAvailable.cities = citiesResult.data?.cities || [];
+                        }
+                    }
+                    setAvailableData(initialAvailable);
+                } else {
+                    throw new Error(result.message || "Failed to fetch initial address data.");
                 }
-                if(initialData.country && initialData.state) {
-                    const citiesResult = await fetchAddressData({ country: initialData.country, state: initialData.state });
-                    initialAvailableData.cities = citiesResult.data?.cities || [];
-                }
+            } catch (error: any) {
+                toast({ title: t('toast.errorTitle'), description: error.message, variant: 'destructive', copyable: true });
             }
-            setAvailableData(initialAvailableData);
-        } else {
-            throw new Error(result.message || "Failed to fetch initial address data.");
-        }
-      } catch (error: any) {
-         toast({ title: t('toast.errorTitle'), description: error.message || "No se pudieron cargar los datos de ubicación inicial.", variant: 'destructive', copyable: true });
-      }
-    });
-  }, [isEditMode, initialData.region, initialData.country, initialData.state, toast, t]);
+        });
+    }, [isEditMode, initialData.region, initialData.country, initialData.state, toast, t]);
+
+    // Effect for fetching dependent data when location selection changes
+    useEffect(() => {
+        if (!lastChangedField) return;
+
+        const fetchDataForField = async () => {
+            let params: any = {};
+            let fieldToUpdate: 'countries' | 'states' | 'cities' | null = null;
+            
+            if (lastChangedField === 'region') {
+                const regionCode = availableData.regionCodeMap?.[locationSelection.region!];
+                if (!regionCode) return;
+                params = { region: locationSelection.region, region_code: regionCode };
+                fieldToUpdate = 'countries';
+            } else if (lastChangedField === 'country') {
+                if (!locationSelection.country) return;
+                params = { country: locationSelection.country };
+                fieldToUpdate = 'states';
+            } else if (lastChangedField === 'state') {
+                if (!locationSelection.country || !locationSelection.state) return;
+                params = { country: locationSelection.country, state: locationSelection.state };
+                fieldToUpdate = 'cities';
+            }
+
+            if (!fieldToUpdate) return;
+            
+            startLocationTransition(async () => {
+                const result = await fetchAddressData(params);
+                if (result?.success && result.data) {
+                    if (fieldToUpdate === 'countries') setAvailableData(current => ({ ...current, countries: result.data!.countries || [], states: [], cities: [] }));
+                    if (fieldToUpdate === 'states') setAvailableData(current => ({ ...current, states: result.data!.states || [], cities: [] }));
+                    if (fieldToUpdate === 'cities') setAvailableData(current => ({ ...current, cities: result.data!.cities || [] }));
+                } else if(result && !result.success) {
+                    let fullDebugMessage = `Error: ${result.message || "An unknown error occurred."}`;
+                    if(result.debug) {
+                        fullDebugMessage += `\n\nDEBUG INFO:\nRegion: ${result.debug.region_received}\nRegion Code: ${result.debug.region_code_received}\nCurl: ${result.debug.curl}`;
+                    }
+                    toast({ title: t('toast.errorTitle'), description: fullDebugMessage, variant: 'destructive', copyable: true, duration: 20000 });
+                }
+            });
+        };
+
+        fetchDataForField();
+        setLastChangedField(null); // Reset after fetching
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [locationSelection]);
   
   const isFormDisabled = isFormPending || isLocationLoading;
 
