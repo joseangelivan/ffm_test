@@ -419,34 +419,34 @@ function CondoFormWrapper({
       if (field === 'country') params = { country: value };
       if (field === 'state') params = { country: newSelection.country, state: value };
       
-      result = await fetchAddressData(params);
-
-      // ALWAYS show debug toast if it exists
-      if (result?.debug) {
-        const debugInfo = JSON.stringify(result.debug, null, 2);
-        const toastTitle = result.success ? 'DEBUG: Países Obtenidos' : 'DEBUG: Error al Obtener Países';
-        toast({
-          title: toastTitle,
-          description: debugInfo,
-          duration: 20000,
-          copyable: true,
-          variant: result.success ? 'default' : 'destructive',
-        });
-      }
-
-      // Handle success
-      if (result.success && result.data) {
-        if (field === 'region') setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
-        if (field === 'country') setAvailableData(current => ({ ...current, states: result.data?.states || [], cities: [] }));
-        if (field === 'state') setAvailableData(current => ({ ...current, cities: result.data?.cities || [] }));
-      } 
-      // Handle failure
-      else if (!result.success) {
-        toast({ title: t('toast.errorTitle'), description: result.message || "An unknown error occurred.", variant: 'destructive', copyable: true });
-        // Reset lists on failure
-        if (field === 'region') setAvailableData(current => ({ ...current, countries: [], states: [], cities: [] }));
-        if (field === 'country') setAvailableData(current => ({ ...current, states: [], cities: [] }));
-        if (field === 'state') setAvailableData(current => ({ ...current, cities: [] }));
+      try {
+        result = await fetchAddressData(params);
+        
+        // ALWAYS show debug toast if it exists
+        if (result?.debug?.curl) {
+            const debugInfo = result.debug.curl;
+            const toastTitle = result.success ? 'DEBUG: Países Obtenidos' : 'DEBUG: Error al Obtener Países';
+            toast({
+              title: toastTitle,
+              description: debugInfo,
+              duration: 20000,
+              copyable: true,
+              variant: result.success ? 'default' : 'destructive',
+            });
+        }
+        
+        if (result.success && result.data) {
+          if (field === 'region') setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
+          if (field === 'country') setAvailableData(current => ({ ...current, states: result.data?.states || [], cities: [] }));
+          if (field === 'state') setAvailableData(current => ({ ...current, cities: result.data?.cities || [] }));
+        } else if (!result.success) {
+          toast({ title: t('toast.errorTitle'), description: result.message || "An unknown error occurred.", variant: 'destructive', copyable: true });
+          if (field === 'region') setAvailableData(current => ({ ...current, countries: [], states: [], cities: [] }));
+          if (field === 'country') setAvailableData(current => ({ ...current, states: [], cities: [] }));
+          if (field === 'state') setAvailableData(current => ({ ...current, cities: [] }));
+        }
+      } catch (error) {
+        toast({ title: t('toast.errorTitle'), description: 'Error de red al obtener datos de dirección.', variant: 'destructive', copyable: true });
       }
     });
   }, [locationSelection, availableData.regionCodeMap, toast, t]);
