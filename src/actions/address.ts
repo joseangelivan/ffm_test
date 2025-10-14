@@ -74,6 +74,15 @@ function buildApiUrl(
     env: NodeJS.ProcessEnv
 ): string {
     const { base_url, parameters } = apiConfig;
+    let finalUrlString = base_url;
+    
+    // Replace placeholders in the base_url itself
+    for (const [key, value] of Object.entries(valueMap)) {
+      if (typeof value === 'string') {
+        finalUrlString = finalUrlString.replace(`$${key}`, encodeURIComponent(value));
+      }
+    }
+    
     const urlParams = new URLSearchParams();
 
     for (const [key, paramConfig] of Object.entries(parameters)) {
@@ -105,7 +114,11 @@ function buildApiUrl(
         }
     }
     
-    return `${base_url}?${urlParams.toString()}`;
+    const paramsString = urlParams.toString();
+    if (paramsString) {
+        return `${finalUrlString}?${paramsString}`;
+    }
+    return finalUrlString;
 }
 
 type FetchParams = {
@@ -166,8 +179,8 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         'curl': '',
     };
     
-    if (!params.region_code) {
-        return { success: false, error: `Error interno: 'region_code' es indefinido.`, debug: baseDebugInfo };
+    if (countriesConfig?.url && !params.region_code && countriesConfig.url.includes('$region_code')) {
+        return { success: false, error: `Error interno: 'region_code' es indefinido.`, debug: { ...baseDebugInfo, ...params } };
     }
 
     if (!countriesConfig || !countriesConfig.url) {
@@ -573,7 +586,12 @@ export async function testAddressService(id: string): Promise<ActionState> {
         }
 
         // --- STEP 2: Test Countries ---
-        const countriesResult = await fetchCountries(tempConfig, { region: testRegion.name, region_code: regionsResult.regionCodeMap[testRegion.name], regionCodeMap: regionsResult.regionCodeMap });
+        const countriesResult = await fetchCountries(tempConfig, { 
+            region: testRegion.name, 
+            region_code: regionsResult.regionCodeMap[testRegion.name], 
+            regionCodeMap: regionsResult.regionCodeMap 
+        });
+
         if (!countriesResult.success || !countriesResult.data || countriesResult.data.length === 0) {
             throw new Error(`Prueba de países fallida para la región '${testRegion.name}': ${countriesResult.error || 'No se obtuvieron datos de países.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(countriesResult, null, 2)}`);
         }
