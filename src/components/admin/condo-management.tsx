@@ -419,9 +419,7 @@ function CondoFormWrapper({
         const result = await fetchAddressData(params);
         
         if (result?.debug) {
-            let debugMessage = `Region Code: ${result.debug.region_code}\n`;
-            debugMessage += `Param Log:\n${result.debug.param_log || ''}\n`;
-            debugMessage += `cURL: ${result.debug.curl || ''}`;
+            let debugMessage = `Region Code: ${result.debug.region_code_received}\nProcessed Params: ${JSON.stringify(result.debug.processed_params)}\n\n${result.debug.curl}`;
             toast({
               title: result.success ? 'DEBUG: Países Obtenidos' : 'DEBUG: Error al Obtener Países',
               description: debugMessage,
@@ -431,7 +429,7 @@ function CondoFormWrapper({
             });
         }
         
-        if (result.success && result.data) {
+        if (result?.data) {
             if (field === 'region') setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
             if (field === 'country') setAvailableData(current => ({ ...current, states: result.data?.states || [], cities: [] }));
             if (field === 'state') setAvailableData(current => ({ ...current, cities: result.data?.cities || [] }));

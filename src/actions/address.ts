@@ -148,44 +148,47 @@ async function fetchRegions(config: any): Promise<{ success: boolean, data?: any
 }
 
 async function fetchCountries(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string, debug?: any }> {
-    const requestConfig = config.request?.api_config;
-    const countriesRequestConfig = requestConfig?.parameters?.countries;
+    const apiConfig = config.request?.api_config;
+    const countriesConfig = apiConfig?.parameters?.countries;
     const responseConfig = config.response?.countries;
-    
-    if (!countriesRequestConfig || !countriesRequestConfig.url) {
-        if (countriesRequestConfig?.value && params.region) {
-            return { success: true, data: countriesRequestConfig.value[params.region]?.countries || [] };
+
+    if (!countriesConfig || !countriesConfig.url) {
+        if (countriesConfig?.value && params.region) {
+            return { success: true, data: countriesConfig.value[params.region]?.countries || [] };
         }
         return { success: true, data: [] };
     }
 
-    const { url, method = 'GET', headers = {} } = countriesRequestConfig;
+    const { url: baseUrl, method = 'GET', headers = {}, parameters = {} } = countriesConfig;
+    const urlParams = new URLSearchParams();
+    const processedParamsLog: string[] = [];
     
-    const urlObject = new URL(url);
-    const searchParams = urlObject.searchParams;
-    const paramProcessingLog: string[] = [];
+    // Iterate over the parameters defined in the config
+    for (const [key, value] of Object.entries(parameters)) {
+        let paramValue: string | undefined = String(value);
 
-    for (const [key, value] of searchParams.entries()) {
-        paramProcessingLog.push(`- Processing param: ${key}=${value}`);
-        if (value.startsWith('$')) {
-            const varName = value.substring(1) as keyof FetchParams;
-             if (params[varName]) {
-                searchParams.set(key, params[varName]!);
-                paramProcessingLog.push(`  - Replaced '$${varName}' with value: "${params[varName]}"`);
+        if (typeof paramValue === 'string' && paramValue.startsWith('$')) {
+            const varName = paramValue.substring(1) as keyof FetchParams;
+            if (params[varName]) {
+                paramValue = params[varName];
             } else {
-                searchParams.delete(key);
-                paramProcessingLog.push(`  - Variable '$${varName}' not found in params, deleting key.`);
+                paramValue = undefined; // Variable not found in passed params, so we skip it
             }
         }
+        
+        if (paramValue !== undefined) {
+            urlParams.append(key, paramValue);
+            processedParamsLog.push(`${key}: ${paramValue}`);
+        }
     }
-    
-    let finalUrlString = urlObject.toString();
-    
+
+    const finalUrlString = `${baseUrl}?${urlParams.toString()}`;
     const curlCommand = `curl -X ${method} '${finalUrlString}'`;
+    
     const debugInfo = { 
-        region_code: params.region_code,
-        param_log: paramProcessingLog.join('\n'),
-        curl: curlCommand,
+        'region_code_received': params.region_code,
+        'processed_params': processedParamsLog,
+        'curl': curlCommand,
     };
 
     try {
