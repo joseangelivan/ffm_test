@@ -251,7 +251,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
 
             if (Array.isArray(regionList)) {
                 data.regions = regionList.map((item: any, index: number) => {
-                    const codeValue = Array.isArray(regionCodes) && regionCodes[index] ? regionCodes[index] : "";
+                    const codeValue = (Array.isArray(regionCodes) && regionCodes[index]) ? regionCodes[index] : "";
                     if (typeof item === 'object' && item !== null) {
                         return { name: item.name || '', code: item.code || codeValue || '' };
                     }
