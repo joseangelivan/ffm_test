@@ -239,34 +239,32 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         
         // --- REGIONS ---
         if (Object.keys(params).length === 0) {
+            const regionsRequestConfig = requestConfig?.parameters?.regions;
             const regionsResponseConfig = responseConfig.regions;
-            if (regionsResponseConfig && regionsResponseConfig.path) {
-                const regionList = getNestedValue(config, regionsResponseConfig.path);
-                
-                // Check if the data is directly embedded or needs fetching
-                if (regionList && typeof regionList === 'object' && 'value' in regionList && 'codes' in regionList) {
-                    const names = regionList.value;
-                    const codes = regionList.codes;
-                    if (Array.isArray(names) && typeof codes === 'object') {
-                        data.regions = names.map(name => ({
-                            name: name,
-                            code: codes[name] || ''
-                        }));
-                        data.regionCodeMap = codes;
-                    }
-                } else if (requestConfig?.parameters?.regions?.url) {
-                    // This block would handle fetching regions from a URL if configured to do so
-                    const url = requestConfig.parameters.regions.url;
-                    const response = await fetch(url);
-                    const regionsJson = await response.json();
-                    const regions = getNestedValue(regionsJson, regionsResponseConfig.path);
-                    if (Array.isArray(regions)) {
-                        data.regions = regions.map((item: any) => ({
-                            name: getNestedValue(item, regionsResponseConfig.name),
-                            code: getNestedValue(item, regionsResponseConfig.code)
-                        }));
-                    }
+
+            if (regionsRequestConfig && !regionsRequestConfig.url) { // Embedded data case
+                const regionNames = regionsRequestConfig.value;
+                const regionCodes = regionsRequestConfig.codes;
+
+                if (Array.isArray(regionNames) && typeof regionCodes === 'object') {
+                    data.regions = regionNames.map(name => ({
+                        name: name,
+                        code: regionCodes[name] || ''
+                    }));
+                    data.regionCodeMap = regionCodes;
                 }
+            } else if (regionsRequestConfig?.url && regionsResponseConfig?.path) { // Fetch from URL case
+                 const url = regionsRequestConfig.url;
+                 const response = await fetch(url);
+                 const regionsJson = await response.json();
+                 const regionList = getNestedValue(regionsJson, regionsResponseConfig.path);
+                 
+                 if (Array.isArray(regionList)) {
+                     data.regions = regionList.map((item: any) => ({
+                         name: getNestedValue(item, regionsResponseConfig.name),
+                         code: getNestedValue(item, regionsResponseConfig.code)
+                     }));
+                 }
             }
         }
 
@@ -366,6 +364,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
             // STEP 1: Test Regions
             const regionsResult = await fetchAddressData({});
             
+            // GARANTIZADO: Siempre incluir la salida de depuración en caso de error.
             if (!regionsResult.success || !regionsResult.data || !Array.isArray(regionsResult.data.regions) || regionsResult.data.regions.length === 0) {
                  const debugOutput = JSON.stringify(regionsResult, null, 2);
                  throw new Error(`Prueba de regiones fallida: data.regions no es un array o está vacío.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
