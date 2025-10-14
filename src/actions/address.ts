@@ -177,9 +177,14 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         return { success: true, data: [] };
     }
     
-    const { url: baseUrl, method = 'GET', headers = {}, parameters = {} } = countriesConfig;
+    const { url, method = 'GET', headers = {}, parameters = {} } = countriesConfig;
     
-    const finalUrl = new URL(baseUrl);
+    let finalUrlString = url;
+    if (params.region_code) {
+        finalUrlString = finalUrlString.replace('$region_code', params.region_code);
+    }
+
+    const finalUrl = new URL(finalUrlString);
     const processedParamsLog: string[] = [];
     
     for (const [key, value] of Object.entries(parameters)) {
@@ -187,11 +192,7 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
 
         if (typeof value === 'string' && value.startsWith('$')) {
             const varName = value.substring(1) as keyof FetchParams;
-            if (varName === 'region_code') {
-                paramValue = params.region_code;
-            } else {
-                paramValue = params[varName];
-            }
+             paramValue = params[varName];
         } else {
             paramValue = String(value);
         }
@@ -201,10 +202,8 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
             processedParamsLog.push(`${key}: ${paramValue}`);
         }
     }
-
-    const finalUrlString = finalUrl.toString();
-    const curlCommand = `curl -X ${method} '${finalUrlString}'`;
     
+    const curlCommand = `curl -X ${method} '${finalUrl.toString()}'`;
     const debugInfo = { 
         ...baseDebugInfo,
         'processed_params': processedParamsLog,
@@ -212,7 +211,7 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
     };
 
     try {
-        const response = await fetch(finalUrlString, { method, headers, cache: 'no-store' });
+        const response = await fetch(finalUrl.toString(), { method, headers, cache: 'no-store' });
         const responseText = await response.text();
         
         let jsonResponse;
