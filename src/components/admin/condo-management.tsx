@@ -418,11 +418,11 @@ function CondoFormWrapper({
         
         const result = await fetchAddressData(params);
         
-        if (result?.data) {
+        if (result?.success && result.data) {
             if (field === 'region' && result.data.countries) setAvailableData(current => ({ ...current, countries: result.data.countries || [], states: [], cities: [] }));
             if (field === 'country' && result.data.states) setAvailableData(current => ({ ...current, states: result.data.states || [], cities: [] }));
             if (field === 'state' && result.data.cities) setAvailableData(current => ({ ...current, cities: result.data.cities || [] }));
-        } else if (!result.success) {
+        } else if (result && !result.success) {
             let fullDebugMessage = result.message || "An unknown error occurred.";
             if(result.debug) {
                 const debugRegion = result.debug.region_received;
