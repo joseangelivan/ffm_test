@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { z } from 'zod';
@@ -239,19 +240,26 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         const regionsResponseConfig = responseConfig.regions;
         if (regionsResponseConfig) {
             const baseRegionsObject = getNestedValue(config, regionsResponseConfig.path || '');
+            
+            // If name key is present, navigate further. Otherwise, the base object is the list.
             const regionList = regionsResponseConfig.name ? getNestedValue(baseRegionsObject, regionsResponseConfig.name) : baseRegionsObject;
+            
+            const regionCodes = (regionsResponseConfig.code && Array.isArray(regionsResponseConfig.code)) 
+                ? [] 
+                : getNestedValue(baseRegionsObject, regionsResponseConfig.code);
 
             if (Array.isArray(regionList)) {
-                data.regions = regionList.map((item: any) => {
-                    // If items are objects (like from Worldbank)
+                data.regions = regionList.map((item: any, index: number) => {
                     if (typeof item === 'object' && item !== null) {
                         return {
-                           name: getNestedValue(item, 'name') || '',
-                           code: getNestedValue(item, 'code') || ''
+                           name: item.name || '',
+                           code: item.code || ''
                         }
                     }
-                    // If items are simple strings (like from Default Provider)
-                    return { name: item, code: item };
+                    return { 
+                        name: item, 
+                        code: Array.isArray(regionCodes) && regionCodes[index] ? regionCodes[index] : item 
+                    };
                 }).filter(r => r.name);
 
                 data.regionCodeMap = data.regions.reduce((acc, curr) => {
@@ -415,5 +423,3 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (client) client.release();
     }
 }
-
-    
