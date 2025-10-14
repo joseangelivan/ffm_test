@@ -412,6 +412,25 @@ function CondoFormWrapper({
                 setLocationSelection(newSelection);
                 result = await fetchAddressData({ region: value, region_code: regionCode });
 
+                 if (result?.debug) {
+                    const debugInfo = JSON.stringify(result.debug, null, 2);
+                    const toastTitle = result.success ? 'DEBUG: Países Obtenidos' : 'DEBUG: Error al Obtener Países';
+                    toast({
+                      title: toastTitle,
+                      description: debugInfo,
+                      duration: 20000,
+                      copyable: true,
+                      variant: result.success ? 'default' : 'destructive',
+                    });
+                 }
+                
+                if (result?.success) {
+                     setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
+                } else {
+                    setAvailableData(current => ({ ...current, countries: [], states: [], cities: [] }));
+                    throw new Error(result.message);
+                }
+
             } else if (field === 'country') {
                 newSelection = { ...newSelection, state: '', city: '' };
                 setLocationSelection(newSelection);
@@ -432,27 +451,6 @@ function CondoFormWrapper({
                 }
             } else if (field === 'city') {
                 setLocationSelection(newSelection);
-            }
-
-            if (field === 'region' && result) {
-                const debugInfo = result.debug ? JSON.stringify(result.debug, null, 2) : "No debug info";
-                const toastTitle = result.success ? 'Países Obtenidos' : 'Error al Obtener Países';
-                const countryNames = result.data?.countries?.map(c => c.name) || [];
-
-                toast({
-                  title: 'DEBUG: ' + toastTitle,
-                  description: debugInfo,
-                  duration: 20000,
-                  copyable: true,
-                  variant: result.success ? 'default' : 'destructive',
-                });
-                
-                if (result.success) {
-                     setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
-                } else {
-                    setAvailableData(current => ({ ...current, countries: [], states: [], cities: [] }));
-                    throw new Error(result.message);
-                }
             }
 
         } catch (error: any) {
@@ -801,3 +799,5 @@ export function CondoManagement() {
         </div>
     );
 }
+
+    
