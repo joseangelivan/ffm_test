@@ -41,14 +41,17 @@ const ServiceSchema = z.object({
 });
 
 function getNestedValue(obj: any, path: string | undefined): any {
-    if (typeof path !== 'string' || !path || path === '.') {
+    if (!path || path === '.') {
       return obj;
     }
+    
+    // Handle cases like "[1]"
     const match = path.match(/^\[(\d+)\]$/);
     if (match) {
         const index = parseInt(match[1], 10);
         return Array.isArray(obj) ? obj[index] : undefined;
     }
+
     const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
     let result = obj;
     for (const key of keys) {
@@ -149,8 +152,9 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
     const responseConfig = config.response?.countries;
     if (!requestConfig) return { success: true, data: [] };
 
-    if (requestConfig.url) {
-        let urlString = requestConfig.url;
+    let urlString = requestConfig.url || '';
+    
+    if (urlString) {
         try {
             if (params.region_code) {
                 urlString = urlString.replace('$region_code', params.region_code);
@@ -160,9 +164,17 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
             }
             
             const response = await fetch(urlString, { cache: 'no-store' });
-            if (!response.ok) throw new Error(`El servidor respondió con el estado ${response.status}`);
-            const jsonResponse = await response.json();
+            const responseText = await response.text();
             
+            let jsonResponse;
+            try {
+                jsonResponse = JSON.parse(responseText);
+            } catch (e) {
+                 return { success: false, error: `Error en la API de 'countries': La respuesta no es un JSON válido.`, debug: { url: urlString, response: responseText } };
+            }
+
+            if (!response.ok) throw new Error(`El servidor respondió con el estado ${response.status}`);
+
             const dataList = getNestedValue(jsonResponse, responseConfig.path);
             
             if (!Array.isArray(dataList)) {
@@ -176,6 +188,7 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
                 };
 
                 const flagConfig = responseConfig.flag;
+                // Only process flag if it's not an empty array
                 if (flagConfig && (!Array.isArray(flagConfig) || flagConfig.length > 0)) {
                     const flagPath = Array.isArray(flagConfig) ? flagConfig.join('.') : flagConfig;
                     if(flagPath) {
@@ -190,8 +203,8 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         } catch (e: any) {
             return { success: false, error: `Error en la API de 'countries': ${e.message}`, debug: { url: urlString } };
         }
-    } else if (requestConfig.value) {
-         return { success: true, data: requestConfig.value[params.region!]?.countries || [] };
+    } else if (requestConfig.value && params.region) {
+         return { success: true, data: requestConfig.value[params.region]?.countries || [] };
     }
     return { success: true, data: [] };
 }
