@@ -40,7 +40,7 @@ const ServiceSchema = z.object({
 });
 
 function getNestedValue(obj: any, path: string | string[]): any {
-  if (!path || (Array.isArray(path) && path.length === 0) || path === '') return obj;
+  if (!path || (Array.isArray(path) && path.length === 0) || path === '' || path === '.') return obj;
 
   const keys = Array.isArray(path) ? path : path.replace(/\[(\d+)\]/g, '.$1').split('.');
   let result = obj;
@@ -350,6 +350,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
         }
         
         let testError: Error | null = null;
+        let debugInfo: any = null;
         try {
             // STEP 1: Get config
             const serviceResult = await client.query('SELECT config_json FROM address_services WHERE id = $1', [id]);
@@ -388,7 +389,23 @@ export async function testAddressService(id: string): Promise<ActionState> {
             
             const countriesResult = await fetchAddressData({ region: testRegion, region_code: regionCode });
             if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
-                 throw new Error(`Prueba de países fallida para la región '${testRegion}'. Resultado: ${JSON.stringify(countriesResult, null, 2)}`);
+                 const countriesConfig = config.response.countries;
+                 if (countriesConfig?.path === '.') {
+                    let urlString = config.request.api_config.parameters.countries.url;
+                    if (regionCode) urlString = urlString.replace('$region_code', regionCode);
+                    if (testRegion) urlString = urlString.replace('$region', testRegion);
+                    const response = await fetch(urlString);
+                    const responseData = await response.json();
+                    if(Array.isArray(responseData)) {
+                        debugInfo = { firstElement: responseData[0] };
+                    }
+                 }
+
+                 let errorMsg = `Prueba de países fallida para la región '${testRegion}'. Resultado: ${JSON.stringify(countriesResult, null, 2)}`;
+                 if(debugInfo) {
+                    errorMsg += `\nPrimer elemento de la respuesta de países: ${JSON.stringify(debugInfo.firstElement, null, 2)}`;
+                 }
+                 throw new Error(errorMsg);
             }
             console.log("Countries test passed.");
             
@@ -424,6 +441,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
     
+
 
 
 
