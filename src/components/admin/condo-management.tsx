@@ -402,24 +402,33 @@ function CondoFormWrapper({
 
   const handleLocationChange = useCallback((field: 'region' | 'country' | 'state' | 'city', value: string) => {
     startLocationTransition(async () => {
-        let result: { success: boolean; data?: AddressData; message?: string; };
+        let result: { success: boolean; data?: AddressData; message?: string; debug?: any };
 
         try {
             if (field === 'region') {
-                setLocationSelection(current => ({ ...current, region: value, country: '', state: '', city: '' }));
                 const regionCode = availableData.regionCodeMap?.[value];
                 result = await fetchAddressData({ region: value, region_code: regionCode });
                 
-                if(result.success && result.data?.countries) {
-                     const countryNames = result.data.countries.map(c => c.name) || [];
+                const debugInfo = {
+                    requestUrl: result.debug?.url,
+                    responseBody: result.debug?.response
+                };
+                
+                if(result.success) {
+                     const countryNames = result.data?.countries?.map(c => c.name) || [];
                      toast({
-                      title: 'DEBUG: Nombres de Países Obtenidos',
-                      description: JSON.stringify(countryNames, null, 2),
+                      title: 'DEBUG: Países Obtenidos',
+                      description: JSON.stringify({
+                        paises: countryNames,
+                        debug: debugInfo
+                      }, null, 2),
                       duration: 15000,
                       copyable: true,
                      });
-                     setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
-                } else if (!result.success) {
+                     // Stop flow for debugging
+                     // setLocationSelection(current => ({ ...current, region: value, country: '', state: '', city: '' }));
+                     // setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
+                } else {
                     throw new Error(result.message);
                 }
 

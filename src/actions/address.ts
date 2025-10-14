@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { z } from 'zod';
@@ -143,14 +144,14 @@ async function fetchRegions(config: any): Promise<{ success: boolean, data?: any
     return { success: true, data: [] };
 }
 
-async function fetchCountries(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string }> {
+async function fetchCountries(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string, debug?: any }> {
     const requestConfig = config.request?.api_config?.parameters?.countries;
     const responseConfig = config.response?.countries;
     if (!requestConfig) return { success: true, data: [] };
 
     if (requestConfig.url) {
+        let urlString = requestConfig.url;
         try {
-            let urlString = requestConfig.url;
             if (params.region_code) {
                 urlString = urlString.replace('$region_code', params.region_code);
             }
@@ -164,13 +165,16 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
             
             const dataList = getNestedValue(jsonResponse, responseConfig.path);
             
+            if (!Array.isArray(dataList)) {
+                throw new Error(`La respuesta de la API no contenía un array en la ruta '${responseConfig.path}'.`);
+            }
+
             const mappedData = dataList.map((item: any) => {
                 const countryData: AddressDataItem = {
                     name: getNestedValue(item, responseConfig.name),
                     cca2: getNestedValue(item, responseConfig.cca2)
                 };
 
-                // Only add flag if the config path is not an empty array and is a non-empty string
                 const flagConfig = responseConfig.flag;
                 if (flagConfig && (!Array.isArray(flagConfig) || flagConfig.length > 0)) {
                     const flagPath = Array.isArray(flagConfig) ? flagConfig.join('.') : flagConfig;
@@ -182,9 +186,9 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
                 return countryData;
             });
             
-            return { success: true, data: mappedData };
+            return { success: true, data: mappedData, debug: { url: urlString, response: jsonResponse } };
         } catch (e: any) {
-            return { success: false, error: `Error en la API de 'countries': ${e.message}` };
+            return { success: false, error: `Error en la API de 'countries': ${e.message}`, debug: { url: urlString } };
         }
     } else if (requestConfig.value) {
          return { success: true, data: requestConfig.value[params.region!]?.countries || [] };
@@ -422,7 +426,7 @@ export async function setAddressServiceAsDefault(id: string): Promise<ActionStat
 
 // --- Data Fetching Action ---
 
-export async function fetchAddressData(params: FetchParams): Promise<ActionState<AddressData>> {
+export async function fetchAddressData(params: FetchParams): Promise<ActionState<AddressData> & { debug?: any }> {
     let client;
     let config: any;
 
@@ -446,7 +450,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
     }
     
     let data: AddressData = {};
-    let result: { success: boolean, data?: any, error?: string, regionCodeMap?: any };
+    let result: { success: boolean, data?: any, error?: string, regionCodeMap?: any, debug?: any };
     
     if (Object.keys(params).length === 0) {
         result = await fetchRegions(config);
@@ -455,8 +459,9 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         data.regionCodeMap = result.regionCodeMap;
     } else if (params.region || params.region_code) {
         result = await fetchCountries(config, params);
-        if (!result.success) return { success: false, message: result.error! };
-        data.countries = result.data.filter((c:any) => c.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
+        if (!result.success) return { success: false, message: result.error!, debug: result.debug };
+        data.countries = result.data?.filter((c:any) => c.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
+        return { success: true, message: 'Datos de dirección obtenidos.', data, debug: result.debug };
     } else if (params.country && !params.state) {
         result = await fetchStates(config, params);
         if (!result.success) return { success: false, message: result.error! };
