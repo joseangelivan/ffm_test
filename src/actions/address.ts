@@ -174,7 +174,12 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
             }
         }
     }
-    const finalUrlString = urlObject.toString();
+    // This is a workaround for cases where the variable is part of the path, not a query param.
+    // The robust solution is to use a proper URL template library.
+    let finalUrlString = urlObject.toString();
+    if (params.region_code) {
+        finalUrlString = finalUrlString.replace('$region_code', params.region_code);
+    }
     
     const curlCommand = `curl -X ${method} '${finalUrlString}'`;
     const debugInfo = { curl: curlCommand, region_code: params.region_code };

@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
@@ -420,11 +418,12 @@ function CondoFormWrapper({
         
         const result = await fetchAddressData(params);
         
-        if (result?.debug?.curl) {
+        if (result?.debug) {
             const toastTitle = result.success ? 'DEBUG: Países Obtenidos' : 'DEBUG: Error al Obtener Países';
+            const curlMessage = `Region Code: ${result.debug.region_code || 'undefined'}\n${result.debug.curl || ''}`;
             toast({
               title: toastTitle,
-              description: `Region Code: ${result.debug.region_code}\n${result.debug.curl}`,
+              description: curlMessage,
               duration: 20000,
               copyable: true,
               variant: result.success ? 'default' : 'destructive',
