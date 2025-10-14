@@ -478,9 +478,9 @@ export async function testAddressService(id: string): Promise<ActionState> {
              throw new Error(`Prueba de regiones fallida: ${regionsResult.error || 'data.regions no es un array o está vacío.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(regionsResult, null, 2)}`);
         }
         
-        const testRegion = regionsResult.data.find(r => r.name.toLowerCase().includes('america')) || regionsResult.data[0];
+        const testRegion = regionsResult.data.find(r => r.name.toLowerCase().includes('america') || r.name.toLowerCase().includes('latam')) || regionsResult.data[0];
         if (!testRegion) {
-             throw new Error('No se encontró una región adecuada para la prueba (se buscó "america").');
+             throw new Error('No se encontró una región adecuada para la prueba (se buscó "america" o "latam").');
         }
 
         // --- STEP 2: Test Countries ---
