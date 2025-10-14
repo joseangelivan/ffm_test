@@ -39,10 +39,10 @@ const ServiceSchema = z.object({
     }, { message: "La configuración debe ser un JSON válido."}),
 });
 
-function getNestedValue(obj: any, path: string): any {
-  if (!path || typeof path !== 'string' || path === '.' || path === '') return obj;
+function getNestedValue(obj: any, path: string | string[]): any {
+  if (!path || (Array.isArray(path) && path.length === 0) || path === '') return obj;
 
-  const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
+  const keys = Array.isArray(path) ? path : path.replace(/\[(\d+)\]/g, '.$1').split('.');
   let result = obj;
   for (const key of keys) {
     if (result === null || result === undefined) {
@@ -237,15 +237,22 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         
         // --- REGIONS ---
         const regionsResponseConfig = responseConfig.regions;
-        if (regionsResponseConfig?.path) {
-            // Path can point to request config for hardcoded values
-            const regionList = getNestedValue(config, regionsResponseConfig.path);
-            
+        if (regionsResponseConfig) {
+            const baseRegionsObject = getNestedValue(config, regionsResponseConfig.path || '');
+            const regionList = regionsResponseConfig.name ? getNestedValue(baseRegionsObject, regionsResponseConfig.name) : baseRegionsObject;
+
             if (Array.isArray(regionList)) {
-                data.regions = regionList.map((item: any) => ({
-                    name: regionsResponseConfig.name ? getNestedValue(item, regionsResponseConfig.name) : item,
-                    code: regionsResponseConfig.code ? getNestedValue(item, regionsResponseConfig.code) || '' : item
-                })).filter(r => r.name);
+                data.regions = regionList.map((item: any) => {
+                    // If items are objects (like from Worldbank)
+                    if (typeof item === 'object' && item !== null) {
+                        return {
+                           name: getNestedValue(item, 'name') || '',
+                           code: getNestedValue(item, 'code') || ''
+                        }
+                    }
+                    // If items are simple strings (like from Default Provider)
+                    return { name: item, code: item };
+                }).filter(r => r.name);
 
                 data.regionCodeMap = data.regions.reduce((acc, curr) => {
                     if (curr.name) acc[curr.name] = curr.code || curr.name;
@@ -332,14 +339,16 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (!pool) return { success: false, message: "Error del servidor." };
         client = await pool.connect();
         
+        await client.query('BEGIN');
+
         // Temporarily set the service as default for the test
         const originalDefaultResult = await client.query('SELECT id FROM address_services WHERE is_default = TRUE');
         const originalDefaultId = originalDefaultResult.rows[0]?.id;
 
-        await client.query('BEGIN');
         await client.query('UPDATE address_services SET is_default = FALSE');
         await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [id]);
-
+        
+        let testError: Error | null = null;
         try {
             // 1. Test Regions
             console.log("Testing Regions...");
@@ -347,7 +356,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
             if (!regionsResult.success || !regionsResult.data?.regions || regionsResult.data.regions.length === 0) {
                 throw new Error(`Prueba de regiones fallida: ${regionsResult.message}. Data: ${JSON.stringify(regionsResult.data)}`);
             }
-            console.log("Regions test passed. Found:", regionsResult.data.regions.map(r => r.name).join(', '));
+            console.log(`Regions test passed. Found ${regionsResult.data.regions.length} regions.`);
 
             // 2. Test Countries
             console.log("Testing Countries...");
@@ -379,51 +388,32 @@ export async function testAddressService(id: string): Promise<ActionState> {
                 }
             }
 
-            return { success: true, message: "¡Prueba exitosa! El flujo de obtención de datos de dirección funciona correctamente." };
-
-        } catch (testError: any) {
-            // This will be caught by the outer catch, which handles rollback
-            throw testError; 
-        } finally {
-             // This block will run after the try/catch inside it, but before the outer catch.
-             // We commit here because we want to restore the original default regardless of test outcome.
-            await client.query('COMMIT');
+        } catch (err: any) {
+            testError = err;
         }
 
+        // Restore original default state regardless of test outcome
+        await client.query('UPDATE address_services SET is_default = FALSE');
+        if (originalDefaultId) {
+            await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
+        }
+        await client.query('COMMIT');
+        
+        if(testError) {
+             throw testError;
+        }
+
+        return { success: true, message: "¡Prueba exitosa! El flujo de obtención de datos de dirección funciona correctamente." };
+
     } catch (error: any) {
-        // This will catch the re-thrown testError.
-        // We only rollback if the main transaction has not been committed.
         if (client) {
-            try {
-               await client.query('ROLLBACK');
-            } catch (e) {
-                // Ignore rollback errors if transaction was already committed
-            }
+            try { await client.query('ROLLBACK'); } catch (e) { /* ignore */ }
         }
         console.error("Error during address service test:", error);
         return { success: false, message: `Error durante la prueba: ${error.message}` };
     } finally {
-        if (client) {
-            // Restore original default state if it exists.
-            const pool = await getDbPool();
-            const restorationClient = await pool?.connect();
-            if(restorationClient) {
-                try {
-                    const originalDefaultResult = await restorationClient.query('SELECT id FROM address_services WHERE is_default = TRUE');
-                    const originalDefaultId = originalDefaultResult.rows[0]?.id;
-                    await restorationClient.query('BEGIN');
-                    await restorationClient.query('UPDATE address_services SET is_default = FALSE');
-                    if(originalDefaultId) {
-                        await restorationClient.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
-                    }
-                    await restorationClient.query('COMMIT');
-                } catch(e) {
-                    await restorationClient.query('ROLLBACK');
-                } finally {
-                    restorationClient.release();
-                }
-            }
-            client.release();
-        }
+        if (client) client.release();
     }
 }
+
+    
