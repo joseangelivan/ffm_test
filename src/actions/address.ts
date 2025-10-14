@@ -246,24 +246,26 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
              if (regionsResponseConfig && regionsResponseConfig.path && regionsResponseConfig.name) {
                 const baseObject = getNestedValue(config, regionsResponseConfig.path);
                 
-                if (baseObject && typeof baseObject === 'object') {
-                    const nameKey = regionsResponseConfig.name;
-                    const codeKey = regionsResponseConfig.code;
+                if (baseObject) {
+                    const nameKey = regionsResponseConfig.name.split('.').pop(); // Get the final key, e.g. "value"
+                    const codeKey = regionsResponseConfig.code.split('.').pop();
 
-                    const regionList = baseObject[nameKey];
-                    const regionCodes = codeKey ? baseObject[codeKey] : [];
+                    if (nameKey && baseObject[nameKey]) {
+                        const regionList = baseObject[nameKey];
+                        const regionCodes = codeKey ? baseObject[codeKey] : [];
 
-                    if (Array.isArray(regionList)) {
-                         data.regions = regionList.map((item: any, index: number) => ({
-                            name: typeof item === 'object' ? item.name : item,
-                            code: regionCodes[index] || ''
-                        })).filter(r => r.name);
+                        if (Array.isArray(regionList)) {
+                             data.regions = regionList.map((item: any, index: number) => ({
+                                name: typeof item === 'object' ? item.name : item,
+                                code: regionCodes[index] || ''
+                            })).filter(r => r.name);
 
-                        if (data.regions.length > 0) {
-                            data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                                if (curr.name && curr.code) acc[curr.name] = curr.code;
-                                return acc;
-                            }, {} as Record<string, string>);
+                            if (data.regions.length > 0) {
+                                data.regionCodeMap = data.regions.reduce((acc, curr) => {
+                                    if (curr.name && curr.code) acc[curr.name] = curr.code;
+                                    return acc;
+                                }, {} as Record<string, string>);
+                            }
                         }
                     }
                 }
@@ -374,20 +376,8 @@ export async function testAddressService(id: string): Promise<ActionState> {
             
             console.log("DEBUG: Resultado de la prueba de regiones:", JSON.stringify(regionsResult, null, 2));
 
-            if (!regionsResult.success) {
-                throw new Error(`Prueba de regiones fallida (fetchAddressData falló): ${regionsResult.message}.`);
-            }
-            if (!regionsResult.data) {
-                throw new Error(`Prueba de regiones fallida: fetchAddressData tuvo éxito pero no devolvió un objeto 'data'.`);
-            }
-            if (!regionsResult.data.regions) {
-                 throw new Error(`Prueba de regiones fallida: fetchAddressData tuvo éxito pero no devolvió datos en data.regions.`);
-            }
-            if (!Array.isArray(regionsResult.data.regions)) {
-                throw new Error(`Prueba de regiones fallida: se esperaba un array en data.regions, pero se obtuvo un ${typeof regionsResult.data.regions}.`);
-            }
-             if (regionsResult.data.regions.length === 0) {
-                 throw new Error(`Prueba de regiones fallida: data.regions es un array vacío.`);
+            if (!regionsResult.success || !regionsResult.data?.regions || !Array.isArray(regionsResult.data.regions) || regionsResult.data.regions.length === 0) {
+                throw new Error(`Prueba de regiones fallida: fetchAddressData tuvo éxito pero no devolvió datos en data.regions.`);
             }
             
             const firstRegion = regionsResult.data.regions[0];
@@ -461,3 +451,4 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
     
+
