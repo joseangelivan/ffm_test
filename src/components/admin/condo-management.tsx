@@ -246,7 +246,7 @@ function CondoFormFields({
   isEditMode: boolean,
   initialData: Partial<Condominio>,
   isFormPending: boolean,
-  locationData: Partial<LocationData>;
+  locationData: Partial-LocationData>;
   onLocationChange: (field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => void;
   onStreetChange: (value: string) => void;
   onNumberChange: (value: string) => void;
@@ -388,36 +388,36 @@ function CondoFormWrapper({
     startLocationTransition(async () => {
         try {
             if (field === 'region') {
+                setLocationData(current => ({ ...current, region: value, country: '', state: '', city: '', countries: [], states: [], cities: [] }));
                 const regionCode = locationData.regionCodeMap?.[value];
-                setLocationData(current => ({ ...current, region: value, country: '', state: '', city: '' }));
                 const result = await fetchAddressData({ region: value, region_code: regionCode });
-                if (result.success && result.data?.countries) {
-                    if (result.data.countries.length === 0) {
+                if (result.success) {
+                    if (!result.data?.countries || result.data.countries.length === 0) {
                         toast({ title: "Sin Datos", description: "La región seleccionada no tiene países disponibles.", variant: 'default' });
                     }
-                    setLocationData(current => ({ ...current, countries: result.data.countries, states: [], cities: [] }));
+                    setLocationData(current => ({ ...current, countries: result.data?.countries || [] }));
                 } else {
                      toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
                 }
             } else if (field === 'country') {
-                setLocationData(current => ({ ...current, country: value, state: '', city: '' }));
+                setLocationData(current => ({ ...current, country: value, state: '', city: '', states: [], cities: [] }));
                 const result = await fetchAddressData({ country: value });
-                if (result.success && result.data?.states) {
-                    if (result.data.states.length === 0) {
+                if (result.success) {
+                    if (!result.data?.states || result.data.states.length === 0) {
                         toast({ title: "Sin Datos", description: "El país seleccionado no tiene estados/provincias disponibles.", variant: 'default' });
                     }
-                    setLocationData(current => ({ ...current, states: result.data.states, cities: [] }));
+                    setLocationData(current => ({ ...current, states: result.data?.states || [] }));
                 } else {
                     toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
                 }
             } else if (field === 'state') {
-                setLocationData(current => ({ ...current, state: value, city: '' }));
+                setLocationData(current => ({ ...current, state: value, city: '', cities: [] }));
                 const result = await fetchAddressData({ country: locationData.country, state: value });
-                if (result.success && result.data?.cities) {
-                     if (result.data.cities.length === 0) {
+                if (result.success) {
+                     if (!result.data?.cities || result.data.cities.length === 0) {
                         toast({ title: "Sin Datos", description: "El estado seleccionado no tiene ciudades disponibles.", variant: 'default' });
                     }
-                    setLocationData(current => ({ ...current, cities: result.data.cities }));
+                    setLocationData(current => ({ ...current, cities: result.data?.cities || [] }));
                 } else {
                     toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
                 }
@@ -760,5 +760,3 @@ export function CondoManagement() {
         </div>
     );
 }
-
-    
