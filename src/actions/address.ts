@@ -147,70 +147,90 @@ async function fetchRegions(config: any): Promise<{ success: boolean, data?: any
 }
 
 async function fetchCountries(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string, debug?: any }> {
-    const requestConfig = config.request?.api_config?.parameters?.countries;
+    const requestConfig = config.request?.api_config;
+    const countriesRequestConfig = requestConfig?.parameters?.countries;
     const responseConfig = config.response?.countries;
-    if (!requestConfig) return { success: true, data: [] };
-
-    let urlString = requestConfig.url || '';
     
-    if (urlString) {
-        try {
-            if (params.region_code) {
-                urlString = urlString.replace('$region_code', params.region_code);
-            }
-            if (params.region) {
-                urlString = urlString.replace('$region', params.region);
-            }
-            
-            const method = requestConfig.method || 'GET';
-            const curlCommand = `curl -X ${method} '${urlString}'`;
-
-            const response = await fetch(urlString, { cache: 'no-store' });
-            const responseText = await response.text();
-            
-            let jsonResponse;
-            try {
-                jsonResponse = JSON.parse(responseText);
-            } catch (e) {
-                 return { success: false, error: `Error en la API de 'countries': La respuesta no es un JSON válido.`, debug: { curl: curlCommand, url: urlString, response: responseText } };
-            }
-
-            if (!response.ok) {
-                 return { success: false, error: `El servidor respondió con el estado ${response.status}`, debug: { curl: curlCommand, url: urlString, response: jsonResponse } };
-            }
-
-            const dataList = getNestedValue(jsonResponse, responseConfig.path);
-            
-            if (!Array.isArray(dataList)) {
-                return { success: false, error: `La respuesta de la API no contenía un array en la ruta '${responseConfig.path}'.`, debug: { curl: curlCommand, url: urlString, response: jsonResponse } };
-            }
-            
-            const mappedData = dataList.map((item: any) => {
-                const countryData: AddressDataItem = {
-                    name: getNestedValue(item, responseConfig.name),
-                    cca2: getNestedValue(item, responseConfig.cca2),
-                };
-
-                const flagConfig = responseConfig.flag;
-                if (flagConfig && Array.isArray(flagConfig) && flagConfig.length > 0) {
-                    const flagPath = flagConfig.join('.');
-                    if(flagPath) {
-                        countryData.flag = getNestedValue(item, flagPath);
-                    }
-                }
-
-                return countryData;
-            });
-            
-            return { success: true, data: mappedData, debug: { curl: curlCommand, url: urlString, response: jsonResponse } };
-        } catch (e: any) {
-            return { success: false, error: `Error en la API de 'countries': ${e.message}`, debug: { url: urlString } };
+    if (!countriesRequestConfig || !countriesRequestConfig.url) {
+        if (countriesRequestConfig?.value && params.region) {
+            return { success: true, data: countriesRequestConfig.value[params.region]?.countries || [] };
         }
-    } else if (requestConfig.value && params.region) {
-         return { success: true, data: requestConfig.value[params.region]?.countries || [] };
+        return { success: true, data: [] };
     }
-    return { success: true, data: [] };
+
+    const { base_url } = requestConfig;
+    const { url, method = 'GET', headers = {} } = countriesRequestConfig;
+    const urlParams = new URLSearchParams();
+
+    // Rebuild the URL from scratch for countries
+    const countryUrl = new URL(url);
+    for (const [key, value] of countryUrl.searchParams.entries()) {
+        let finalValue = value;
+        if (value.startsWith('$')) {
+            const varName = value.substring(1) as keyof FetchParams;
+            if (varName === 'region_code' && params.region_code) {
+                finalValue = params.region_code;
+            } else if (varName === 'region' && params.region) {
+                finalValue = params.region;
+            } else {
+                 finalValue = process.env[value.substring(1)] || '';
+            }
+        }
+        if (finalValue) {
+            urlParams.set(key, finalValue);
+        }
+    }
+
+    const finalUrlString = `${countryUrl.origin}${countryUrl.pathname}?${urlParams.toString()}`;
+    const curlCommand = `curl -X ${method} '${finalUrlString}'`;
+
+    try {
+        const response = await fetch(finalUrlString, { method, headers, cache: 'no-store' });
+        const responseText = await response.text();
+        
+        let jsonResponse;
+        try {
+            jsonResponse = JSON.parse(responseText);
+        } catch (e) {
+             return { success: false, error: `Error en la API de 'countries': La respuesta no es un JSON válido.`, debug: { curl: curlCommand, url: finalUrlString, response: responseText } };
+        }
+
+        if (!response.ok) {
+             return { success: false, error: `El servidor respondió con el estado ${response.status}`, debug: { curl: curlCommand, url: finalUrlString, response: jsonResponse } };
+        }
+
+        const dataList = getNestedValue(jsonResponse, responseConfig.path);
+        
+        if (!Array.isArray(dataList)) {
+            return { success: false, error: `La respuesta de la API no contenía un array en la ruta '${responseConfig.path}'.`, debug: { curl: curlCommand, url: finalUrlString, response: jsonResponse } };
+        }
+        
+        const mappedData = dataList.map((item: any) => {
+            const countryData: AddressDataItem = {
+                name: getNestedValue(item, responseConfig.name),
+                cca2: getNestedValue(item, responseConfig.cca2),
+            };
+
+            const flagConfig = responseConfig.flag;
+            if (flagConfig && Array.isArray(flagConfig) && flagConfig.length > 0) {
+                const flagPath = flagConfig.join('.');
+                if(flagPath) {
+                    countryData.flag = getNestedValue(item, flagPath);
+                }
+            } else if (flagConfig && !Array.isArray(flagConfig)) {
+                // Handle non-array flag config if necessary
+            }
+
+            return countryData;
+        }).filter(c => c.name); // Filter out entries without a name
+
+        
+        return { success: true, data: mappedData, debug: { curl: curlCommand, url: finalUrlString, response: jsonResponse } };
+    } catch (e: any) {
+        return { success: false, error: `Error en la API de 'countries': ${e.message}`, debug: { curl: curlCommand, url: finalUrlString } };
+    }
 }
+
 
 async function fetchStates(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string }> {
     const requestConfig = config.request?.api_config?.parameters?.states || config.request?.api_config?.parameters?.countries?.states;
@@ -686,5 +706,3 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
         if (client) client.release();
     }
 }
-
-    
