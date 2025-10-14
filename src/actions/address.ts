@@ -179,10 +179,6 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         'curl': '',
     };
     
-    if (countriesConfig?.url && !params.region_code && countriesConfig.url.includes('$region_code')) {
-        return { success: false, error: `Error interno: 'region_code' es indefinido.`, debug: { ...baseDebugInfo, ...params } };
-    }
-
     if (!countriesConfig || !countriesConfig.url) {
         if (countriesConfig?.value && params.region) {
             return { success: true, data: countriesConfig.value[params.region]?.countries || [] };
@@ -193,12 +189,21 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
     const { url, method = 'GET', headers = {}, parameters = {} } = countriesConfig;
     
     let finalUrlString = url;
-    if (params.region_code) {
+    if (finalUrlString.includes('$region_code') && params.region_code) {
         finalUrlString = finalUrlString.replace('$region_code', params.region_code);
+    }
+    if (finalUrlString.includes('$region') && params.region) {
+        finalUrlString = finalUrlString.replace('$region', params.region);
+    }
+    
+    if (finalUrlString.includes('$region_code') && !params.region_code) {
+        return { success: false, error: `Error interno: 'region_code' es indefinido.`, debug: { ...baseDebugInfo, ...params } };
+    }
+    if (finalUrlString.includes('$region') && !params.region) {
+        return { success: false, error: `Error interno: 'region' es indefinido.`, debug: { ...baseDebugInfo, ...params } };
     }
 
     const finalUrl = new URL(finalUrlString);
-    const processedParamsLog: string[] = [];
     
     for (const [key, value] of Object.entries(parameters)) {
         let paramValue: string | undefined;
@@ -212,14 +217,12 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         
         if (paramValue !== undefined) {
             finalUrl.searchParams.append(key, paramValue);
-            processedParamsLog.push(`${key}: ${paramValue}`);
         }
     }
     
     const curlCommand = `curl -X ${method} '${finalUrl.toString()}'`;
     const debugInfo = { 
         ...baseDebugInfo,
-        'processed_params': processedParamsLog,
         'curl': curlCommand,
     };
 
@@ -588,7 +591,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
         // --- STEP 2: Test Countries ---
         const countriesResult = await fetchCountries(tempConfig, { 
             region: testRegion.name, 
-            region_code: regionsResult.regionCodeMap[testRegion.name], 
+            region_code: regionsResult.regionCodeMap?.[testRegion.name], 
             regionCodeMap: regionsResult.regionCodeMap 
         });
 
