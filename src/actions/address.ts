@@ -226,7 +226,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         }
         const config = serviceResult.rows[0].config_json;
 
-        const requestConfig = config.request?.api_config?.parameters;
+        const requestConfig = config.request?.api_config;
         const responseConfig = config.response;
         
         if (!requestConfig || !responseConfig) {
@@ -234,24 +234,26 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         }
         
         let data: AddressData = {};
-
+        
         // --- REGIONS ---
-        const regionsPath = responseConfig.regions?.path;
-        if (requestConfig.regions?.value) { // Hardcoded regions
-            data.regions = requestConfig.regions.value.map((r: string) => ({ name: r, code: r }));
+        const regionsParamConfig = requestConfig.parameters?.regions;
+        if (regionsParamConfig?.value && Array.isArray(regionsParamConfig.value)) {
+            data.regions = regionsParamConfig.value.map((r: string) => ({ name: r, code: r }));
             data.regionCodeMap = data.regions.reduce((acc, curr) => {
                 if (curr.name && curr.code) acc[curr.name] = curr.code;
                 return acc;
             }, {} as Record<string, string>);
-        } else if (requestConfig.regions?.url && regionsPath) { // Fetched regions
-            const response = await fetch(requestConfig.regions.url, { method: 'GET' });
+        } else if (regionsParamConfig?.url && responseConfig.regions?.path) {
+            const response = await fetch(regionsParamConfig.url, { method: 'GET' });
             const regionsJson = await response.json();
-            const regionList = getNestedValue(regionsJson, regionsPath);
+            const regionList = getNestedValue(regionsJson, responseConfig.regions.path);
+            
             if (Array.isArray(regionList)) {
                 data.regions = regionList.map((item: any) => ({
                     name: getNestedValue(item, responseConfig.regions.name),
-                    code: getNestedValue(item, responseConfig.regions.code)
+                    code: getNestedValue(item, responseConfig.regions.code) || ''
                 })).filter(r => r.name);
+                
                 data.regionCodeMap = data.regions.reduce((acc, curr) => {
                     if (curr.name) acc[curr.name] = curr.code || '';
                     return acc;
@@ -259,9 +261,11 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             }
         }
 
+
         // --- COUNTRIES ---
-        if ((params.region || params.region_code) && requestConfig.countries?.url) {
-            let url = new URL(requestConfig.countries.url);
+        const countriesParamConfig = requestConfig.parameters?.countries;
+        if ((params.region || params.region_code) && countriesParamConfig?.url) {
+            let url = new URL(countriesParamConfig.url);
             
             // Intelligent placeholder replacement
             url.pathname = url.pathname.replace('$region_code', params.region_code || '');
@@ -283,8 +287,9 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         }
 
         // --- STATES ---
-        if (params.country && requestConfig.states?.url) {
-            const url = requestConfig.states.url.replace('$country', params.country);
+        const statesParamConfig = requestConfig.parameters?.states;
+        if (params.country && statesParamConfig?.url) {
+            const url = statesParamConfig.url.replace('$country', params.country);
             const body = JSON.stringify({ country: params.country });
             const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
             const statesJson = await response.json();
@@ -300,8 +305,9 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         }
 
         // --- CITIES ---
-        if (params.country && params.state && requestConfig.cities?.url) {
-             const url = requestConfig.cities.url.replace('$state', params.state);
+        const citiesParamConfig = requestConfig.parameters?.cities;
+        if (params.country && params.state && citiesParamConfig?.url) {
+             const url = citiesParamConfig.url.replace('$state', params.state);
              const body = JSON.stringify({ country: params.country, state: params.state });
              const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
              const citiesJson = await response.json();
@@ -330,12 +336,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (!pool) return { success: false, message: "Error del servidor." };
         client = await pool.connect();
         
-        const serviceResult = await client.query('SELECT * FROM address_services WHERE id = $1', [id]);
-        if (serviceResult.rows.length === 0) {
-            return { success: false, message: "Servicio de dirección no encontrado." };
-        }
-        
-        // Simulate setting this as default for testing purposes
+        // Temporarily set the service as default for the test
         const originalDefaultResult = await client.query('SELECT id FROM address_services WHERE is_default = TRUE');
         const originalDefaultId = originalDefaultResult.rows[0]?.id;
 
@@ -348,9 +349,9 @@ export async function testAddressService(id: string): Promise<ActionState> {
             console.log("Testing Regions...");
             const regionsResult = await fetchAddressData({});
             if (!regionsResult.success || !regionsResult.data?.regions || regionsResult.data.regions.length === 0) {
-                throw new Error(`Prueba de regiones fallida: ${regionsResult.message}`);
+                throw new Error(`Prueba de regiones fallida: ${regionsResult.message}. Data: ${JSON.stringify(regionsResult.data)}`);
             }
-            console.log("Regions test passed.");
+            console.log("Regions test passed. Found:", regionsResult.data.regions.map(r => r.name).join(', '));
 
             // 2. Test Countries
             console.log("Testing Countries...");
