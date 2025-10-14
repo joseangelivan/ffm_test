@@ -64,6 +64,45 @@ function getNestedValue(obj: any, path: string): any {
     return result;
 }
 
+type ValueMap = { [key: string]: string | number | undefined };
+
+function buildApiUrl(
+    apiConfig: any,
+    valueMap: ValueMap,
+    env: NodeJS.ProcessEnv
+): string {
+    const { base_url, parameters } = apiConfig;
+    const urlParams = new URLSearchParams();
+
+    for (const [key, paramConfig] of Object.entries(parameters)) {
+        let rawValue: any;
+        let isOptional = false;
+
+        if (typeof paramConfig === 'object' && paramConfig !== null && 'value' in paramConfig) {
+            rawValue = paramConfig.value;
+            isOptional = paramConfig.optional === true;
+        } else {
+            rawValue = paramConfig;
+        }
+
+        let paramValue: string | undefined;
+
+        if (typeof rawValue === 'string' && rawValue.startsWith('$')) {
+            const varName = rawValue.substring(1);
+            // Prioritize valueMap over environment variables
+            paramValue = valueMap[varName]?.toString() || env[varName] || '';
+        } else {
+            paramValue = rawValue?.toString();
+        }
+        
+        if (paramValue || !isOptional) {
+             urlParams.append(key, paramValue || '');
+        }
+    }
+    
+    return `${base_url}?${urlParams.toString()}`;
+}
+
 
 // --- Service Management Actions ---
 
@@ -298,23 +337,32 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
 
     // --- COUNTRIES ---
     if ((params.region || params.region_code) && requestConfig?.parameters?.countries?.url) {
-        let urlString = requestConfig.parameters.countries.url;
-        
-        if (params.region_code) urlString = urlString.replace('$region_code', params.region_code);
-        if (params.region) urlString = urlString.replace('$region', params.region);
+        try {
+            let urlString = requestConfig.parameters.countries.url;
+            
+            if (params.region_code) urlString = urlString.replace('$region_code', params.region_code);
+            if (params.region) urlString = urlString.replace('$region', params.region);
 
-        const response = await fetch(urlString, { method: 'GET' });
-        const countriesJson = await response.json();
-        
-        const countriesPath = responseConfig.countries?.path;
-        const countryList = getNestedValue(countriesJson, countriesPath);
+            const response = await fetch(urlString, { method: 'GET' });
+            if (!response.ok) {
+                return { success: false, message: `Error al obtener países (URL: ${urlString}). Estado: ${response.status}` };
+            }
+            const countriesJson = await response.json();
+            
+            const countriesPath = responseConfig.countries?.path;
+            const countryList = getNestedValue(countriesJson, countriesPath);
 
-        if (Array.isArray(countryList)) {
-            data.countries = countryList.map((item: any) => ({
-                name: getNestedValue(item, responseConfig.countries.name),
-                cca2: getNestedValue(item, responseConfig.countries.cca2),
-                flag: getNestedValue(item, responseConfig.countries.flag),
-            })).filter(c => c.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
+            if (Array.isArray(countryList)) {
+                data.countries = countryList.map((item: any) => ({
+                    name: getNestedValue(item, responseConfig.countries.name),
+                    cca2: getNestedValue(item, responseConfig.countries.cca2),
+                    flag: getNestedValue(item, responseConfig.countries.flag),
+                })).filter(c => c.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
+            } else {
+                 return { success: false, message: `La ruta de países '${countriesPath}' no devolvió un array. (URL: ${urlString})` };
+            }
+        } catch (e: any) {
+            return { success: false, message: `Error de red al obtener países: ${e.message}` };
         }
     }
 
@@ -354,17 +402,14 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
 
 
 export async function testAddressService(id: string): Promise<ActionState> {
-    if (!id) return { success: false, message: "ID de servicio no proporcionado." };
-
-    let client;
     let originalDefaultId: string | null = null;
+    let client;
     
     try {
         const pool = await getDbPool();
         if (!pool) return { success: false, message: "Error del servidor: no se pudo conectar a la base de datos." };
         client = await pool.connect();
         
-        // Temporarily set the service to test as default
         const servicesResult = await client.query('SELECT id, is_default FROM address_services');
         if (servicesResult.rows.length === 0) throw new Error("No hay servicios de dirección configurados.");
         
@@ -412,36 +457,22 @@ export async function testAddressService(id: string): Promise<ActionState> {
         }
         const firstCity = citiesResult.data.cities[0];
 
-        // --- Restore original default ---
-        if (client && id !== originalDefaultId) {
-            await client.query('BEGIN');
-            await client.query('UPDATE address_services SET is_default = FALSE');
-            if (originalDefaultId) {
-                await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
-            }
-            await client.query('COMMIT');
-        }
-            
         return { 
             success: true, 
             message: `¡Prueba exitosa!\nRegión: ${firstRegion.name}\nPaís: ${firstCountry.name}\nEstado: ${firstState.name}\nCiudad: ${firstCity}`
         };
             
     } catch (err: any) {
-        // Restore original default if it was changed
-        if (client && id !== originalDefaultId) {
+        return { success: false, message: `Error durante la prueba: ${err.message}` };
+    } finally {
+        if (client && id !== originalDefaultId && originalDefaultId) {
             try { 
                 await client.query('BEGIN');
                 await client.query('UPDATE address_services SET is_default = FALSE');
-                if (originalDefaultId) {
-                    await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
-                }
+                await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
                 await client.query('COMMIT');
             } catch (e) { /* ignore rollback error */ }
         }
-
-        return { success: false, message: `Error durante la prueba: ${err.message}` };
-    } finally {
         if (client) client.release();
     }
 }
@@ -449,3 +480,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
 
 
+
+
+      
