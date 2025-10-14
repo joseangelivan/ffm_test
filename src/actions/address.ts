@@ -122,7 +122,7 @@ type FetchParams = {
 async function fetchRegions(config: any): Promise<{ success: boolean, data?: any, error?: string, regionCodeMap?: any }> {
     const requestConfig = config.request?.api_config?.parameters?.regions;
     const responseConfig = config.response?.regions;
-    if (!requestConfig) return { success: true, data: [] };
+    if (!requestConfig) return { success: true, data: [], regionCodeMap: {} };
 
     if (requestConfig.url) {
         try {
@@ -152,7 +152,7 @@ async function fetchRegions(config: any): Promise<{ success: boolean, data?: any
         const regionCodeMap = requestConfig.codes || {};
         return { success: true, data: mappedData, regionCodeMap };
     }
-    return { success: true, data: [] };
+    return { success: true, data: [], regionCodeMap: {} };
 }
 
 async function fetchCountries(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string, debug?: any }> {

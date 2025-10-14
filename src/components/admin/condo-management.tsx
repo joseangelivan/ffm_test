@@ -463,13 +463,23 @@ function CondoFormWrapper({
                 if (result.success && result.data) {
                     
                      if (result.data.regionCodeMap && Object.keys(result.data.regionCodeMap).length > 0) {
-                        console.log("DEBUG: Full regionCodeMap loaded:", result.data.regionCodeMap);
-                        const firstRegionKey = Object.keys(result.data.regionCodeMap)[0];
-                        if (firstRegionKey) {
-                            console.log(`DEBUG: First element of map - Key: '${firstRegionKey}', Value: '${result.data.regionCodeMap[firstRegionKey]}'`);
-                        }
+                        const firstKey = Object.keys(result.data.regionCodeMap)[0];
+                        const firstValue = result.data.regionCodeMap[firstKey];
+                        const debugMessage = `Mapa: ${JSON.stringify(result.data.regionCodeMap)}\n\nPrimer Elemento: { Clave: '${firstKey}', Valor: '${firstValue}' }`;
+                        
+                        toast({
+                            title: "Depuración de Regiones",
+                            description: debugMessage,
+                            duration: 15000,
+                            copyable: true,
+                        });
                     } else {
-                        console.log("DEBUG: regionCodeMap is empty or undefined after fetch.");
+                        toast({
+                            title: "Error de Depuración",
+                            description: "El 'regionCodeMap' está vacío o no se ha recibido del backend.",
+                            variant: 'destructive',
+                            copyable: true,
+                        });
                     }
                     
                     const initialAvailable: LocationData = {
