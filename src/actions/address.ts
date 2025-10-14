@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { z } from 'zod';
@@ -243,10 +242,10 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             
             const regionList = baseObject?.[regionsResponseConfig.name] || baseObject;
             
-            const codePath = regionsResponseConfig.code;
             let regionCodes: string[] = [];
+            const codePath = regionsResponseConfig.code;
             if (codePath && typeof codePath === 'string') {
-                regionCodes = getNestedValue(baseObject, codePath) || [];
+                 regionCodes = getNestedValue(baseObject, codePath) || [];
             }
 
             if (Array.isArray(regionList)) {
@@ -356,11 +355,11 @@ export async function testAddressService(id: string): Promise<ActionState> {
         
         let testError: Error | null = null;
         try {
-            // DEBUGGING: Get config and check what getNestedValue returns for regions path
+            // Get config and check what getNestedValue returns for regions path
             const serviceResultForLog = await client.query('SELECT config_json FROM address_services WHERE id = $1', [id]);
             const configForLog = serviceResultForLog.rows[0]?.config_json;
             const regionsResponseConfigForLog = configForLog?.response?.regions;
-            let debugInfo = "Not available";
+            let debugInfo = "No disponible";
             if (regionsResponseConfigForLog) {
                 const pathObject = getNestedValue(configForLog, regionsResponseConfigForLog.path || '');
                 debugInfo = JSON.stringify(pathObject, null, 2);
@@ -432,3 +431,5 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (client) client.release();
     }
 }
+
+    
