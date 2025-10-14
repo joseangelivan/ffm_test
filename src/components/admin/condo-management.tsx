@@ -419,7 +419,7 @@ function CondoFormWrapper({
         const result = await fetchAddressData(params);
         
         if (result?.debug) {
-            let debugMessage = `Region Code: ${result.debug.region_code_received}\nProcessed Params: ${JSON.stringify(result.debug.processed_params)}\n\n${result.debug.curl}`;
+            let debugMessage = `Region Code: ${result.debug.region_code_received}\n${result.debug.curl}`;
             toast({
               title: result.success ? 'DEBUG: Países Obtenidos' : 'DEBUG: Error al Obtener Países',
               description: debugMessage,
@@ -497,8 +497,8 @@ function CondoFormWrapper({
             };
 
             if (isEditMode && initialData.region) {
-                const regionCode = result.data.regionCodeMap?.[initialData.region];
-                const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionCode });
+                const regionData = result.data.regions?.find(r => r.name === initialData.region);
+                const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionData?.code });
                 initialAvailableData.countries = countriesResult.data?.countries || [];
 
                 if(initialData.country) {

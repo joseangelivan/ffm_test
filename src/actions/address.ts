@@ -158,12 +158,12 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         }
         return { success: true, data: [] };
     }
-
-    const { url: baseUrl, method = 'GET', headers = {}, parameters = {} } = countriesConfig;
-    const urlParams = new URLSearchParams();
+    
+    const { url, method = 'GET', headers = {}, parameters = {} } = countriesConfig;
+    
+    const finalUrl = new URL(url);
     const processedParamsLog: string[] = [];
     
-    // Iterate over the parameters defined in the config
     for (const [key, value] of Object.entries(parameters)) {
         let paramValue: string | undefined = String(value);
 
@@ -172,17 +172,17 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
             if (params[varName]) {
                 paramValue = params[varName];
             } else {
-                paramValue = undefined; // Variable not found in passed params, so we skip it
+                paramValue = undefined; // Variable not found in passed params
             }
         }
         
         if (paramValue !== undefined) {
-            urlParams.append(key, paramValue);
+            finalUrl.searchParams.append(key, paramValue);
             processedParamsLog.push(`${key}: ${paramValue}`);
         }
     }
 
-    const finalUrlString = `${baseUrl}?${urlParams.toString()}`;
+    const finalUrlString = finalUrl.toString();
     const curlCommand = `curl -X ${method} '${finalUrlString}'`;
     
     const debugInfo = { 
