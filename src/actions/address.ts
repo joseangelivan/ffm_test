@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { z } from 'zod';
@@ -351,6 +350,8 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
 
 async function fetchCities(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string }> {
     const requestConfig = config.request?.api_config?.parameters?.cities || config.request?.api_config?.parameters?.countries?.states?.cities;
+    const responseConfig = config.response?.cities;
+
     if (!requestConfig) return { success: true, data: [] };
 
     if (requestConfig.value && params.country && params.state) {
@@ -392,11 +393,15 @@ async function fetchCities(config: any, params: FetchParams): Promise<{ success:
             if (!response.ok) {
                  throw new Error(`El servidor respondió con el estado ${response.status}. Respuesta: ${JSON.stringify(jsonResponse)}`);
             }
+            
+            if (!responseConfig) {
+                 throw new Error(`responseConfig is not defined`);
+            }
 
             const dataList = getNestedValue(jsonResponse, responseConfig.path);
             
             if (!Array.isArray(dataList)) {
-                 if (Object.keys(dataList).length === 0) {
+                 if (dataList && Object.keys(dataList).length === 0) {
                      return { success: true, data: [] };
                 }
                 throw new Error(`La respuesta de la API no contiene un array de ciudades en '${responseConfig.path}'. Respuesta: ${JSON.stringify(jsonResponse)}`);
@@ -829,3 +834,5 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
         if (client) client.release();
     }
 }
+
+    
