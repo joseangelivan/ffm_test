@@ -40,22 +40,19 @@ const ServiceSchema = z.object({
 });
 
 function getNestedValue(obj: any, path: string): any {
-    if (path === '' || path === '.') {
-        return obj;
-    }
+    if (!path || path === '.') return obj;
     const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
     let result = obj;
-    for (let i = 0; i < keys.length; i++) {
-        const key = keys[i];
-        if (result === null || result === undefined) {
-            console.error(`getNestedValue failed: parent object is null or undefined at path segment "${keys.slice(0, i).join('.')}" when trying to access "${key}".`);
-            return undefined;
-        }
-        result = result[key];
-        if (result === undefined) {
-            console.error(`getNestedValue failed: value is undefined at path segment "${keys.slice(0, i + 1).join('.')}".`);
-            return undefined;
-        }
+    for (const key of keys) {
+      if (result === null || result === undefined) {
+        console.error(`getNestedValue failed: parent object is null or undefined when trying to access "${key}".`);
+        return undefined;
+      }
+      result = result[key];
+       if (result === undefined) {
+        console.error(`getNestedValue failed: value is undefined for key "${key}".`);
+        return undefined;
+      }
     }
     return result;
 }
@@ -243,29 +240,32 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         
         let data: AddressData = {};
         
-        const regionsResponseConfig = responseConfig.regions;
-        if (regionsResponseConfig && regionsResponseConfig.path && regionsResponseConfig.name) {
-            const baseObject = getNestedValue(config, regionsResponseConfig.path);
-            
-            if (baseObject && typeof baseObject === 'object') {
-                const nameKey = regionsResponseConfig.name.split('.').pop(); // Extracts "value" from "request.api_config.parameters.regions.value"
-                const regionList = nameKey ? baseObject[nameKey] : undefined;
+        // --- REGIONS (only if no params are passed) ---
+        if (Object.keys(params).length === 0) {
+            const regionsResponseConfig = responseConfig.regions;
+            if (regionsResponseConfig && regionsResponseConfig.path && regionsResponseConfig.name) {
+                const baseObject = getNestedValue(config, regionsResponseConfig.path);
                 
-                if (Array.isArray(regionList)) {
-                    const codeKey = regionsResponseConfig.code?.split('.').pop();
-                    const regionCodes = codeKey ? baseObject[codeKey] : [];
+                if (baseObject && typeof baseObject === 'object') {
+                    const nameKey = regionsResponseConfig.name.split('.').pop();
+                    const regionList = nameKey ? baseObject[nameKey] : undefined;
+                    
+                    if (Array.isArray(regionList)) {
+                        const codeKey = regionsResponseConfig.code?.split('.').pop();
+                        const regionCodes = codeKey ? baseObject[codeKey] : [];
 
-                    data.regions = regionList.map((item: any, index: number) => {
-                        const name = typeof item === 'object' && item !== null ? item.name : item;
-                        const codeValue = regionCodes[index] || '';
-                        return { name: name, code: codeValue };
-                    }).filter(r => r.name);
+                        data.regions = regionList.map((item: any, index: number) => {
+                            const name = typeof item === 'object' && item !== null ? item.name : item;
+                            const codeValue = regionCodes[index] || '';
+                            return { name: name, code: codeValue };
+                        }).filter(r => r.name);
 
-                    if (data.regions.length > 0) {
-                        data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                            if (curr.name) acc[curr.name] = curr.code || '';
-                            return acc;
-                        }, {} as Record<string, string>);
+                        if (data.regions.length > 0) {
+                            data.regionCodeMap = data.regions.reduce((acc, curr) => {
+                                if (curr.name) acc[curr.name] = curr.code || '';
+                                return acc;
+                            }, {} as Record<string, string>);
+                        }
                     }
                 }
             }
@@ -341,8 +341,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
     let client;
     let originalDefaultId: string | null = null;
-    let serviceConfig: any = null;
-
+    
     try {
         const pool = await getDbPool();
         if (!pool) return { success: false, message: "Error del servidor: no se pudo conectar a la base de datos." };
@@ -350,7 +349,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
         
         await client.query('BEGIN');
 
-        // Get current default service ID and the service to test
         const servicesResult = await client.query('SELECT id, is_default, config_json FROM address_services');
         if (servicesResult.rows.length === 0) {
             throw new Error("No hay servicios de dirección configurados.");
@@ -360,11 +358,9 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (!serviceToTestRow) {
             throw new Error("Servicio de prueba no encontrado.");
         }
-        serviceConfig = serviceToTestRow.config_json;
-
+        
         originalDefaultId = servicesResult.rows.find(r => r.is_default)?.id || null;
 
-        // Temporarily set the service to test as default if it's not already
         if (id !== originalDefaultId) {
             await client.query('UPDATE address_services SET is_default = FALSE');
             await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [id]);
@@ -407,11 +403,16 @@ export async function testAddressService(id: string): Promise<ActionState> {
             testError = err;
         }
 
-        // Restore original default state regardless of test outcome
         if (id !== originalDefaultId) {
             await client.query('UPDATE address_services SET is_default = FALSE');
             if (originalDefaultId) {
                 await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
+            } else {
+                 // If there was no default before, leave it that way
+                const firstService = await client.query('SELECT id FROM address_services ORDER BY created_at ASC LIMIT 1');
+                 if (firstService.rows.length > 0 && isNaN(parseInt(countResult.rows[0].count, 10))) {
+                     await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [firstService.rows[0].id]);
+                }
             }
         }
         await client.query('COMMIT');
