@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { z } from 'zod';
@@ -114,6 +113,7 @@ type FetchParams = {
     region_code?: string;
     country?: string;
     state?: string;
+    city?: string;
 }
 
 // --- NEW DEDICATED FETCH FUNCTIONS ---
@@ -156,6 +156,11 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
     const countriesConfig = apiConfig?.parameters?.countries;
     const responseConfig = config.response?.countries;
 
+    const baseDebugInfo = {
+        'region_received': params.region,
+        'region_code_received': params.region_code,
+    };
+
     if (!countriesConfig || !countriesConfig.url) {
         if (countriesConfig?.value && params.region) {
             return { success: true, data: countriesConfig.value[params.region]?.countries || [] };
@@ -163,9 +168,9 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         return { success: true, data: [] };
     }
     
-    const { url, method = 'GET', headers = {}, parameters = {} } = countriesConfig;
+    const { url: baseUrl, method = 'GET', headers = {}, parameters = {} } = countriesConfig;
     
-    const finalUrl = new URL(url);
+    const finalUrl = new URL(baseUrl);
     const processedParamsLog: string[] = [];
     
     for (const [key, value] of Object.entries(parameters)) {
@@ -188,7 +193,7 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
     const curlCommand = `curl -X ${method} '${finalUrlString}'`;
     
     const debugInfo = { 
-        'region_code_received': params.region_code,
+        ...baseDebugInfo,
         'processed_params': processedParamsLog,
         'curl': curlCommand,
     };

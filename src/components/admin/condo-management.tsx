@@ -420,7 +420,7 @@ function CondoFormWrapper({
         const result = await fetchAddressData(params);
         
         if (result?.debug) {
-            let debugMessage = `Region Code: ${result.debug.region_code_received}\n${result.debug.curl}`;
+            let debugMessage = `Region: ${result.debug.region_received}\nRegion Code: ${result.debug.region_code_received}\n${result.debug.curl}`;
             toast({
               title: result.success ? 'DEBUG: Países Obtenidos' : 'DEBUG: Error al Obtener Países',
               description: debugMessage,
