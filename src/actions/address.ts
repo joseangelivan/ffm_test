@@ -114,6 +114,7 @@ type FetchParams = {
     country?: string;
     state?: string;
     city?: string;
+    regionCodeMap?: Record<string, string>;
 }
 
 // --- NEW DEDICATED FETCH FUNCTIONS ---
@@ -159,7 +160,7 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
     const baseDebugInfo = {
         'region_received': params.region,
         'region_code_received': params.region_code,
-        'region_code_map': config.response?.regions?.codes,
+        'region_code_map': params.regionCodeMap, // Passed from frontend now
         'curl': '',
     };
     
@@ -510,7 +511,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
     let data: AddressData = {};
     let result: { success: boolean, data?: any, error?: string, regionCodeMap?: any, debug?: any };
     
-    if (Object.keys(params).length === 0) {
+    if (Object.keys(params).length === 0 || (Object.keys(params).length === 1 && 'regionCodeMap' in params)) {
         result = await fetchRegions(config);
         if (!result.success) return { success: false, message: result.error! };
         data.regions = result.data;

@@ -368,7 +368,6 @@ function CondoFormWrapper({
       number: initialData.number || '',
       latitude: initialData.latitude,
       longitude: initialData.longitude,
-      region_code: '',
   });
 
   const [lastChangedField, setLastChangedField] = useState<string | null>(null);
@@ -405,8 +404,7 @@ function CondoFormWrapper({
       let newSelection = { ...locationSelection, [field]: value };
       
       if (field === 'region') {
-          const regionCode = availableData.regionCodeMap?.[value] || '';
-          newSelection = { ...newSelection, country: '', state: '', city: '', region_code: regionCode };
+          newSelection = { ...newSelection, country: '', state: '', city: '' };
       }
       if (field === 'country') newSelection = { ...newSelection, state: '', city: '' };
       if (field === 'state') newSelection = { ...newSelection, city: '' };
@@ -466,11 +464,16 @@ function CondoFormWrapper({
                         countries: [], states: [], cities: [],
                         regionCodeMap: result.data.regionCodeMap || {}
                     };
+                    
+                    console.log("Initial regionCodeMap loaded:", initialAvailable.regionCodeMap);
+                    if (initialAvailable.regions && initialAvailable.regions.length > 0) {
+                        const firstRegion = initialAvailable.regions[0];
+                        console.log(`First region test: Key='${firstRegion.name}', Expected Value='${firstRegion.code}', Map Value='${initialAvailable.regionCodeMap?.[firstRegion.name]}'`);
+                    }
+
 
                     if (isEditMode && initialData.region) {
                         const regionCode = result.data.regionCodeMap?.[initialData.region];
-                        setLocationSelection(current => ({...current, region_code: regionCode || ''}));
-
                         const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionCode });
                         initialAvailable.countries = countriesResult.data?.countries || [];
 
@@ -502,16 +505,17 @@ function CondoFormWrapper({
             let fieldToUpdate: 'countries' | 'states' | 'cities' | null = null;
             
             if (lastChangedField === 'region') {
-                if (!locationSelection.region || !locationSelection.region_code) return;
-                params = { region: locationSelection.region, region_code: locationSelection.region_code };
+                if (!locationSelection.region) return;
+                const regionCode = availableData.regionCodeMap?.[locationSelection.region];
+                params = { region: locationSelection.region, region_code: regionCode };
                 fieldToUpdate = 'countries';
             } else if (lastChangedField === 'country') {
                 if (!locationSelection.country) return;
-                params = { country: locationSelection.country };
+                params = { country: locationSelection.country, regionCodeMap: availableData.regionCodeMap };
                 fieldToUpdate = 'states';
             } else if (lastChangedField === 'state') {
                 if (!locationSelection.country || !locationSelection.state) return;
-                params = { country: locationSelection.country, state: locationSelection.state };
+                params = { country: locationSelection.country, state: locationSelection.state, regionCodeMap: availableData.regionCodeMap };
                 fieldToUpdate = 'cities';
             }
 
@@ -524,10 +528,16 @@ function CondoFormWrapper({
                     if (fieldToUpdate === 'states') setAvailableData(current => ({ ...current, states: result.data!.states || [], cities: [] }));
                     if (fieldToUpdate === 'cities') setAvailableData(current => ({ ...current, cities: result.data!.cities || [] }));
                 } else if(result && !result.success) {
-                    let fullDebugMessage = `Error: ${result.message || "An unknown error occurred."}`;
-                    if(result.debug) {
-                        const { region_received, region_code_received, curl } = result.debug;
-                        fullDebugMessage += `\n\nDEBUG:\nRegion: ${region_received}\nRegion Code: ${region_code_received}\nCurl: ${curl}`;
+                    let fullDebugMessage = `${result.message || "An unknown error occurred."}`;
+                    if (result.debug) {
+                        const { region_received, region_code_received, curl, log } = result.debug;
+                        fullDebugMessage += `\n\nDEBUG: ${t('adminDashboard.table.condo')}\nRegion: ${region_received}\nRegion Code: ${region_code_received || 'undefined'}`;
+                        if (log) {
+                            fullDebugMessage += `\nLog: ${JSON.stringify(log, null, 2)}`;
+                        }
+                        if (curl) {
+                            fullDebugMessage += `\nCurl: ${curl}`;
+                        }
                     }
                     toast({ title: t('toast.errorTitle'), description: fullDebugMessage, variant: 'destructive', copyable: true, duration: 20000 });
                 }
@@ -536,7 +546,7 @@ function CondoFormWrapper({
 
         fetchDataForField();
         setLastChangedField(null); // Reset after fetching
-    }, [lastChangedField, locationSelection, toast, t]);
+    }, [lastChangedField, locationSelection, availableData.regionCodeMap, toast, t]);
   
   const isFormDisabled = isFormPending || isLocationLoading;
 
