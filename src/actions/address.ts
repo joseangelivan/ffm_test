@@ -240,7 +240,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         if (regionsResponseConfig && regionsResponseConfig.path && regionsResponseConfig.name) {
             const baseObject = getNestedValue(config, regionsResponseConfig.path);
             
-            if (baseObject && typeof baseObject === 'object') {
+            if (baseObject && typeof baseObject === 'object' && baseObject[regionsResponseConfig.name]) {
                 const regionList = baseObject[regionsResponseConfig.name];
                 
                 if (Array.isArray(regionList)) {
@@ -440,3 +440,4 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
     
+
