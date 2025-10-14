@@ -156,11 +156,10 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
     const apiConfig = config.request?.api_config;
     const countriesConfig = apiConfig?.parameters?.countries;
     const responseConfig = config.response?.countries;
-
     const baseDebugInfo = {
         'region_received': params.region,
         'region_code_received': params.region_code,
-        'region_code_map': params.regionCodeMap, // Passed from frontend now
+        'region_code_map_received': params.regionCodeMap,
         'curl': '',
     };
     
@@ -572,7 +571,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
         }
 
         // --- STEP 2: Test Countries ---
-        const countriesResult = await fetchCountries(tempConfig, { region: testRegion.name, region_code: regionsResult.regionCodeMap[testRegion.name] });
+        const countriesResult = await fetchCountries(tempConfig, { region: testRegion.name, region_code: regionsResult.regionCodeMap[testRegion.name], regionCodeMap: regionsResult.regionCodeMap });
         if (!countriesResult.success || !countriesResult.data || countriesResult.data.length === 0) {
             throw new Error(`Prueba de países fallida para la región '${testRegion.name}': ${countriesResult.error || 'No se obtuvieron datos de países.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(countriesResult, null, 2)}`);
         }

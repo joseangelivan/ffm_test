@@ -465,24 +465,25 @@ function CondoFormWrapper({
                         regionCodeMap: result.data.regionCodeMap || {}
                     };
                     
-                    console.log("Initial regionCodeMap loaded:", initialAvailable.regionCodeMap);
-                    if (initialAvailable.regions && initialAvailable.regions.length > 0) {
-                        const firstRegion = initialAvailable.regions[0];
-                        console.log(`First region test: Key='${firstRegion.name}', Expected Value='${firstRegion.code}', Map Value='${initialAvailable.regionCodeMap?.[firstRegion.name]}'`);
+                    if (initialAvailable.regionCodeMap && initialAvailable.regions && initialAvailable.regions.length > 0) {
+                        console.log("DEBUG: Full regionCodeMap loaded:", initialAvailable.regionCodeMap);
+                        const firstRegionKey = Object.keys(initialAvailable.regionCodeMap)[0];
+                        if (firstRegionKey) {
+                            console.log(`DEBUG: First element of map - Key: '${firstRegionKey}', Value: '${initialAvailable.regionCodeMap[firstRegionKey]}'`);
+                        }
                     }
 
-
-                    if (isEditMode && initialData.region) {
-                        const regionCode = result.data.regionCodeMap?.[initialData.region];
-                        const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionCode });
+                    if (isEditMode && initialData.region && initialAvailable.regionCodeMap) {
+                        const regionCode = initialAvailable.regionCodeMap[initialData.region];
+                        const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionCode, regionCodeMap: initialAvailable.regionCodeMap });
                         initialAvailable.countries = countriesResult.data?.countries || [];
 
                         if(initialData.country) {
-                            const statesResult = await fetchAddressData({ country: initialData.country });
+                            const statesResult = await fetchAddressData({ country: initialData.country, regionCodeMap: initialAvailable.regionCodeMap });
                             initialAvailable.states = statesResult.data?.states || [];
                         }
                         if(initialData.country && initialData.state) {
-                            const citiesResult = await fetchAddressData({ country: initialData.country, state: initialData.state });
+                            const citiesResult = await fetchAddressData({ country: initialData.country, state: initialData.state, regionCodeMap: initialAvailable.regionCodeMap });
                             initialAvailable.cities = citiesResult.data?.cities || [];
                         }
                     }
@@ -507,7 +508,7 @@ function CondoFormWrapper({
             if (lastChangedField === 'region') {
                 if (!locationSelection.region) return;
                 const regionCode = availableData.regionCodeMap?.[locationSelection.region];
-                params = { region: locationSelection.region, region_code: regionCode };
+                params = { region: locationSelection.region, region_code: regionCode, regionCodeMap: availableData.regionCodeMap };
                 fieldToUpdate = 'countries';
             } else if (lastChangedField === 'country') {
                 if (!locationSelection.country) return;
@@ -530,10 +531,10 @@ function CondoFormWrapper({
                 } else if(result && !result.success) {
                     let fullDebugMessage = `${result.message || "An unknown error occurred."}`;
                     if (result.debug) {
-                        const { region_received, region_code_received, curl, log } = result.debug;
+                         const { region_received, region_code_received, curl, debug_log } = result.debug;
                         fullDebugMessage += `\n\nDEBUG: ${t('adminDashboard.table.condo')}\nRegion: ${region_received}\nRegion Code: ${region_code_received || 'undefined'}`;
-                        if (log) {
-                            fullDebugMessage += `\nLog: ${JSON.stringify(log, null, 2)}`;
+                        if (debug_log) {
+                            fullDebugMessage += `\nLog: ${JSON.stringify(debug_log, null, 2)}`;
                         }
                         if (curl) {
                             fullDebugMessage += `\nCurl: ${curl}`;
