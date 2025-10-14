@@ -376,16 +376,19 @@ export async function testAddressService(id: string): Promise<ActionState> {
             // 2. Test Countries
             console.log("Testing Countries...");
             const testRegion = regionList[0];
-            const regionCodeMap = regionList.reduce((acc: any, curr: any, idx: any) => {
-                const name = typeof curr === 'object' ? curr.name : curr;
-                const codes = Array.isArray(regionsResponseConfig.code) ? regionsResponseConfig.code : [];
-                acc[name] = codes[idx] || '';
-                return acc;
-            }, {});
-            const regionCode = regionCodeMap?.[testRegion] || '';
+            let regionCode = '';
+            if (Array.isArray(regionsResponseConfig.code)) {
+                regionCode = regionsResponseConfig.code[0] || '';
+            } else if (typeof regionsResponseConfig.code === 'string') {
+                const codes = getNestedValue(baseObject, regionsResponseConfig.code);
+                if (Array.isArray(codes)) {
+                    regionCode = codes[0] || '';
+                }
+            }
+            
             const countriesResult = await fetchAddressData({ region: testRegion, region_code: regionCode });
             if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
-                throw new Error(`Prueba de países fallida para la región '${testRegion}': ${countriesResult.message}`);
+                 throw new Error(`Prueba de países fallida para la región '${testRegion}'. Resultado: ${JSON.stringify(countriesResult, null, 2)}`);
             }
             console.log("Countries test passed.");
             
@@ -421,5 +424,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
     
+
 
 
