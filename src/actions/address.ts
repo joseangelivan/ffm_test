@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { z } from 'zod';
@@ -143,16 +144,19 @@ async function fetchRegions(config: any): Promise<{ success: boolean, data?: any
             if (!response.ok) throw new Error(`El servidor respondió con el estado ${response.status}`);
             const jsonResponse = await response.json();
             const dataList = getNestedValue(jsonResponse, responseConfig.path);
+
             const mappedData = dataList.map((item: any) => ({
                 name: getNestedValue(item, responseConfig.name),
                 code: getNestedValue(item, responseConfig.code)
             }));
-             const regionCodeMap = mappedData.reduce((acc: any, item: any) => {
-                if (item.name && item.code) {
-                    acc[item.name] = item.code;
+            
+            const regionCodeMap = mappedData.reduce((acc: any, item: any) => {
+                if (item.name) {
+                    acc[item.name] = item.code || "";
                 }
                 return acc;
             }, {});
+
             return { success: true, data: mappedData, regionCodeMap };
         } catch (e: any) {
             return { success: false, error: `Error en la API de 'regions': ${e.message}` };
@@ -160,9 +164,14 @@ async function fetchRegions(config: any): Promise<{ success: boolean, data?: any
     } else if (requestConfig.value) {
         const mappedData = requestConfig.value.map((name: string) => ({
             name: name,
-            code: requestConfig.codes?.[name] || ''
+            code: requestConfig.codes?.[name] || ""
         }));
-        const regionCodeMap = requestConfig.codes || {};
+        
+        const regionCodeMap = requestConfig.value.reduce((acc: Record<string, string>, name: string) => {
+            acc[name] = requestConfig.codes?.[name] || "";
+            return acc;
+        }, {});
+
         return { success: true, data: mappedData, regionCodeMap };
     }
     return { success: true, data: [], regionCodeMap: {} };
