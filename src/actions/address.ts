@@ -345,9 +345,11 @@ export async function testAddressService(id: string): Promise<ActionState> {
         
         await client.query('BEGIN');
 
+        // Get current default service ID
         const originalDefaultResult = await client.query('SELECT id FROM address_services WHERE is_default = TRUE');
         const originalDefaultId = originalDefaultResult.rows[0]?.id;
 
+        // Temporarily set the service to test as default if it's not already
         if (id !== originalDefaultId) {
             await client.query('UPDATE address_services SET is_default = FALSE');
             await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [id]);
@@ -358,13 +360,10 @@ export async function testAddressService(id: string): Promise<ActionState> {
             // STEP 1: Test Regions
             const regionsResult = await fetchAddressData({});
             if (!regionsResult.success) {
-                 throw new Error(`Prueba de regiones fallida: ${regionsResult.message}.`);
+                throw new Error(`Prueba de regiones fallida: ${regionsResult.message}`);
             }
-            if (!regionsResult.data?.regions) {
-                 throw new Error(`Prueba de regiones fallida: fetchAddressData tuvo éxito pero no devolvió datos en data.regions.`);
-            }
-             if (regionsResult.data.regions.length === 0) {
-                 throw new Error(`Prueba de regiones fallida: data.regions es un array vacío.`);
+            if (!regionsResult.data?.regions || regionsResult.data.regions.length === 0) {
+                 throw new Error(`Prueba de regiones fallida: fetchAddressData tuvo éxito pero no devolvió datos en data.regions. Resultado: ${JSON.stringify(regionsResult, null, 2)}`);
             }
             console.log("Regions test passed.");
 
@@ -372,17 +371,11 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const testRegion = regionsResult.data.regions[0];
             const regionCodeMap = regionsResult.data.regionCodeMap || {};
             const regionCode = regionCodeMap[testRegion.name] || '';
-
+            
             const countriesResult = await fetchAddressData({ region: testRegion.name, region_code: regionCode });
-            if (!countriesResult.success) {
+            if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
                 let debugMessage = `Resultado: ${JSON.stringify(countriesResult, null, 2)}`;
                 throw new Error(`Prueba de países fallida para la región '${testRegion.name}'. ${countriesResult.message}. ${debugMessage}`);
-            }
-            if (!countriesResult.data?.countries) {
-                throw new Error(`Prueba de países fallida para la región '${testRegion.name}': fetchAddressData tuvo éxito pero no devolvió datos en data.countries.`);
-            }
-            if (countriesResult.data.countries.length === 0) {
-                throw new Error(`Prueba de países fallida para la región '${testRegion.name}': data.countries es un array vacío.`);
             }
             console.log("Countries test passed.");
             
@@ -426,3 +419,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
     
 
+
+
+    
