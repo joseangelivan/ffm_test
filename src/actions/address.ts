@@ -212,15 +212,15 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
             };
 
             const flagConfig = responseConfig.flag;
-            if (flagConfig && Array.isArray(flagConfig) && flagConfig.length > 0) {
-                const flagPath = flagConfig.join('.');
+            if (flagConfig && !Array.isArray(flagConfig)) {
+                // Handle non-array flag config if necessary
+            } else if (flagConfig && flagConfig.length > 0) {
+                 const flagPath = flagConfig.join('.');
                 if(flagPath) {
                     countryData.flag = getNestedValue(item, flagPath);
                 }
-            } else if (flagConfig && !Array.isArray(flagConfig)) {
-                // Handle non-array flag config if necessary
             }
-
+            
             return countryData;
         }).filter(c => c.name); // Filter out entries without a name
 
