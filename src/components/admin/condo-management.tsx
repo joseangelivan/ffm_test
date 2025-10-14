@@ -419,11 +419,12 @@ function CondoFormWrapper({
         const result = await fetchAddressData(params);
         
         if (result?.debug) {
-            const toastTitle = result.success ? 'DEBUG: Países Obtenidos' : 'DEBUG: Error al Obtener Países';
-            const curlMessage = `Region Code: ${result.debug.region_code || 'undefined'}\n${result.debug.curl || ''}`;
+            let debugMessage = `Region Code: ${result.debug.region_code}\n`;
+            debugMessage += `Param Log:\n${result.debug.param_log || ''}\n`;
+            debugMessage += `cURL: ${result.debug.curl || ''}`;
             toast({
-              title: toastTitle,
-              description: curlMessage,
+              title: result.success ? 'DEBUG: Países Obtenidos' : 'DEBUG: Error al Obtener Países',
+              description: debugMessage,
               duration: 20000,
               copyable: true,
               variant: result.success ? 'default' : 'destructive',

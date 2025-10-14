@@ -163,14 +163,18 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
     
     const urlObject = new URL(url);
     const searchParams = urlObject.searchParams;
+    const paramProcessingLog: string[] = [];
 
     for (const [key, value] of searchParams.entries()) {
+        paramProcessingLog.push(`- Processing param: ${key}=${value}`);
         if (value.startsWith('$')) {
             const varName = value.substring(1) as keyof FetchParams;
-            if (params[varName]) {
+             if (params[varName]) {
                 searchParams.set(key, params[varName]!);
+                paramProcessingLog.push(`  - Replaced '$${varName}' with value: "${params[varName]}"`);
             } else {
                 searchParams.delete(key);
+                paramProcessingLog.push(`  - Variable '$${varName}' not found in params, deleting key.`);
             }
         }
     }
@@ -178,7 +182,11 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
     let finalUrlString = urlObject.toString();
     
     const curlCommand = `curl -X ${method} '${finalUrlString}'`;
-    const debugInfo = { curl: curlCommand, region_code: params.region_code };
+    const debugInfo = { 
+        region_code: params.region_code,
+        param_log: paramProcessingLog.join('\n'),
+        curl: curlCommand,
+    };
 
     try {
         const response = await fetch(finalUrlString, { method, headers, cache: 'no-store' });
@@ -699,5 +707,3 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
         if (client) client.release();
     }
 }
-
-    
