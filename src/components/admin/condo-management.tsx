@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
@@ -408,8 +409,8 @@ function CondoFormWrapper({
 
         let params: any = {};
         if (field === 'region') {
-            const selectedRegion = availableData.regions?.find(r => r.name === value);
-            params = { region: value, region_code: selectedRegion?.code };
+            const regionCode = availableData.regionCodeMap?.[value];
+            params = { region: value, region_code: regionCode };
         } else if (field === 'country') {
             params = { country: value };
         } else if (field === 'state') {
@@ -430,9 +431,9 @@ function CondoFormWrapper({
         }
         
         if (result?.data) {
-            if (field === 'region') setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
-            if (field === 'country') setAvailableData(current => ({ ...current, states: result.data?.states || [], cities: [] }));
-            if (field === 'state') setAvailableData(current => ({ ...current, cities: result.data?.cities || [] }));
+            if (field === 'region' && result.data.countries) setAvailableData(current => ({ ...current, countries: result.data.countries || [], states: [], cities: [] }));
+            if (field === 'country' && result.data.states) setAvailableData(current => ({ ...current, states: result.data.states || [], cities: [] }));
+            if (field === 'state' && result.data.cities) setAvailableData(current => ({ ...current, cities: result.data.cities || [] }));
         } else if (!result.success) {
             toast({ title: t('toast.errorTitle'), description: result.message || "An unknown error occurred.", variant: 'destructive', copyable: true });
             if (field === 'region') setAvailableData(current => ({ ...current, countries: [], states: [], cities: [] }));
@@ -440,7 +441,7 @@ function CondoFormWrapper({
             if (field === 'state') setAvailableData(current => ({ ...current, cities: [] }));
         }
     });
-  }, [locationSelection, availableData.regions, toast, t]);
+  }, [locationSelection, availableData.regionCodeMap, toast, t]);
   
   const handleStreetChange = (value: string) => {
       setLocationSelection(current => ({ ...current, street: value }));
@@ -497,8 +498,8 @@ function CondoFormWrapper({
             };
 
             if (isEditMode && initialData.region) {
-                const regionData = result.data.regions?.find(r => r.name === initialData.region);
-                const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionData?.code });
+                const regionCode = result.data.regionCodeMap?.[initialData.region];
+                const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionCode });
                 initialAvailableData.countries = countriesResult.data?.countries || [];
 
                 if(initialData.country) {

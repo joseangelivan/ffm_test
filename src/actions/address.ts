@@ -133,7 +133,11 @@ async function fetchRegions(config: any): Promise<{ success: boolean, data?: any
                 name: getNestedValue(item, responseConfig.name),
                 code: getNestedValue(item, responseConfig.code)
             }));
-            return { success: true, data: mappedData };
+            const regionCodeMap = mappedData.reduce((acc: any, item: any) => {
+                acc[item.name] = item.code;
+                return acc;
+            }, {});
+            return { success: true, data: mappedData, regionCodeMap };
         } catch (e: any) {
             return { success: false, error: `Error en la API de 'regions': ${e.message}` };
         }
@@ -165,15 +169,13 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
     const processedParamsLog: string[] = [];
     
     for (const [key, value] of Object.entries(parameters)) {
-        let paramValue: string | undefined = String(value);
+        let paramValue: string | undefined;
 
-        if (typeof paramValue === 'string' && paramValue.startsWith('$')) {
-            const varName = paramValue.substring(1) as keyof FetchParams;
-            if (params[varName]) {
-                paramValue = params[varName];
-            } else {
-                paramValue = undefined; // Variable not found in passed params
-            }
+        if (typeof value === 'string' && value.startsWith('$')) {
+            const varName = value.substring(1) as keyof FetchParams;
+            paramValue = params[varName];
+        } else {
+            paramValue = String(value);
         }
         
         if (paramValue !== undefined) {
@@ -554,7 +556,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
         }
 
         // --- STEP 2: Test Countries ---
-        const countriesResult = await fetchCountries(tempConfig, { region: testRegion.name, region_code: testRegion.code });
+        const countriesResult = await fetchCountries(tempConfig, { region: testRegion.name, region_code: regionsResult.regionCodeMap[testRegion.name] });
         if (!countriesResult.success || !countriesResult.data || countriesResult.data.length === 0) {
             throw new Error(`Prueba de países fallida para la región '${testRegion.name}': ${countriesResult.error || 'No se obtuvieron datos de países.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(countriesResult, null, 2)}`);
         }
