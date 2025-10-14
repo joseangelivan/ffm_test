@@ -341,6 +341,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
     let client;
     let originalDefaultId: string | null = null;
+    let wasChanged = false;
     
     try {
         const pool = await getDbPool();
@@ -349,29 +350,31 @@ export async function testAddressService(id: string): Promise<ActionState> {
         
         await client.query('BEGIN');
 
-        const servicesResult = await client.query('SELECT id, is_default, config_json FROM address_services');
+        const servicesResult = await client.query('SELECT id, is_default FROM address_services');
         if (servicesResult.rows.length === 0) {
             throw new Error("No hay servicios de dirección configurados.");
         }
-
-        const serviceToTestRow = servicesResult.rows.find(r => r.id === id);
-        if (!serviceToTestRow) {
+        
+        const serviceToTest = servicesResult.rows.find(r => r.id === id);
+        if (!serviceToTest) {
             throw new Error("Servicio de prueba no encontrado.");
         }
         
         originalDefaultId = servicesResult.rows.find(r => r.is_default)?.id || null;
 
         if (id !== originalDefaultId) {
+            wasChanged = true;
             await client.query('UPDATE address_services SET is_default = FALSE');
             await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [id]);
         }
         
+        // --- Test Execution ---
         let testError: Error | null = null;
         try {
             // STEP 1: Test Regions
             const regionsResult = await fetchAddressData({});
             if (!regionsResult.success) {
-                throw new Error(`Prueba de regiones fallida (fetchAddressData falló): ${regionsResult.message}. Resultado: ${JSON.stringify(regionsResult)}`);
+                throw new Error(`Prueba de regiones fallida (fetchAddressData falló): ${regionsResult.message}.`);
             }
             if (!regionsResult.data?.regions) {
                  throw new Error(`Prueba de regiones fallida: fetchAddressData tuvo éxito pero no devolvió datos en data.regions. Resultado: ${JSON.stringify(regionsResult)}`);
@@ -401,21 +404,16 @@ export async function testAddressService(id: string): Promise<ActionState> {
             
         } catch (err: any) {
             testError = err;
-        }
-
-        if (id !== originalDefaultId) {
-            await client.query('UPDATE address_services SET is_default = FALSE');
-            if (originalDefaultId) {
-                await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
-            } else {
-                 // If there was no default before, leave it that way
-                const firstService = await client.query('SELECT id FROM address_services ORDER BY created_at ASC LIMIT 1');
-                 if (firstService.rows.length > 0 && isNaN(parseInt(countResult.rows[0].count, 10))) {
-                     await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [firstService.rows[0].id]);
+        } finally {
+            // --- Revert Default Service ---
+            if (wasChanged) {
+                await client.query('UPDATE address_services SET is_default = FALSE');
+                if (originalDefaultId) {
+                    await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
                 }
             }
+            await client.query('COMMIT');
         }
-        await client.query('COMMIT');
         
         if(testError) {
              throw testError;
@@ -458,3 +456,4 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
     
+
