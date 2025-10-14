@@ -130,7 +130,7 @@ const LocationSelector = ({
           </SelectTrigger>
           <SelectContent>
             {locationData.countries?.map((country) => (
-              <SelectItem key={country.name} value={country.name}>
+              <SelectItem key={country.cca2 || country.name} value={country.name}>
                 <span className="mr-2">{country.flag}</span>
                 {country.name}
               </SelectItem>
@@ -419,7 +419,7 @@ function CondoFormWrapper({
             toast({ title: t('toast.errorTitle'), description: error.message || "An unknown error occurred.", variant: 'destructive', copyable: true });
         }
     });
-  }, [locationData.country, locationData.regionCodeMap, toast]);
+  }, [locationData.country, locationData.regionCodeMap, toast, t]);
   
   const handleStreetChange = (value: string) => {
       setLocationData(current => ({ ...current, street: value }));
