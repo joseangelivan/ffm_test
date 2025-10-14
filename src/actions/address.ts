@@ -239,31 +239,30 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         const regionsResponseConfig = responseConfig.regions;
         if (regionsResponseConfig && regionsResponseConfig.path && regionsResponseConfig.name) {
             const baseObject = getNestedValue(config, regionsResponseConfig.path);
-            const regionList = baseObject ? baseObject[regionsResponseConfig.name] : undefined;
             
-            if (Array.isArray(regionList)) {
-                let regionCodes: string[] = [];
-                const codeConfig = regionsResponseConfig.code;
-
-                if (Array.isArray(codeConfig)) {
-                    regionCodes = codeConfig;
-                } else if (typeof codeConfig === 'string' && codeConfig) {
-                    const codes = getNestedValue(baseObject, codeConfig);
-                    if (Array.isArray(codes)) {
-                        regionCodes = codes;
-                    }
-                }
+            if (baseObject && typeof baseObject === 'object') {
+                const regionList = baseObject[regionsResponseConfig.name];
                 
-                data.regions = regionList.map((item: any, index: number) => {
-                    const name = typeof item === 'object' && item !== null ? item.name : item;
-                    const codeValue = regionCodes[index] || '';
-                    return { name: name, code: codeValue };
-                }).filter(r => r.name);
+                if (Array.isArray(regionList)) {
+                    let regionCodes: string[] = [];
+                    const codeConfig = regionsResponseConfig.code;
+                    const codeObject = getNestedValue(config, codeConfig);
 
-                data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                    if (curr.name) acc[curr.name] = curr.code || '';
-                    return acc;
-                }, {} as Record<string, string>);
+                    if (codeObject && codeObject[regionsResponseConfig.name] && Array.isArray(codeObject[regionsResponseConfig.name])) {
+                        regionCodes = codeObject[regionsResponseConfig.name];
+                    }
+                    
+                    data.regions = regionList.map((item: any, index: number) => {
+                        const name = typeof item === 'object' && item !== null ? item.name : item;
+                        const codeValue = regionCodes[index] || '';
+                        return { name: name, code: codeValue };
+                    }).filter(r => r.name);
+
+                    data.regionCodeMap = data.regions.reduce((acc, curr) => {
+                        if (curr.name) acc[curr.name] = curr.code || '';
+                        return acc;
+                    }, {} as Record<string, string>);
+                }
             }
         }
 
@@ -424,6 +423,8 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
 
+
+    
 
     
 
