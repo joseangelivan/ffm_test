@@ -239,21 +239,23 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         const regionsResponseConfig = responseConfig.regions;
         if (regionsResponseConfig) {
             const baseObject = getNestedValue(config, regionsResponseConfig.path || '');
-            const regionList = baseObject?.[regionsResponseConfig.name] || baseObject;
+            
+            const regionList = baseObject?.[regionsResponseConfig.name];
             
             let regionCodes: string[] = [];
-            const codePath = regionsResponseConfig.code;
-
-            if (Array.isArray(codePath)) {
-                regionCodes = codePath;
-            } else if (typeof codePath === 'string' && codePath) {
-                 regionCodes = getNestedValue(baseObject, codePath) || [];
+            if (Array.isArray(regionsResponseConfig.code)) {
+                regionCodes = regionsResponseConfig.code;
+            } else if (typeof regionsResponseConfig.code === 'string' && regionsResponseConfig.code) {
+                 const codes = getNestedValue(baseObject, regionsResponseConfig.code);
+                 if (Array.isArray(codes)) {
+                     regionCodes = codes;
+                 }
             }
             
             if (Array.isArray(regionList)) {
                  data.regions = regionList.map((item: any, index: number) => {
                     const name = typeof item === 'object' && item !== null ? item.name : item;
-                    const codeValue = (Array.isArray(regionCodes) && regionCodes[index]) ? regionCodes[index] : '';
+                    const codeValue = regionCodes[index] || '';
                     return { name: name, code: codeValue };
                 }).filter(r => r.name);
 
@@ -270,7 +272,6 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         if ((params.region || params.region_code) && countriesParamConfig?.url) {
             let urlString = countriesParamConfig.url;
             
-            // Intelligent placeholder replacement
             if (params.region_code) urlString = urlString.replace('$region_code', params.region_code);
             if (params.region) urlString = urlString.replace('$region', params.region);
 
@@ -344,7 +345,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
         
         await client.query('BEGIN');
 
-        // Temporarily set the service as default for the test
         const originalDefaultResult = await client.query('SELECT id FROM address_services WHERE is_default = TRUE');
         const originalDefaultId = originalDefaultResult.rows[0]?.id;
 
@@ -354,7 +354,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
         }
         
         let testError: Error | null = null;
-        let regionsResultDataForDebug: any = {};
         try {
             // Get config and check what getNestedValue returns for regions path
             const serviceResultForLog = await client.query('SELECT config_json FROM address_services WHERE id = $1', [id]);
@@ -368,24 +367,27 @@ export async function testAddressService(id: string): Promise<ActionState> {
             if (regionsResponseConfigForLog) {
                 baseObjectForDebug = getNestedValue(configForLog, regionsResponseConfigForLog.path || '');
                 debugInfo = JSON.stringify(baseObjectForDebug, null, 2);
-                if(baseObjectForDebug) {
-                     regionListForDebug = baseObjectForDebug[regionsResponseConfigForLog.name] || baseObjectForDebug;
+                if(baseObjectForDebug && regionsResponseConfigForLog.name) {
+                     regionListForDebug = baseObjectForDebug[regionsResponseConfigForLog.name];
+                } else {
+                     regionListForDebug = baseObjectForDebug;
                 }
             }
             
             // 1. Test Regions
             const regionsResult = await fetchAddressData({});
-            regionsResultDataForDebug = regionsResult.data || {};
             if (!regionsResult.success || !regionsResult.data?.regions || regionsResult.data.regions.length === 0) {
                  let failureReason = "";
                  if (regionListForDebug === undefined) {
-                    failureReason = "La lista de regiones (regionList) es 'undefined'. La clave 'name' no se pudo encontrar en el objeto base.";
+                    failureReason = "La lista de regiones (regionList) es 'undefined'. La clave 'name' no se pudo encontrar en el objeto base o el objeto base es nulo.";
                  } else if (!Array.isArray(regionListForDebug)) {
                     failureReason = `La lista de regiones (regionList) no es un array. Es de tipo: ${typeof regionListForDebug}.`;
                  } else if (regionListForDebug.length === 0) {
                      failureReason = "La lista de regiones (regionList) es un array vacío.";
+                 } else {
+                     failureReason = regionsResult.message;
                  }
-                 throw new Error(`Prueba de regiones fallida: ${regionsResult.message}. ${failureReason}. Objeto de ruta de depuración: ${debugInfo}. Datos completos: ${JSON.stringify(regionsResultDataForDebug)}`);
+                 throw new Error(`Prueba de regiones fallida: ${failureReason}. Objeto de ruta de depuración: ${debugInfo}. Datos completos: ${JSON.stringify(regionsResult.data)}`);
             }
             console.log(`Regions test passed. Found ${regionsResult.data.regions.length} regions.`);
 
@@ -448,4 +450,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (client) client.release();
     }
 }
+    
+
     
