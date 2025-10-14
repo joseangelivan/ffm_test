@@ -41,11 +41,10 @@ const ServiceSchema = z.object({
 });
 
 function getNestedValue(obj: any, path: string | undefined): any {
-    if (!path || path === '.') {
+    if (path === undefined || path === null || path === '.') {
       return obj;
     }
     
-    // Handle cases like "[1]"
     const match = path.match(/^\[(\d+)\]$/);
     if (match) {
         const index = parseInt(match[1], 10);
@@ -180,11 +179,11 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
             if (!Array.isArray(dataList)) {
                 throw new Error(`La respuesta de la API no contenía un array en la ruta '${responseConfig.path}'.`);
             }
-
+            
             const mappedData = dataList.map((item: any) => {
                 const countryData: AddressDataItem = {
                     name: getNestedValue(item, responseConfig.name),
-                    cca2: getNestedValue(item, responseConfig.cca2)
+                    cca2: getNestedValue(item, responseConfig.cca2),
                 };
 
                 const flagConfig = responseConfig.flag;
@@ -472,7 +471,10 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         data.regionCodeMap = result.regionCodeMap;
     } else if (params.region || params.region_code) {
         result = await fetchCountries(config, params);
-        if (!result.success) return { success: false, message: result.error!, debug: result.debug };
+        if (!result.success) {
+            // Ensure debug info is passed up on failure
+            return { success: false, message: result.error!, debug: result.debug };
+        }
         data.countries = result.data?.filter((c:any) => c.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
         return { success: true, message: 'Datos de dirección obtenidos.', data, debug: result.debug };
     } else if (params.country && !params.state) {

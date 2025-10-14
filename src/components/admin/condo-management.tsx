@@ -403,37 +403,33 @@ function CondoFormWrapper({
   const handleLocationChange = useCallback((field: 'region' | 'country' | 'state' | 'city', value: string) => {
     startLocationTransition(async () => {
         let result: { success: boolean; data?: AddressData; message?: string; debug?: any };
-
+        let newSelection = { ...locationSelection, [field]: value };
+        
         try {
             if (field === 'region') {
                 const regionCode = availableData.regionCodeMap?.[value];
+                newSelection = { ...newSelection, country: '', state: '', city: '' };
+                setLocationSelection(newSelection);
                 result = await fetchAddressData({ region: value, region_code: regionCode });
                 
-                const debugInfo = {
-                    requestUrl: result.debug?.url,
-                    responseBody: result.debug?.response
-                };
-                
-                if(result.success) {
-                     const countryNames = result.data?.countries?.map(c => c.name) || [];
-                     toast({
-                      title: 'DEBUG: Países Obtenidos',
-                      description: JSON.stringify({
-                        paises: countryNames,
-                        debug: debugInfo
-                      }, null, 2),
-                      duration: 15000,
-                      copyable: true,
-                     });
-                     // Stop flow for debugging
-                     // setLocationSelection(current => ({ ...current, region: value, country: '', state: '', city: '' }));
-                     // setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
-                } else {
-                    throw new Error(result.message);
+                const debugInfo = result.debug ? JSON.stringify({ url: result.debug.url, response: result.debug.response }, null, 2) : "No debug info";
+
+                if (result.success) {
+                     setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
                 }
 
+                toast({
+                  title: 'DEBUG: ' + (result.success ? 'Países Obtenidos' : 'Error al Obtener Países'),
+                  description: debugInfo,
+                  duration: 20000,
+                  copyable: true,
+                  variant: result.success ? 'default' : 'destructive',
+                });
+
+
             } else if (field === 'country') {
-                setLocationSelection(current => ({ ...current, country: value, state: '', city: '' }));
+                newSelection = { ...newSelection, state: '', city: '' };
+                setLocationSelection(newSelection);
                 result = await fetchAddressData({ country: value });
                 if(result.success) {
                     setAvailableData(current => ({ ...current, states: result.data?.states || [], cities: [] }));
@@ -441,7 +437,8 @@ function CondoFormWrapper({
                      throw new Error(result.message);
                 }
             } else if (field === 'state') {
-                 setLocationSelection(current => ({ ...current, state: value, city: '' }));
+                 newSelection = { ...newSelection, city: '' };
+                 setLocationSelection(newSelection);
                  result = await fetchAddressData({ country: locationSelection.country, state: value });
                  if(result.success) {
                     setAvailableData(current => ({ ...current, cities: result.data?.cities || [] }));
@@ -449,13 +446,13 @@ function CondoFormWrapper({
                      throw new Error(result.message);
                 }
             } else if (field === 'city') {
-                setLocationSelection(current => ({ ...current, city: value }));
+                setLocationSelection(newSelection);
             }
         } catch (error: any) {
             toast({ title: t('toast.errorTitle'), description: error.message || "An unknown error occurred.", variant: 'destructive', copyable: true });
         }
     });
-}, [availableData.regionCodeMap, locationSelection.country, toast, t]);
+}, [locationSelection, availableData.regionCodeMap, toast, t]);
   
   const handleStreetChange = (value: string) => {
       setLocationSelection(current => ({ ...current, street: value }));
