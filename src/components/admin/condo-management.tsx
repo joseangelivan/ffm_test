@@ -461,21 +461,22 @@ function CondoFormWrapper({
             try {
                 const result = await fetchAddressData({});
                 if (result.success && result.data) {
+                    
+                     if (result.data.regionCodeMap && Object.keys(result.data.regionCodeMap).length > 0) {
+                        console.log("DEBUG: Full regionCodeMap loaded:", result.data.regionCodeMap);
+                        const firstRegionKey = Object.keys(result.data.regionCodeMap)[0];
+                        if (firstRegionKey) {
+                            console.log(`DEBUG: First element of map - Key: '${firstRegionKey}', Value: '${result.data.regionCodeMap[firstRegionKey]}'`);
+                        }
+                    } else {
+                        console.log("DEBUG: regionCodeMap is empty or undefined after fetch.");
+                    }
+                    
                     const initialAvailable: LocationData = {
                         regions: result.data.regions || [],
                         countries: [], states: [], cities: [],
                         regionCodeMap: result.data.regionCodeMap || {}
                     };
-
-                    if (initialAvailable.regionCodeMap && Object.keys(initialAvailable.regionCodeMap).length > 0) {
-                        console.log("DEBUG: Full regionCodeMap loaded:", initialAvailable.regionCodeMap);
-                        const firstRegionKey = Object.keys(initialAvailable.regionCodeMap)[0];
-                        if (firstRegionKey) {
-                            console.log(`DEBUG: First element of map - Key: '${firstRegionKey}', Value: '${initialAvailable.regionCodeMap[firstRegionKey]}'`);
-                        }
-                    } else {
-                        console.log("DEBUG: regionCodeMap is empty or undefined after fetch.");
-                    }
 
                     if (isEditMode && initialData.region && initialAvailable.regionCodeMap) {
                         const regionCode = initialAvailable.regionCodeMap[initialData.region];

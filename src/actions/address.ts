@@ -134,8 +134,10 @@ async function fetchRegions(config: any): Promise<{ success: boolean, data?: any
                 name: getNestedValue(item, responseConfig.name),
                 code: getNestedValue(item, responseConfig.code)
             }));
-            const regionCodeMap = mappedData.reduce((acc: any, item: any) => {
-                acc[item.name] = item.code;
+             const regionCodeMap = mappedData.reduce((acc: any, item: any) => {
+                if (item.name && item.code) {
+                    acc[item.name] = item.code;
+                }
                 return acc;
             }, {});
             return { success: true, data: mappedData, regionCodeMap };
