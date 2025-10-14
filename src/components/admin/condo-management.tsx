@@ -94,7 +94,7 @@ const LocationSelector = ({
 }: {
   locationSelection: Partial<Pick<LocationData, 'region' | 'country' | 'state' | 'city'>>;
   availableData: Partial<Pick<LocationData, 'regions' | 'countries' | 'states' | 'cities'>>;
-  onLocationChange: (field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => void;
+  onLocationChange: (field: 'region' | 'country' | 'state' | 'city', value: string) => void;
   isFormDisabled?: boolean;
 }) => {
   const { t } = useLocale();
@@ -251,7 +251,7 @@ function CondoFormFields({
   isFormPending: boolean;
   locationSelection: Partial<Pick<LocationData, 'region' | 'country' | 'state' | 'city' | 'street' | 'number'>>;
   availableData: Partial<Pick<LocationData, 'regions' | 'countries' | 'states' | 'cities'>>;
-  onLocationChange: (field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => void;
+  onLocationChange: (field: 'region' | 'country' | 'state' | 'city', value: string) => void;
   onStreetChange: (value: string) => void;
   onNumberChange: (value: string) => void;
   onVerifyAddress: () => void;
@@ -368,7 +368,7 @@ function CondoFormWrapper({
   const { t } = useLocale();
   const { toast } = useToast();
   
-  // State for selected values
+  // State for FORM selected values (all strings)
   const [locationSelection, setLocationSelection] = useState({
       region: initialData.region || '',
       country: initialData.country || '',
@@ -380,12 +380,13 @@ function CondoFormWrapper({
       longitude: initialData.longitude
   });
 
-  // State for available options in dropdowns
+  // State for AVAILABLE options in dropdowns (arrays of objects/strings)
   const [availableData, setAvailableData] = useState<Partial<Pick<LocationData, 'regions' | 'countries' | 'states' | 'cities' | 'regionCodeMap'>>>({
       regions: [],
       countries: [],
       states: [],
-      cities: []
+      cities: [],
+      regionCodeMap: {}
   });
 
   const [isLocationLoading, startLocationTransition] = useTransition();
@@ -408,7 +409,7 @@ function CondoFormWrapper({
   
   const [state, dispatchFormAction, isFormPending] = useActionState(handleAction, undefined);
 
- const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
+  const handleLocationChange = useCallback((field: 'region' | 'country' | 'state' | 'city', value: string) => {
     startLocationTransition(async () => {
         let result: { success: boolean; data?: AddressData; message?: string; };
 
@@ -500,40 +501,46 @@ function CondoFormWrapper({
       setIsVerificationDialogOpen(false);
   }
 
-  const isFormDisabled = isFormPending || isLocationLoading;
-
+  // Effect to load initial data for dropdowns
   useEffect(() => {
     startLocationTransition(async () => {
       try {
-        const result = await fetchAddressData({});
-        if (result.success && result.data) {
-            const newAvailableData: Partial<typeof availableData> = {
-                regions: result.data.regions || [],
-                regionCodeMap: result.data.regionCodeMap || {}
-            };
-            
-            if (isEditMode && initialData.region) {
-                const regionCode = result.data.regionCodeMap?.[initialData.region];
-                const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionCode });
-                newAvailableData.countries = countriesResult.data?.countries || [];
-
-                if(initialData.country) {
-                    const statesResult = await fetchAddressData({ country: initialData.country });
-                    newAvailableData.states = statesResult.data?.states || [];
-                }
-                if(initialData.country && initialData.state) {
-                    const citiesResult = await fetchAddressData({ country: initialData.country, state: initialData.state });
-                    newAvailableData.cities = citiesResult.data?.cities || [];
-                }
-            }
-             setAvailableData(current => ({ ...current, ...newAvailableData }));
+        // Fetch all regions first
+        const regionsResult = await fetchAddressData({});
+        if (!regionsResult.success || !regionsResult.data) {
+            throw new Error("Failed to fetch regions.");
         }
+        
+        const newAvailableData: Partial<typeof availableData> = {
+            regions: regionsResult.data.regions || [],
+            regionCodeMap: regionsResult.data.regionCodeMap || {}
+        };
+        
+        // If in edit mode, fetch data for the pre-selected values
+        if (isEditMode && initialData.region) {
+            const regionCode = regionsResult.data.regionCodeMap?.[initialData.region];
+            const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionCode });
+            newAvailableData.countries = countriesResult.data?.countries || [];
+
+            if(initialData.country) {
+                const statesResult = await fetchAddressData({ country: initialData.country });
+                newAvailableData.states = statesResult.data?.states || [];
+            }
+            if(initialData.country && initialData.state) {
+                const citiesResult = await fetchAddressData({ country: initialData.country, state: initialData.state });
+                newAvailableData.cities = citiesResult.data?.cities || [];
+            }
+        }
+        setAvailableData(newAvailableData);
+
       } catch (error) {
          toast({ title: t('toast.errorTitle'), description: "No se pudieron cargar los datos de ubicación inicial.", variant: 'destructive', copyable: true });
       }
     });
   }, [isEditMode, initialData.region, initialData.country, initialData.state, toast, t]);
   
+  const isFormDisabled = isFormPending || isLocationLoading;
+
   return (
     <>
         <div className={cn('relative transition-opacity', isFormDisabled && 'opacity-50')}>
