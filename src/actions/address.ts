@@ -44,6 +44,12 @@ function getNestedValue(obj: any, path: string): any {
     if (typeof path !== 'string' || !path || path === '.') {
       return obj;
     }
+    // Handle cases like "[1]"
+    const match = path.match(/^\[(\d+)\]$/);
+    if (match) {
+        const index = parseInt(match[1], 10);
+        return Array.isArray(obj) ? obj[index] : undefined;
+    }
     const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
     let result = obj;
     for (const key of keys) {
@@ -242,112 +248,106 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
     
     let data: AddressData = {};
     
-    // This top-level try-catch is removed to let specific errors bubble up to testAddressService
-    // try {
-        const requestConfig = config.request?.api_config;
-        const responseConfig = config.response;
-        
-        if (!responseConfig) {
-            return { success: false, message: 'La configuración de respuesta del servicio de dirección es inválida.' };
-        }
-        
-        // --- REGIONS ---
-        if (Object.keys(params).length === 0) {
-            const regionsRequestConfig = requestConfig?.parameters?.regions;
-            const regionsResponseConfig = responseConfig.regions;
+    const requestConfig = config.request?.api_config;
+    const responseConfig = config.response;
+    
+    if (!responseConfig) {
+        return { success: false, message: 'La configuración de respuesta del servicio de dirección es inválida.' };
+    }
+    
+    // --- REGIONS ---
+    if (Object.keys(params).length === 0) {
+        const regionsRequestConfig = requestConfig?.parameters?.regions;
+        const regionsResponseConfig = responseConfig.regions;
 
-            if (regionsRequestConfig && !regionsRequestConfig.url && regionsResponseConfig?.path) {
-                const regionContainer = getNestedValue(config, regionsResponseConfig.path);
-                if (regionContainer && Array.isArray(regionContainer.value)) {
-                    data.regions = regionContainer.value.map((name: string) => ({
-                        name: name,
-                        code: regionContainer.codes?.[name] || '',
+        if (regionsRequestConfig && !regionsRequestConfig.url && regionsResponseConfig?.path) {
+            const regionContainer = getNestedValue(config, regionsResponseConfig.path);
+            if (regionContainer && Array.isArray(regionContainer.value)) {
+                data.regions = regionContainer.value.map((name: string) => ({
+                    name: name,
+                    code: regionContainer.codes?.[name] || '',
+                }));
+                data.regionCodeMap = regionContainer.codes;
+            }
+        } else if (regionsRequestConfig?.url && regionsResponseConfig?.path) {
+            try {
+                const url = regionsRequestConfig.url;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    return { success: false, message: `Error al obtener datos de la URL de regiones: El servidor respondió con el estado ${response.status}` };
+                }
+                const regionsJson = await response.json();
+                const regionList = getNestedValue(regionsJson, regionsResponseConfig.path);
+                
+                if (Array.isArray(regionList)) {
+                    data.regions = regionList.map((item: any) => ({
+                        name: getNestedValue(item, regionsResponseConfig.name),
+                        code: getNestedValue(item, regionsResponseConfig.code)
                     }));
-                    data.regionCodeMap = regionContainer.codes;
+                } else {
+                    return { success: false, message: 'Error de configuración: La ruta especificada para regiones no devolvió un array.' };
                 }
-            } else if (regionsRequestConfig?.url && regionsResponseConfig?.path) {
-                try {
-                    const url = regionsRequestConfig.url;
-                    const response = await fetch(url);
-                    if (!response.ok) {
-                        return { success: false, message: `Error al obtener datos de la URL de regiones: El servidor respondió con el estado ${response.status}` };
-                    }
-                    const regionsJson = await response.json();
-                    const regionList = getNestedValue(regionsJson, regionsResponseConfig.path);
-                    
-                    if (Array.isArray(regionList)) {
-                        data.regions = regionList.map((item: any) => ({
-                            name: getNestedValue(item, regionsResponseConfig.name),
-                            code: getNestedValue(item, regionsResponseConfig.code)
-                        }));
-                    } else {
-                        return { success: false, message: 'Error de configuración: La ruta especificada para regiones no devolvió un array.' };
-                    }
-                } catch (e: any) {
-                     return { success: false, message: `Error al obtener datos de la URL de regiones: ${e.message}` };
-                }
+            } catch (e: any) {
+                 return { success: false, message: `Error al obtener datos de la URL de regiones: ${e.message}` };
             }
         }
+    }
 
 
-        // --- COUNTRIES ---
-        if ((params.region || params.region_code) && requestConfig?.parameters?.countries?.url) {
-            let urlString = requestConfig.parameters.countries.url;
-            
-            if (params.region_code) urlString = urlString.replace('$region_code', params.region_code);
-            if (params.region) urlString = urlString.replace('$region', params.region);
-
-            const response = await fetch(urlString, { method: 'GET' });
-            const countriesJson = await response.json();
-            
-            const countriesPath = responseConfig.countries?.path;
-            const countryList = getNestedValue(countriesJson, countriesPath);
-
-            if (Array.isArray(countryList)) {
-                data.countries = countryList.map((item: any) => ({
-                    name: getNestedValue(item, responseConfig.countries.name),
-                    cca2: getNestedValue(item, responseConfig.countries.cca2),
-                    flag: getNestedValue(item, responseConfig.countries.flag),
-                })).filter(c => c.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
-            }
-        }
-
-        // --- STATES ---
-        if (params.country && requestConfig?.parameters?.states?.url) {
-            const url = requestConfig.parameters.states.url.replace('$country', params.country);
-            const body = JSON.stringify({ country: params.country });
-            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
-            const statesJson = await response.json();
-
-            const statesPath = responseConfig.states?.path;
-            const stateList = getNestedValue(statesJson, statesPath);
-            
-            if (Array.isArray(stateList)) {
-                data.states = stateList.map((item: any) => ({
-                    name: getNestedValue(item, responseConfig.states.name)
-                })).filter(s => s.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
-            }
-        }
-
-        // --- CITIES ---
-        if (params.country && params.state && requestConfig?.parameters?.cities?.url) {
-            const url = requestConfig.parameters.cities.url.replace('$state', params.state);
-            const body = JSON.stringify({ country: params.country, state: params.state });
-            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
-            const citiesJson = await response.json();
-            
-            const citiesPath = responseConfig.cities?.path;
-            const rawCities = getNestedValue(citiesJson, citiesPath);
-            if (Array.isArray(rawCities)) {
-                data.cities = rawCities.sort();
-            }
-        }
+    // --- COUNTRIES ---
+    if ((params.region || params.region_code) && requestConfig?.parameters?.countries?.url) {
+        let urlString = requestConfig.parameters.countries.url;
         
-        return { success: true, message: 'Datos de dirección obtenidos.', data };
-    // } catch (error: any) {
-    //     console.error("Error processing address data:", error);
-    //     return { success: false, message: `Error del servidor al obtener los datos de dirección.` };
-    // }
+        if (params.region_code) urlString = urlString.replace('$region_code', params.region_code);
+        if (params.region) urlString = urlString.replace('$region', params.region);
+
+        const response = await fetch(urlString, { method: 'GET' });
+        const countriesJson = await response.json();
+        
+        const countriesPath = responseConfig.countries?.path;
+        const countryList = getNestedValue(countriesJson, countriesPath);
+
+        if (Array.isArray(countryList)) {
+            data.countries = countryList.map((item: any) => ({
+                name: getNestedValue(item, responseConfig.countries.name),
+                cca2: getNestedValue(item, responseConfig.countries.cca2),
+                flag: getNestedValue(item, responseConfig.countries.flag),
+            })).filter(c => c.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
+        }
+    }
+
+    // --- STATES ---
+    if (params.country && requestConfig?.parameters?.states?.url) {
+        const url = requestConfig.parameters.states.url.replace('$country', params.country);
+        const body = JSON.stringify({ country: params.country });
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
+        const statesJson = await response.json();
+
+        const statesPath = responseConfig.states?.path;
+        const stateList = getNestedValue(statesJson, statesPath);
+        
+        if (Array.isArray(stateList)) {
+            data.states = stateList.map((item: any) => ({
+                name: getNestedValue(item, responseConfig.states.name)
+            })).filter(s => s.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
+        }
+    }
+
+    // --- CITIES ---
+    if (params.country && params.state && requestConfig?.parameters?.cities?.url) {
+        const url = requestConfig.parameters.cities.url.replace('$state', params.state);
+        const body = JSON.stringify({ country: params.country, state: params.state });
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
+        const citiesJson = await response.json();
+        
+        const citiesPath = responseConfig.cities?.path;
+        const rawCities = getNestedValue(citiesJson, citiesPath);
+        if (Array.isArray(rawCities)) {
+            data.cities = rawCities.sort();
+        }
+    }
+    
+    return { success: true, message: 'Datos de dirección obtenidos.', data };
 }
 
 
@@ -377,58 +377,40 @@ export async function testAddressService(id: string): Promise<ActionState> {
             await client.query('COMMIT');
         }
         
-        // STEP 1: Test Regions
         const regionsResult = await fetchAddressData({});
         
-        if (!regionsResult.success) {
+        if (!regionsResult.success || !Array.isArray(regionsResult.data?.regions) || regionsResult.data.regions.length === 0) {
             const debugOutput = JSON.stringify(regionsResult, null, 2);
-            throw new Error(`Prueba de regiones fallida. El servicio devolvió un error: ${regionsResult.message}\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
-        }
-        
-        if (!Array.isArray(regionsResult.data?.regions) || regionsResult.data.regions.length === 0) {
-             const debugOutput = JSON.stringify(regionsResult, null, 2);
-             throw new Error(`Prueba de regiones fallida: data.regions no es un array o está vacío.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
+            throw new Error(`Prueba de regiones fallida: data.regions no es un array o está vacío.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
         }
         
         const firstRegion = regionsResult.data.regions[0];
-        console.log(`Prueba de Regiones exitosa. Primera región encontrada: ${firstRegion.name} (${firstRegion.code})`);
-        
-        let finalMessage = `Regiones OK. `;
+        let finalMessage = `Regiones OK. Primera encontrada: ${firstRegion.name} (${firstRegion.code}). `;
 
         // STEP 2: Test Countries
         const countriesResult = await fetchAddressData({ region: firstRegion.name, region_code: firstRegion.code });
 
-        if (!countriesResult.success) {
-             const debugOutput = JSON.stringify(countriesResult, null, 2);
-            throw new Error(`Prueba de países fallida para la región '${firstRegion.name}'. El servicio devolvió un error: ${countriesResult.message}\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
-        }
-        
-        if (!countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
+        if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
             const debugOutput = JSON.stringify(countriesResult, null, 2);
             throw new Error(`Prueba de países fallida para la región '${firstRegion.name}'.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
         }
 
         const firstCountry = countriesResult.data.countries[0];
-        console.log(`Prueba de Países exitosa. Primer país encontrado: ${firstCountry.name}`);
-        finalMessage += `Países OK.`;
+        finalMessage += `Países OK. Primer país encontrado: ${firstCountry.name}.`;
 
         // Restore original default if it was changed
         if (client && id !== originalDefaultId) {
-            try { 
-                await client.query('BEGIN');
-                await client.query('UPDATE address_services SET is_default = FALSE');
-                if (originalDefaultId) {
-                    await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
-                }
-                await client.query('COMMIT');
-            } catch (e) { /* ignore rollback error */ }
+            await client.query('BEGIN');
+            await client.query('UPDATE address_services SET is_default = FALSE');
+            if (originalDefaultId) {
+                await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
+            }
+            await client.query('COMMIT');
         }
             
         return { success: true, message: `¡Prueba exitosa! ${finalMessage}` };
             
     } catch (err: any) {
-        console.error("Error during address service test:", err);
-
         // Restore original default if it was changed
         if (client && id !== originalDefaultId) {
             try { 
@@ -447,4 +429,5 @@ export async function testAddressService(id: string): Promise<ActionState> {
     }
 }
     
+
 
