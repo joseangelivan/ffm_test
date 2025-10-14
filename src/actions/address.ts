@@ -159,6 +159,7 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
     const baseDebugInfo = {
         'region_received': params.region,
         'region_code_received': params.region_code,
+        'region_code_map': config.response?.regions?.codes,
         'curl': '',
     };
     
