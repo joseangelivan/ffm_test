@@ -241,21 +241,21 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         if (regionsResponseConfig) {
             const baseObject = getNestedValue(config, regionsResponseConfig.path || '');
             
-            const regionList = regionsResponseConfig.name 
-                ? getNestedValue(baseObject, regionsResponseConfig.name) 
-                : baseObject;
+            const regionList = baseObject?.[regionsResponseConfig.name] || baseObject;
             
-            const regionCodes = (regionsResponseConfig.code && typeof regionsResponseConfig.code === 'string')
-                ? getNestedValue(baseObject, regionsResponseConfig.code)
-                : [];
+            const codePath = regionsResponseConfig.code;
+            let regionCodes: string[] = [];
+            if (codePath && typeof codePath === 'string') {
+                regionCodes = getNestedValue(baseObject, codePath) || [];
+            }
 
             if (Array.isArray(regionList)) {
                 data.regions = regionList.map((item: any, index: number) => {
-                    const codeValue = (Array.isArray(regionCodes) && regionCodes[index]) ? regionCodes[index] : (item || '');
+                    const codeValue = (Array.isArray(regionCodes) && regionCodes[index]) ? regionCodes[index] : '';
                     if (typeof item === 'object' && item !== null) {
                         return { name: item.name || '', code: item.code || codeValue || item.name || '' };
                     }
-                    return { name: item, code: codeValue };
+                    return { name: item, code: codeValue || item };
                 }).filter(r => r.name);
 
                 data.regionCodeMap = data.regions.reduce((acc, curr) => {
