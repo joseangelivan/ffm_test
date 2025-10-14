@@ -40,7 +40,7 @@ const ServiceSchema = z.object({
 });
 
 function getNestedValue(obj: any, path: string): any {
-  if (!path || path === '.' || path === '') return obj;
+  if (!path || typeof path !== 'string' || path === '.' || path === '') return obj;
 
   const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
   let result = obj;
@@ -239,6 +239,10 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         const regionsPath = responseConfig.regions?.path;
         if (requestConfig.regions?.value) { // Hardcoded regions
             data.regions = requestConfig.regions.value.map((r: string) => ({ name: r, code: r }));
+            data.regionCodeMap = data.regions.reduce((acc, curr) => {
+                if (curr.name && curr.code) acc[curr.name] = curr.code;
+                return acc;
+            }, {} as Record<string, string>);
         } else if (requestConfig.regions?.url && regionsPath) { // Fetched regions
             const response = await fetch(requestConfig.regions.url, { method: 'GET' });
             const regionsJson = await response.json();
@@ -249,7 +253,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                     code: getNestedValue(item, responseConfig.regions.code)
                 })).filter(r => r.name);
                 data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                    if (curr.name && curr.code) acc[curr.name] = curr.code;
+                    if (curr.name) acc[curr.name] = curr.code || '';
                     return acc;
                 }, {} as Record<string, string>);
             }
@@ -257,14 +261,13 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
 
         // --- COUNTRIES ---
         if ((params.region || params.region_code) && requestConfig.countries?.url) {
-            let url = requestConfig.countries.url;
-            if (url.includes('$region_code') && params.region_code) {
-                 url = url.replace('$region_code', params.region_code);
-            } else if (url.includes('$region')) {
-                 url = url.replace('$region', params.region!);
-            }
-           
-            const response = await fetch(url, { method: 'GET' });
+            let url = new URL(requestConfig.countries.url);
+            
+            // Intelligent placeholder replacement
+            url.pathname = url.pathname.replace('$region_code', params.region_code || '');
+            url.pathname = url.pathname.replace('$region', params.region || '');
+
+            const response = await fetch(url.toString(), { method: 'GET' });
             const countriesJson = await response.json();
             
             const countriesPath = responseConfig.countries?.path;
@@ -337,9 +340,18 @@ export async function testAddressService(id: string): Promise<ActionState> {
     } finally {
         if (client) client.release();
     }
+    
+    // Simulate setting this as default for testing purposes
+    const originalDefaultResult = await client.query('SELECT id FROM address_services WHERE is_default = TRUE');
+    const originalDefaultId = originalDefaultResult.rows[0]?.id;
+
+    await client.query('BEGIN');
+    await client.query('UPDATE address_services SET is_default = FALSE');
+    await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [id]);
 
     try {
         // 1. Test Regions
+        console.log("Testing Regions...");
         const regionsResult = await fetchAddressData({});
         if (!regionsResult.success || !regionsResult.data?.regions || regionsResult.data.regions.length === 0) {
             return { success: false, message: `Prueba de regiones fallida: ${regionsResult.message}` };
@@ -347,14 +359,17 @@ export async function testAddressService(id: string): Promise<ActionState> {
         console.log("Regions test passed.");
 
         // 2. Test Countries
+        console.log("Testing Countries...");
         const testRegion = regionsResult.data.regions[0];
-        const countriesResult = await fetchAddressData({ region: testRegion.name, region_code: testRegion.code });
+        const regionCode = regionsResult.data.regionCodeMap?.[testRegion.name] || '';
+        const countriesResult = await fetchAddressData({ region: testRegion.name, region_code: regionCode });
         if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
             return { success: false, message: `Prueba de países fallida para la región '${testRegion.name}': ${countriesResult.message}` };
         }
         console.log("Countries test passed.");
 
         // 3. Test States
+        console.log("Testing States...");
         const testCountry = countriesResult.data.countries[0];
         const statesResult = await fetchAddressData({ country: testCountry.name });
         if (!statesResult.success || !statesResult.data?.states || statesResult.data.states.length === 0) {
@@ -364,6 +379,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
             console.log("States test passed.");
             
             // 4. Test Cities (only if states were found)
+            console.log("Testing Cities...");
             const testState = statesResult.data.states[0];
             const citiesResult = await fetchAddressData({ country: testCountry.name, state: testState.name });
             if (!citiesResult.success || !citiesResult.data?.cities || citiesResult.data.cities.length === 0) {
@@ -377,7 +393,13 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
     } catch (error: any) {
         return { success: false, message: `Error durante la prueba: ${error.message}` };
+    } finally {
+        // Restore original default
+        await client.query('UPDATE address_services SET is_default = FALSE');
+        if (originalDefaultId) {
+             await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
+        }
+        await client.query('COMMIT');
+        if (client) client.release();
     }
 }
-
-  
