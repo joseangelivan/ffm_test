@@ -1,4 +1,3 @@
-
 'use server';
 
 import { z } from 'zod';
@@ -190,27 +189,28 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
                 }
             }
             
-            const response = await fetch(requestConfig.url, {
+            const fetchOptions: RequestInit = {
                 method: requestConfig.method || 'POST',
-                headers: { 'Content-Type': 'application/json', ...requestConfig.headers },
-                body: JSON.stringify(body),
+                headers: { ...requestConfig.headers },
                 cache: 'no-store'
-            });
+            };
+
+            if (fetchOptions.method !== 'GET' && Object.keys(body).length > 0) {
+                fetchOptions.body = JSON.stringify(body);
+                (fetchOptions.headers as any)['Content-Type'] = 'application/json';
+            }
+
+
+            const response = await fetch(requestConfig.url, fetchOptions);
 
             if (!response.ok) throw new Error(`El servidor respondió con el estado ${response.status}. URL: ${requestConfig.url}`);
             const jsonResponse = await response.json();
-            const dataList = getNestedValue(jsonResponse, responseConfig.path);
+            
+            // The API returns { error: false, ..., data: { states: [...] } }
+            const dataList = getNestedValue(jsonResponse, 'data.states');
 
             if (!Array.isArray(dataList)) {
-                 // Try a deeper path for countriesnow-like structures
-                 const deeperData = getNestedValue(jsonResponse, 'data.states');
-                 if (Array.isArray(deeperData)) {
-                    const mappedData = deeperData.map((item: any) => ({
-                        name: getNestedValue(item, responseConfig.name)
-                    }));
-                    return { success: true, data: mappedData };
-                 }
-                throw new Error("La respuesta no contiene un array de estados.");
+                throw new Error("La respuesta de la API no contiene un array de estados en 'data.states'.");
             }
             
             const mappedData = dataList.map((item: any) => ({
@@ -231,8 +231,6 @@ async function fetchCities(config: any, params: FetchParams): Promise<{ success:
     const requestConfig = config.request?.api_config?.parameters?.countries?.states?.cities;
     if (!requestConfig) return { success: true, data: [] };
 
-    // This implementation assumes cities are always embedded for simplicity, as per the default config.
-    // Can be expanded with URL logic if needed.
     if (requestConfig.value && params.country && params.state) {
         const cities = requestConfig.value[params.country]?.cities?.[params.state] || [];
         return { success: true, data: cities };
