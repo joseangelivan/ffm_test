@@ -239,31 +239,33 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         const regionsResponseConfig = responseConfig.regions;
         if (regionsResponseConfig) {
             const baseObject = getNestedValue(config, regionsResponseConfig.path || '');
-            const regionList = baseObject?.[regionsResponseConfig.name] || baseObject;
-            
-            let regionCodes: string[] = [];
-            const codeConfig = regionsResponseConfig.code;
+            if (baseObject && regionsResponseConfig.name) {
+                const regionList = baseObject[regionsResponseConfig.name];
+                
+                if (Array.isArray(regionList)) {
+                    let regionCodes: string[] = [];
+                    const codeConfig = regionsResponseConfig.code;
 
-            if (Array.isArray(codeConfig)) {
-                regionCodes = codeConfig;
-            } else if (typeof codeConfig === 'string' && codeConfig) {
-                const codes = getNestedValue(baseObject, codeConfig);
-                if (Array.isArray(codes)) {
-                    regionCodes = codes;
+                    if (Array.isArray(codeConfig)) {
+                        regionCodes = codeConfig;
+                    } else if (typeof codeConfig === 'string' && codeConfig) {
+                        const codes = getNestedValue(baseObject, codeConfig);
+                        if (Array.isArray(codes)) {
+                            regionCodes = codes;
+                        }
+                    }
+                    
+                    data.regions = regionList.map((item: any, index: number) => {
+                        const name = typeof item === 'object' && item !== null ? item.name : item;
+                        const codeValue = regionCodes[index] || '';
+                        return { name: name, code: codeValue };
+                    }).filter(r => r.name);
+
+                    data.regionCodeMap = data.regions.reduce((acc, curr) => {
+                        if (curr.name) acc[curr.name] = curr.code || '';
+                        return acc;
+                    }, {} as Record<string, string>);
                 }
-            }
-            
-            if (Array.isArray(regionList)) {
-                 data.regions = regionList.map((item: any, index: number) => {
-                    const name = typeof item === 'object' && item !== null ? item.name : item;
-                    const codeValue = regionCodes[index] || '';
-                    return { name: name, code: codeValue };
-                }).filter(r => r.name);
-
-                data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                    if (curr.name) acc[curr.name] = curr.code || '';
-                    return acc;
-                }, {} as Record<string, string>);
             }
         }
 
@@ -374,7 +376,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const countriesResult = await fetchAddressData({ region: testRegion.name, region_code: regionCode });
             if (!countriesResult.success) {
                 let debugMessage = `Resultado: ${JSON.stringify(countriesResult, null, 2)}`;
-                throw new Error(`Prueba de países fallida para la región '${testRegion.name}'. ${debugMessage}`);
+                throw new Error(`Prueba de países fallida para la región '${testRegion.name}'. ${countriesResult.message}. ${debugMessage}`);
             }
             if (!countriesResult.data?.countries) {
                 throw new Error(`Prueba de países fallida para la región '${testRegion.name}': fetchAddressData tuvo éxito pero no devolvió datos en data.countries.`);
@@ -423,3 +425,4 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
 
     
+
