@@ -238,7 +238,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         const regionsResponseConfig = responseConfig.regions;
         if (regionsResponseConfig) {
             const baseObject = getNestedValue(config, regionsResponseConfig.path || '');
-            const regionList = baseObject?.[regionsResponseConfig.name];
+            const regionList = baseObject?.[regionsResponseConfig.name] || baseObject;
             
             let regionCodes: string[] = [];
             if (Array.isArray(regionsResponseConfig.code)) {
@@ -258,7 +258,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                 }).filter(r => r.name);
 
                 data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                    if (curr.name && curr.code) acc[curr.name] = curr.code;
+                    if (curr.name) acc[curr.name] = curr.code || '';
                     return acc;
                 }, {} as Record<string, string>);
             }
@@ -363,8 +363,9 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const regionCode = regionCodeMap[testRegion.name] || '';
 
             const countriesResult = await fetchAddressData({ region: testRegion.name, region_code: regionCode });
-            if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
-                 throw new Error(`Prueba de países fallida para la región '${testRegion.name}': ${countriesResult.message}`);
+             if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
+                 let debugMessage = `Resultado: ${JSON.stringify(countriesResult, null, 2)}`;
+                 throw new Error(`Prueba de países fallida para la región '${testRegion.name}'. ${debugMessage}`);
             }
             console.log("Countries test passed.");
             
