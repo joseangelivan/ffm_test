@@ -355,8 +355,14 @@ export async function testAddressService(id: string): Promise<ActionState> {
         try {
             // STEP 1: Test Regions
             const regionsResult = await fetchAddressData({});
-            if (!regionsResult.success || !regionsResult.data?.regions || regionsResult.data.regions.length === 0) {
+            if (!regionsResult.success) {
                  throw new Error(`Prueba de regiones fallida: ${regionsResult.message}.`);
+            }
+            if (!regionsResult.data?.regions) {
+                 throw new Error(`Prueba de regiones fallida: fetchAddressData tuvo éxito pero no devolvió datos en data.regions.`);
+            }
+             if (regionsResult.data.regions.length === 0) {
+                 throw new Error(`Prueba de regiones fallida: data.regions es un array vacío.`);
             }
             console.log("Regions test passed.");
 
@@ -366,9 +372,15 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const regionCode = regionCodeMap[testRegion.name] || '';
 
             const countriesResult = await fetchAddressData({ region: testRegion.name, region_code: regionCode });
-             if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
-                 let debugMessage = `Resultado: ${JSON.stringify(countriesResult, null, 2)}`;
-                 throw new Error(`Prueba de países fallida para la región '${testRegion.name}'. ${debugMessage}`);
+            if (!countriesResult.success) {
+                let debugMessage = `Resultado: ${JSON.stringify(countriesResult, null, 2)}`;
+                throw new Error(`Prueba de países fallida para la región '${testRegion.name}'. ${debugMessage}`);
+            }
+            if (!countriesResult.data?.countries) {
+                throw new Error(`Prueba de países fallida para la región '${testRegion.name}': fetchAddressData tuvo éxito pero no devolvió datos en data.countries.`);
+            }
+            if (countriesResult.data.countries.length === 0) {
+                throw new Error(`Prueba de países fallida para la región '${testRegion.name}': data.countries es un array vacío.`);
             }
             console.log("Countries test passed.");
             
