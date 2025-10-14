@@ -236,26 +236,19 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         let data: AddressData = {};
         
         // --- REGIONS ---
-        const regionsParamConfig = requestConfig.parameters?.regions;
-        if (regionsParamConfig?.value && Array.isArray(regionsParamConfig.value)) {
-            data.regions = regionsParamConfig.value.map((r: string) => ({ name: r, code: r }));
-            data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                if (curr.name && curr.code) acc[curr.name] = curr.code;
-                return acc;
-            }, {} as Record<string, string>);
-        } else if (regionsParamConfig?.url && responseConfig.regions?.path) {
-            const response = await fetch(regionsParamConfig.url, { method: 'GET' });
-            const regionsJson = await response.json();
-            const regionList = getNestedValue(regionsJson, responseConfig.regions.path);
+        const regionsResponseConfig = responseConfig.regions;
+        if (regionsResponseConfig?.path) {
+            // Path can point to request config for hardcoded values
+            const regionList = getNestedValue(config, regionsResponseConfig.path);
             
             if (Array.isArray(regionList)) {
                 data.regions = regionList.map((item: any) => ({
-                    name: getNestedValue(item, responseConfig.regions.name),
-                    code: getNestedValue(item, responseConfig.regions.code) || ''
+                    name: regionsResponseConfig.name ? getNestedValue(item, regionsResponseConfig.name) : item,
+                    code: regionsResponseConfig.code ? getNestedValue(item, regionsResponseConfig.code) || '' : item
                 })).filter(r => r.name);
-                
+
                 data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                    if (curr.name) acc[curr.name] = curr.code || '';
+                    if (curr.name) acc[curr.name] = curr.code || curr.name;
                     return acc;
                 }, {} as Record<string, string>);
             }
@@ -265,13 +258,13 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         // --- COUNTRIES ---
         const countriesParamConfig = requestConfig.parameters?.countries;
         if ((params.region || params.region_code) && countriesParamConfig?.url) {
-            let url = new URL(countriesParamConfig.url);
+            let urlString = countriesParamConfig.url;
             
             // Intelligent placeholder replacement
-            url.pathname = url.pathname.replace('$region_code', params.region_code || '');
-            url.pathname = url.pathname.replace('$region', params.region || '');
+            if (params.region_code) urlString = urlString.replace('$region_code', params.region_code);
+            if (params.region) urlString = urlString.replace('$region', params.region);
 
-            const response = await fetch(url.toString(), { method: 'GET' });
+            const response = await fetch(urlString, { method: 'GET' });
             const countriesJson = await response.json();
             
             const countriesPath = responseConfig.countries?.path;
@@ -313,7 +306,10 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
              const citiesJson = await response.json();
              
              const citiesPath = responseConfig.cities?.path;
-             data.cities = ((citiesPath === '.' || citiesPath === '') ? citiesJson : getNestedValue(citiesJson, citiesPath)).sort();
+             const rawCities = (citiesPath === '.' || citiesPath === '') ? citiesJson : getNestedValue(citiesJson, citiesPath);
+             if (Array.isArray(rawCities)) {
+                data.cities = rawCities.sort();
+             }
         }
 
         return { success: true, message: 'Datos de dirección obtenidos.', data };
@@ -386,21 +382,48 @@ export async function testAddressService(id: string): Promise<ActionState> {
             return { success: true, message: "¡Prueba exitosa! El flujo de obtención de datos de dirección funciona correctamente." };
 
         } catch (testError: any) {
-            throw testError; // Throw error to be caught by the outer catch, which handles rollback
+            // This will be caught by the outer catch, which handles rollback
+            throw testError; 
         } finally {
-             // Restore original default
-            await client.query('UPDATE address_services SET is_default = FALSE');
-            if (originalDefaultId) {
-                await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
-            }
+             // This block will run after the try/catch inside it, but before the outer catch.
+             // We commit here because we want to restore the original default regardless of test outcome.
             await client.query('COMMIT');
         }
 
     } catch (error: any) {
-        if (client) await client.query('ROLLBACK');
+        // This will catch the re-thrown testError.
+        // We only rollback if the main transaction has not been committed.
+        if (client) {
+            try {
+               await client.query('ROLLBACK');
+            } catch (e) {
+                // Ignore rollback errors if transaction was already committed
+            }
+        }
         console.error("Error during address service test:", error);
         return { success: false, message: `Error durante la prueba: ${error.message}` };
     } finally {
-        if (client) client.release();
+        if (client) {
+            // Restore original default state if it exists.
+            const pool = await getDbPool();
+            const restorationClient = await pool?.connect();
+            if(restorationClient) {
+                try {
+                    const originalDefaultResult = await restorationClient.query('SELECT id FROM address_services WHERE is_default = TRUE');
+                    const originalDefaultId = originalDefaultResult.rows[0]?.id;
+                    await restorationClient.query('BEGIN');
+                    await restorationClient.query('UPDATE address_services SET is_default = FALSE');
+                    if(originalDefaultId) {
+                        await restorationClient.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
+                    }
+                    await restorationClient.query('COMMIT');
+                } catch(e) {
+                    await restorationClient.query('ROLLBACK');
+                } finally {
+                    restorationClient.release();
+                }
+            }
+            client.release();
+        }
     }
 }
