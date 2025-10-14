@@ -160,14 +160,14 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
             const mappedData = dataList.map((item: any) => {
                 const countryData: AddressDataItem = {
                     name: getNestedValue(item, responseConfig.name),
-                    cca2: getNestedValue(item.flag, responseConfig.cca2)
+                    cca2: getNestedValue(item, responseConfig.cca2)
                 };
 
-                // Only add flag if the config path is not an empty array
-                if (Array.isArray(responseConfig.flag) && responseConfig.flag.length > 0) {
-                     countryData.flag = getNestedValue(item.flag, responseConfig.flag);
-                } else if (typeof responseConfig.flag === 'string' && responseConfig.flag) {
-                     countryData.flag = getNestedValue(item.flag, responseConfig.flag);
+                // Only add flag if the config path is not an empty array and is a non-empty string
+                if (responseConfig.flag && Array.isArray(responseConfig.flag) && responseConfig.flag.length > 0) {
+                     countryData.flag = getNestedValue(item, responseConfig.flag.join('.'));
+                } else if (responseConfig.flag && typeof responseConfig.flag === 'string') {
+                     countryData.flag = getNestedValue(item, responseConfig.flag);
                 }
 
                 return countryData;

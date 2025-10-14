@@ -405,50 +405,25 @@ function CondoFormWrapper({
 
         try {
             if (field === 'region') {
-                setLocationSelection(current => ({ ...current, region: value, country: '', state: '', city: '' }));
                 const regionCode = availableData.regionCodeMap?.[value];
                 result = await fetchAddressData({ region: value, region_code: regionCode });
                 
                 const countryNames = result.data?.countries?.map(c => c.name) || [];
                 toast({
                       title: 'DEBUG: Nombres de Países',
-                      description: JSON.stringify(countryNames, null, 2),
+                      description: JSON.stringify(countryNames),
                       duration: 15000,
                       copyable: true,
                 });
                 
-                if (result.success && result.data) {
-                    setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
-                }
-
-            } else if (field === 'country') {
-                setLocationSelection(current => ({ ...current, country: value, state: '', city: '' }));
-                result = await fetchAddressData({ country: value });
-                if (result.success && result.data) {
-                    setAvailableData(current => ({ ...current, states: result.data?.states || [], cities: [] }));
-                    if (!result.data.states || result.data.states.length === 0) {
-                        toast({ title: "Sin Datos", description: "El país seleccionado no tiene estados/provincias disponibles.", variant: 'default' });
-                    }
-                }
-
-            } else if (field === 'state') {
-                 setLocationSelection(current => ({ ...current, state: value, city: '' }));
-                result = await fetchAddressData({ country: locationSelection.country, state: value });
-                if (result.success && result.data) {
-                    setAvailableData(current => ({ ...current, cities: result.data?.cities || [] }));
-                     if (!result.data.cities || result.data.cities.length === 0) {
-                        toast({ title: "Sin Datos", description: "El estado seleccionado no tiene ciudades disponibles.", variant: 'default' });
-                    }
-                }
-
-            } else if (field === 'city') {
-                 setLocationSelection(current => ({ ...current, city: value }));
+                // Stop flow here for debug
+                return;
             }
         } catch (error: any) {
             toast({ title: t('toast.errorTitle'), description: error.message || "An unknown error occurred.", variant: 'destructive', copyable: true });
         }
     });
-}, [availableData.regionCodeMap, locationSelection.country, toast, t]);
+}, [availableData.regionCodeMap, toast, t]);
   
   const handleStreetChange = (value: string) => {
       setLocationSelection(current => ({ ...current, street: value }));
