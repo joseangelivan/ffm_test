@@ -363,18 +363,16 @@ export async function testAddressService(id: string): Promise<ActionState> {
             // STEP 1: Test Regions
             const regionsResult = await fetchAddressData({});
             
-            console.log("DEBUG: Resultado de la prueba de regiones:", JSON.stringify(regionsResult, null, 2));
-
             if (!regionsResult.success || !regionsResult.data || !Array.isArray(regionsResult.data.regions) || regionsResult.data.regions.length === 0) {
                 let errorMessage = 'Prueba de regiones fallida: ';
                 if (!regionsResult.success) {
                     errorMessage += `fetchAddressData falló con el mensaje: ${regionsResult.message}`;
                 } else if (!regionsResult.data) {
                     errorMessage += `fetchAddressData no devolvió un objeto 'data'.`;
-                } else if (!regionsResult.data.regions) {
-                    errorMessage += `El objeto 'data' no contiene una propiedad 'regions'.`;
                 } else if (!Array.isArray(regionsResult.data.regions)) {
                     errorMessage += `data.regions no es un array.`;
+                } else if (regionsResult.data.regions.length === 0) {
+                    errorMessage += `fetchAddressData tuvo éxito pero data.regions está vacío.`;
                 } else {
                     errorMessage += `fetchAddressData tuvo éxito pero no devolvió datos en data.regions.`;
                 }
@@ -382,14 +380,13 @@ export async function testAddressService(id: string): Promise<ActionState> {
             }
             
             const firstRegion = regionsResult.data.regions[0];
-            console.log(`Prueba de Regiones exitosa. Primer continente encontrado: ${firstRegion.name}`);
+            console.log(`Prueba de Regiones exitosa. Primera región encontrada: ${firstRegion.name}`);
 
             // STEP 2: Test Countries
             const regionCodeMap = regionsResult.data.regionCodeMap || {};
             const regionCode = regionCodeMap[firstRegion.name] || '';
             
             const countriesResult = await fetchAddressData({ region: firstRegion.name, region_code: regionCode });
-            console.log("DEBUG: Resultado de la prueba de países:", JSON.stringify(countriesResult, null, 2));
 
             if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
                 let debugMessage = `Resultado: ${JSON.stringify(countriesResult, null, 2)}`;
@@ -427,3 +424,5 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (client) client.release();
     }
 }
+
+    
