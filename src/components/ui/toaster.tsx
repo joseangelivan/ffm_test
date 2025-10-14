@@ -20,7 +20,13 @@ export function Toaster() {
   const { t } = useLocale()
 
   const handleCopy = (title: React.ReactNode, description: React.ReactNode) => {
-    const textToCopy = `${title}\n${description}`;
+    let textToCopy = `${title}\n`;
+    if (typeof description === 'string') {
+        textToCopy += description;
+    } else {
+        // Fallback for non-string descriptions, though we try to avoid this.
+        textToCopy += '[Contenido no copiable]';
+    }
     navigator.clipboard.writeText(textToCopy);
     toastFn({
       title: t('toast.copied.title'),
@@ -32,12 +38,17 @@ export function Toaster() {
   return (
     <ToastProvider>
       {toasts.map(function ({ id, title, description, action, copyable, ...props }) {
+        const isJsonString = typeof description === 'string' && description.trim().startsWith('{');
         return (
           <Toast key={id} {...props}>
             <div className="grid gap-1 overflow-auto">
               {title && <ToastTitle>{title}</ToastTitle>}
               {description && (
-                <ToastDescription className="break-words">{description}</ToastDescription>
+                 isJsonString ? (
+                    <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4 text-white text-xs"><code className="text-white">{description}</code></pre>
+                 ) : (
+                    <ToastDescription className="break-words">{description}</ToastDescription>
+                 )
               )}
             </div>
              <div className="flex items-center gap-2">

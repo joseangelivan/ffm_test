@@ -70,19 +70,10 @@ import { fetchAddressData, type AddressData, type AddressDataItem } from '@/acti
 import { ScrollArea } from '../ui/scroll-area';
 
 type LocationData = {
-    name: string;
-    region: string;
-    country: string;
-    state: string;
-    city: string;
-    street: string;
-    number: string;
-    regions: AddressDataItem[];
-    countries: AddressDataItem[];
-    states: AddressDataItem[];
-    cities: string[];
-    latitude?: number | null;
-    longitude?: number | null;
+    regions?: AddressDataItem[];
+    countries?: AddressDataItem[];
+    states?: AddressDataItem[];
+    cities?: string[];
     regionCodeMap?: Record<string, string>;
 };
 
@@ -92,8 +83,8 @@ const LocationSelector = ({
   onLocationChange,
   isFormDisabled,
 }: {
-  locationSelection: Partial<Pick<LocationData, 'region' | 'country' | 'state' | 'city'>>;
-  availableData: Partial<Pick<LocationData, 'regions' | 'countries' | 'states' | 'cities'>>;
+  locationSelection: Partial<Pick<Condominio, 'region' | 'country' | 'state' | 'city'>>;
+  availableData: LocationData;
   onLocationChange: (field: 'region' | 'country' | 'state' | 'city', value: string) => void;
   isFormDisabled?: boolean;
 }) => {
@@ -249,8 +240,8 @@ function CondoFormFields({
   isEditMode: boolean;
   initialData: Partial<Condominio>;
   isFormPending: boolean;
-  locationSelection: Partial<Pick<LocationData, 'region' | 'country' | 'state' | 'city' | 'street' | 'number'>>;
-  availableData: Partial<Pick<LocationData, 'regions' | 'countries' | 'states' | 'cities'>>;
+  locationSelection: Partial<Pick<Condominio, 'region' | 'country' | 'state' | 'city' | 'street' | 'number' | 'latitude' | 'longitude'>>;
+  availableData: LocationData;
   onLocationChange: (field: 'region' | 'country' | 'state' | 'city', value: string) => void;
   onStreetChange: (value: string) => void;
   onNumberChange: (value: string) => void;
@@ -277,8 +268,8 @@ function CondoFormFields({
             <input type="hidden" name="country" value={locationSelection.country || ''} />
             <input type="hidden" name="state" value={locationSelection.state || ''} />
             <input type="hidden" name="city" value={locationSelection.city || ''} />
-            <input type="hidden" name="latitude" value={(initialData as LocationData).latitude || ''} />
-            <input type="hidden" name="longitude" value={(initialData as LocationData).longitude || ''} />
+            <input type="hidden" name="latitude" value={locationSelection.latitude || ''} />
+            <input type="hidden" name="longitude" value={locationSelection.longitude || ''} />
             <div className="grid gap-2">
               <Label htmlFor="name">
                 {t('adminDashboard.newCondoDialog.nameLabel')}
@@ -379,7 +370,7 @@ function CondoFormWrapper({
       longitude: initialData.longitude
   });
   
-  const [availableData, setAvailableData] = useState<Partial<Pick<LocationData, 'regions' | 'countries' | 'states' | 'cities' | 'regionCodeMap'>>>({
+  const [availableData, setAvailableData] = useState<LocationData>({
       regions: [],
       countries: [],
       states: [],
@@ -413,21 +404,19 @@ function CondoFormWrapper({
 
         try {
             if (field === 'region') {
+                setLocationSelection(current => ({ ...current, region: value, country: '', state: '', city: '' }));
                 const regionCode = availableData.regionCodeMap?.[value];
                 result = await fetchAddressData({ region: value, region_code: regionCode });
-
-                if (result.success && result.data) {
-                    const countries = result.data.countries || [];
-                     toast({
+                
+                const countries = result.data?.countries || [];
+                toast({
                       title: 'DEBUG: Países Obtenidos',
-                      description: <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4"><code className="text-white">{JSON.stringify(countries, null, 2)}</code></pre>,
+                      description: JSON.stringify(countries, null, 2),
                       duration: 15000,
                       copyable: true,
-                    });
-                    
-                    // STOP FLOW HERE, DO NOT UPDATE STATE
-                    return; 
-                }
+                });
+                
+                return; // STOP FLOW HERE
 
             } else if (field === 'country') {
                 setLocationSelection(current => ({ ...current, country: value, state: '', city: '' }));
@@ -440,7 +429,7 @@ function CondoFormWrapper({
                 }
 
             } else if (field === 'state') {
-                setLocationSelection(current => ({ ...current, state: value, city: '' }));
+                 setLocationSelection(current => ({ ...current, state: value, city: '' }));
                 result = await fetchAddressData({ country: locationSelection.country, state: value });
                 if (result.success && result.data) {
                     setAvailableData(current => ({ ...current, cities: result.data?.cities || [] }));
@@ -504,8 +493,11 @@ function CondoFormWrapper({
         const result = await fetchAddressData({});
         if (result.success && result.data) {
             
-            const initialAvailableData: Partial<typeof availableData> = {
+            const initialAvailableData: LocationData = {
                 regions: result.data.regions || [],
+                countries: [],
+                states: [],
+                cities: [],
                 regionCodeMap: result.data.regionCodeMap || {}
             };
 
