@@ -161,14 +161,21 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
 
     const { url, method = 'GET', headers = {} } = countriesRequestConfig;
     
-    let finalUrlString = url;
-    if (params.region_code) {
-        finalUrlString = finalUrlString.replace('$region_code', params.region_code);
-    }
-    
-    // Replace any remaining environment variables
-    finalUrlString = finalUrlString.replace(/\$([A-Z_]+)/g, (match, varName) => process.env[varName] || match);
+    const urlObject = new URL(url);
+    const searchParams = urlObject.searchParams;
 
+    for (const [key, value] of searchParams.entries()) {
+        if (value.startsWith('$')) {
+            const varName = value.substring(1) as keyof FetchParams;
+            if (params[varName]) {
+                searchParams.set(key, params[varName]!);
+            } else {
+                searchParams.delete(key);
+            }
+        }
+    }
+    const finalUrlString = urlObject.toString();
+    
     const curlCommand = `curl -X ${method} '${finalUrlString}'`;
     const debugInfo = { curl: curlCommand, region_code: params.region_code };
 
