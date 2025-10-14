@@ -247,7 +247,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         if (regionsResponseConfig && regionsResponseConfig.path && regionsResponseConfig.name) {
             const baseObject = getNestedValue(config, regionsResponseConfig.path);
             
-            if (baseObject && typeof baseObject === 'object' && baseObject[regionsResponseConfig.name]) {
+            if (baseObject && typeof baseObject === 'object') {
                 const regionList = baseObject[regionsResponseConfig.name];
                 
                 if (Array.isArray(regionList)) {
@@ -388,7 +388,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
             if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
                 let debugMessage = `Resultado: ${JSON.stringify(countriesResult, null, 2)}`;
                 if (countriesResult?.data) {
-                    const countryListRaw = getNestedValue(countriesResult.data, 'countries');
+                    const countryListRaw = getNestedValue(countriesResult.data, '.');
                     if(Array.isArray(countryListRaw) && countryListRaw.length > 0) {
                          debugMessage += `\nPrimer elemento de la respuesta de países: ${JSON.stringify(countryListRaw[0], null, 2)}`;
                     } else if (typeof countriesResult.data === 'object' && Object.keys(countriesResult.data).length > 0) {
@@ -450,3 +450,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
 
+
+
+    
