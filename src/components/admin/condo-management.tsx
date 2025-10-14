@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
@@ -405,25 +406,47 @@ function CondoFormWrapper({
 
         try {
             if (field === 'region') {
+                setLocationSelection(current => ({ ...current, region: value, country: '', state: '', city: '' }));
                 const regionCode = availableData.regionCodeMap?.[value];
                 result = await fetchAddressData({ region: value, region_code: regionCode });
                 
-                const countryNames = result.data?.countries?.map(c => c.name) || [];
-                toast({
-                      title: 'DEBUG: Nombres de Países',
+                if(result.success && result.data?.countries) {
+                     const countryNames = result.data.countries.map(c => c.name) || [];
+                     toast({
+                      title: 'DEBUG: Países Obtenidos',
                       description: JSON.stringify(countryNames),
                       duration: 15000,
                       copyable: true,
-                });
-                
-                // Stop flow here for debug
-                return;
+                     });
+                     setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
+                } else if (!result.success) {
+                    throw new Error(result.message);
+                }
+
+            } else if (field === 'country') {
+                setLocationSelection(current => ({ ...current, country: value, state: '', city: '' }));
+                result = await fetchAddressData({ country: value });
+                if(result.success) {
+                    setAvailableData(current => ({ ...current, states: result.data?.states || [], cities: [] }));
+                } else {
+                     throw new Error(result.message);
+                }
+            } else if (field === 'state') {
+                 setLocationSelection(current => ({ ...current, state: value, city: '' }));
+                 result = await fetchAddressData({ country: locationSelection.country, state: value });
+                 if(result.success) {
+                    setAvailableData(current => ({ ...current, cities: result.data?.cities || [] }));
+                } else {
+                     throw new Error(result.message);
+                }
+            } else if (field === 'city') {
+                setLocationSelection(current => ({ ...current, city: value }));
             }
         } catch (error: any) {
             toast({ title: t('toast.errorTitle'), description: error.message || "An unknown error occurred.", variant: 'destructive', copyable: true });
         }
     });
-}, [availableData.regionCodeMap, toast, t]);
+}, [availableData.regionCodeMap, locationSelection.country, toast, t]);
   
   const handleStreetChange = (value: string) => {
       setLocationSelection(current => ({ ...current, street: value }));
