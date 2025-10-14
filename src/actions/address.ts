@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { z } from 'zod';
@@ -243,13 +244,13 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                 const regionNames = getNestedValue(config, regionsResponseConfig.name);
                 const regionCodes = getNestedValue(config, regionsResponseConfig.code);
                 
-                if (Array.isArray(regionNames) && Array.isArray(regionCodes) && regionNames.length === regionCodes.length) {
-                    data.regions = regionNames.map((name, index) => ({
+                if (Array.isArray(regionNames)) {
+                     data.regions = regionNames.map((name, index) => ({
                         name: name,
-                        code: regionCodes[index],
+                        code: Array.isArray(regionCodes) ? regionCodes[index] : undefined,
                     }));
 
-                    if (data.regions && data.regions.length > 0) {
+                    if (data.regions && data.regions.length > 0 && Array.isArray(regionCodes)) {
                         data.regionCodeMap = data.regions.reduce((acc, curr) => {
                             if (curr.name && curr.code) acc[curr.name] = curr.code;
                             return acc;
@@ -355,13 +356,9 @@ export async function testAddressService(id: string): Promise<ActionState> {
             // STEP 1: Test Regions
             const regionsResult = await fetchAddressData({});
             
-            // --- DEBUGGING ---
-            console.log("--- DEBUG: Resultado de fetchAddressData para regiones ---");
-            console.log(JSON.stringify(regionsResult, null, 2));
-            // --- END DEBUGGING ---
-
             if (!regionsResult.success || !regionsResult.data || !Array.isArray(regionsResult.data.regions) || regionsResult.data.regions.length === 0) {
-                 throw new Error(`Prueba de regiones fallida: data.regions no es un array o está vacío. Resultado: ${JSON.stringify(regionsResult, null, 2)}`);
+                 const debugOutput = JSON.stringify(regionsResult, null, 2);
+                 throw new Error(`Prueba de regiones fallida: data.regions no es un array o está vacío.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
             }
             
             const firstRegion = regionsResult.data.regions[0];
