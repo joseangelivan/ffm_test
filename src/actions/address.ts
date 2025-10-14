@@ -240,7 +240,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         if (regionsResponseConfig) {
             const baseObject = getNestedValue(config, regionsResponseConfig.path || '');
             
-            const regionList = baseObject?.[regionsResponseConfig.name] || baseObject;
+            const regionList = baseObject?.[regionsResponseConfig.name];
             
             let regionCodes: string[] = [];
             const codePath = regionsResponseConfig.code;
@@ -354,6 +354,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
         }
         
         let testError: Error | null = null;
+        let regionsResultDataForDebug: any = {};
         try {
             // Get config and check what getNestedValue returns for regions path
             const serviceResultForLog = await client.query('SELECT config_json FROM address_services WHERE id = $1', [id]);
@@ -367,8 +368,9 @@ export async function testAddressService(id: string): Promise<ActionState> {
             
             // 1. Test Regions
             const regionsResult = await fetchAddressData({});
+            regionsResultDataForDebug = regionsResult.data || {};
             if (!regionsResult.success || !regionsResult.data?.regions || regionsResult.data.regions.length === 0) {
-                 throw new Error(`Prueba de regiones fallida: ${regionsResult.message}. Objeto de ruta de depuración: ${debugInfo}. Datos completos: ${JSON.stringify(regionsResult.data)}`);
+                 throw new Error(`Prueba de regiones fallida: ${regionsResult.message}. Objeto de ruta de depuración: ${debugInfo}. Datos completos: ${JSON.stringify(regionsResultDataForDebug)}`);
             }
             console.log(`Regions test passed. Found ${regionsResult.data.regions.length} regions.`);
 
@@ -431,5 +433,3 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (client) client.release();
     }
 }
-
-    
