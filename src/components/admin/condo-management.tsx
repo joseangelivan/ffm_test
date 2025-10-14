@@ -413,7 +413,6 @@ function CondoFormWrapper({
       if (field === 'state') newSelection = { ...newSelection, city: '' };
       setLocationSelection(newSelection);
 
-      // Fetch data for the next level
       let params: any = {};
       if (field === 'region') params = { region: value, region_code: regionCode };
       if (field === 'country') params = { country: value };
@@ -422,13 +421,11 @@ function CondoFormWrapper({
       try {
         result = await fetchAddressData(params);
         
-        // ALWAYS show debug toast if it exists
         if (result?.debug?.curl) {
-            const debugInfo = result.debug.curl;
             const toastTitle = result.success ? 'DEBUG: Países Obtenidos' : 'DEBUG: Error al Obtener Países';
             toast({
               title: toastTitle,
-              description: debugInfo,
+              description: result.debug.curl,
               duration: 20000,
               copyable: true,
               variant: result.success ? 'default' : 'destructive',

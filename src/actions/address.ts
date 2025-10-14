@@ -45,9 +45,10 @@ function getNestedValue(obj: any, path: string | undefined): any {
       return obj;
     }
     
-    const match = path.match(/^\[(\d+)\]$/);
-    if (match) {
-        const index = parseInt(match[1], 10);
+    // Check if the path is an array index like "[1]"
+    const arrayIndexMatch = path.match(/^\[(\d+)\]$/);
+    if (arrayIndexMatch) {
+        const index = parseInt(arrayIndexMatch[1], 10);
         return Array.isArray(obj) ? obj[index] : undefined;
     }
 
@@ -158,26 +159,25 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         return { success: true, data: [] };
     }
 
-    const { base_url } = requestConfig;
     const { url, method = 'GET', headers = {} } = countriesRequestConfig;
-    const urlParams = new URLSearchParams();
-
-    // Rebuild the URL from scratch for countries
     const countryUrl = new URL(url);
-    for (const [key, value] of countryUrl.searchParams.entries()) {
-        let finalValue = value;
+    const urlParams = new URLSearchParams(countryUrl.search);
+
+    for (const [key, value] of urlParams.entries()) {
         if (value.startsWith('$')) {
             const varName = value.substring(1) as keyof FetchParams;
             if (varName === 'region_code' && params.region_code) {
-                finalValue = params.region_code;
+                urlParams.set(key, params.region_code);
             } else if (varName === 'region' && params.region) {
-                finalValue = params.region;
+                urlParams.set(key, params.region);
             } else {
-                 finalValue = process.env[value.substring(1)] || '';
+                 const envVar = process.env[value.substring(1)];
+                 if (envVar) {
+                     urlParams.set(key, envVar);
+                 } else {
+                     urlParams.delete(key); // Remove if no value is found
+                 }
             }
-        }
-        if (finalValue) {
-            urlParams.set(key, finalValue);
         }
     }
 
@@ -212,9 +212,7 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
             };
 
             const flagConfig = responseConfig.flag;
-            if (flagConfig && !Array.isArray(flagConfig)) {
-                // Handle non-array flag config if necessary
-            } else if (flagConfig && flagConfig.length > 0) {
+            if (flagConfig && Array.isArray(flagConfig) && flagConfig.length > 0) {
                  const flagPath = flagConfig.join('.');
                 if(flagPath) {
                     countryData.flag = getNestedValue(item, flagPath);
@@ -222,7 +220,7 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
             }
             
             return countryData;
-        }).filter(c => c.name); // Filter out entries without a name
+        }).filter(c => c.name);
 
         
         return { success: true, data: mappedData, debug: { curl: curlCommand, url: finalUrlString, response: jsonResponse } };
@@ -496,7 +494,6 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
     } else if (params.region || params.region_code) {
         result = await fetchCountries(config, params);
         if (!result.success) {
-            // Ensure debug info is passed up on failure
             return { success: false, message: result.error!, debug: result.debug };
         }
         data.countries = result.data?.filter((c:any) => c.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
