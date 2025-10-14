@@ -193,33 +193,21 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
                 }
             }
 
-            const fetchOptions: RequestInit = {
-                method: requestConfig.method || 'POST',
-                headers: { ...requestConfig.headers },
-                cache: 'no-store'
-            };
+            const method = requestConfig.method || 'POST';
+            const headers = { ...requestConfig.headers, 'Content-Type': 'application/json' };
+            const bodyString = JSON.stringify(body);
 
-            if (Object.keys(body).length > 0 && fetchOptions.method !== 'GET' && fetchOptions.method !== 'HEAD') {
-                fetchOptions.body = JSON.stringify(body);
-                (fetchOptions.headers as any)['Content-Type'] = 'application/json';
+            // --- GENERATE CURL COMMAND FOR DEBUGGING ---
+            let curlCommand = `curl -X ${method} \\\n  ${requestConfig.url}`;
+            for (const key in headers) {
+                curlCommand += ` \\\n  -H "${key}: ${headers[key as keyof typeof headers]}"`;
             }
-
-            const response = await fetch(requestConfig.url, fetchOptions);
-
-            if (!response.ok) throw new Error(`El servidor respondió con el estado ${response.status}. URL: ${requestConfig.url}`);
-            
-            const jsonResponse = await response.json();
-            const dataList = getNestedValue(jsonResponse, responseConfig.path || 'data.states');
-
-            if (!Array.isArray(dataList)) {
-                throw new Error(`La respuesta de la API no contiene un array de estados en el path especificado: '${responseConfig.path || 'data.states'}'.\n--- RESPUESTA API ---\n${JSON.stringify(jsonResponse, null, 2)}`);
+            if (bodyString !== '{}') {
+                 curlCommand += ` \\\n  -d '${bodyString}'`;
             }
+            throw new Error(curlCommand);
+            // --- END OF CURL COMMAND GENERATION ---
 
-            const mappedData = dataList.map((item: any) => ({
-                name: getNestedValue(item, responseConfig.name)
-            }));
-            
-            return { success: true, data: mappedData };
 
         } catch (e: any) {
             return { success: false, error: `Error en la API de 'states': ${e.message}` };
