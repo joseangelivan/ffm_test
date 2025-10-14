@@ -408,8 +408,8 @@ function CondoFormWrapper({
 
         let params: any = {};
         if (field === 'region') {
-            const regionCode = availableData.regionCodeMap?.[value];
-            params = { region: value, region_code: regionCode };
+            const selectedRegion = availableData.regions?.find(r => r.name === value);
+            params = { region: value, region_code: selectedRegion?.code };
         } else if (field === 'country') {
             params = { country: value };
         } else if (field === 'state') {
@@ -441,7 +441,7 @@ function CondoFormWrapper({
             if (field === 'state') setAvailableData(current => ({ ...current, cities: [] }));
         }
     });
-  }, [locationSelection, availableData.regionCodeMap, toast, t]);
+  }, [locationSelection, availableData.regions, toast, t]);
   
   const handleStreetChange = (value: string) => {
       setLocationSelection(current => ({ ...current, street: value }));
