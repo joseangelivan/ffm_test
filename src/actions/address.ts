@@ -126,13 +126,16 @@ async function fetchDataFromSource(
             
             const method = requestConfig.method || 'GET';
             const headers = requestConfig.headers || {};
-            const body = requestConfig.body ? JSON.stringify(requestConfig.body) : undefined;
-            
-            if(method === 'POST' && !headers['Content-Type']) {
-                headers['Content-Type'] = 'application/json';
+            const fetchOptions: RequestInit = { method, headers, cache: 'no-store' };
+
+            if (method !== 'GET' && method !== 'HEAD' && requestConfig.body) {
+                fetchOptions.body = JSON.stringify(requestConfig.body);
+                if (!headers['Content-Type']) {
+                    headers['Content-Type'] = 'application/json';
+                }
             }
 
-            const response = await fetch(urlString, { method, headers, body });
+            const response = await fetch(urlString, fetchOptions);
             if (!response.ok) {
                 return { success: false, error: `Error en la API de '${dataType}': El servidor respondió con el estado ${response.status}. URL: ${urlString}` };
             }
@@ -454,14 +457,14 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
         // --- STEP 3: Test States ---
         const statesResult = await fetchDataFromSource('states', tempConfig, { country: firstCountry });
-         if (!statesResult.success || !statesResult.data || statesResult.data.length === 0) {
+         if (!statesResult.success || !statesResult.data || !Array.isArray(statesResult.data) || statesResult.data.length === 0) {
             throw new Error(`Prueba de estados fallida para el país '${firstCountry}': ${statesResult.error || 'No se obtuvieron datos de estados.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(statesResult, null, 2)}`);
         }
         const firstState = getNestedValue(statesResult.data[0], tempConfig.response.states.name);
 
         // --- STEP 4: Test Cities ---
         const citiesResult = await fetchDataFromSource('cities', tempConfig, { country: firstCountry, state: firstState });
-         if (!citiesResult.success || !citiesResult.data || citiesResult.data.length === 0) {
+         if (!citiesResult.success || !citiesResult.data || !Array.isArray(citiesResult.data) || citiesResult.data.length === 0) {
             throw new Error(`Prueba de ciudades fallida para el estado '${firstState}': ${citiesResult.error || 'No se obtuvieron datos de ciudades.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(citiesResult, null, 2)}`);
         }
         const firstCity = citiesResult.data[0];
@@ -490,3 +493,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
 
 
+
+
+    
