@@ -40,7 +40,7 @@ const ServiceSchema = z.object({
     }, { message: "La configuración debe ser un JSON válido."}),
 });
 
-function getNestedValue(obj: any, path: string): any {
+function getNestedValue(obj: any, path: string | undefined): any {
     if (typeof path !== 'string' || !path || path === '.') {
       return obj;
     }
@@ -62,6 +62,7 @@ function getNestedValue(obj: any, path: string): any {
     }
     return result;
 }
+
 
 type ValueMap = { [key: string]: string | number | undefined };
 
@@ -88,7 +89,6 @@ function buildApiUrl(
 
         if (typeof rawValue === 'string' && rawValue.startsWith('$')) {
             const varName = rawValue.substring(1);
-            // Prioritize valueMap over environment variables
             paramValue = valueMap[varName]?.toString() || env[varName] || '';
         } else {
             paramValue = rawValue?.toString();
@@ -100,6 +100,60 @@ function buildApiUrl(
     }
     
     return `${base_url}?${urlParams.toString()}`;
+}
+
+async function fetchDataFromSource(
+    dataType: 'regions' | 'countries' | 'states' | 'cities',
+    config: any,
+    params: FetchParams
+): Promise<{ success: boolean, data?: any, error?: string }> {
+    
+    const requestConfig = config.request?.api_config?.parameters?.[dataType];
+    const responseConfig = config.response?.[dataType];
+    
+    if (!responseConfig) {
+        return { success: false, error: `Configuración de respuesta para '${dataType}' no encontrada.` };
+    }
+
+    // --- Caso 1: Datos obtenidos desde una URL ---
+    if (requestConfig?.url) {
+        try {
+            let urlString = requestConfig.url;
+            if (params.region_code) urlString = urlString.replace('$region_code', params.region_code);
+            if (params.region) urlString = urlString.replace('$region', params.region);
+            if (params.country) urlString = urlString.replace('$country', params.country);
+            if (params.state) urlString = urlString.replace('$state', params.state);
+            
+            const method = requestConfig.method || 'GET';
+            const headers = requestConfig.headers || {};
+            const body = requestConfig.body ? JSON.stringify(requestConfig.body) : undefined;
+            
+            if(method === 'POST' && !headers['Content-Type']) {
+                headers['Content-Type'] = 'application/json';
+            }
+
+            const response = await fetch(urlString, { method, headers, body });
+            if (!response.ok) {
+                return { success: false, error: `Error en la API de '${dataType}': El servidor respondió con el estado ${response.status}. URL: ${urlString}` };
+            }
+            const jsonResponse = await response.json();
+            const dataList = getNestedValue(jsonResponse, responseConfig.path);
+            
+            if (Array.isArray(dataList)) {
+                return { success: true, data: dataList };
+            } else {
+                return { success: false, error: `La ruta '${responseConfig.path}' para '${dataType}' no devolvió un array. Respuesta: ${JSON.stringify(jsonResponse)}` };
+            }
+        } catch (e: any) {
+            return { success: false, error: `Error de red al obtener '${dataType}': ${e.message}` };
+        }
+    }
+    // --- Caso 2: Datos incrustados en la configuración ---
+    else if (requestConfig?.value) {
+        return { success: true, data: requestConfig };
+    }
+
+    return { success: true, data: [] }; // No hay configuración para este tipo de datos, no es un error.
 }
 
 
@@ -287,112 +341,58 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
     }
     
     let data: AddressData = {};
-    
-    const requestConfig = config.request?.api_config;
     const responseConfig = config.response;
     
     if (!responseConfig) {
         return { success: false, message: 'La configuración de respuesta del servicio de dirección es inválida.' };
     }
     
-    // --- REGIONS ---
-    if (Object.keys(params).length === 0) {
-        const regionsRequestConfig = requestConfig?.parameters?.regions;
-        const regionsResponseConfig = responseConfig.regions;
-
-        if (regionsRequestConfig && !regionsRequestConfig.url && regionsResponseConfig?.path) {
-            const regionContainer = getNestedValue(config, regionsResponseConfig.path);
-            if (regionContainer && Array.isArray(regionContainer.value)) {
-                data.regions = regionContainer.value.map((name: string) => ({
-                    name: name,
-                    code: regionContainer.codes?.[name] || '',
-                }));
-                data.regionCodeMap = regionContainer.codes;
-            }
-        } else if (regionsRequestConfig?.url && regionsResponseConfig?.path) {
-            try {
-                const url = regionsRequestConfig.url;
-                const response = await fetch(url);
-                if (!response.ok) {
-                    return { success: false, message: `Error al obtener datos de la URL de regiones: El servidor respondió con el estado ${response.status}. URL: ${url}` };
-                }
-                const regionsJson = await response.json();
-                const regionList = getNestedValue(regionsJson, regionsResponseConfig.path);
-                
-                if (Array.isArray(regionList)) {
-                    data.regions = regionList.map((item: any) => ({
-                        name: getNestedValue(item, regionsResponseConfig.name),
-                        code: getNestedValue(item, regionsResponseConfig.code)
-                    }));
-                } else {
-                    return { success: false, message: `Error de configuración: La ruta especificada para regiones ('${regionsResponseConfig.path}') no devolvió un array. Respuesta de la API: ${JSON.stringify(regionsJson)}` };
-                }
-            } catch (e: any) {
-                 return { success: false, message: `Error al obtener datos de la URL de regiones: ${e.message}` };
-            }
+    if (Object.keys(params).length === 0) { // Fetch Regions
+        const regionsResult = await fetchDataFromSource('regions', config, params);
+        if (!regionsResult.success) {
+            return { success: false, message: regionsResult.error || "Error al obtener regiones." };
         }
-    }
-
-
-    // --- COUNTRIES ---
-    if ((params.region || params.region_code) && requestConfig?.parameters?.countries?.url) {
-        try {
-            let urlString = requestConfig.parameters.countries.url;
-            
-            if (params.region_code) urlString = urlString.replace('$region_code', params.region_code);
-            if (params.region) urlString = urlString.replace('$region', params.region);
-
-            const response = await fetch(urlString, { method: 'GET' });
-            if (!response.ok) {
-                return { success: false, message: `Error al obtener países (URL: ${urlString}). Estado: ${response.status}` };
-            }
-            const countriesJson = await response.json();
-            
-            const countriesPath = responseConfig.countries?.path;
-            const countryList = getNestedValue(countriesJson, countriesPath);
-
-            if (Array.isArray(countryList)) {
-                data.countries = countryList.map((item: any) => ({
-                    name: getNestedValue(item, responseConfig.countries.name),
-                    cca2: getNestedValue(item, responseConfig.countries.cca2),
-                    flag: getNestedValue(item, responseConfig.countries.flag),
-                })).filter(c => c.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
-            } else {
-                 return { success: false, message: `La ruta de países '${countriesPath}' no devolvió un array. (URL: ${urlString})` };
-            }
-        } catch (e: any) {
-            return { success: false, message: `Error de red al obtener países: ${e.message}` };
-        }
-    }
-
-    // --- STATES ---
-    if (params.country && requestConfig?.parameters?.states?.url) {
-        const url = requestConfig.parameters.states.url.replace('$country', params.country);
-        const body = JSON.stringify({ country: params.country });
-        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
-        const statesJson = await response.json();
-
-        const statesPath = responseConfig.states?.path;
-        const stateList = getNestedValue(statesJson, statesPath);
         
-        if (Array.isArray(stateList)) {
-            data.states = stateList.map((item: any) => ({
-                name: getNestedValue(item, responseConfig.states.name)
-            })).filter(s => s.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
+        if(config.request.api_config.parameters.regions?.url) { // URL case
+            data.regions = regionsResult.data.map((item: any) => ({
+                name: getNestedValue(item, responseConfig.regions.name),
+                code: getNestedValue(item, responseConfig.regions.code)
+            }));
+        } else { // Embedded case
+            data.regions = regionsResult.data.value.map((name: string) => ({
+                name: name,
+                code: regionsResult.data.codes?.[name] || '',
+            }));
+            data.regionCodeMap = regionsResult.data.codes;
         }
-    }
 
-    // --- CITIES ---
-    if (params.country && params.state && requestConfig?.parameters?.cities?.url) {
-        const url = requestConfig.parameters.cities.url.replace('$state', params.state);
-        const body = JSON.stringify({ country: params.country, state: params.state });
-        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
-        const citiesJson = await response.json();
+    } else if (params.region || params.region_code) { // Fetch Countries
+        const countriesResult = await fetchDataFromSource('countries', config, params);
+        if (!countriesResult.success) {
+            return { success: false, message: countriesResult.error || "Error al obtener países." };
+        }
+        data.countries = countriesResult.data.map((item: any) => ({
+            name: getNestedValue(item, responseConfig.countries.name),
+            cca2: getNestedValue(item, responseConfig.countries.cca2),
+            flag: getNestedValue(item, responseConfig.countries.flag),
+        })).filter((c:any) => c.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
         
-        const citiesPath = responseConfig.cities?.path;
-        const rawCities = getNestedValue(citiesJson, citiesPath);
-        if (Array.isArray(rawCities)) {
-            data.cities = rawCities.sort();
+    } else if (params.country && !params.state) { // Fetch States
+        const statesResult = await fetchDataFromSource('states', config, params);
+        if(!statesResult.success) {
+            return { success: false, message: statesResult.error || "Error al obtener estados." };
+        }
+        data.states = statesResult.data.map((item: any) => ({
+            name: getNestedValue(item, responseConfig.states.name)
+        })).filter((s:any) => s.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
+
+    } else if (params.country && params.state) { // Fetch Cities
+        const citiesResult = await fetchDataFromSource('cities', config, params);
+         if(!citiesResult.success) {
+            return { success: false, message: citiesResult.error || "Error al obtener ciudades." };
+        }
+        if (Array.isArray(citiesResult.data)) {
+            data.cities = citiesResult.data.sort();
         }
     }
     
@@ -401,77 +401,70 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
 
 
 export async function testAddressService(id: string): Promise<ActionState> {
-    let originalDefaultId: string | null = null;
     let client;
-    
     try {
         const pool = await getDbPool();
         if (!pool) return { success: false, message: "Error del servidor: no se pudo conectar a la base de datos." };
         client = await pool.connect();
         
-        const servicesResult = await client.query('SELECT id, is_default FROM address_services');
-        if (servicesResult.rows.length === 0) throw new Error("No hay servicios de dirección configurados.");
+        const serviceResult = await client.query('SELECT * FROM address_services WHERE id = $1', [id]);
+        if (serviceResult.rows.length === 0) throw new Error("Servicio de prueba no encontrado.");
         
-        const serviceToTest = servicesResult.rows.find(r => r.id === id);
-        if (!serviceToTest) throw new Error("Servicio de prueba no encontrado.");
-        
-        originalDefaultId = servicesResult.rows.find(r => r.is_default)?.id || null;
+        const serviceConfig = serviceResult.rows[0].config_json;
 
-        if (id !== originalDefaultId) {
-            await client.query('BEGIN');
-            await client.query('UPDATE address_services SET is_default = FALSE');
-            await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [id]);
-            await client.query('COMMIT');
+        // --- STEP 1: Test Regions ---
+        const regionsResult = await fetchDataFromSource('regions', serviceConfig, {});
+        if (!regionsResult.success || !Array.isArray(regionsResult.data) || regionsResult.data.length === 0) {
+            throw new Error(`Prueba de regiones fallida: ${regionsResult.error || 'data.regions no es un array o está vacío.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(regionsResult, null, 2)}`);
         }
         
-        // --- STEP 1: Test Regions ---
-        const regionsResult = await fetchAddressData({});
-        if (!regionsResult.success || !Array.isArray(regionsResult.data?.regions) || regionsResult.data.regions.length === 0) {
-            const debugOutput = JSON.stringify(regionsResult, null, 2);
-            throw new Error(`Prueba de regiones fallida: data.regions no es un array o está vacío.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
+        const firstRegionData = regionsResult.data[0];
+        const regionsResponseConfig = serviceConfig.response.regions;
+        let firstRegion: AddressDataItem;
+        
+        if (serviceConfig.request.api_config.parameters.regions?.url) { // URL case
+            firstRegion = {
+                name: getNestedValue(firstRegionData, regionsResponseConfig.name),
+                code: getNestedValue(firstRegionData, regionsResponseConfig.code)
+            };
+        } else { // Embedded case
+            const regionName = regionsResult.data.value[0];
+            firstRegion = {
+                name: regionName,
+                code: regionsResult.data.codes?.[regionName] || ''
+            };
         }
-        const firstRegion = regionsResult.data.regions[0];
 
         // --- STEP 2: Test Countries ---
-        const countriesResult = await fetchAddressData({ region: firstRegion.name, region_code: firstRegion.code });
-        if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
-            const debugOutput = JSON.stringify(countriesResult, null, 2);
-            throw new Error(`Prueba de países fallida para la región '${firstRegion.name}'.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
+        const countriesResult = await fetchDataFromSource('countries', serviceConfig, { region: firstRegion.name, region_code: firstRegion.code });
+        if (!countriesResult.success || !countriesResult.data || countriesResult.data.length === 0) {
+            throw new Error(`Prueba de países fallida para la región '${firstRegion.name}': ${countriesResult.error || 'No se obtuvieron datos de países.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(countriesResult, null, 2)}`);
         }
-        const firstCountry = countriesResult.data.countries[0];
+        const firstCountry = getNestedValue(countriesResult.data[0], serviceConfig.response.countries.name);
 
         // --- STEP 3: Test States ---
-        const statesResult = await fetchAddressData({ country: firstCountry.name });
-         if (!statesResult.success || !statesResult.data?.states || statesResult.data.states.length === 0) {
-            const debugOutput = JSON.stringify(statesResult, null, 2);
-            throw new Error(`Prueba de estados fallida para el país '${firstCountry.name}'.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
+        const statesResult = await fetchDataFromSource('states', serviceConfig, { country: firstCountry });
+         if (!statesResult.success || !statesResult.data || statesResult.data.length === 0) {
+            throw new Error(`Prueba de estados fallida para el país '${firstCountry}': ${statesResult.error || 'No se obtuvieron datos de estados.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(statesResult, null, 2)}`);
         }
-        const firstState = statesResult.data.states[0];
+        const firstState = getNestedValue(statesResult.data[0], serviceConfig.response.states.name);
 
         // --- STEP 4: Test Cities ---
-        const citiesResult = await fetchAddressData({ country: firstCountry.name, state: firstState.name });
-         if (!citiesResult.success || !citiesResult.data?.cities || citiesResult.data.cities.length === 0) {
-            const debugOutput = JSON.stringify(citiesResult, null, 2);
-            throw new Error(`Prueba de ciudades fallida para el estado '${firstState.name}'.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
+        const citiesResult = await fetchDataFromSource('cities', serviceConfig, { country: firstCountry, state: firstState });
+         if (!citiesResult.success || !citiesResult.data || citiesResult.data.length === 0) {
+            throw new Error(`Prueba de ciudades fallida para el estado '${firstState}': ${citiesResult.error || 'No se obtuvieron datos de ciudades.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(citiesResult, null, 2)}`);
         }
-        const firstCity = citiesResult.data.cities[0];
+        const firstCity = citiesResult.data[0];
 
         return { 
             success: true, 
-            message: `¡Prueba exitosa!\nRegión: ${firstRegion.name}\nPaís: ${firstCountry.name}\nEstado: ${firstState.name}\nCiudad: ${firstCity}`
+            message: `¡Prueba exitosa!\nRegión: ${firstRegion.name}\nPaís: ${firstCountry}\nEstado: ${firstState}\nCiudad: ${firstCity}`
         };
             
     } catch (err: any) {
-        return { success: false, message: `Error durante la prueba: ${err.message}` };
+        console.error("Error during service test:", err);
+        return { success: false, message: `Error durante la prueba: ${err.message}\n\nStack: ${err.stack}` };
     } finally {
-        if (client && id !== originalDefaultId && originalDefaultId) {
-            try { 
-                await client.query('BEGIN');
-                await client.query('UPDATE address_services SET is_default = FALSE');
-                await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
-                await client.query('COMMIT');
-            } catch (e) { /* ignore rollback error */ }
-        }
         if (client) client.release();
     }
 }
@@ -482,4 +475,5 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
 
       
+
 
