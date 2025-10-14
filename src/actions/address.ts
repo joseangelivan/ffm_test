@@ -241,25 +241,21 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         if (regionsResponseConfig) {
             const baseRegionsObject = getNestedValue(config, regionsResponseConfig.path || '');
             
-            // If name key is present, navigate further. Otherwise, the base object is the list.
-            const regionList = regionsResponseConfig.name ? getNestedValue(baseRegionsObject, regionsResponseConfig.name) : baseRegionsObject;
-            
-            const regionCodes = (regionsResponseConfig.code && Array.isArray(regionsResponseConfig.code)) 
-                ? [] 
-                : getNestedValue(baseRegionsObject, regionsResponseConfig.code);
+            const regionList = regionsResponseConfig.name 
+                ? getNestedValue(baseRegionsObject, regionsResponseConfig.name) 
+                : baseRegionsObject;
 
+            const regionCodes = regionsResponseConfig.code 
+                ? getNestedValue(baseRegionsObject, regionsResponseConfig.code)
+                : [];
+            
             if (Array.isArray(regionList)) {
                 data.regions = regionList.map((item: any, index: number) => {
+                    const codeValue = Array.isArray(regionCodes) && regionCodes[index] ? regionCodes[index] : "";
                     if (typeof item === 'object' && item !== null) {
-                        return {
-                           name: item.name || '',
-                           code: item.code || ''
-                        }
+                        return { name: item.name || '', code: item.code || codeValue || '' };
                     }
-                    return { 
-                        name: item, 
-                        code: Array.isArray(regionCodes) && regionCodes[index] ? regionCodes[index] : item 
-                    };
+                    return { name: item, code: codeValue || item };
                 }).filter(r => r.name);
 
                 data.regionCodeMap = data.regions.reduce((acc, curr) => {
@@ -347,14 +343,25 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (!pool) return { success: false, message: "Error del servidor." };
         client = await pool.connect();
         
+        // Debugging log
+        const serviceResultForLog = await client.query('SELECT config_json FROM address_services WHERE id = $1', [id]);
+        const configForLog = serviceResultForLog.rows[0]?.config_json;
+        const regionsResponseConfigForLog = configForLog?.response?.regions;
+        if (regionsResponseConfigForLog) {
+            const pathObject = getNestedValue(configForLog, regionsResponseConfigForLog.path || '');
+            console.log("DEBUG: Path object for regions:", JSON.stringify(pathObject, null, 2));
+        }
+        
         await client.query('BEGIN');
 
         // Temporarily set the service as default for the test
         const originalDefaultResult = await client.query('SELECT id FROM address_services WHERE is_default = TRUE');
         const originalDefaultId = originalDefaultResult.rows[0]?.id;
 
-        await client.query('UPDATE address_services SET is_default = FALSE');
-        await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [id]);
+        if (id !== originalDefaultId) {
+            await client.query('UPDATE address_services SET is_default = FALSE');
+            await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [id]);
+        }
         
         let testError: Error | null = null;
         try {
@@ -401,9 +408,11 @@ export async function testAddressService(id: string): Promise<ActionState> {
         }
 
         // Restore original default state regardless of test outcome
-        await client.query('UPDATE address_services SET is_default = FALSE');
-        if (originalDefaultId) {
-            await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
+        if (id !== originalDefaultId) {
+            await client.query('UPDATE address_services SET is_default = FALSE');
+            if (originalDefaultId) {
+                await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [originalDefaultId]);
+            }
         }
         await client.query('COMMIT');
         
