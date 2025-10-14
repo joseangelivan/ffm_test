@@ -15,13 +15,15 @@ export type AddressDataItem = {
     name: string;
     cca2?: string;
     flag?: string;
+    code?: string;
 };
 
 export type AddressData = {
-    regions?: string[];
+    regions?: AddressDataItem[];
     countries?: AddressDataItem[];
     states?: AddressDataItem[];
     cities?: string[];
+    regionCodeMap?: Record<string, string>;
 }
 
 type ActionState<T = null> = {
@@ -38,8 +40,7 @@ const ServiceSchema = z.object({
 });
 
 function getNestedValue(obj: any, path: string): any {
-  // If path is "." or empty, return the object itself, as it's the root.
-  if (path === '.' || path === '') return obj;
+  if (!path || path === '.' || path === '') return obj;
 
   const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
   let result = obj;
@@ -51,7 +52,6 @@ function getNestedValue(obj: any, path: string): any {
   }
   return result;
 }
-
 
 // --- Service Management Actions ---
 
@@ -208,6 +208,7 @@ export async function setAddressServiceAsDefault(id: string): Promise<ActionStat
 
 type FetchParams = {
     region?: string;
+    region_code?: string;
     country?: string;
     state?: string;
 }
@@ -234,15 +235,35 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         
         let data: AddressData = {};
 
-        // Regions
+        // --- REGIONS ---
         const regionsPath = responseConfig.regions?.path;
-        if (regionsPath) {
-            data.regions = getNestedValue(config, regionsPath) || [];
+        if (requestConfig.regions?.value) { // Hardcoded regions
+            data.regions = requestConfig.regions.value.map((r: string) => ({ name: r, code: r }));
+        } else if (requestConfig.regions?.url && regionsPath) { // Fetched regions
+            const response = await fetch(requestConfig.regions.url, { method: 'GET' });
+            const regionsJson = await response.json();
+            const regionList = getNestedValue(regionsJson, regionsPath);
+            if (Array.isArray(regionList)) {
+                data.regions = regionList.map((item: any) => ({
+                    name: getNestedValue(item, responseConfig.regions.name),
+                    code: getNestedValue(item, responseConfig.regions.code)
+                })).filter(r => r.name);
+                data.regionCodeMap = data.regions.reduce((acc, curr) => {
+                    if (curr.name && curr.code) acc[curr.name] = curr.code;
+                    return acc;
+                }, {} as Record<string, string>);
+            }
         }
 
-        // Countries
-        if (params.region && requestConfig.countries?.url) {
-            const url = requestConfig.countries.url.replace('$region', params.region);
+        // --- COUNTRIES ---
+        if ((params.region || params.region_code) && requestConfig.countries?.url) {
+            let url = requestConfig.countries.url;
+            if (url.includes('$region_code') && params.region_code) {
+                 url = url.replace('$region_code', params.region_code);
+            } else if (url.includes('$region')) {
+                 url = url.replace('$region', params.region!);
+            }
+           
             const response = await fetch(url, { method: 'GET' });
             const countriesJson = await response.json();
             
@@ -254,11 +275,11 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                     name: getNestedValue(item, responseConfig.countries.name),
                     cca2: getNestedValue(item, responseConfig.countries.cca2),
                     flag: getNestedValue(item, responseConfig.countries.flag),
-                })).sort((a: any, b: any) => a.name.localeCompare(b.name));
+                })).filter(c => c.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
             }
         }
 
-        // States
+        // --- STATES ---
         if (params.country && requestConfig.states?.url) {
             const url = requestConfig.states.url.replace('$country', params.country);
             const body = JSON.stringify({ country: params.country });
@@ -271,13 +292,13 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             if (Array.isArray(stateList)) {
                 data.states = stateList.map((item: any) => ({
                     name: getNestedValue(item, responseConfig.states.name)
-                })).sort((a: any, b: any) => a.name.localeCompare(b.name));
+                })).filter(s => s.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
             }
         }
 
-        // Cities
+        // --- CITIES ---
         if (params.country && params.state && requestConfig.cities?.url) {
-             const url = requestConfig.cities.url.replace('$country', params.country).replace('$state', params.state);
+             const url = requestConfig.cities.url.replace('$state', params.state);
              const body = JSON.stringify({ country: params.country, state: params.state });
              const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
              const citiesJson = await response.json();
@@ -317,66 +338,46 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (client) client.release();
     }
 
-    const config = service.config_json;
-    const requestConfig = config.request?.api_config?.parameters;
-    const responseConfig = config.response;
-
-    if (!requestConfig || !responseConfig) {
-        return { success: false, message: 'La configuración del servicio de dirección es inválida.' };
-    }
-
     try {
         // 1. Test Regions
-        const regionsPath = responseConfig.regions?.path;
-        const regions = regionsPath ? getNestedValue(config, regionsPath) : [];
-        if (!Array.isArray(regions) || regions.length === 0) {
-            return { success: false, message: "Prueba de regiones fallida: No se encontró una lista de regiones." };
+        const regionsResult = await fetchAddressData({});
+        if (!regionsResult.success || !regionsResult.data?.regions || regionsResult.data.regions.length === 0) {
+            return { success: false, message: `Prueba de regiones fallida: ${regionsResult.message}` };
         }
+        console.log("Regions test passed.");
 
         // 2. Test Countries
-        const testRegion = "Americas";
-        if (requestConfig.countries?.url) {
-            const url = requestConfig.countries.url.replace('$region', testRegion);
-            const response = await fetch(url, { method: 'GET' });
-            const countriesJson = await response.json();
-            const countriesPath = responseConfig.countries?.path;
-            const countryList = (countriesPath === '.' || countriesPath === '') ? countriesJson : getNestedValue(countriesJson, countriesPath);
-            if (!Array.isArray(countryList) || countryList.length === 0) {
-                return { success: false, message: `Prueba de países fallida para la región '${testRegion}'.` };
-            }
+        const testRegion = regionsResult.data.regions[0];
+        const countriesResult = await fetchAddressData({ region: testRegion.name, region_code: testRegion.code });
+        if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
+            return { success: false, message: `Prueba de países fallida para la región '${testRegion.name}': ${countriesResult.message}` };
         }
+        console.log("Countries test passed.");
 
         // 3. Test States
-        const testCountry = "Brazil";
-        if (requestConfig.states?.url) {
-            const url = requestConfig.states.url.replace('$country', testCountry);
-            const body = JSON.stringify({ country: testCountry });
-            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
-            const statesJson = await response.json();
-            const statesPath = responseConfig.states?.path;
-            const stateList = (statesPath === '.' || statesPath === '') ? statesJson : getNestedValue(statesJson, statesPath);
-            if (!Array.isArray(stateList) || stateList.length === 0) {
-                return { success: false, message: `Prueba de estados fallida para el país '${testCountry}'.` };
+        const testCountry = countriesResult.data.countries[0];
+        const statesResult = await fetchAddressData({ country: testCountry.name });
+        if (!statesResult.success || !statesResult.data?.states || statesResult.data.states.length === 0) {
+            // Some countries have no states, so this is not a fatal error, just a warning.
+            console.log(`Prueba de estados advertencia para el país '${testCountry.name}': No se encontraron estados. Esto puede ser normal.`);
+        } else {
+            console.log("States test passed.");
+            
+            // 4. Test Cities (only if states were found)
+            const testState = statesResult.data.states[0];
+            const citiesResult = await fetchAddressData({ country: testCountry.name, state: testState.name });
+            if (!citiesResult.success || !citiesResult.data?.cities || citiesResult.data.cities.length === 0) {
+                 console.log(`Prueba de ciudades advertencia para '${testState.name}, ${testCountry.name}': No se encontraron ciudades. Esto puede ser normal.`);
+            } else {
+                console.log("Cities test passed.");
             }
         }
 
-        // 4. Test Cities
-        const testState = "São Paulo";
-        if (requestConfig.cities?.url) {
-            const url = requestConfig.cities.url.replace('$country', testCountry).replace('$state', testState);
-            const body = JSON.stringify({ country: testCountry, state: testState });
-            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
-            const citiesJson = await response.json();
-            const citiesPath = responseConfig.cities?.path;
-            const cityList = (citiesPath === '.' || citiesPath === '') ? citiesJson : getNestedValue(citiesJson, citiesPath);
-            if (!Array.isArray(cityList) || cityList.length === 0) {
-                return { success: false, message: `Prueba de ciudades fallida para '${testState}, ${testCountry}'.` };
-            }
-        }
-
-        return { success: true, message: "¡Prueba exitosa! Se obtuvieron correctamente los datos de regiones, países, estados y ciudades." };
+        return { success: true, message: "¡Prueba exitosa! El flujo de obtención de datos de dirección funciona correctamente." };
 
     } catch (error: any) {
         return { success: false, message: `Error durante la prueba: ${error.message}` };
     }
 }
+
+  

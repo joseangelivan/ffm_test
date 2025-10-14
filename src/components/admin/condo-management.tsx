@@ -78,12 +78,13 @@ type LocationData = {
     city: string;
     street: string;
     number: string;
-    regions: string[];
+    regions: AddressDataItem[];
     countries: AddressDataItem[];
     states: AddressDataItem[];
     cities: string[];
     latitude?: number | null;
     longitude?: number | null;
+    regionCodeMap?: Record<string, string>;
 };
 
 const LocationSelector = ({
@@ -111,8 +112,8 @@ const LocationSelector = ({
           </SelectTrigger>
           <SelectContent>
             {locationData.regions?.map((region) => (
-              <SelectItem key={region} value={region}>
-                {region}
+              <SelectItem key={region.name} value={region.name}>
+                {region.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -388,7 +389,8 @@ function CondoFormWrapper({
   const handleLocationChange = useCallback((field: keyof Pick<LocationData, 'region' | 'country' | 'state' | 'city'>, value: string) => {
     startLocationTransition(async () => {
         if (field === 'region') {
-            const countriesData = await fetchAddressData({ region: value });
+            const regionCode = locationData.regionCodeMap?.[value];
+            const countriesData = await fetchAddressData({ region: value, region_code: regionCode });
             setLocationData(current => ({...current, region: value, country: '', state: '', city: '', countries: countriesData.data?.countries || [], states: [], cities: [] }));
         } else if (field === 'country') {
             const statesData = await fetchAddressData({ country: value });
@@ -400,7 +402,7 @@ function CondoFormWrapper({
              setLocationData(current => ({ ...current, [field]: value }));
         }
     });
-  }, [locationData.country]);
+  }, [locationData.country, locationData.regionCodeMap]);
   
   const handleStreetChange = (value: string) => {
       setLocationData(current => ({ ...current, street: value }));
@@ -446,8 +448,14 @@ function CondoFormWrapper({
 
   useEffect(() => {
     startLocationTransition(async () => {
-        const regionsData = await fetchAddressData({});
-        setLocationData(current => ({ ...current, regions: regionsData.data?.regions || [] }));
+        const result = await fetchAddressData({});
+        if (result.success && result.data) {
+             setLocationData(current => ({ 
+                ...current, 
+                regions: result.data.regions || [],
+                regionCodeMap: result.data.regionCodeMap || {}
+            }));
+        }
     });
   }, []);
   
@@ -537,16 +545,12 @@ export function CondoManagement() {
     };
   
     const prepareAndOpenEditDialog = useCallback(async (condo: Condominio) => {
-        const cacheKey = `${condo.region}-${condo.country}-${condo.state}`;
-        const hasCache = !!locationCache[cacheKey];
-
-        if (!hasCache) {
-            setIsPreparingEdit(true);
-        }
+        setIsPreparingEdit(true);
 
         try {
             const regionsData = await fetchAddressData({});
-            const countriesData = await fetchAddressData({ region: condo.region });
+            const regionCode = regionsData.data?.regionCodeMap?.[condo.region!];
+            const countriesData = await fetchAddressData({ region: condo.region, region_code: regionCode });
             const statesData = await fetchAddressData({ country: condo.country });
             const citiesData = await fetchAddressData({ country: condo.country, state: condo.state });
 
@@ -555,24 +559,21 @@ export function CondoManagement() {
                 countries: countriesData.data?.countries || [],
                 states: statesData.data?.states || [],
                 cities: citiesData.data?.cities || [],
+                regionCodeMap: regionsData.data?.regionCodeMap || {}
             };
             
-            setLocationCache(prev => ({...prev, [cacheKey]: fullLocationData}));
-
             setEditingCondoData({
                 ...condo,
                 ...fullLocationData
             });
+            setIsEditCondoDialogOpen(true);
 
         } catch (error: any) {
             toast({ title: t('toast.errorTitle'), description: error.message || t('toast.preloadError'), variant: 'destructive', copyable: true });
         } finally {
-            if (!hasCache) {
-                setIsPreparingEdit(false);
-            }
-            setIsEditCondoDialogOpen(true);
+            setIsPreparingEdit(false);
         }
-    }, [toast, t, locationCache]);
+    }, [toast, t]);
   
     const handleDeleteCondo = (condoId: string) => {
         setDeletingId(condoId);
@@ -745,3 +746,5 @@ export function CondoManagement() {
         </div>
     );
 }
+
+  
