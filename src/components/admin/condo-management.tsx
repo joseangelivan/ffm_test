@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
@@ -399,7 +398,7 @@ function CondoFormWrapper({
   
   const [state, dispatchFormAction, isFormPending] = useActionState(handleAction, undefined);
 
-  const handleLocationChange = useCallback((field: 'region' | 'country' | 'state' | 'city', value: string) => {
+  const handleLocationChange = (field: 'region' | 'country' | 'state' | 'city', value: string) => {
     startLocationTransition(async () => {
         let newSelection = { ...locationSelection, [field]: value };
         if (field === 'region') newSelection = { ...newSelection, country: '', state: '', city: '' };
@@ -419,37 +418,31 @@ function CondoFormWrapper({
         
         const result = await fetchAddressData(params);
         
-        if (result?.debug) {
-            let debugMessage = `Region: ${result.debug.region_received}\nRegion Code: ${result.debug.region_code_received}\n\n${result.debug.curl}`;
-            if (!result.success) {
-                debugMessage += `\n\nResponse:\n${JSON.stringify(result.debug.response, null, 2)}`;
-            }
-
-            toast({
-              title: result.success ? 'DEBUG: Países Obtenidos' : 'DEBUG: Error al Obtener Países',
-              description: debugMessage,
-              duration: 20000,
-              copyable: true,
-              variant: result.success ? 'default' : 'destructive',
-            });
-        }
-        
         if (result?.data) {
             if (field === 'region' && result.data.countries) setAvailableData(current => ({ ...current, countries: result.data.countries || [], states: [], cities: [] }));
             if (field === 'country' && result.data.states) setAvailableData(current => ({ ...current, states: result.data.states || [], cities: [] }));
             if (field === 'state' && result.data.cities) setAvailableData(current => ({ ...current, cities: result.data.cities || [] }));
         } else if (!result.success) {
             let fullDebugMessage = result.message || "An unknown error occurred.";
-             if(result.debug) {
-                fullDebugMessage += `\n\nRegion: ${result.debug.region_received}\nRegion Code: ${result.debug.region_code_received}\nCurl: ${result.debug.curl}`;
+            if(result.debug) {
+                const debugRegion = result.debug.region_received;
+                const debugRegionCode = result.debug.region_code_received;
+                const debugCurl = result.debug.curl;
+                fullDebugMessage += `\n\nRegion: ${debugRegion}\nRegion Code: ${debugRegionCode}\nCurl: ${debugCurl}`;
             }
-            toast({ title: t('toast.errorTitle'), description: fullDebugMessage, variant: 'destructive', copyable: true });
+            toast({ 
+                title: t('toast.errorTitle'), 
+                description: fullDebugMessage, 
+                variant: 'destructive', 
+                copyable: true,
+                duration: 20000
+            });
             if (field === 'region') setAvailableData(current => ({ ...current, countries: [], states: [], cities: [] }));
             if (field === 'country') setAvailableData(current => ({ ...current, states: [], cities: [] }));
             if (field === 'state') setAvailableData(current => ({ ...current, cities: [] }));
         }
     });
-  }, [locationSelection, availableData.regionCodeMap, toast, t]);
+  };
   
   const handleStreetChange = (value: string) => {
       setLocationSelection(current => ({ ...current, street: value }));
