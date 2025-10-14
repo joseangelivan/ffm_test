@@ -195,7 +195,7 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
                 cache: 'no-store'
             };
 
-            if (fetchOptions.method !== 'GET' && Object.keys(body).length > 0) {
+            if (Object.keys(body).length > 0) {
                 fetchOptions.body = JSON.stringify(body);
                 (fetchOptions.headers as any)['Content-Type'] = 'application/json';
             }
@@ -206,7 +206,6 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
             if (!response.ok) throw new Error(`El servidor respondió con el estado ${response.status}. URL: ${requestConfig.url}`);
             const jsonResponse = await response.json();
             
-            // The API returns { error: false, ..., data: { states: [...] } }
             const dataList = getNestedValue(jsonResponse, 'data.states');
 
             if (!Array.isArray(dataList)) {
