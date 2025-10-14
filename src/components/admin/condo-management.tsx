@@ -366,7 +366,6 @@ function CondoFormWrapper({
   
   const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData);
   const [isLocationLoading, startLocationTransition] = useTransition();
-  const isInitialLoad = useRef(true);
 
   const [verificationResults, setVerificationResults] = useState<AutocompleteResult[]>([]);
   const [isVerificationLoading, startVerificationTransition] = useTransition();
@@ -450,14 +449,30 @@ function CondoFormWrapper({
     startLocationTransition(async () => {
         const result = await fetchAddressData({});
         if (result.success && result.data) {
-             setLocationData(current => ({ 
-                ...current, 
+            const newLocationData: Partial<LocationData> = { 
                 regions: result.data.regions || [],
                 regionCodeMap: result.data.regionCodeMap || {}
-            }));
+            };
+             // If in edit mode, chain the fetches
+            if (isEditMode && initialData.region) {
+                const regionCode = result.data.regionCodeMap?.[initialData.region];
+                const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionCode });
+                newLocationData.countries = countriesResult.data?.countries || [];
+
+                if(initialData.country) {
+                    const statesResult = await fetchAddressData({ country: initialData.country });
+                    newLocationData.states = statesResult.data?.states || [];
+                }
+                if(initialData.country && initialData.state) {
+                    const citiesResult = await fetchAddressData({ country: initialData.country, state: initialData.state });
+                    newLocationData.cities = citiesResult.data?.cities || [];
+                }
+            }
+             setLocationData(current => ({ ...current, ...newLocationData }));
+
         }
     });
-  }, []);
+  }, [isEditMode, initialData.region, initialData.country, initialData.state]);
   
   return (
     <>
@@ -512,8 +527,6 @@ export function CondoManagement() {
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [isDeleting, startDeletingTransition] = useTransition();
 
-    const [locationCache, setLocationCache] = useState<Record<string, AddressData>>({});
-
     const fetchCondos = useCallback(async () => {
         setLoading(true);
         try {
@@ -545,35 +558,9 @@ export function CondoManagement() {
     };
   
     const prepareAndOpenEditDialog = useCallback(async (condo: Condominio) => {
-        setIsPreparingEdit(true);
-
-        try {
-            const regionsData = await fetchAddressData({});
-            const regionCode = regionsData.data?.regionCodeMap?.[condo.region!];
-            const countriesData = await fetchAddressData({ region: condo.region, region_code: regionCode });
-            const statesData = await fetchAddressData({ country: condo.country });
-            const citiesData = await fetchAddressData({ country: condo.country, state: condo.state });
-
-            const fullLocationData: AddressData = {
-                regions: regionsData.data?.regions || [],
-                countries: countriesData.data?.countries || [],
-                states: statesData.data?.states || [],
-                cities: citiesData.data?.cities || [],
-                regionCodeMap: regionsData.data?.regionCodeMap || {}
-            };
-            
-            setEditingCondoData({
-                ...condo,
-                ...fullLocationData
-            });
-            setIsEditCondoDialogOpen(true);
-
-        } catch (error: any) {
-            toast({ title: t('toast.errorTitle'), description: error.message || t('toast.preloadError'), variant: 'destructive', copyable: true });
-        } finally {
-            setIsPreparingEdit(false);
-        }
-    }, [toast, t]);
+        setEditingCondoData(condo);
+        setIsEditCondoDialogOpen(true);
+    }, []);
   
     const handleDeleteCondo = (condoId: string) => {
         setDeletingId(condoId);

@@ -261,6 +261,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         const regionsResponseConfig = responseConfig.regions;
 
         if (regionsRequestConfig && !regionsRequestConfig.url && regionsResponseConfig?.path) {
+            // Case 1: Data is embedded in the JSON config itself
             const regionContainer = getNestedValue(config, regionsResponseConfig.path);
             if (regionContainer && Array.isArray(regionContainer.value)) {
                 data.regions = regionContainer.value.map((name: string) => ({
@@ -270,6 +271,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                 data.regionCodeMap = regionContainer.codes;
             }
         } else if (regionsRequestConfig?.url && regionsResponseConfig?.path) {
+            // Case 2: Data needs to be fetched from a URL
             try {
                 const url = regionsRequestConfig.url;
                 const response = await fetch(url);
@@ -362,6 +364,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (!pool) return { success: false, message: "Error del servidor: no se pudo conectar a la base de datos." };
         client = await pool.connect();
         
+        // Temporarily set the service to test as default
         const servicesResult = await client.query('SELECT id, is_default FROM address_services');
         if (servicesResult.rows.length === 0) throw new Error("No hay servicios de dirección configurados.");
         
@@ -377,28 +380,39 @@ export async function testAddressService(id: string): Promise<ActionState> {
             await client.query('COMMIT');
         }
         
+        // --- STEP 1: Test Regions ---
         const regionsResult = await fetchAddressData({});
-        
         if (!regionsResult.success || !Array.isArray(regionsResult.data?.regions) || regionsResult.data.regions.length === 0) {
             const debugOutput = JSON.stringify(regionsResult, null, 2);
             throw new Error(`Prueba de regiones fallida: data.regions no es un array o está vacío.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
         }
-        
         const firstRegion = regionsResult.data.regions[0];
-        let finalMessage = `Regiones OK. Primera encontrada: ${firstRegion.name} (${firstRegion.code}). `;
 
-        // STEP 2: Test Countries
+        // --- STEP 2: Test Countries ---
         const countriesResult = await fetchAddressData({ region: firstRegion.name, region_code: firstRegion.code });
-
         if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
             const debugOutput = JSON.stringify(countriesResult, null, 2);
             throw new Error(`Prueba de países fallida para la región '${firstRegion.name}'.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
         }
-
         const firstCountry = countriesResult.data.countries[0];
-        finalMessage += `Países OK. Primer país encontrado: ${firstCountry.name}.`;
 
-        // Restore original default if it was changed
+        // --- STEP 3: Test States ---
+        const statesResult = await fetchAddressData({ country: firstCountry.name });
+         if (!statesResult.success || !statesResult.data?.states || statesResult.data.states.length === 0) {
+            const debugOutput = JSON.stringify(statesResult, null, 2);
+            throw new Error(`Prueba de estados fallida para el país '${firstCountry.name}'.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
+        }
+        const firstState = statesResult.data.states[0];
+
+        // --- STEP 4: Test Cities ---
+        const citiesResult = await fetchAddressData({ country: firstCountry.name, state: firstState.name });
+         if (!citiesResult.success || !citiesResult.data?.cities || citiesResult.data.cities.length === 0) {
+            const debugOutput = JSON.stringify(citiesResult, null, 2);
+            throw new Error(`Prueba de ciudades fallida para el estado '${firstState.name}'.\n\n--- SALIDA COMPLETA ---\n${debugOutput}`);
+        }
+        const firstCity = citiesResult.data.cities[0];
+
+        // --- Restore original default ---
         if (client && id !== originalDefaultId) {
             await client.query('BEGIN');
             await client.query('UPDATE address_services SET is_default = FALSE');
@@ -408,7 +422,10 @@ export async function testAddressService(id: string): Promise<ActionState> {
             await client.query('COMMIT');
         }
             
-        return { success: true, message: `¡Prueba exitosa! ${finalMessage}` };
+        return { 
+            success: true, 
+            message: `¡Prueba exitosa!\nRegión: ${firstRegion.name}\nPaís: ${firstCountry.name}\nEstado: ${firstState.name}\nCiudad: ${firstCity}`
+        };
             
     } catch (err: any) {
         // Restore original default if it was changed
@@ -429,5 +446,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
     }
 }
     
+
 
 
