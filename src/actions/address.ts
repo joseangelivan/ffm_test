@@ -244,16 +244,16 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             const regionList = regionsResponseConfig.name 
                 ? getNestedValue(baseObject, regionsResponseConfig.name) 
                 : baseObject;
-
-            const regionCodes = regionsResponseConfig.code 
+            
+            const regionCodes = regionsResponseConfig.code && typeof regionsResponseConfig.code === 'string'
                 ? getNestedValue(baseObject, regionsResponseConfig.code)
                 : [];
-            
+
             if (Array.isArray(regionList)) {
                 data.regions = regionList.map((item: any, index: number) => {
                     const codeValue = Array.isArray(regionCodes) && regionCodes[index] ? regionCodes[index] : "";
                     if (typeof item === 'object' && item !== null) {
-                        return { name: item.name || '', code: item.code || codeValue || item.name || '' };
+                        return { name: item.name || '', code: item.code || codeValue || '' };
                     }
                     return { name: item, code: codeValue || item };
                 }).filter(r => r.name);
