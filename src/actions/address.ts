@@ -44,7 +44,6 @@ function getNestedValue(obj: any, path: string): any {
     if (typeof path !== 'string' || !path || path === '.') {
       return obj;
     }
-    // Handle cases like "[1]"
     const match = path.match(/^\[(\d+)\]$/);
     if (match) {
         const index = parseInt(match[1], 10);
@@ -270,7 +269,9 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
 
     try {
         const pool = await getDbPool();
-        if (!pool) return { success: false, message: 'Error del servidor: Pool de DB no disponible.' };
+        if (!pool) {
+            return { success: false, message: 'Error del servidor: Pool de DB no disponible.' };
+        }
         client = await pool.connect();
 
         const serviceResult = await client.query('SELECT config_json FROM address_services WHERE is_default = TRUE LIMIT 1');
@@ -300,7 +301,6 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         const regionsResponseConfig = responseConfig.regions;
 
         if (regionsRequestConfig && !regionsRequestConfig.url && regionsResponseConfig?.path) {
-            // Case 1: Data is embedded in the JSON config itself
             const regionContainer = getNestedValue(config, regionsResponseConfig.path);
             if (regionContainer && Array.isArray(regionContainer.value)) {
                 data.regions = regionContainer.value.map((name: string) => ({
@@ -310,12 +310,11 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                 data.regionCodeMap = regionContainer.codes;
             }
         } else if (regionsRequestConfig?.url && regionsResponseConfig?.path) {
-            // Case 2: Data needs to be fetched from a URL
             try {
                 const url = regionsRequestConfig.url;
                 const response = await fetch(url);
                 if (!response.ok) {
-                    return { success: false, message: `Error al obtener datos de la URL de regiones: El servidor respondió con el estado ${response.status}` };
+                    return { success: false, message: `Error al obtener datos de la URL de regiones: El servidor respondió con el estado ${response.status}. URL: ${url}` };
                 }
                 const regionsJson = await response.json();
                 const regionList = getNestedValue(regionsJson, regionsResponseConfig.path);
@@ -326,7 +325,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                         code: getNestedValue(item, regionsResponseConfig.code)
                     }));
                 } else {
-                    return { success: false, message: 'Error de configuración: La ruta especificada para regiones no devolvió un array.' };
+                    return { success: false, message: `Error de configuración: La ruta especificada para regiones ('${regionsResponseConfig.path}') no devolvió un array. Respuesta de la API: ${JSON.stringify(regionsJson)}` };
                 }
             } catch (e: any) {
                  return { success: false, message: `Error al obtener datos de la URL de regiones: ${e.message}` };
@@ -483,3 +482,4 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
 
       
+
