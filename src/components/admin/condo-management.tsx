@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
@@ -88,11 +87,13 @@ type LocationData = {
 };
 
 const LocationSelector = ({
-  locationData,
+  locationSelection,
+  availableData,
   onLocationChange,
   isFormDisabled,
 }: {
-  locationData: Partial<LocationData>;
+  locationSelection: Partial<Pick<LocationData, 'region' | 'country' | 'state' | 'city'>>;
+  availableData: Partial<Pick<LocationData, 'regions' | 'countries' | 'states' | 'cities'>>;
   onLocationChange: (field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => void;
   isFormDisabled?: boolean;
 }) => {
@@ -104,14 +105,14 @@ const LocationSelector = ({
         <Label htmlFor="region-display">Región</Label>
         <Select
           onValueChange={(value) => onLocationChange('region', value)}
-          value={locationData.region}
-          disabled={isFormDisabled || !locationData.regions?.length}
+          value={locationSelection.region}
+          disabled={isFormDisabled || !availableData.regions?.length}
         >
           <SelectTrigger id="region-display">
             <SelectValue placeholder="Seleccionar región" />
           </SelectTrigger>
           <SelectContent>
-            {locationData.regions?.map((region) => (
+            {availableData.regions?.map((region) => (
               <SelectItem key={region.name} value={region.name}>
                 {region.name}
               </SelectItem>
@@ -123,14 +124,14 @@ const LocationSelector = ({
         <Label htmlFor="country-display">{t('adminDashboard.newCondoDialog.countryLabel')}</Label>
         <Select
           onValueChange={(value) => onLocationChange('country', value)}
-          value={locationData.country}
-          disabled={!locationData.region || isFormDisabled || !locationData.countries?.length}
+          value={locationSelection.country}
+          disabled={!locationSelection.region || isFormDisabled || !availableData.countries?.length}
         >
           <SelectTrigger id="country-display">
-            <SelectValue placeholder={!locationData.region ? "Seleccionar región primero" : "Seleccionar país"} />
+            <SelectValue placeholder={!locationSelection.region ? "Seleccionar región primero" : "Seleccionar país"} />
           </SelectTrigger>
           <SelectContent>
-            {locationData.countries?.map((country) => (
+            {availableData.countries?.map((country) => (
               <SelectItem key={country.cca2 || country.name} value={country.name}>
                  {country.flag && <span className="mr-2">{country.flag}</span>}
                 {country.name}
@@ -143,14 +144,14 @@ const LocationSelector = ({
         <Label htmlFor="state-display">{t('adminDashboard.newCondoDialog.stateLabel')}</Label>
         <Select
           onValueChange={(value) => onLocationChange('state', value)}
-          value={locationData.state}
-          disabled={!locationData.country || isFormDisabled || !locationData.states?.length}
+          value={locationSelection.state}
+          disabled={!locationSelection.country || isFormDisabled || !availableData.states?.length}
         >
           <SelectTrigger id="state-display">
-            <SelectValue placeholder={!locationData.country ? "Seleccionar país primero" : "Seleccionar estado"} />
+            <SelectValue placeholder={!locationSelection.country ? "Seleccionar país primero" : "Seleccionar estado"} />
           </SelectTrigger>
           <SelectContent>
-            {locationData.states?.map((state) => (
+            {availableData.states?.map((state) => (
               <SelectItem key={state.name} value={state.name}>
                 {state.name}
               </SelectItem>
@@ -162,14 +163,14 @@ const LocationSelector = ({
         <Label htmlFor="city-display">{t('adminDashboard.newCondoDialog.cityLabel')}</Label>
         <Select
           onValueChange={(value) => onLocationChange('city', value)}
-          value={locationData.city}
-          disabled={!locationData.state || isFormDisabled || !locationData.cities?.length}
+          value={locationSelection.city}
+          disabled={!locationSelection.state || isFormDisabled || !availableData.cities?.length}
         >
           <SelectTrigger id="city-display">
-            <SelectValue placeholder={!locationData.state ? "Seleccionar estado primero" : "Seleccionar ciudad"} />
+            <SelectValue placeholder={!locationSelection.state ? "Seleccionar estado primero" : "Seleccionar ciudad"} />
           </SelectTrigger>
           <SelectContent>
-            {locationData.cities?.map((city) => (
+            {availableData.cities?.map((city) => (
               <SelectItem key={city} value={city}>
                 {city}
               </SelectItem>
@@ -238,7 +239,8 @@ function CondoFormFields({
   isEditMode,
   initialData,
   isFormPending,
-  locationData,
+  locationSelection,
+  availableData,
   onLocationChange,
   onStreetChange,
   onNumberChange,
@@ -247,7 +249,8 @@ function CondoFormFields({
   isEditMode: boolean;
   initialData: Partial<Condominio>;
   isFormPending: boolean;
-  locationData: Partial<LocationData>;
+  locationSelection: Partial<Pick<LocationData, 'region' | 'country' | 'state' | 'city' | 'street' | 'number'>>;
+  availableData: Partial<Pick<LocationData, 'regions' | 'countries' | 'states' | 'cities'>>;
   onLocationChange: (field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => void;
   onStreetChange: (value: string) => void;
   onNumberChange: (value: string) => void;
@@ -270,12 +273,12 @@ function CondoFormFields({
             </DialogDescription>
           </DialogHeader>
            <div className="grid gap-4 py-4">
-            <input type="hidden" name="region" value={locationData.region || ''} />
-            <input type="hidden" name="country" value={locationData.country || ''} />
-            <input type="hidden" name="state" value={locationData.state || ''} />
-            <input type="hidden" name="city" value={locationData.city || ''} />
-            <input type="hidden" name="latitude" value={locationData.latitude || ''} />
-            <input type="hidden" name="longitude" value={locationData.longitude || ''} />
+            <input type="hidden" name="region" value={locationSelection.region || ''} />
+            <input type="hidden" name="country" value={locationSelection.country || ''} />
+            <input type="hidden" name="state" value={locationSelection.state || ''} />
+            <input type="hidden" name="city" value={locationSelection.city || ''} />
+            <input type="hidden" name="latitude" value={(initialData as LocationData).latitude || ''} />
+            <input type="hidden" name="longitude" value={(initialData as LocationData).longitude || ''} />
             <div className="grid gap-2">
               <Label htmlFor="name">
                 {t('adminDashboard.newCondoDialog.nameLabel')}
@@ -291,7 +294,8 @@ function CondoFormFields({
             </div>
             
             <LocationSelector
-              locationData={locationData}
+              locationSelection={locationSelection}
+              availableData={availableData}
               onLocationChange={onLocationChange}
               isFormDisabled={isFormPending}
             />
@@ -305,14 +309,14 @@ function CondoFormFields({
                     <Input
                         id="street"
                         name="street"
-                        value={locationData.street || ''}
+                        value={locationSelection.street || ''}
                         onChange={(e) => onStreetChange(e.target.value)}
                         placeholder="Ex: Rua das Flores"
                         required
                         disabled={isFormPending}
                         autoComplete="off"
                     />
-                    <Button type="button" variant="outline" onClick={onVerifyAddress} disabled={isFormPending || !locationData.street}>
+                    <Button type="button" variant="outline" onClick={onVerifyAddress} disabled={isFormPending || !locationSelection.street}>
                         <Search className="h-4 w-4" />
                     </Button>
                 </div>
@@ -324,7 +328,7 @@ function CondoFormFields({
                 <Input
                   id="number"
                   name="number"
-                  value={locationData.number || ''}
+                  value={locationSelection.number || ''}
                   onChange={(e) => onNumberChange(e.target.value)}
                   placeholder="Ex: 123"
                   required
@@ -358,13 +362,32 @@ function CondoFormWrapper({
 }: {
   closeDialog: () => void;
   formAction: (prevState: any, formData: FormData) => Promise<any>;
-  initialData: Partial<LocationData> & Partial<Condominio>;
+  initialData: Partial<Condominio>;
   isEditMode: boolean;
 }) {
   const { t } = useLocale();
   const { toast } = useToast();
   
-  const [locationData, setLocationData] = useState<Partial<LocationData>>(initialData);
+  // State for selected values
+  const [locationSelection, setLocationSelection] = useState({
+      region: initialData.region || '',
+      country: initialData.country || '',
+      state: initialData.state || '',
+      city: initialData.city || '',
+      street: initialData.street || '',
+      number: initialData.number || '',
+      latitude: initialData.latitude,
+      longitude: initialData.longitude
+  });
+
+  // State for available options in dropdowns
+  const [availableData, setAvailableData] = useState<Partial<Pick<LocationData, 'regions' | 'countries' | 'states' | 'cities' | 'regionCodeMap'>>>({
+      regions: [],
+      countries: [],
+      states: [],
+      cities: []
+  });
+
   const [isLocationLoading, startLocationTransition] = useTransition();
 
   const [verificationResults, setVerificationResults] = useState<AutocompleteResult[]>([]);
@@ -385,67 +408,74 @@ function CondoFormWrapper({
   
   const [state, dispatchFormAction, isFormPending] = useActionState(handleAction, undefined);
 
- const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'name' | 'street' | 'number' >, value: string) => {
+ const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => {
     startLocationTransition(async () => {
+        let result: { success: boolean; data?: AddressData; message?: string; };
+
         try {
-            let result: { success: boolean; data?: AddressData; message?: string; } | undefined;
             if (field === 'region') {
-                setLocationData(current => ({ ...current, region: value, country: '', state: '', city: '', countries: [], states: [], cities: [] }));
-                const regionCode = locationData.regionCodeMap?.[value];
+                setLocationSelection(current => ({ ...current, region: value, country: '', state: '', city: '' }));
+                setAvailableData(current => ({ ...current, countries: [], states: [], cities: [] }));
+                
+                const regionCode = availableData.regionCodeMap?.[value];
                 result = await fetchAddressData({ region: value, region_code: regionCode });
+
                 if (result.success && result.data) {
                     if (!result.data.countries || result.data.countries.length === 0) {
                         toast({ title: "Sin Datos", description: "La región seleccionada no tiene países disponibles.", variant: 'default' });
                     }
-                    setLocationData(current => ({ ...current, countries: result.data?.countries || [] }));
+                    setAvailableData(current => ({ ...current, countries: result.data?.countries || [] }));
                 }
+
             } else if (field === 'country') {
-                setLocationData(current => ({ ...current, country: value, state: '', city: '', states: [], cities: [] }));
+                setLocationSelection(current => ({ ...current, country: value, state: '', city: '' }));
+                setAvailableData(current => ({ ...current, states: [], cities: [] }));
+
                 result = await fetchAddressData({ country: value });
                 if (result.success && result.data) {
                      if (!result.data.states || result.data.states.length === 0) {
                         toast({ title: "Sin Datos", description: "El país seleccionado no tiene estados/provincias disponibles.", variant: 'default' });
                     }
-                    setLocationData(current => ({ ...current, states: result.data?.states || [] }));
+                    setAvailableData(current => ({ ...current, states: result.data?.states || [] }));
                 }
+
             } else if (field === 'state') {
-                setLocationData(current => ({ ...current, state: value, city: '', cities: [] }));
-                result = await fetchAddressData({ country: locationData.country, state: value });
+                setLocationSelection(current => ({ ...current, state: value, city: '' }));
+                setAvailableData(current => ({ ...current, cities: [] }));
+
+                result = await fetchAddressData({ country: locationSelection.country, state: value });
                 if (result.success && result.data) {
                     if (!result.data.cities || result.data.cities.length === 0) {
                         toast({ title: "Sin Datos", description: "El estado seleccionado no tiene ciudades disponibles.", variant: 'default' });
                     }
-                    setLocationData(current => ({ ...current, cities: result.data?.cities || [] }));
+                    setAvailableData(current => ({ ...current, cities: result.data?.cities || [] }));
                 }
+
             } else if (field === 'city') {
-                 setLocationData(current => ({ ...current, city: value }));
-            }
-            
-            if (result && !result.success) {
-                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
+                 setLocationSelection(current => ({ ...current, city: value }));
             }
         } catch (error: any) {
             toast({ title: t('toast.errorTitle'), description: error.message || "An unknown error occurred.", variant: 'destructive', copyable: true });
         }
     });
-}, [locationData.country, locationData.regionCodeMap, toast, t]);
+}, [availableData.regionCodeMap, locationSelection.country, toast, t]);
   
   const handleStreetChange = (value: string) => {
-      setLocationData(current => ({ ...current, street: value }));
+      setLocationSelection(current => ({ ...current, street: value }));
   }
    const handleNumberChange = (value: string) => {
-      setLocationData(current => ({ ...current, number: value }));
+      setLocationSelection(current => ({ ...current, number: value }));
   }
 
   const handleVerifyAddress = () => {
-    if (!locationData.street) return;
+    if (!locationSelection.street) return;
     setIsVerificationDialogOpen(true);
     startVerificationTransition(async () => {
-        const countryData = locationData.countries?.find(c => c.name === locationData.country);
+        const countryData = availableData.countries?.find(c => c.name === locationSelection.country);
         const result = await autocompleteAddress({
-            address: locationData.street!,
-            city: locationData.city,
-            state: locationData.state,
+            address: locationSelection.street!,
+            city: locationSelection.city,
+            state: locationSelection.state,
             country_cca2: countryData?.cca2,
         });
         if (result.success) {
@@ -461,7 +491,7 @@ function CondoFormWrapper({
       const parts = suggestion.address.split(',');
       const street = parts[0] || '';
       
-      setLocationData(current => ({
+      setLocationSelection(current => ({
           ...current,
           street: street,
           latitude: suggestion.lat,
@@ -474,32 +504,35 @@ function CondoFormWrapper({
 
   useEffect(() => {
     startLocationTransition(async () => {
+      try {
         const result = await fetchAddressData({});
         if (result.success && result.data) {
-            const newLocationData: Partial<LocationData> = { 
+            const newAvailableData: Partial<typeof availableData> = {
                 regions: result.data.regions || [],
                 regionCodeMap: result.data.regionCodeMap || {}
             };
-             // If in edit mode, chain the fetches
+            
             if (isEditMode && initialData.region) {
                 const regionCode = result.data.regionCodeMap?.[initialData.region];
                 const countriesResult = await fetchAddressData({ region: initialData.region, region_code: regionCode });
-                newLocationData.countries = countriesResult.data?.countries || [];
+                newAvailableData.countries = countriesResult.data?.countries || [];
 
                 if(initialData.country) {
                     const statesResult = await fetchAddressData({ country: initialData.country });
-                    newLocationData.states = statesResult.data?.states || [];
+                    newAvailableData.states = statesResult.data?.states || [];
                 }
                 if(initialData.country && initialData.state) {
                     const citiesResult = await fetchAddressData({ country: initialData.country, state: initialData.state });
-                    newLocationData.cities = citiesResult.data?.cities || [];
+                    newAvailableData.cities = citiesResult.data?.cities || [];
                 }
             }
-             setLocationData(current => ({ ...current, ...newLocationData }));
-
+             setAvailableData(current => ({ ...current, ...newAvailableData }));
         }
+      } catch (error) {
+         toast({ title: t('toast.errorTitle'), description: "No se pudieron cargar los datos de ubicación inicial.", variant: 'destructive', copyable: true });
+      }
     });
-  }, [isEditMode, initialData.region, initialData.country, initialData.state]);
+  }, [isEditMode, initialData.region, initialData.country, initialData.state, toast, t]);
   
   return (
     <>
@@ -520,7 +553,8 @@ function CondoFormWrapper({
                 isEditMode={isEditMode}
                 initialData={initialData}
                 isFormPending={isFormDisabled}
-                locationData={locationData}
+                locationSelection={locationSelection}
+                availableData={availableData}
                 onLocationChange={handleLocationChange}
                 onStreetChange={handleStreetChange}
                 onNumberChange={handleNumberChange}
@@ -549,7 +583,7 @@ export function CondoManagement() {
     const [isNewCondoDialogOpen, setIsNewCondoDialogOpen] = useState(false);
     const [isEditCondoDialogOpen, setIsEditCondoDialogOpen] = useState(false);
   
-    const [editingCondoData, setEditingCondoData] = useState<Condominio & Partial<LocationData> | null>(null);
+    const [editingCondoData, setEditingCondoData] = useState<Condominio | null>(null);
     const [isPreparingEdit, setIsPreparingEdit] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [isDeleting, startDeletingTransition] = useTransition();
