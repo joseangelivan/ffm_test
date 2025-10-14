@@ -171,7 +171,6 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
 }
 
 async function fetchStates(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string }> {
-    // Busca la configuración de estados, puede estar anidada
     const requestConfig = config.request?.api_config?.parameters?.states || config.request?.api_config?.parameters?.countries?.states;
     const responseConfig = config.response?.states || config.response?.countries?.states;
 
