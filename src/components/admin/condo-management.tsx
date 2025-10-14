@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
@@ -402,17 +401,18 @@ function CondoFormWrapper({
   const [state, dispatchFormAction, isFormPending] = useActionState(handleAction, undefined);
 
   const handleLocationChange = (field: 'region' | 'country' | 'state' | 'city', value: string) => {
-      let newSelection = { ...locationSelection, [field]: value };
-      
-      if (field === 'region') {
-          newSelection = { ...newSelection, country: '', state: '', city: '' };
-      } else if (field === 'country') {
-          newSelection = { ...newSelection, state: '', city: '' };
-      } else if (field === 'state') {
-          newSelection = { ...newSelection, city: '' };
-      }
-
-      setLocationSelection(newSelection);
+      setLocationSelection(current => {
+          let newSelection = { ...current, [field]: value };
+          
+          if (field === 'region') {
+              newSelection = { ...newSelection, country: '', state: '', city: '' };
+          } else if (field === 'country') {
+              newSelection = { ...newSelection, state: '', city: '' };
+          } else if (field === 'state') {
+              newSelection = { ...newSelection, city: '' };
+          }
+          return newSelection;
+      });
       setLastChangedField(field);
   };
   
@@ -462,27 +462,6 @@ function CondoFormWrapper({
             try {
                 const result = await fetchAddressData({});
                 if (result.success && result.data) {
-
-                    if (result.data.regionCodeMap && Object.keys(result.data.regionCodeMap).length > 0) {
-                        const firstKey = Object.keys(result.data.regionCodeMap)[0];
-                        const firstValue = result.data.regionCodeMap[firstKey];
-                        const debugMessage = `Mapa: ${JSON.stringify(result.data.regionCodeMap)}\n\nPrimer Elemento: { Clave: '${firstKey}', Valor: '${firstValue}' }`;
-                        
-                        toast({
-                            title: "Depuración de Regiones",
-                            description: debugMessage,
-                            duration: 15000,
-                            copyable: true,
-                        });
-                    } else {
-                        toast({
-                            title: "Error de Depuración",
-                            description: "El 'regionCodeMap' está vacío o no se ha recibido del backend.",
-                            variant: 'destructive',
-                            copyable: true,
-                        });
-                    }
-
                     const initialAvailable: LocationData = {
                         regions: result.data.regions || [],
                         countries: [], states: [], cities: [],
