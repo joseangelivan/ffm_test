@@ -381,7 +381,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
                 throw new Error(`Prueba de regiones fallida: fetchAddressData no devolvió un objeto 'data'.`);
             }
             if (!regionsResult.data.regions) {
-                 throw new Error(`Prueba de regiones fallida: El objeto 'data' no contiene una propiedad 'regions'.`);
+                 throw new Error(`Prueba de regiones fallida: El objeto 'data' no contiene una propiedad 'regions'. Resultado: ${JSON.stringify(regionsResult, null, 2)}`);
             }
              if (!Array.isArray(regionsResult.data.regions)) {
                 throw new Error(`Prueba de regiones fallida: data.regions no es un array. Tipo recibido: ${typeof regionsResult.data.regions}.`);
