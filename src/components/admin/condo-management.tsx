@@ -405,9 +405,11 @@ function CondoFormWrapper({
       
       if (field === 'region') {
           newSelection = { ...newSelection, country: '', state: '', city: '' };
+      } else if (field === 'country') {
+          newSelection = { ...newSelection, state: '', city: '' };
+      } else if (field === 'state') {
+          newSelection = { ...newSelection, city: '' };
       }
-      if (field === 'country') newSelection = { ...newSelection, state: '', city: '' };
-      if (field === 'state') newSelection = { ...newSelection, city: '' };
 
       setLocationSelection(newSelection);
       setLastChangedField(field);
@@ -464,13 +466,15 @@ function CondoFormWrapper({
                         countries: [], states: [], cities: [],
                         regionCodeMap: result.data.regionCodeMap || {}
                     };
-                    
-                    if (initialAvailable.regionCodeMap && initialAvailable.regions && initialAvailable.regions.length > 0) {
+
+                    if (initialAvailable.regionCodeMap && Object.keys(initialAvailable.regionCodeMap).length > 0) {
                         console.log("DEBUG: Full regionCodeMap loaded:", initialAvailable.regionCodeMap);
                         const firstRegionKey = Object.keys(initialAvailable.regionCodeMap)[0];
                         if (firstRegionKey) {
                             console.log(`DEBUG: First element of map - Key: '${firstRegionKey}', Value: '${initialAvailable.regionCodeMap[firstRegionKey]}'`);
                         }
+                    } else {
+                        console.log("DEBUG: regionCodeMap is empty or undefined after fetch.");
                     }
 
                     if (isEditMode && initialData.region && initialAvailable.regionCodeMap) {
@@ -497,7 +501,6 @@ function CondoFormWrapper({
         });
     }, [isEditMode, initialData.region, initialData.country, initialData.state, toast, t]);
 
-    // Effect for fetching dependent data when location selection changes
     useEffect(() => {
         if (!lastChangedField) return;
 

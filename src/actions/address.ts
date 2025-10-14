@@ -147,7 +147,8 @@ async function fetchRegions(config: any): Promise<{ success: boolean, data?: any
             name: name,
             code: requestConfig.codes?.[name] || ''
         }));
-        return { success: true, data: mappedData, regionCodeMap: requestConfig.codes };
+        const regionCodeMap = requestConfig.codes || {};
+        return { success: true, data: mappedData, regionCodeMap };
     }
     return { success: true, data: [] };
 }
