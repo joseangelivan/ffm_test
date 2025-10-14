@@ -246,12 +246,12 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             if (regionsResponseConfig && regionsResponseConfig.path && regionsResponseConfig.name) {
                 const baseObject = getNestedValue(config, regionsResponseConfig.path);
                 
-                if (baseObject && typeof baseObject === 'object') {
-                    const nameKey = regionsResponseConfig.name.split('.').pop();
-                    const regionList = nameKey ? baseObject[nameKey] : undefined;
+                if (baseObject) {
+                    const nameKey = regionsResponseConfig.name; // e.g. "value"
+                    const regionList = baseObject[nameKey];
                     
                     if (Array.isArray(regionList)) {
-                        const codeKey = regionsResponseConfig.code?.split('.').pop();
+                        const codeKey = regionsResponseConfig.code; // e.g. "code"
                         const regionCodes = codeKey ? baseObject[codeKey] : [];
 
                         data.regions = regionList.map((item: any, index: number) => {
@@ -368,22 +368,27 @@ export async function testAddressService(id: string): Promise<ActionState> {
             await client.query('UPDATE address_services SET is_default = TRUE WHERE id = $1', [id]);
         }
         
-        // --- Test Execution ---
         let testError: Error | null = null;
         try {
             // STEP 1: Test Regions
             const regionsResult = await fetchAddressData({});
+            
+            console.log("DEBUG: Resultado de la prueba de regiones:", JSON.stringify(regionsResult, null, 2));
+
             if (!regionsResult.success) {
                 throw new Error(`Prueba de regiones fallida (fetchAddressData falló): ${regionsResult.message}.`);
             }
-            if (!regionsResult.data?.regions) {
-                 throw new Error(`Prueba de regiones fallida: fetchAddressData tuvo éxito pero no devolvió datos en data.regions. Resultado: ${JSON.stringify(regionsResult)}`);
+            if (!regionsResult.data) {
+                throw new Error(`Prueba de regiones fallida: fetchAddressData tuvo éxito pero no devolvió un objeto 'data'.`);
+            }
+            if (!regionsResult.data.regions) {
+                 throw new Error(`Prueba de regiones fallida: fetchAddressData tuvo éxito pero no devolvió datos en data.regions.`);
             }
             if (!Array.isArray(regionsResult.data.regions)) {
-                throw new Error(`Prueba de regiones fallida: se esperaba un array en data.regions, pero se obtuvo un ${typeof regionsResult.data.regions}. Resultado: ${JSON.stringify(regionsResult)}`);
+                throw new Error(`Prueba de regiones fallida: se esperaba un array en data.regions, pero se obtuvo un ${typeof regionsResult.data.regions}.`);
             }
              if (regionsResult.data.regions.length === 0) {
-                 throw new Error(`Prueba de regiones fallida: data.regions es un array vacío. Resultado: ${JSON.stringify(regionsResult)}`);
+                 throw new Error(`Prueba de regiones fallida: data.regions es un array vacío.`);
             }
             
             const firstRegion = regionsResult.data.regions[0];
@@ -394,6 +399,8 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const regionCode = regionCodeMap[firstRegion.name] || '';
             
             const countriesResult = await fetchAddressData({ region: firstRegion.name, region_code: regionCode });
+            console.log("DEBUG: Resultado de la prueba de países:", JSON.stringify(countriesResult, null, 2));
+
             if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
                 let debugMessage = `Resultado: ${JSON.stringify(countriesResult, null, 2)}`;
                 throw new Error(`Prueba de países fallida para la región '${firstRegion.name}'. ${debugMessage}`);
@@ -405,7 +412,6 @@ export async function testAddressService(id: string): Promise<ActionState> {
         } catch (err: any) {
             testError = err;
         } finally {
-            // --- Revert Default Service ---
             if (wasChanged) {
                 await client.query('UPDATE address_services SET is_default = FALSE');
                 if (originalDefaultId) {
