@@ -245,9 +245,11 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                 
                 if (Array.isArray(regionList)) {
                     let regionCodes: string[] = [];
-                    const codeObject = getNestedValue(config, regionsResponseConfig.code);
-                    if (codeObject && codeObject[regionsResponseConfig.name] && Array.isArray(codeObject[regionsResponseConfig.name])) {
-                        regionCodes = codeObject[regionsResponseConfig.name];
+                    if (regionsResponseConfig.code) {
+                         const codeObject = getNestedValue(config, regionsResponseConfig.code);
+                         if (codeObject && codeObject[regionsResponseConfig.name] && Array.isArray(codeObject[regionsResponseConfig.name])) {
+                            regionCodes = codeObject[regionsResponseConfig.name];
+                        }
                     }
                     
                     data.regions = regionList.map((item: any, index: number) => {
@@ -376,10 +378,15 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const countriesResult = await fetchAddressData({ region: testRegion.name, region_code: regionCode });
             if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
                 let debugMessage = `Resultado: ${JSON.stringify(countriesResult, null, 2)}`;
-                if (Array.isArray(countriesResult.data) && countriesResult.data.length > 0) {
-                     debugMessage += `\nPrimer elemento de la respuesta de países: ${JSON.stringify(countriesResult.data[0], null, 2)}`
+                if (countriesResult?.data) {
+                    const countryListRaw = getNestedValue(countriesResult.data, 'countries');
+                    if(Array.isArray(countryListRaw) && countryListRaw.length > 0) {
+                         debugMessage += `\nPrimer elemento de la respuesta de países: ${JSON.stringify(countryListRaw[0], null, 2)}`;
+                    } else if (typeof countriesResult.data === 'object' && Object.keys(countriesResult.data).length > 0) {
+                        debugMessage += `\nDatos recibidos (no es un array o está vacío): ${JSON.stringify(countriesResult.data, null, 2)}`;
+                    }
                 }
-                throw new Error(`Prueba de países fallida para la región '${testRegion.name}'. ${countriesResult.message}. ${debugMessage}`);
+                throw new Error(`Prueba de países fallida para la región '${testRegion.name}'. ${debugMessage}`);
             }
             console.log("Countries test passed.");
             
@@ -430,3 +437,4 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
     
+
