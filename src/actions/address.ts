@@ -165,7 +165,7 @@ async function fetchRegions(config: any): Promise<{ success: boolean, data?: any
             code: requestConfig.codes?.[name] || ""
         }));
         
-        const regionCodeMap = requestConfig.value.reduce((acc: Record<string, string>, name: string) => {
+        const regionCodeMap = mappedData.reduce((acc: Record<string, string>, name: string) => {
             acc[name] = requestConfig.codes?.[name] || "";
             return acc;
         }, {});
@@ -193,39 +193,17 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         return { success: true, data: [] };
     }
     
-    const { method = 'GET', headers = {}, parameters = {} } = countriesConfig;
+    const { method = 'GET', headers = {} } = countriesConfig;
     
     let finalUrlString = countriesConfig.url;
     if (finalUrlString.includes('$region_code') && params.region_code) {
-        finalUrlString = finalUrlString.replace('$region_code', encodeURIComponent(params.region_code));
+        finalUrlString = finalUrlString.replace(/\$region_code/g, encodeURIComponent(params.region_code));
     }
     if (finalUrlString.includes('$region') && params.region) {
-        finalUrlString = finalUrlString.replace('$region', encodeURIComponent(params.region));
-    }
-    
-    if (finalUrlString.includes('$region_code') && !params.region_code && params.region_code !== "") {
-        return { success: false, error: `Error interno: 'region_code' es indefinido.`, debug: { ...baseDebugInfo, ...params } };
-    }
-    if (finalUrlString.includes('$region') && !params.region) {
-        return { success: false, error: `Error interno: 'region' es indefinido.`, debug: { ...baseDebugInfo, ...params } };
+        finalUrlString = finalUrlString.replace(/\$region/g, encodeURIComponent(params.region));
     }
 
     const finalUrl = new URL(finalUrlString);
-    
-    for (const [key, value] of Object.entries(parameters)) {
-        let paramValue: string | undefined;
-
-        if (typeof value === 'string' && value.startsWith('$')) {
-            const varName = value.substring(1) as keyof FetchParams;
-             paramValue = params[varName];
-        } else {
-            paramValue = String(value);
-        }
-        
-        if (paramValue !== undefined) {
-            finalUrl.searchParams.append(key, paramValue);
-        }
-    }
     
     const curlCommand = `curl -X ${method} '${finalUrl.toString()}'`;
     const debugInfo = { 
@@ -237,15 +215,17 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         const response = await fetch(finalUrl.toString(), { method, headers, cache: 'no-store' });
         const responseText = await response.text();
         
+        if (!response.ok) {
+            let errorResponse;
+            try { errorResponse = JSON.parse(responseText); } catch { errorResponse = responseText; }
+             return { success: false, error: `El servidor respondió con el estado ${response.status}`, debug: { ...debugInfo, response: errorResponse } };
+        }
+        
         let jsonResponse;
         try {
             jsonResponse = JSON.parse(responseText);
         } catch (e) {
              return { success: false, error: `La respuesta de la API de 'countries' no es un JSON válido.`, debug: { ...debugInfo, response: responseText } };
-        }
-
-        if (!response.ok) {
-             return { success: false, error: `El servidor respondió con el estado ${response.status}`, debug: { ...debugInfo, response: jsonResponse } };
         }
 
         const dataList = getNestedValue(jsonResponse, responseConfig.path);
@@ -279,7 +259,7 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
 }
 
 
-async function fetchStates(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string }> {
+async function fetchStates(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string, debug?: any }> {
     const requestConfig = config.request?.api_config?.parameters?.states || config.request?.api_config?.parameters?.countries?.states;
     const responseConfig = config.response?.states || config.response?.countries?.states;
 
@@ -314,7 +294,6 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
             }
             
             const response = await fetch(requestConfig.url, fetchOptions);
-
             const jsonResponse = await response.json();
 
             if (!response.ok) {
@@ -325,7 +304,7 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
             
             if (!Array.isArray(dataList)) {
                 // For countriesnow, if no states, it returns an empty data object not an array
-                if (Object.keys(dataList).length === 0) {
+                if (dataList && Object.keys(dataList).length === 0) {
                      return { success: true, data: [] };
                 }
                 throw new Error(`La respuesta de la API no contiene un array de estados en '${responseConfig.path}'. Respuesta: ${JSON.stringify(jsonResponse)}`);
@@ -339,7 +318,7 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
             return { success: true, data: mappedData };
 
         } catch (e: any) {
-            return { success: false, error: `Error en la API de 'states': ${e.message}` };
+            return { success: false, error: `Error en la API de 'states': ${e.message}`, debug: { response: e.toString() } };
         }
     } else if (requestConfig.value && params.country && requestConfig.value[params.country]) {
         return { success: true, data: requestConfig.value[params.country].states || [] };
@@ -407,7 +386,17 @@ async function fetchCities(config: any, params: FetchParams): Promise<{ success:
                 throw new Error(`La respuesta de la API no contiene un array de ciudades en '${responseConfig.path}'. Respuesta: ${JSON.stringify(jsonResponse)}`);
             }
 
-            return { success: true, data: dataList };
+            if (responseConfig.name && responseConfig.name === '.') {
+                return { success: true, data: dataList };
+            }
+
+            if(Array.isArray(dataList) && dataList.every(item => typeof item === 'string')) {
+                return { success: true, data: dataList };
+            }
+            
+            const mappedData = dataList.map(item => getNestedValue(item, responseConfig.name)).filter(Boolean);
+
+            return { success: true, data: mappedData };
 
         } catch (e: any) {
             return { success: false, error: `Error en la API de 'cities': ${e.message}` };
@@ -611,7 +600,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         return { success: true, message: 'Datos de dirección obtenidos.', data, debug: result.debug };
     } else if (params.country && !params.state) {
         result = await fetchStates(config, params);
-        if (!result.success) return { success: false, message: result.error! };
+        if (!result.success) return { success: false, message: result.error!, debug: result.debug };
         data.states = result.data.filter((s:any) => s.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
     } else if (params.country && params.state) {
         result = await fetchCities(config, params);
@@ -665,9 +654,10 @@ export async function testAddressService(id: string): Promise<ActionState> {
         }
 
         // --- STEP 2: Test Countries ---
+        const regionCode = regionsResult.regionCodeMap?.[testRegion.name];
         const countriesResult = await fetchCountries(tempConfig, { 
             region: testRegion.name, 
-            region_code: regionsResult.regionCodeMap?.[testRegion.name], 
+            region_code: regionCode, 
             regionCodeMap: regionsResult.regionCodeMap 
         });
 
@@ -679,15 +669,14 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
         // --- STEP 3: Test States ---
         const statesResult = await fetchStates(tempConfig, { country: testCountry.name });
-         if (!statesResult.success || !Array.isArray(statesResult.data) || statesResult.data.length === 0) {
-            // This is not a failure if the country has no states, e.g., small island nations.
-            if(statesResult.data && statesResult.data.length === 0) {
-                 return { 
-                    success: true, 
-                    message: `¡Prueba parcialmente exitosa!\nRegión: ${testRegion.name}\nPaís: ${testCountry.name}\nEl país no tiene estados, la prueba se detuvo aquí.`
-                };
-            }
+         if (!statesResult.success || !Array.isArray(statesResult.data)) {
             throw new Error(`Prueba de estados fallida para el país '${testCountry.name}': ${statesResult.error || 'No se obtuvieron datos de estados.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(statesResult, null, 2)}`);
+        }
+        if (statesResult.data.length === 0) {
+            return { 
+                success: true, 
+                message: `¡Prueba parcialmente exitosa!\nRegión: ${testRegion.name}\nPaís: ${testCountry.name}\nEl país no tiene estados, la prueba se detuvo aquí.`
+            };
         }
         const firstState = statesResult.data[0];
 
@@ -835,4 +824,3 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
     }
 }
 
-    
