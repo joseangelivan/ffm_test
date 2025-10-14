@@ -229,8 +229,8 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         const requestConfig = config.request?.api_config;
         const responseConfig = config.response;
         
-        if (!requestConfig || !responseConfig) {
-            return { success: false, message: 'La configuración del servicio de dirección es inválida.' };
+        if (!responseConfig) {
+            return { success: false, message: 'La configuración de respuesta del servicio de dirección es inválida.' };
         }
         
         let data: AddressData = {};
@@ -239,7 +239,6 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         const regionsResponseConfig = responseConfig.regions;
         if (regionsResponseConfig) {
             const baseObject = getNestedValue(config, regionsResponseConfig.path || '');
-            
             const regionList = baseObject?.[regionsResponseConfig.name];
             
             let regionCodes: string[] = [];
@@ -268,9 +267,8 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
 
 
         // --- COUNTRIES ---
-        const countriesParamConfig = requestConfig.parameters?.countries;
-        if ((params.region || params.region_code) && countriesParamConfig?.url) {
-            let urlString = countriesParamConfig.url;
+        if ((params.region || params.region_code) && requestConfig?.parameters?.countries?.url) {
+            let urlString = requestConfig.parameters.countries.url;
             
             if (params.region_code) urlString = urlString.replace('$region_code', params.region_code);
             if (params.region) urlString = urlString.replace('$region', params.region);
@@ -291,9 +289,8 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         }
 
         // --- STATES ---
-        const statesParamConfig = requestConfig.parameters?.states;
-        if (params.country && statesParamConfig?.url) {
-            const url = statesParamConfig.url.replace('$country', params.country);
+        if (params.country && requestConfig?.parameters?.states?.url) {
+            const url = requestConfig.parameters.states.url.replace('$country', params.country);
             const body = JSON.stringify({ country: params.country });
             const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
             const statesJson = await response.json();
@@ -309,9 +306,8 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         }
 
         // --- CITIES ---
-        const citiesParamConfig = requestConfig.parameters?.cities;
-        if (params.country && params.state && citiesParamConfig?.url) {
-             const url = citiesParamConfig.url.replace('$state', params.state);
+        if (params.country && params.state && requestConfig?.parameters?.cities?.url) {
+             const url = requestConfig.parameters.cities.url.replace('$state', params.state);
              const body = JSON.stringify({ country: params.country, state: params.state });
              const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body });
              const citiesJson = await response.json();
