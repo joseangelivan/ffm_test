@@ -374,8 +374,8 @@ export async function testAddressService(id: string): Promise<ActionState> {
             const regionsResult = await fetchAddressData({});
             if (!regionsResult.success || !regionsResult.data?.regions || regionsResult.data.regions.length === 0) {
                  let failureReason = "";
-                 if (regionListForDebug === undefined) {
-                    failureReason = "La lista de regiones (regionList) es 'undefined'. La clave 'name' no se pudo encontrar en el objeto base o el objeto base es nulo.";
+                if (regionListForDebug === undefined) {
+                    failureReason = `La lista de regiones (regionList) es 'undefined' porque la clave '${regionsResponseConfigForLog.name}' no se pudo encontrar en el objeto base o el objeto base es nulo.`;
                  } else if (!Array.isArray(regionListForDebug)) {
                     failureReason = `La lista de regiones (regionList) no es un array. Es de tipo: ${typeof regionListForDebug}.`;
                  } else if (regionListForDebug.length === 0) {
@@ -449,3 +449,4 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
     
+
