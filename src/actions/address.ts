@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { z } from 'zod';
@@ -240,26 +239,27 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         const regionsResponseConfig = responseConfig.regions;
         if (regionsResponseConfig) {
             const baseObject = getNestedValue(config, regionsResponseConfig.path || '');
+            
             const regionList = baseObject?.[regionsResponseConfig.name] || baseObject;
             
             let regionCodes: string[] = [];
             const codePath = regionsResponseConfig.code;
+
             if (Array.isArray(codePath)) {
                 regionCodes = codePath;
             } else if (typeof codePath === 'string' && codePath) {
                  regionCodes = getNestedValue(baseObject, codePath) || [];
             }
-
-
+            
             if (Array.isArray(regionList)) {
                  data.regions = regionList.map((item: any, index: number) => {
                     const name = typeof item === 'object' && item !== null ? item.name : item;
-                    const codeValue = Array.isArray(regionCodes) && regionCodes[index] ? regionCodes[index] : '';
-                    return { name: name, code: codeValue || name };
+                    const codeValue = (Array.isArray(regionCodes) && regionCodes[index]) ? regionCodes[index] : '';
+                    return { name: name, code: codeValue };
                 }).filter(r => r.name);
 
                 data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                    if (curr.name) acc[curr.name] = curr.code || curr.name;
+                    if (curr.name) acc[curr.name] = curr.code || '';
                     return acc;
                 }, {} as Record<string, string>);
             }
@@ -434,3 +434,5 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (client) client.release();
     }
 }
+
+    
