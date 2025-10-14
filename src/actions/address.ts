@@ -40,8 +40,9 @@ const ServiceSchema = z.object({
 });
 
 function getNestedValue(obj: any, path: string | string[]): any {
-  if (!path || (Array.isArray(path) && path.length === 0) || path === '' || path === '.') return obj;
-
+  if (path === '' || path === '.' || (Array.isArray(path) && path.length === 0)) {
+    return obj;
+  }
   const keys = Array.isArray(path) ? path : path.replace(/\[(\d+)\]/g, '.$1').split('.');
   let result = obj;
   for (const key of keys) {
@@ -241,13 +242,15 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             const regionList = baseObject?.[regionsResponseConfig.name] || baseObject;
             
             let regionCodes: string[] = [];
-            if (Array.isArray(regionsResponseConfig.code)) {
-                regionCodes = regionsResponseConfig.code;
-            } else if (typeof regionsResponseConfig.code === 'string' && regionsResponseConfig.code) {
-                 const codes = getNestedValue(baseObject, regionsResponseConfig.code);
-                 if (Array.isArray(codes)) {
-                     regionCodes = codes;
-                 }
+            const codeConfig = regionsResponseConfig.code;
+
+            if (Array.isArray(codeConfig)) {
+                regionCodes = codeConfig;
+            } else if (typeof codeConfig === 'string' && codeConfig) {
+                const codes = getNestedValue(baseObject, codeConfig);
+                if (Array.isArray(codes)) {
+                    regionCodes = codes;
+                }
             }
             
             if (Array.isArray(regionList)) {
@@ -276,7 +279,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             const countriesJson = await response.json();
             
             const countriesPath = responseConfig.countries?.path;
-            const countryList = (countriesPath === '.' || countriesPath === '') ? countriesJson : getNestedValue(countriesJson, countriesPath);
+            const countryList = getNestedValue(countriesJson, countriesPath);
 
             if (Array.isArray(countryList)) {
                 data.countries = countryList.map((item: any) => ({
@@ -295,7 +298,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
             const statesJson = await response.json();
 
             const statesPath = responseConfig.states?.path;
-            const stateList = (statesPath === '.' || statesPath === '') ? statesJson : getNestedValue(statesJson, statesPath);
+            const stateList = getNestedValue(statesJson, statesPath);
             
             if (Array.isArray(stateList)) {
                 data.states = stateList.map((item: any) => ({
@@ -312,7 +315,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
              const citiesJson = await response.json();
              
              const citiesPath = responseConfig.cities?.path;
-             const rawCities = (citiesPath === '.' || citiesPath === '') ? citiesJson : getNestedValue(citiesJson, citiesPath);
+             const rawCities = getNestedValue(citiesJson, citiesPath);
              if (Array.isArray(rawCities)) {
                 data.cities = rawCities.sort();
              }
