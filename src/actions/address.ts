@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -209,7 +210,7 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
             const dataList = getNestedValue(jsonResponse, 'data.states');
 
             if (!Array.isArray(dataList)) {
-                throw new Error("La respuesta de la API no contiene un array de estados en 'data.states'.");
+                throw new Error(`La respuesta de la API no contiene un array de estados en el path 'data.states'.\n--- RESPUESTA API ---\n${JSON.stringify(jsonResponse, null, 2)}`);
             }
             
             const mappedData = dataList.map((item: any) => ({
@@ -501,5 +502,3 @@ export async function testAddressService(id: string): Promise<ActionState> {
         return { success: false, message: `Error durante la prueba: ${err.message}` };
     }
 }
-
-    
