@@ -368,14 +368,15 @@ export async function testAddressService(id: string): Promise<ActionState> {
              if (regionsResult.data.regions.length === 0) {
                  throw new Error(`Prueba de regiones fallida: data.regions es un array vacío. Resultado: ${JSON.stringify(regionsResult)}`);
             }
-            console.log("Regions test passed.");
+            
+            const firstRegion = regionsResult.data.regions[0];
+            console.log(`Prueba de Regiones exitosa. Primer continente encontrado: ${firstRegion.name}`);
 
             // STEP 2: Test Countries
-            const testRegion = regionsResult.data.regions[0];
             const regionCodeMap = regionsResult.data.regionCodeMap || {};
-            const regionCode = regionCodeMap[testRegion.name] || '';
+            const regionCode = regionCodeMap[firstRegion.name] || '';
             
-            const countriesResult = await fetchAddressData({ region: testRegion.name, region_code: regionCode });
+            const countriesResult = await fetchAddressData({ region: firstRegion.name, region_code: regionCode });
             if (!countriesResult.success || !countriesResult.data?.countries || countriesResult.data.countries.length === 0) {
                 let debugMessage = `Resultado: ${JSON.stringify(countriesResult, null, 2)}`;
                 if (countriesResult?.data) {
@@ -386,9 +387,11 @@ export async function testAddressService(id: string): Promise<ActionState> {
                         debugMessage += `\nDatos recibidos (no es un array o está vacío): ${JSON.stringify(countriesResult.data, null, 2)}`;
                     }
                 }
-                throw new Error(`Prueba de países fallida para la región '${testRegion.name}'. ${debugMessage}`);
+                throw new Error(`Prueba de países fallida para la región '${firstRegion.name}'. ${debugMessage}`);
             }
-            console.log("Countries test passed.");
+
+            const firstCountry = countriesResult.data.countries[0];
+            console.log(`Prueba de Países exitosa. Primer país encontrado: ${firstCountry.name}`);
             
         } catch (err: any) {
             testError = err;
@@ -437,4 +440,3 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
     
-
