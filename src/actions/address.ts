@@ -45,12 +45,12 @@ function getNestedValue(obj: any, path: string): any {
     let result = obj;
     for (const key of keys) {
       if (result === null || result === undefined) {
-        console.error(`getNestedValue failed: parent object is null or undefined when trying to access "${key}".`);
+        console.error(`getNestedValue failed: parent object is null or undefined when trying to access "${key}". Path: ${path}`);
         return undefined;
       }
       result = result[key];
        if (result === undefined) {
-        console.error(`getNestedValue failed: value is undefined for key "${key}".`);
+        console.error(`getNestedValue failed: value is undefined for key "${key}". Path: ${path}`);
         return undefined;
       }
     }
@@ -241,10 +241,10 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         
         if (Object.keys(params).length === 0) {
             const regionsResponseConfig = responseConfig.regions;
-            if (regionsResponseConfig?.path && regionsResponseConfig?.name && regionsResponseConfig?.code) {
+            if (regionsResponseConfig && regionsResponseConfig.name && regionsResponseConfig.code) {
                 const regionNames = getNestedValue(config, regionsResponseConfig.name);
                 const regionCodes = getNestedValue(config, regionsResponseConfig.code);
-
+                
                 if (Array.isArray(regionNames) && Array.isArray(regionCodes) && regionNames.length === regionCodes.length) {
                     data.regions = regionNames.map((name, index) => ({
                         name: name,
@@ -427,35 +427,5 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (client) client.release();
     }
 }
-    
-
-    
-
-
-
-
-
-
-    
-
-
-
-    
-
-    
-
-    
-
-
-
-
-    
-
-    
-
-
-
-    
-
 
     
