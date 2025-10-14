@@ -39,20 +39,27 @@ const ServiceSchema = z.object({
     }, { message: "La configuración debe ser un JSON válido."}),
 });
 
-function getNestedValue(obj: any, path: string | string[]): any {
-    if (path === '' || path === '.' || (Array.isArray(path) && path.length === 0)) {
+function getNestedValue(obj: any, path: string): any {
+    if (path === '' || path === '.') {
         return obj;
     }
-    const keys = Array.isArray(path) ? path : path.replace(/\[(\d+)\]/g, '.$1').split('.');
+    const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
     let result = obj;
-    for (const key of keys) {
+    for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
         if (result === null || result === undefined) {
+            console.error(`getNestedValue failed: parent object is null or undefined at path segment "${keys.slice(0, i).join('.')}" when trying to access "${key}".`);
             return undefined;
         }
         result = result[key];
+        if (result === undefined) {
+            console.error(`getNestedValue failed: value is undefined at path segment "${keys.slice(0, i + 1).join('.')}".`);
+            return undefined;
+        }
     }
     return result;
 }
+
 
 // --- Service Management Actions ---
 
@@ -245,12 +252,13 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
                 
                 if (Array.isArray(regionList)) {
                     let regionCodes: string[] = [];
-                    if (regionsResponseConfig.code) {
-                         const codeObject = getNestedValue(config, regionsResponseConfig.code);
-                         if (codeObject && codeObject[regionsResponseConfig.name] && Array.isArray(codeObject[regionsResponseConfig.name])) {
-                            regionCodes = codeObject[regionsResponseConfig.name];
-                        }
-                    }
+                     const regionCodeConfigPath = config.request?.api_config?.parameters?.regions?.code;
+                     if(regionCodeConfigPath) {
+                        const codeObject = getNestedValue(config, regionCodeConfigPath);
+                        if (codeObject && codeObject[regionsResponseConfig.name] && Array.isArray(codeObject[regionsResponseConfig.name])) {
+                           regionCodes = codeObject[regionsResponseConfig.name];
+                       }
+                     }
                     
                     data.regions = regionList.map((item: any, index: number) => {
                         const name = typeof item === 'object' && item !== null ? item.name : item;
@@ -440,4 +448,5 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
     
+
 
