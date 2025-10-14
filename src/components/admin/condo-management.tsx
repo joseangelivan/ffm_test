@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
@@ -243,10 +244,10 @@ function CondoFormFields({
   onNumberChange,
   onVerifyAddress,
 }: {
-  isEditMode: boolean,
-  initialData: Partial<Condominio>,
-  isFormPending: boolean,
-  locationData: Partial-LocationData>;
+  isEditMode: boolean;
+  initialData: Partial<Condominio>;
+  isFormPending: boolean;
+  locationData: Partial<LocationData>;
   onLocationChange: (field: keyof Omit<LocationData, 'countries' | 'states' | 'cities' | 'name' | 'street' | 'number'>, value: string) => void;
   onStreetChange: (value: string) => void;
   onNumberChange: (value: string) => void;
@@ -384,51 +385,50 @@ function CondoFormWrapper({
   
   const [state, dispatchFormAction, isFormPending] = useActionState(handleAction, undefined);
 
-  const handleLocationChange = useCallback((field: keyof Pick<LocationData, 'region' | 'country' | 'state' | 'city'>, value: string) => {
+ const handleLocationChange = useCallback((field: keyof Omit<LocationData, 'name' | 'street' | 'number' >, value: string) => {
     startLocationTransition(async () => {
         try {
+            let result: { success: boolean; data?: AddressData; message?: string; } | undefined;
             if (field === 'region') {
                 setLocationData(current => ({ ...current, region: value, country: '', state: '', city: '', countries: [], states: [], cities: [] }));
                 const regionCode = locationData.regionCodeMap?.[value];
-                const result = await fetchAddressData({ region: value, region_code: regionCode });
-                if (result.success) {
-                    if (!result.data?.countries || result.data.countries.length === 0) {
+                result = await fetchAddressData({ region: value, region_code: regionCode });
+                if (result.success && result.data) {
+                    if (!result.data.countries || result.data.countries.length === 0) {
                         toast({ title: "Sin Datos", description: "La región seleccionada no tiene países disponibles.", variant: 'default' });
                     }
                     setLocationData(current => ({ ...current, countries: result.data?.countries || [] }));
-                } else {
-                     toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
                 }
             } else if (field === 'country') {
                 setLocationData(current => ({ ...current, country: value, state: '', city: '', states: [], cities: [] }));
-                const result = await fetchAddressData({ country: value });
-                if (result.success) {
-                    if (!result.data?.states || result.data.states.length === 0) {
+                result = await fetchAddressData({ country: value });
+                if (result.success && result.data) {
+                     if (!result.data.states || result.data.states.length === 0) {
                         toast({ title: "Sin Datos", description: "El país seleccionado no tiene estados/provincias disponibles.", variant: 'default' });
                     }
                     setLocationData(current => ({ ...current, states: result.data?.states || [] }));
-                } else {
-                    toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
                 }
             } else if (field === 'state') {
                 setLocationData(current => ({ ...current, state: value, city: '', cities: [] }));
-                const result = await fetchAddressData({ country: locationData.country, state: value });
-                if (result.success) {
-                     if (!result.data?.cities || result.data.cities.length === 0) {
+                result = await fetchAddressData({ country: locationData.country, state: value });
+                if (result.success && result.data) {
+                    if (!result.data.cities || result.data.cities.length === 0) {
                         toast({ title: "Sin Datos", description: "El estado seleccionado no tiene ciudades disponibles.", variant: 'default' });
                     }
                     setLocationData(current => ({ ...current, cities: result.data?.cities || [] }));
-                } else {
-                    toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
                 }
-            } else {
-                 setLocationData(current => ({ ...current, [field]: value }));
+            } else if (field === 'city') {
+                 setLocationData(current => ({ ...current, city: value }));
+            }
+            
+            if (result && !result.success) {
+                toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
             }
         } catch (error: any) {
             toast({ title: t('toast.errorTitle'), description: error.message || "An unknown error occurred.", variant: 'destructive', copyable: true });
         }
     });
-  }, [locationData.country, locationData.regionCodeMap, toast, t]);
+}, [locationData.country, locationData.regionCodeMap, toast, t]);
   
   const handleStreetChange = (value: string) => {
       setLocationData(current => ({ ...current, street: value }));
