@@ -420,7 +420,11 @@ function CondoFormWrapper({
         const result = await fetchAddressData(params);
         
         if (result?.debug) {
-            let debugMessage = `Region: ${result.debug.region_received}\nRegion Code: ${result.debug.region_code_received}\n${result.debug.curl}`;
+            let debugMessage = `Region: ${result.debug.region_received}\nRegion Code: ${result.debug.region_code_received}\n\n${result.debug.curl}`;
+            if (!result.success) {
+                debugMessage += `\n\nResponse:\n${JSON.stringify(result.debug.response, null, 2)}`;
+            }
+
             toast({
               title: result.success ? 'DEBUG: Países Obtenidos' : 'DEBUG: Error al Obtener Países',
               description: debugMessage,
@@ -435,7 +439,11 @@ function CondoFormWrapper({
             if (field === 'country' && result.data.states) setAvailableData(current => ({ ...current, states: result.data.states || [], cities: [] }));
             if (field === 'state' && result.data.cities) setAvailableData(current => ({ ...current, cities: result.data.cities || [] }));
         } else if (!result.success) {
-            toast({ title: t('toast.errorTitle'), description: result.message || "An unknown error occurred.", variant: 'destructive', copyable: true });
+            let fullDebugMessage = result.message || "An unknown error occurred.";
+             if(result.debug) {
+                fullDebugMessage += `\n\nRegion: ${result.debug.region_received}\nRegion Code: ${result.debug.region_code_received}\nCurl: ${result.debug.curl}`;
+            }
+            toast({ title: t('toast.errorTitle'), description: fullDebugMessage, variant: 'destructive', copyable: true });
             if (field === 'region') setAvailableData(current => ({ ...current, countries: [], states: [], cities: [] }));
             if (field === 'country') setAvailableData(current => ({ ...current, states: [], cities: [] }));
             if (field === 'state') setAvailableData(current => ({ ...current, cities: [] }));

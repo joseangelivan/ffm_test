@@ -159,7 +159,12 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
     const baseDebugInfo = {
         'region_received': params.region,
         'region_code_received': params.region_code,
+        'curl': '',
     };
+    
+    if (!params.region_code) {
+        return { success: false, error: `Error interno: 'region_code' es indefinido.`, debug: baseDebugInfo };
+    }
 
     if (!countriesConfig || !countriesConfig.url) {
         if (countriesConfig?.value && params.region) {
@@ -178,7 +183,11 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
 
         if (typeof value === 'string' && value.startsWith('$')) {
             const varName = value.substring(1) as keyof FetchParams;
-            paramValue = params[varName];
+            if (varName === 'region_code') {
+                paramValue = params.region_code;
+            } else {
+                paramValue = params[varName];
+            }
         } else {
             paramValue = String(value);
         }
