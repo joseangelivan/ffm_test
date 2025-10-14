@@ -241,13 +241,15 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         
         if (Object.keys(params).length === 0) {
             const regionsResponseConfig = responseConfig.regions;
-            if (regionsResponseConfig?.path && regionsResponseConfig?.name) {
-                const baseObjectList = getNestedValue(config, regionsResponseConfig.path);
-                if (Array.isArray(baseObjectList)) {
-                     data.regions = baseObjectList.map((item: any) => ({
-                        name: getNestedValue(item, regionsResponseConfig.name),
-                        code: regionsResponseConfig.code ? getNestedValue(item, regionsResponseConfig.code) : '',
-                    })).filter(r => r.name);
+            if (regionsResponseConfig?.path && regionsResponseConfig?.name && regionsResponseConfig?.code) {
+                const regionNames = getNestedValue(config, regionsResponseConfig.name);
+                const regionCodes = getNestedValue(config, regionsResponseConfig.code);
+
+                if (Array.isArray(regionNames) && Array.isArray(regionCodes) && regionNames.length === regionCodes.length) {
+                    data.regions = regionNames.map((name, index) => ({
+                        name: name,
+                        code: regionCodes[index],
+                    }));
 
                     if (data.regions && data.regions.length > 0) {
                         data.regionCodeMap = data.regions.reduce((acc, curr) => {
@@ -451,6 +453,9 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
     
 
+
+
+    
 
 
     
