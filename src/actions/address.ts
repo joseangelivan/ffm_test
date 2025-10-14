@@ -160,28 +160,19 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
     }
 
     const { url, method = 'GET', headers = {} } = countriesRequestConfig;
-    const countryUrl = new URL(url);
-    const urlParams = new URLSearchParams(countryUrl.search);
-
-    for (const [key, value] of urlParams.entries()) {
-        if (value.startsWith('$')) {
-            const varName = value.substring(1) as keyof FetchParams;
-            if (varName === 'region_code' && params.region_code) {
-                urlParams.set(key, params.region_code);
-            } else if (varName === 'region' && params.region) {
-                urlParams.set(key, params.region);
-            } else {
-                 const envVar = process.env[value.substring(1)];
-                 if (envVar) {
-                     urlParams.set(key, envVar);
-                 } else {
-                     urlParams.delete(key); // Remove if no value is found
-                 }
-            }
-        }
+    
+    // Simple, direct URL templating
+    let finalUrlString = url;
+    if (params.region_code) {
+        finalUrlString = finalUrlString.replace('$region_code', params.region_code);
     }
+    if (params.region) {
+        finalUrlString = finalUrlString.replace('$region', params.region);
+    }
+    // Replace any remaining environment variables
+    finalUrlString = finalUrlString.replace(/\$([A-Z_]+)/g, (match, varName) => process.env[varName] || match);
 
-    const finalUrlString = `${countryUrl.origin}${countryUrl.pathname}?${urlParams.toString()}`;
+
     const curlCommand = `curl -X ${method} '${finalUrlString}'`;
 
     try {
@@ -192,17 +183,17 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         try {
             jsonResponse = JSON.parse(responseText);
         } catch (e) {
-             return { success: false, error: `Error en la API de 'countries': La respuesta no es un JSON válido.`, debug: { curl: curlCommand, url: finalUrlString, response: responseText } };
+             return { success: false, error: `Error en la API de 'countries': La respuesta no es un JSON válido.`, debug: { curl: curlCommand, response: responseText } };
         }
 
         if (!response.ok) {
-             return { success: false, error: `El servidor respondió con el estado ${response.status}`, debug: { curl: curlCommand, url: finalUrlString, response: jsonResponse } };
+             return { success: false, error: `El servidor respondió con el estado ${response.status}`, debug: { curl: curlCommand, response: jsonResponse } };
         }
 
         const dataList = getNestedValue(jsonResponse, responseConfig.path);
         
         if (!Array.isArray(dataList)) {
-            return { success: false, error: `La respuesta de la API no contenía un array en la ruta '${responseConfig.path}'.`, debug: { curl: curlCommand, url: finalUrlString, response: jsonResponse } };
+            return { success: false, error: `La respuesta de la API no contenía un array en la ruta '${responseConfig.path}'.`, debug: { curl: curlCommand, response: jsonResponse } };
         }
         
         const mappedData = dataList.map((item: any) => {
@@ -223,9 +214,9 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         }).filter(c => c.name);
 
         
-        return { success: true, data: mappedData, debug: { curl: curlCommand, url: finalUrlString, response: jsonResponse } };
+        return { success: true, data: mappedData, debug: { curl: curlCommand, response: jsonResponse } };
     } catch (e: any) {
-        return { success: false, error: `Error en la API de 'countries': ${e.message}`, debug: { curl: curlCommand, url: finalUrlString } };
+        return { success: false, error: `Error en la API de 'countries': ${e.message}`, debug: { curl: curlCommand } };
     }
 }
 
@@ -703,3 +694,5 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
         if (client) client.release();
     }
 }
+
+    
