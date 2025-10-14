@@ -105,6 +105,13 @@ function buildApiUrl(
     return `${base_url}?${urlParams.toString()}`;
 }
 
+type FetchParams = {
+    region?: string;
+    region_code?: string;
+    country?: string;
+    state?: string;
+}
+
 async function fetchDataFromSource(
     dataType: 'regions' | 'countries' | 'states' | 'cities',
     config: any,
@@ -114,7 +121,7 @@ async function fetchDataFromSource(
     let requestConfig = config.request?.api_config?.parameters?.[dataType];
     let responseConfig = config.response?.[dataType];
     
-    // --- Nested Config Logic (para 'states' y 'cities') ---
+    // --- Nested Config Logic (for 'states' and 'cities') ---
     if (dataType === 'states' && !requestConfig) {
         requestConfig = config.request?.api_config?.parameters?.countries?.states;
         responseConfig = config.response?.countries?.states;
@@ -339,13 +346,6 @@ export async function setAddressServiceAsDefault(id: string): Promise<ActionStat
 
 
 // --- Data Fetching Action ---
-
-type FetchParams = {
-    region?: string;
-    region_code?: string;
-    country?: string;
-    state?: string;
-}
 
 export async function fetchAddressData(params: FetchParams): Promise<ActionState<AddressData>> {
     let client;
