@@ -386,21 +386,40 @@ function CondoFormWrapper({
 
   const handleLocationChange = useCallback((field: keyof Pick<LocationData, 'region' | 'country' | 'state' | 'city'>, value: string) => {
     startLocationTransition(async () => {
-        if (field === 'region') {
-            const regionCode = locationData.regionCodeMap?.[value];
-            const countriesData = await fetchAddressData({ region: value, region_code: regionCode });
-            setLocationData(current => ({...current, region: value, country: '', state: '', city: '', countries: countriesData.data?.countries || [], states: [], cities: [] }));
-        } else if (field === 'country') {
-            const statesData = await fetchAddressData({ country: value });
-            setLocationData(current => ({...current, country: value, state: '', city: '', states: statesData.data?.states || [], cities: [] }));
-        } else if (field === 'state') {
-            const citiesData = await fetchAddressData({ country: locationData.country, state: value });
-            setLocationData(current => ({...current, state: value, city: '', cities: citiesData.data?.cities || [] }));
-        } else {
-             setLocationData(current => ({ ...current, [field]: value }));
+        try {
+            if (field === 'region') {
+                const regionCode = locationData.regionCodeMap?.[value];
+                setLocationData(current => ({ ...current, region: value, country: '', state: '', city: '' }));
+                const result = await fetchAddressData({ region: value, region_code: regionCode });
+                if (result.success && result.data?.countries) {
+                    setLocationData(current => ({ ...current, countries: result.data.countries, states: [], cities: [] }));
+                } else {
+                     toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
+                }
+            } else if (field === 'country') {
+                setLocationData(current => ({ ...current, country: value, state: '', city: '' }));
+                const result = await fetchAddressData({ country: value });
+                if (result.success && result.data?.states) {
+                    setLocationData(current => ({ ...current, states: result.data.states, cities: [] }));
+                } else {
+                    toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
+                }
+            } else if (field === 'state') {
+                setLocationData(current => ({ ...current, state: value, city: '' }));
+                const result = await fetchAddressData({ country: locationData.country, state: value });
+                if (result.success && result.data?.cities) {
+                    setLocationData(current => ({ ...current, cities: result.data.cities }));
+                } else {
+                    toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
+                }
+            } else {
+                 setLocationData(current => ({ ...current, [field]: value }));
+            }
+        } catch (error: any) {
+            toast({ title: t('toast.errorTitle'), description: error.message || "An unknown error occurred.", variant: 'destructive', copyable: true });
         }
     });
-  }, [locationData.country, locationData.regionCodeMap]);
+  }, [locationData.country, locationData.regionCodeMap, toast]);
   
   const handleStreetChange = (value: string) => {
       setLocationData(current => ({ ...current, street: value }));
