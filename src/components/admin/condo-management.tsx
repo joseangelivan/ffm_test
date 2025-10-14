@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
@@ -733,5 +732,3 @@ export function CondoManagement() {
         </div>
     );
 }
-
-  
