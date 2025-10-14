@@ -411,21 +411,6 @@ function CondoFormWrapper({
                 newSelection = { ...newSelection, country: '', state: '', city: '' };
                 setLocationSelection(newSelection);
                 result = await fetchAddressData({ region: value, region_code: regionCode });
-                
-                const debugInfo = result.debug ? JSON.stringify({ url: result.debug.url, response: result.debug.response }, null, 2) : "No debug info";
-
-                if (result.success) {
-                     setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
-                }
-
-                toast({
-                  title: 'DEBUG: ' + (result.success ? 'Países Obtenidos' : 'Error al Obtener Países'),
-                  description: debugInfo,
-                  duration: 20000,
-                  copyable: true,
-                  variant: result.success ? 'default' : 'destructive',
-                });
-
 
             } else if (field === 'country') {
                 newSelection = { ...newSelection, state: '', city: '' };
@@ -448,6 +433,28 @@ function CondoFormWrapper({
             } else if (field === 'city') {
                 setLocationSelection(newSelection);
             }
+
+            if (field === 'region' && result) {
+                const debugInfo = result.debug ? JSON.stringify(result.debug, null, 2) : "No debug info";
+                const toastTitle = result.success ? 'Países Obtenidos' : 'Error al Obtener Países';
+                const countryNames = result.data?.countries?.map(c => c.name) || [];
+
+                toast({
+                  title: 'DEBUG: ' + toastTitle,
+                  description: debugInfo,
+                  duration: 20000,
+                  copyable: true,
+                  variant: result.success ? 'default' : 'destructive',
+                });
+                
+                if (result.success) {
+                     setAvailableData(current => ({ ...current, countries: result.data?.countries || [], states: [], cities: [] }));
+                } else {
+                    setAvailableData(current => ({ ...current, countries: [], states: [], cities: [] }));
+                    throw new Error(result.message);
+                }
+            }
+
         } catch (error: any) {
             toast({ title: t('toast.errorTitle'), description: error.message || "An unknown error occurred.", variant: 'destructive', copyable: true });
         }

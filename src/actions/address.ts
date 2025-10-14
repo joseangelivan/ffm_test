@@ -41,7 +41,7 @@ const ServiceSchema = z.object({
 });
 
 function getNestedValue(obj: any, path: string | undefined): any {
-    if (path === undefined || path === null || path === '.') {
+    if (path === undefined || path === null || path === '.' || path === '') {
       return obj;
     }
     
@@ -162,6 +162,9 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
                 urlString = urlString.replace('$region', params.region);
             }
             
+            const method = requestConfig.method || 'GET';
+            const curlCommand = `curl -X ${method} '${urlString}'`;
+
             const response = await fetch(urlString, { cache: 'no-store' });
             const responseText = await response.text();
             
@@ -169,15 +172,17 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
             try {
                 jsonResponse = JSON.parse(responseText);
             } catch (e) {
-                 return { success: false, error: `Error en la API de 'countries': La respuesta no es un JSON válido.`, debug: { url: urlString, response: responseText } };
+                 return { success: false, error: `Error en la API de 'countries': La respuesta no es un JSON válido.`, debug: { curl: curlCommand, url: urlString, response: responseText } };
             }
 
-            if (!response.ok) throw new Error(`El servidor respondió con el estado ${response.status}`);
+            if (!response.ok) {
+                 return { success: false, error: `El servidor respondió con el estado ${response.status}`, debug: { curl: curlCommand, url: urlString, response: jsonResponse } };
+            }
 
             const dataList = getNestedValue(jsonResponse, responseConfig.path);
             
             if (!Array.isArray(dataList)) {
-                throw new Error(`La respuesta de la API no contenía un array en la ruta '${responseConfig.path}'.`);
+                return { success: false, error: `La respuesta de la API no contenía un array en la ruta '${responseConfig.path}'.`, debug: { curl: curlCommand, url: urlString, response: jsonResponse } };
             }
             
             const mappedData = dataList.map((item: any) => {
@@ -187,9 +192,8 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
                 };
 
                 const flagConfig = responseConfig.flag;
-                // Only process flag if it's not an empty array
-                if (flagConfig && (!Array.isArray(flagConfig) || flagConfig.length > 0)) {
-                    const flagPath = Array.isArray(flagConfig) ? flagConfig.join('.') : flagConfig;
+                if (flagConfig && Array.isArray(flagConfig) && flagConfig.length > 0) {
+                    const flagPath = flagConfig.join('.');
                     if(flagPath) {
                         countryData.flag = getNestedValue(item, flagPath);
                     }
@@ -198,7 +202,7 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
                 return countryData;
             });
             
-            return { success: true, data: mappedData, debug: { url: urlString, response: jsonResponse } };
+            return { success: true, data: mappedData, debug: { curl: curlCommand, url: urlString, response: jsonResponse } };
         } catch (e: any) {
             return { success: false, error: `Error en la API de 'countries': ${e.message}`, debug: { url: urlString } };
         }
