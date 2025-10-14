@@ -237,35 +237,33 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         let data: AddressData = {};
         
         const regionsResponseConfig = responseConfig.regions;
-        if (regionsResponseConfig) {
-            const baseObject = getNestedValue(config, regionsResponseConfig.path || '');
-            if (baseObject && regionsResponseConfig.name) {
-                const regionList = baseObject[regionsResponseConfig.name];
-                
-                if (Array.isArray(regionList)) {
-                    let regionCodes: string[] = [];
-                    const codeConfig = regionsResponseConfig.code;
+        if (regionsResponseConfig && regionsResponseConfig.path && regionsResponseConfig.name) {
+            const baseObject = getNestedValue(config, regionsResponseConfig.path);
+            const regionList = baseObject ? baseObject[regionsResponseConfig.name] : undefined;
+            
+            if (Array.isArray(regionList)) {
+                let regionCodes: string[] = [];
+                const codeConfig = regionsResponseConfig.code;
 
-                    if (Array.isArray(codeConfig)) {
-                        regionCodes = codeConfig;
-                    } else if (typeof codeConfig === 'string' && codeConfig) {
-                        const codes = getNestedValue(baseObject, codeConfig);
-                        if (Array.isArray(codes)) {
-                            regionCodes = codes;
-                        }
+                if (Array.isArray(codeConfig)) {
+                    regionCodes = codeConfig;
+                } else if (typeof codeConfig === 'string' && codeConfig) {
+                    const codes = getNestedValue(baseObject, codeConfig);
+                    if (Array.isArray(codes)) {
+                        regionCodes = codes;
                     }
-                    
-                    data.regions = regionList.map((item: any, index: number) => {
-                        const name = typeof item === 'object' && item !== null ? item.name : item;
-                        const codeValue = regionCodes[index] || '';
-                        return { name: name, code: codeValue };
-                    }).filter(r => r.name);
-
-                    data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                        if (curr.name) acc[curr.name] = curr.code || '';
-                        return acc;
-                    }, {} as Record<string, string>);
                 }
+                
+                data.regions = regionList.map((item: any, index: number) => {
+                    const name = typeof item === 'object' && item !== null ? item.name : item;
+                    const codeValue = regionCodes[index] || '';
+                    return { name: name, code: codeValue };
+                }).filter(r => r.name);
+
+                data.regionCodeMap = data.regions.reduce((acc, curr) => {
+                    if (curr.name) acc[curr.name] = curr.code || '';
+                    return acc;
+                }, {} as Record<string, string>);
             }
         }
 
@@ -362,8 +360,14 @@ export async function testAddressService(id: string): Promise<ActionState> {
             if (!regionsResult.success) {
                 throw new Error(`Prueba de regiones fallida: ${regionsResult.message}`);
             }
-            if (!regionsResult.data?.regions || regionsResult.data.regions.length === 0) {
-                 throw new Error(`Prueba de regiones fallida: fetchAddressData tuvo éxito pero no devolvió datos en data.regions. Resultado: ${JSON.stringify(regionsResult, null, 2)}`);
+            if (!regionsResult.data?.regions) {
+                 throw new Error(`Prueba de regiones fallida: fetchAddressData tuvo éxito pero no devolvió datos en data.regions. Resultado: ${JSON.stringify(regionsResult)}`);
+            }
+            if (!Array.isArray(regionsResult.data.regions)) {
+                throw new Error(`Prueba de regiones fallida: se esperaba un array en data.regions, pero se obtuvo un ${typeof regionsResult.data.regions}.`);
+            }
+             if (regionsResult.data.regions.length === 0) {
+                 throw new Error(`Prueba de regiones fallida: data.regions es un array vacío.`);
             }
             console.log("Regions test passed.");
 
@@ -420,5 +424,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
 
+
+    
 
     
