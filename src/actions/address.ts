@@ -45,12 +45,12 @@ function getNestedValue(obj: any, path: string): any {
     let result = obj;
     for (const key of keys) {
       if (result === null || result === undefined) {
-        console.error(`getNestedValue failed: parent object is null or undefined when trying to access "${key}".`);
+        // console.error(`getNestedValue failed: parent object is null or undefined when trying to access "${key}".`);
         return undefined;
       }
       result = result[key];
        if (result === undefined) {
-        console.error(`getNestedValue failed: value is undefined for key "${key}".`);
+        // console.error(`getNestedValue failed: value is undefined for key "${key}".`);
         return undefined;
       }
     }
@@ -243,26 +243,25 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         // --- REGIONS (only if no params are passed) ---
         if (Object.keys(params).length === 0) {
             const regionsResponseConfig = responseConfig.regions;
-            if (regionsResponseConfig && regionsResponseConfig.path && regionsResponseConfig.name) {
+             if (regionsResponseConfig && regionsResponseConfig.path && regionsResponseConfig.name) {
                 const baseObject = getNestedValue(config, regionsResponseConfig.path);
                 
-                if (baseObject) {
-                    const nameKey = regionsResponseConfig.name; // e.g. "value"
-                    const regionList = baseObject[nameKey];
-                    
-                    if (Array.isArray(regionList)) {
-                        const codeKey = regionsResponseConfig.code; // e.g. "code"
-                        const regionCodes = codeKey ? baseObject[codeKey] : [];
+                if (baseObject && typeof baseObject === 'object') {
+                    const nameKey = regionsResponseConfig.name;
+                    const codeKey = regionsResponseConfig.code;
 
-                        data.regions = regionList.map((item: any, index: number) => {
-                            const name = typeof item === 'object' && item !== null ? item.name : item;
-                            const codeValue = regionCodes[index] || '';
-                            return { name: name, code: codeValue };
-                        }).filter(r => r.name);
+                    const regionList = baseObject[nameKey];
+                    const regionCodes = codeKey ? baseObject[codeKey] : [];
+
+                    if (Array.isArray(regionList)) {
+                         data.regions = regionList.map((item: any, index: number) => ({
+                            name: typeof item === 'object' ? item.name : item,
+                            code: regionCodes[index] || ''
+                        })).filter(r => r.name);
 
                         if (data.regions.length > 0) {
                             data.regionCodeMap = data.regions.reduce((acc, curr) => {
-                                if (curr.name) acc[curr.name] = curr.code || '';
+                                if (curr.name && curr.code) acc[curr.name] = curr.code;
                                 return acc;
                             }, {} as Record<string, string>);
                         }
@@ -462,4 +461,3 @@ export async function testAddressService(id: string): Promise<ActionState> {
     
 
     
-
