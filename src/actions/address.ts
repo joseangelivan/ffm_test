@@ -45,12 +45,12 @@ function getNestedValue(obj: any, path: string): any {
     let result = obj;
     for (const key of keys) {
       if (result === null || result === undefined) {
-        console.error(`getNestedValue failed: parent object is null or undefined when trying to access "${key}". Path: ${path}`);
+        // console.error(`getNestedValue failed: parent object is null or undefined when trying to access "${key}". Path: ${path}`);
         return undefined;
       }
       result = result[key];
        if (result === undefined) {
-        console.error(`getNestedValue failed: value is undefined for key "${key}". Path: ${path}`);
+        // console.error(`getNestedValue failed: value is undefined for key "${key}". Path: ${path}`);
         return undefined;
       }
     }
@@ -241,7 +241,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
         
         if (Object.keys(params).length === 0) {
             const regionsResponseConfig = responseConfig.regions;
-            if (regionsResponseConfig && regionsResponseConfig.name && regionsResponseConfig.code) {
+            if (regionsResponseConfig) {
                 const regionNames = getNestedValue(config, regionsResponseConfig.name);
                 const regionCodes = getNestedValue(config, regionsResponseConfig.code);
                 
@@ -365,20 +365,20 @@ export async function testAddressService(id: string): Promise<ActionState> {
             
             console.log("DEBUG: Resultado de la prueba de regiones:", JSON.stringify(regionsResult, null, 2));
 
-            if (!regionsResult.success) {
-                throw new Error(`Prueba de regiones fallida: fetchAddressData falló con el mensaje: ${regionsResult.message}`);
-            }
-            if (!regionsResult.data) {
-                throw new Error(`Prueba de regiones fallida: fetchAddressData no devolvió un objeto 'data'. Resultado: ${JSON.stringify(regionsResult, null, 2)}`);
-            }
-            if (!regionsResult.data.regions) {
-                 throw new Error(`Prueba de regiones fallida: El objeto 'data' no contiene una propiedad 'regions'. Resultado: ${JSON.stringify(regionsResult, null, 2)}`);
-            }
-             if (!Array.isArray(regionsResult.data.regions)) {
-                throw new Error(`Prueba de regiones fallida: data.regions no es un array. Tipo recibido: ${typeof regionsResult.data.regions}. Resultado: ${JSON.stringify(regionsResult, null, 2)}`);
-            }
-            if (regionsResult.data.regions.length === 0) {
-                 throw new Error(`Prueba de regiones fallida: fetchAddressData tuvo éxito pero no devolvió datos en data.regions. Resultado: ${JSON.stringify(regionsResult, null, 2)}`);
+            if (!regionsResult.success || !regionsResult.data || !Array.isArray(regionsResult.data.regions) || regionsResult.data.regions.length === 0) {
+                let errorMessage = 'Prueba de regiones fallida: ';
+                if (!regionsResult.success) {
+                    errorMessage += `fetchAddressData falló con el mensaje: ${regionsResult.message}`;
+                } else if (!regionsResult.data) {
+                    errorMessage += `fetchAddressData no devolvió un objeto 'data'.`;
+                } else if (!regionsResult.data.regions) {
+                    errorMessage += `El objeto 'data' no contiene una propiedad 'regions'.`;
+                } else if (!Array.isArray(regionsResult.data.regions)) {
+                    errorMessage += `data.regions no es un array.`;
+                } else {
+                    errorMessage += `fetchAddressData tuvo éxito pero no devolvió datos en data.regions.`;
+                }
+                 throw new Error(`${errorMessage} Resultado: ${JSON.stringify(regionsResult, null, 2)}`);
             }
             
             const firstRegion = regionsResult.data.regions[0];
@@ -427,5 +427,3 @@ export async function testAddressService(id: string): Promise<ActionState> {
         if (client) client.release();
     }
 }
-
-    
