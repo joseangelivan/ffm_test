@@ -84,11 +84,15 @@ function buildApiUrl(
             rawValue = paramConfig;
         }
 
-        let paramValue: string | undefined;
+        let paramValue: string | undefined = undefined;
 
         if (typeof rawValue === 'string' && rawValue.startsWith('$')) {
             const varName = rawValue.substring(1);
-            paramValue = valueMap[varName]?.toString() || env[varName] || '';
+            if (varName in valueMap) {
+              paramValue = valueMap[varName]?.toString();
+            } else {
+              paramValue = env[varName];
+            }
         } else {
             paramValue = rawValue?.toString();
         }
@@ -107,14 +111,21 @@ async function fetchDataFromSource(
     params: FetchParams
 ): Promise<{ success: boolean, data?: any, error?: string }> {
     
-    const requestConfig = config.request?.api_config?.parameters?.[dataType];
+    let requestConfig = config.request?.api_config?.parameters?.[dataType];
+    // Fallback to nested config for states/cities if needed
+    if (dataType === 'states' && !requestConfig) {
+        requestConfig = config.request?.api_config?.parameters?.countries?.states;
+    }
+    if (dataType === 'cities' && !requestConfig) {
+        requestConfig = config.request?.api_config?.parameters?.countries?.states?.cities;
+    }
+
     const responseConfig = config.response?.[dataType];
     
     if (!responseConfig) {
         return { success: false, error: `Configuración de respuesta para '${dataType}' no encontrada.` };
     }
-
-    // --- Caso 1: Datos obtenidos desde una URL ---
+     // --- Caso 1: Datos obtenidos desde una URL ---
     if (requestConfig?.url) {
         try {
             let urlString = requestConfig.url;
@@ -130,8 +141,8 @@ async function fetchDataFromSource(
                 for (const key in requestConfig.body) {
                     const value = requestConfig.body[key];
                     if (typeof value === 'string' && value.startsWith('$')) {
-                        const paramName = value.substring(1);
-                        body[key] = params[paramName as keyof FetchParams];
+                        const paramName = value.substring(1) as keyof FetchParams;
+                        body[key] = params[paramName];
                     } else {
                         body[key] = value;
                     }
@@ -435,25 +446,38 @@ export async function testAddressService(id: string): Promise<ActionState> {
 
         // --- STEP 1: Test Regions ---
         const regionsResult = await fetchDataFromSource('regions', tempConfig, {});
-        if (!regionsResult.success || !regionsResult.data || regionsResult.data.length === 0) {
+        if (!regionsResult.success || !regionsResult.data) {
              throw new Error(`Prueba de regiones fallida: ${regionsResult.error || 'No se obtuvieron datos de regiones.'}.\n\n--- SALIDA COMPLETA ---\n${JSON.stringify(regionsResult, null, 2)}`);
         }
         
         let firstRegion: AddressDataItem;
+        let regions: any[];
         
         if (tempConfig.request.api_config.parameters.regions?.url) { // URL case
-            const firstRegionData = regionsResult.data[0];
+            regions = regionsResult.data;
+             if (!Array.isArray(regions) || regions.length === 0) {
+                 throw new Error(`Prueba de regiones fallida: los datos de la URL no son un array o están vacíos.`);
+             }
+            const firstRegionData = regions[0];
             firstRegion = {
                 name: getNestedValue(firstRegionData, tempConfig.response.regions.name),
                 code: getNestedValue(firstRegionData, tempConfig.response.regions.code)
             };
         } else { // Embedded case
-            const regionName = regionsResult.data.value[0];
+             regions = regionsResult.data.value;
+             if (!Array.isArray(regions) || regions.length === 0) {
+                 throw new Error(`Prueba de regiones fallida: data.value no es un array o está vacío.`);
+             }
+            const regionName = regions[0];
             firstRegion = {
                 name: regionName,
                 code: regionsResult.data.codes?.[regionName] || ''
             };
         }
+        if (!firstRegion.name) {
+            throw new Error(`Prueba de regiones fallida: no se pudo extraer el nombre de la primera región.`);
+        }
+
 
         // --- STEP 2: Test Countries ---
         const countriesResult = await fetchDataFromSource('countries', tempConfig, { region: firstRegion.name, region_code: firstRegion.code });
@@ -483,7 +507,7 @@ export async function testAddressService(id: string): Promise<ActionState> {
             
     } catch (err: any) {
         console.error("Error during service test (logic):", err);
-        return { success: false, message: `Error durante la prueba: ${err.message}\n\nStack: ${err.stack}` };
+        return { success: false, message: `Error durante la prueba: ${err.message}` };
     }
 }
     
