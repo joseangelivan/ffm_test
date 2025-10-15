@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback, useContext } from 'react';
@@ -17,7 +16,7 @@ import Feature from 'ol/Feature';
 import { Style, Fill, Stroke } from 'ol/style';
 import type MapAdapterInterface from 'ol/Map';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-
+import getConfig from 'next/config';
 
 const STYLE_VIEW_MODE = new Style({
     fill: new Fill({ color: 'rgba(67, 133, 245, 0.1)' }),
@@ -199,19 +198,20 @@ const OpenLayersMap: React.FC<MapProps> = ({
         
         const apiConfig = config.api_config || {};
         let baseUrl = apiConfig.base_url || '';
-
-        // This runs on the client, so we can access process.env for NEXT_PUBLIC_ variables
+        
+        const { publicRuntimeConfig } = getConfig() || {};
+        
         if(apiConfig.parameters) {
             const urlParams = new URLSearchParams();
             for (const key in apiConfig.parameters) {
                 const paramValue = apiConfig.parameters[key];
                 if (typeof paramValue === 'string' && paramValue.startsWith('$')) {
                     const envVarName = paramValue.substring(1);
-                    const envVarValue = process.env[envVarName as keyof typeof process.env];
-                    if (envVarValue) {
+                    const envVarValue = publicRuntimeConfig?.[envVarName];
+                     if (envVarValue) {
                         urlParams.append(key, envVarValue);
                     } else {
-                        console.warn(`Client-side environment variable "${envVarName}" not found for map provider.`);
+                        console.warn(`Client-side environment variable "${envVarName}" not found in publicRuntimeConfig.`);
                     }
                 } else {
                     urlParams.append(key, paramValue);
@@ -394,5 +394,3 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
-
-    

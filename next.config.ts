@@ -20,9 +20,8 @@ const nextConfig: NextConfig = {
     ],
   },
   publicRuntimeConfig: {
-    env: {
-      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
-    }
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+    PUBLIC_MAPTILER_KEY: process.env.PUBLIC_MAPTILER_KEY,
   }
 };
 
