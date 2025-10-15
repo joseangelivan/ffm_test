@@ -17,6 +17,7 @@ import type { Geometry, Polygon as OlPolygon, Circle as OlCircle } from 'ol/geom
 import Feature from 'ol/Feature';
 import { Style, Fill, Stroke } from 'ol/style';
 import type MapAdapterInterface from 'ol/Map';
+import type { Geofence as DbGeofence } from '@/actions/maps';
 
 
 const STYLE_VIEW_MODE = new Style({
@@ -198,7 +199,16 @@ const OpenLayersMap: React.FC<MapProps> = ({
         }
         
         const apiConfig = config.api_config || {};
-        const baseUrl = apiConfig.base_url;
+        let baseUrl = apiConfig.base_url || '';
+
+        // Handle parameters in URL
+        if(apiConfig.parameters) {
+            const urlParams = new URLSearchParams();
+            for (const key in apiConfig.parameters) {
+                urlParams.append(key, apiConfig.parameters[key]);
+            }
+            baseUrl = `${baseUrl}?${urlParams.toString()}`;
+        }
 
         let source;
         if (baseUrl) {
