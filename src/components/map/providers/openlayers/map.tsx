@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback, useContext } from 'react';
@@ -201,21 +200,18 @@ const OpenLayersMap: React.FC<MapProps> = ({
         const apiConfig = config.api_config || {};
         let baseUrl = apiConfig.base_url || '';
 
-        // Handle parameters in URL
+        // This runs on the client, so we can access process.env for NEXT_PUBLIC_ variables
         if(apiConfig.parameters) {
             const urlParams = new URLSearchParams();
             for (const key in apiConfig.parameters) {
                 const paramValue = apiConfig.parameters[key];
                 if (typeof paramValue === 'string' && paramValue.startsWith('$')) {
                     const envVarName = paramValue.substring(1);
-                    // This is client-side, so we can't access process.env directly.
-                    // This logic assumes the keys are available in a way the client can access them.
-                    // For Next.js, this means they must be prefixed with NEXT_PUBLIC_.
-                    const envVarValue = process.env[envVarName];
+                    const envVarValue = process.env[envVarName as keyof typeof process.env];
                     if (envVarValue) {
                         urlParams.append(key, envVarValue);
                     } else {
-                        console.warn(`Environment variable "${envVarName}" not found for map provider.`);
+                        console.warn(`Client-side environment variable "${envVarName}" not found for map provider.`);
                     }
                 } else {
                     urlParams.append(key, paramValue);
@@ -398,3 +394,5 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
+
+    
