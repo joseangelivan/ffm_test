@@ -43,7 +43,6 @@ import {
     updateMapProvider,
     deleteMapProvider,
     setMapProviderAsDefault,
-    processAndGetConfig,
     type MapProvider
 } from '@/actions/map_providers';
 import { 
@@ -374,10 +373,7 @@ export function ManageMapsDialog() {
   }
 
   const handleTest = async (service: MapProvider) => {
-      startSubmitting(async () => {
-          const processedProvider = await processAndGetConfig(service);
-          setTestingService(processedProvider);
-      });
+      setTestingService(service);
   }
 
   return (

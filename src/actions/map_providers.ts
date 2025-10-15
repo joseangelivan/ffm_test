@@ -29,24 +29,6 @@ const ServiceSchema = z.object({
     }, { message: "La configuración debe ser un JSON válido."}),
 });
 
-export async function processAndGetConfig(provider: MapProvider): Promise<MapProvider> {
-    const newProvider = JSON.parse(JSON.stringify(provider)); // Deep copy
-
-    if (!newProvider.config_json?.api_config?.parameters) {
-        return newProvider;
-    }
-
-    const params = newProvider.config_json.api_config.parameters;
-    for (const key in params) {
-        if (typeof params[key] === 'string' && params[key].startsWith('$')) {
-            const envVarName = params[key].substring(1);
-            params[key] = process.env[envVarName] || '';
-        }
-    }
-    
-    return newProvider;
-}
-
 export async function getMapProviders(): Promise<MapProvider[]> {
     let client;
     try {
