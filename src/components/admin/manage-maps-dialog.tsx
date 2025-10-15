@@ -43,9 +43,9 @@ import {
     updateMapProvider,
     deleteMapProvider,
     setMapProviderAsDefault,
-    processAndGetConfig,
     type MapProvider
 } from '@/actions/map_providers';
+import { processAndGetConfig } from '@/actions/admin';
 import { 
     Map as MapIcon,
     Star,
