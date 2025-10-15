@@ -13,6 +13,7 @@ import { getThemeById, getThemes } from '@/actions/themes';
 import { getAppSetting } from '@/actions/settings';
 import { getDefaultMapProvider } from '@/actions/map_providers';
 import { getGeofencesByCondoId } from '@/actions/maps';
+import { type MapProvider } from '@/actions/map_providers';
 
 import es from '@/locales/es.json';
 import pt from '@/locales/pt-BR.json';
@@ -865,5 +866,56 @@ export async function getActiveTheme(settings: UserSettings | null) {
     return customTheme;
 }
 
+export async function processAndGetConfig(provider: MapProvider): Promise<MapProvider> {
+    if (!provider || !provider.config_json) {
+        return provider;
+    }
+
+    let config = provider.config_json;
+    if (typeof config === 'string') {
+        try {
+            config = JSON.parse(config);
+        } catch {
+            return provider; // Return original if JSON is invalid
+        }
+    }
+    
+    const apiConfig = config.api_config || {};
+    if (!apiConfig.base_url) {
+        return { ...provider, config_json: config };
+    }
+
+    let baseUrl = apiConfig.base_url;
+    const urlParams = new URLSearchParams();
+    
+    const parameters = apiConfig.parameters || {};
+
+    for (const key in parameters) {
+        const paramValue = parameters[key];
+        if (typeof paramValue === 'string' && paramValue.startsWith('$')) {
+            const envVarName = paramValue.substring(1);
+            const envVarValue = process.env[envVarName];
+            if (envVarValue) {
+                urlParams.append(key, envVarValue);
+            } else {
+                console.warn(`Server-side environment variable "${envVarName}" not found.`);
+            }
+        } else {
+            urlParams.append(key, paramValue);
+        }
+    }
+
+    const paramsString = urlParams.toString();
+    if (paramsString) {
+        config.api_config.base_url = `${baseUrl}?${paramsString}`;
+    }
+    
+    // We don't need the parameters anymore as they are now part of the base_url
+    delete config.api_config.parameters; 
+
+    return { ...provider, config_json: config };
+}
+
 export { getDefaultMapProvider, getGeofencesByCondoId };
+    
     
