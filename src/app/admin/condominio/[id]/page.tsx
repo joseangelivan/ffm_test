@@ -8,10 +8,9 @@ import CondoDashboardClient from '@/components/condo-dashboard-client';
 import { getCondominioById, updateCondoCoordinates } from '@/actions/condos';
 import { getDevicesByCondoId } from '@/actions/devices';
 import { getSession } from '@/lib/auth';
-import { getSettings, getDefaultMapProvider, getGeofencesByCondoId } from '@/actions/admin';
+import { getSettings, getDefaultMapProvider, getGeofencesByCondoId, processAndGetConfig } from '@/actions/admin';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
-import { processAndGetConfig } from '@/actions/map_providers';
 import { geocodeAddress } from '@/actions/geocoding';
 
 export const dynamic = 'force-dynamic';

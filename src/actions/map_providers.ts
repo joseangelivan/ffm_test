@@ -29,6 +29,55 @@ const ServiceSchema = z.object({
     }, { message: "La configuración debe ser un JSON válido."}),
 });
 
+export async function processAndGetConfig(provider: MapProvider): Promise<MapProvider> {
+    if (!provider || !provider.config_json) {
+        return provider;
+    }
+
+    let config = provider.config_json;
+    if (typeof config === 'string') {
+        try {
+            config = JSON.parse(config);
+        } catch {
+            return provider; // Return original if JSON is invalid
+        }
+    }
+    
+    const apiConfig = config.api_config || {};
+    if (!apiConfig.base_url || !apiConfig.parameters) {
+        return { ...provider, config_json: config };
+    }
+
+    let baseUrl = apiConfig.base_url;
+    const urlParams = new URLSearchParams();
+
+    for (const key in apiConfig.parameters) {
+        const paramValue = apiConfig.parameters[key];
+        if (typeof paramValue === 'string' && paramValue.startsWith('$')) {
+            const envVarName = paramValue.substring(1);
+            const envVarValue = process.env[envVarName];
+            if (envVarValue) {
+                urlParams.append(key, envVarValue);
+            } else {
+                console.warn(`Server-side environment variable "${envVarName}" not found.`);
+            }
+        } else {
+            urlParams.append(key, paramValue);
+        }
+    }
+
+    const paramsString = urlParams.toString();
+    if (paramsString) {
+        config.api_config.base_url = `${baseUrl}?${paramsString}`;
+    }
+    
+    // We don't need the parameters anymore as they are now part of the base_url
+    delete config.api_config.parameters; 
+
+    return { ...provider, config_json: config };
+}
+
+
 export async function getMapProviders(): Promise<MapProvider[]> {
     let client;
     try {

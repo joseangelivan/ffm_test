@@ -19,11 +19,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  env: {
-    PUBLIC_MAPTILER_KEY: process.env.PUBLIC_MAPTILER_KEY,
-  }
 };
 
 export default nextConfig;
-
-    
