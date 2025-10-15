@@ -61,6 +61,7 @@ import { ManageTranslatorDialog } from './manage-translator-dialog';
 import { ManageGeocodingDialog } from './manage-geocoding-dialog';
 import { ManageMapsDialog } from './manage-maps-dialog';
 import { ManageAddressDialog } from './manage-address-dialog';
+import { useDashboard } from '@/hooks/use-dashboard';
 
 
 export function LoadingOverlay({ text }: { text: string }) {
@@ -108,12 +109,12 @@ function LogoutDialogForm({ onLogout }: { onLogout: () => Promise<void> }) {
 interface AdminHeaderProps {
     session: SessionPayload;
     condoName?: string;
-    onAccountUpdateSuccess: (data: any) => void;
 }
 
-export function AdminHeader({ session, condoName, onAccountUpdateSuccess }: AdminHeaderProps) {
+export function AdminHeader({ session, condoName }: AdminHeaderProps) {
     const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
     const { t } = useLocale();
+    const { onAccountUpdateSuccess } = useDashboard();
     const isCondoView = !!condoName;
 
     if (!session) return null;
@@ -199,7 +200,6 @@ export function AdminHeader({ session, condoName, onAccountUpdateSuccess }: Admi
                 <ManageAccountDialog
                     isOpen={isAccountDialogOpen}
                     onOpenChange={setIsAccountDialogOpen}
-                    onSuccess={onAccountUpdateSuccess}
                     session={session}
                 />
             </div>

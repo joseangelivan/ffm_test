@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
@@ -22,6 +23,7 @@ import { AdminHeader } from './admin/admin-header';
 import { CondoManagement } from './admin/condo-management';
 import { type Theme } from '@/actions/themes';
 import { AdminDashboardContext } from '@/contexts/admin-dashboard-context';
+import { useDashboard } from '@/hooks/use-dashboard';
 
 export function useAdminDashboard() {
     const context = useContext(AdminDashboardContext);
@@ -124,14 +126,14 @@ export default function AdminDashboardClient({ session, initialSettings }: Dashb
     handleSetLocale,
     handleSetTheme,
     theme,
-  }), [handleSetLocale, handleSetTheme, theme]);
+    onAccountUpdateSuccess: handleAccountUpdateSuccess,
+  }), [handleSetLocale, handleSetTheme, theme, handleAccountUpdateSuccess]);
 
   return (
     <AdminDashboardContext.Provider value={providerValue}>
         <div className="flex min-h-screen w-full flex-col bg-muted/40 relative">
         <AdminHeader 
             session={session}
-            onAccountUpdateSuccess={handleAccountUpdateSuccess}
         />
         
         <main className="flex flex-1 flex-col gap-2 p-2 md:gap-4 md:p-4">

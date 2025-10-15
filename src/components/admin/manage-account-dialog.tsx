@@ -59,6 +59,7 @@ import {
 import type { SessionPayload } from '@/lib/session';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LoadingOverlay } from './admin-header';
+import { useDashboard } from '@/hooks/use-dashboard';
 
 // --- 2FA Components ---
 
@@ -391,16 +392,15 @@ function ManageAccountFields({ session, formState, isFormPending }: { session: S
 export function ManageAccountDialog({
   isOpen,
   onOpenChange,
-  onSuccess,
   session,
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: (data: any) => void;
   session: SessionPayload;
 }) {
   const { toast } = useToast();
   const { t } = useLocale();
+  const { onAccountUpdateSuccess } = useDashboard();
 
   const [state, formAction, isPending] = useActionState(updateAdminAccount, undefined);
   const [formState, setFormState] = useState(state);
@@ -421,7 +421,7 @@ export function ManageAccountDialog({
         title: t('toast.successTitle'),
         description: t('adminDashboard.account.updateSuccessToast'),
       });
-      onSuccess(state.data);
+      onAccountUpdateSuccess(state.data);
       onOpenChange(false);
     } else if (state.message !== t('adminDashboard.account.noChangesMade')) {
         toast({
@@ -431,7 +431,7 @@ export function ManageAccountDialog({
             copyable: true,
         });
     }
-  }, [state, toast, t, onSuccess, onOpenChange]);
+  }, [state, toast, t, onAccountUpdateSuccess, onOpenChange]);
 
   if (!session) {
     return null; 

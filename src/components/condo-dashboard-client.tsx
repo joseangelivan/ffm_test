@@ -150,7 +150,8 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
     mapProvider,
     refreshMapProvider,
     onSearchAddress: setSearchedPosition,
-  }), [handleSetTheme, theme, initialCondo, mapProvider, refreshMapProvider]);
+    onAccountUpdateSuccess: handleAccountUpdateSuccess,
+  }), [handleSetTheme, theme, initialCondo, mapProvider, refreshMapProvider, handleAccountUpdateSuccess]);
 
   return (
     <CondoDashboardContext.Provider value={providerValue}>
@@ -158,7 +159,6 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
           <AdminHeader 
               session={session}
               condoName={initialCondo.name}
-              onAccountUpdateSuccess={handleAccountUpdateSuccess}
           />
 
           <main className="flex flex-1 flex-col gap-2 p-2 md:gap-4 md:p-4">

@@ -14,6 +14,7 @@ export const CondoDashboardContext = React.createContext<{
   mapProvider: MapProvider | null;
   refreshMapProvider: () => Promise<void>;
   onSearchAddress: (coords: { lat: number, lng: number }) => void;
+  onAccountUpdateSuccess: (data: any) => void;
 } | null>(null);
 
 

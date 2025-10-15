@@ -12,26 +12,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useLocale } from "@/lib/i18n";
-import { AdminDashboardContext } from "@/contexts/admin-dashboard-context";
-import { CondoDashboardContext } from "@/contexts/condo-dashboard-context";
+import { useDashboard } from "@/hooks/use-dashboard";
+
 
 export function ThemeSwitcher() {
   const { t } = useLocale();
   const [mounted, setMounted] = React.useState(false);
 
   // Attempt to get context from either dashboard.
-  const adminContext = React.useContext(AdminDashboardContext);
-  const condoContext = React.useContext(CondoDashboardContext);
-  const context = adminContext || condoContext;
+  const { handleSetTheme } = useDashboard();
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
 
   const handleThemeChange = (newTheme: string) => {
-    if (context && context.handleSetTheme) {
+    if (handleSetTheme) {
       // If we are inside a dashboard, use the context's handler
-      context.handleSetTheme(newTheme);
+      handleSetTheme(newTheme);
     } else {
       // Fallback for pages without context (like login page)
       // This directly manipulates the DOM, which is acceptable for this simple case.
