@@ -49,9 +49,10 @@ type CondoDashboardClientProps = {
     initialSettings: UserSettings;
     mapProvider: DbMapProvider | null;
     initialMapConfig: { center: { lat: number; lng: number }; zoom: number; } | null;
+    mapConfigError: string | null;
 };
 
-export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider: initialMapProvider, initialMapConfig }: CondoDashboardClientProps) { 
+export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider: initialMapProvider, initialMapConfig, mapConfigError }: CondoDashboardClientProps) { 
   const { t, setLocale } = useLocale();
   const router = useRouter();
 
@@ -182,14 +183,8 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                         <ManageDevicesTab condoId={initialCondo.id} initialDevices={initialDevices} />
                     </TabsContent>
                     <TabsContent value="map" forceMount className={cn(activeTab !== 'map' && 'hidden')}>
-                        {mapProvider ? (
-                            <CondoMapTab 
-                              condo={initialCondo} 
-                              initialMapConfig={initialMapConfig}
-                              searchedPosition={searchedPosition}
-                            />
-                        ) : (
-                             <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
+                        {!mapProvider ? (
+                            <div className="flex h-[70vh] w-full flex-col items-center justify-center rounded-lg border bg-card p-4">
                                 <div className="flex flex-col items-center gap-4 text-center">
                                     <div className="rounded-full border border-dashed p-4 bg-background">
                                         <Map className="h-12 w-12 text-muted-foreground" />
@@ -203,6 +198,27 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                                     </Alert>
                                 </div>
                             </div>
+                        ) : mapConfigError ? (
+                            <div className="flex h-[70vh] w-full flex-col items-center justify-center rounded-lg border bg-card p-4">
+                                <div className="flex flex-col items-center gap-4 text-center">
+                                     <div className="rounded-full border border-dashed p-4 bg-background">
+                                        <Map className="h-12 w-12 text-muted-foreground" />
+                                    </div>
+                                    <Alert variant="destructive" className="max-w-lg text-left">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <AlertTitle>Error al Cargar el Mapa</AlertTitle>
+                                        <AlertDescription>
+                                            {mapConfigError}
+                                        </AlertDescription>
+                                    </Alert>
+                                </div>
+                            </div>
+                        ) : (
+                            <CondoMapTab 
+                              condo={initialCondo} 
+                              initialMapConfig={initialMapConfig}
+                              searchedPosition={searchedPosition}
+                            />
                         )}
                     </TabsContent>
                 </div>

@@ -65,15 +65,10 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
 
   const condo = condoResult.data;
   
-  let mapConfig: { center: { lat: number; lng: number }; zoom: number; };
+  let mapConfig: { center: { lat: number; lng: number }; zoom: number; } | null = null;
+  let mapConfigError: string | null = null;
   
   // --- New Geocoding Logic ---
-  // Priority:
-  // 1. Use coordinates stored in the DB.
-  // 2. If not available, try to use the default geofence center.
-  // 3. If no geofence, geocode the condo's address.
-  // 4. If geocoding fails, use an absolute fallback.
-  
   if (condo.latitude && condo.longitude) {
     mapConfig = { center: { lat: condo.latitude, lng: condo.longitude }, zoom: 17 };
   } else {
@@ -85,7 +80,7 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
                 lat: defaultGeofence.geometry.center[1], 
                 lng: defaultGeofence.geometry.center[0] 
             },
-            zoom: 17 // Default zoom for geofence
+            zoom: 17
         };
     } else {
         const fullAddress = [condo.street, condo.number, condo.city, condo.state, condo.country].filter(Boolean).join(', ');
@@ -97,10 +92,14 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
             updateCondoCoordinates(condo.id, mapConfig.center.lat, mapConfig.center.lng);
         } else {
             console.warn(`Geocoding failed for condo ${condo.id}: ${geocodeResult.message}`);
-            // Absolute fallback if everything else fails
-            mapConfig = { center: { lat: -14.235, lng: -51.9253 }, zoom: 4 };
+            mapConfigError = geocodeResult.message || "No se pudieron obtener las coordenadas para la dirección del condominio.";
         }
     }
+  }
+  
+  if (!mapConfig && !mapConfigError) {
+      // Absolute fallback if everything else fails without an error
+      mapConfig = { center: { lat: -14.235, lng: -51.9253 }, zoom: 4 };
   }
 
 
@@ -115,6 +114,7 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
           initialSettings={settings}
           mapProvider={mapProvider}
           initialMapConfig={mapConfig}
+          mapConfigError={mapConfigError}
         />
     </Suspense>
   );

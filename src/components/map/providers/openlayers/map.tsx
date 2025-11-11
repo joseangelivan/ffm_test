@@ -135,7 +135,7 @@ interface MapProps {
     showAllGeofences: boolean;
     selectedGeofenceId: string | null;
     defaultGeofenceId: string | null;
-    initialPosition: { lat: number, lng: number } | null;
+    initialMapConfig: { center: { lat: number; lng: number }; zoom: number; } | null;
     activeShapeState: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     shapeBeingSaved: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
     onZoomChange: (zoom: number) => void;
@@ -150,7 +150,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
     showAllGeofences,
     selectedGeofenceId,
     defaultGeofenceId,
-    initialPosition,
+    initialMapConfig,
     activeShapeState,
     shapeBeingSaved,
     onZoomChange,
@@ -197,7 +197,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             config = {};
         }
         
-        const apiConfig = config.api_config || {};
+        const apiConfig = config.api_config || '';
         const baseUrl = apiConfig.base_url || '';
 
         let source;
@@ -215,9 +215,10 @@ const OpenLayersMap: React.FC<MapProps> = ({
         });
         vectorLayer.set('id', 'geofence-layer');
         
+        // Use the initialMapConfig for the initial view setup
         const view = new View({
-            center: fromLonLat([-51.9253, -14.235]),
-            zoom: 4,
+            center: fromLonLat(initialMapConfig ? [initialMapConfig.center.lng, initialMapConfig.center.lat] : [-51.9253, -14.235]),
+            zoom: initialMapConfig ? initialMapConfig.zoom : 4,
         });
 
         const map = new Map({
@@ -273,24 +274,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             if (zoom) onZoomChange(Math.round(zoom));
         });
 
-    }, [provider, onMapLoad, onZoomChange]);
-
-    useEffect(() => {
-        const map = mapRef.current;
-        const adapter = adapterRef.current;
-        if (!map || !adapter) return;
-        
-        const timeoutId = setTimeout(() => {
-             if (defaultGeofenceId) {
-                adapter.fitToGeofence(defaultGeofenceId, 0.1);
-             } else if (initialPosition) {
-                 adapter.setCenter(initialPosition, 15);
-             }
-        }, 100);
-        
-        return () => clearTimeout(timeoutId);
-
-    }, [defaultGeofenceId, initialPosition]);
+    }, [provider, onMapLoad, onZoomChange, initialMapConfig]);
 
 
     useEffect(() => {
