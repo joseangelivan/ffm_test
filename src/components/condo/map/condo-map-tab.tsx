@@ -104,19 +104,16 @@ export default function CondoMapTab({ condo, initialMapConfig, searchedPosition 
   }, [mode, defaultGeofenceId, selectedGeofenceId, fitLevel, mapAdapter, initialMapConfig]);
 
   // This effect runs once when the map is loaded and ready.
-  // Its job is to set the initial view, either by fitting to the default geofence or staying at the initial config.
+  // Its job is to set the initial view by fitting to the default geofence if it exists.
   useEffect(() => {
-    if (!mapAdapter) return; // Wait for map to be ready
-
-    // If there's no initial config, it means we should fit to the geofence.
-    if (!initialMapConfig && defaultGeofenceId) {
-       const timeoutId = setTimeout(() => {
-        applyZoomLevel();
-      }, 250); // Small delay to ensure feature is drawn on map
-
-      return () => clearTimeout(timeoutId);
-    }
-    // If there IS an initial config, the map already loaded with it, so we do nothing.
+      if (mapAdapter && !initialMapConfig && defaultGeofenceId) {
+          // A short timeout gives OpenLayers a moment to render the feature
+          // before we try to fit the view to it.
+          const timeoutId = setTimeout(() => {
+              applyZoomLevel();
+          }, 250);
+          return () => clearTimeout(timeoutId);
+      }
   }, [mapAdapter, defaultGeofenceId, initialMapConfig, applyZoomLevel]);
 
   // Initialize geofence selections on first load
@@ -171,9 +168,9 @@ export default function CondoMapTab({ condo, initialMapConfig, searchedPosition 
   }, [condo.id, selectedGeofenceId, toast, t]);
 
   const centerMapOnAddress = useCallback(() => {
-    if (!initialMapConfig || !mapAdapter) return;
-    mapAdapter.setCenter(initialMapConfig.center, 17);
-  }, [initialMapConfig, mapAdapter]);
+    if (!condo.latitude || !condo.longitude || !mapAdapter) return;
+    mapAdapter.setCenter({ lat: condo.latitude, lng: condo.longitude }, 17);
+  }, [condo.latitude, condo.longitude, mapAdapter]);
 
 
   useEffect(() => {
@@ -239,7 +236,7 @@ export default function CondoMapTab({ condo, initialMapConfig, searchedPosition 
                  <div className="text-right">
                     <h3 className="font-semibold">{condo.name}</h3>
                     <p className="text-xs text-muted-foreground">{condo.address}</p>
-                    <Button onClick={centerMapOnAddress} variant="link" size="sm" className="p-0 h-auto" disabled={!initialMapConfig}>
+                    <Button onClick={centerMapOnAddress} variant="link" size="sm" className="p-0 h-auto" disabled={!condo.latitude || !condo.longitude}>
                         <Locate className="h-3 w-3 mr-1" />
                         {t('condoDashboard.map.recenterOnAddress')}
                     </Button>
