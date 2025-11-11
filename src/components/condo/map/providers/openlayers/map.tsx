@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useContext } from 'react';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
@@ -13,11 +13,11 @@ import 'ol/ol.css';
 import type { MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { fromLonLat, transform } from 'ol/proj';
 import GeoJSON from 'ol/format/GeoJSON';
-import type { Geometry } from 'ol/geom';
+import type { Geometry, Polygon as OlPolygon, Circle as OlCircle } from 'ol/geom';
 import Feature from 'ol/Feature';
 import { Style, Fill, Stroke } from 'ol/style';
+import type MapAdapterInterface from 'ol/Map';
 import type { Geofence as DbGeofence } from '@/actions/maps';
-
 
 const STYLE_VIEW_MODE = new Style({
     fill: new Fill({ color: 'rgba(67, 133, 245, 0.1)' }),
@@ -49,6 +49,10 @@ const STYLE_HIDDEN = new Style({
     stroke: new Stroke({ color: 'transparent', width: 0 }),
 });
 
+// Explicitly import geometry types to use for type checks
+const CircleGeom = require('ol/geom/Circle').default;
+const PolygonGeom = require('ol/geom/Polygon').default;
+
 
 function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
     const geometryObject = { ...dbGeofence.geometry };
@@ -79,8 +83,7 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
                 [bounds.west, bounds.south]
             ].map(coord => fromLonLat(coord));
             
-            const Polygon = require('ol/geom/Polygon').default;
-            const newPolygon = new Polygon([coords]);
+            const newPolygon = new PolygonGeom([coords]);
             newPolygon.set('geometryType', 'Rectangle');
             return newPolygon;
         } else {
@@ -89,24 +92,34 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
         }
     }
     
-    if (geometryObject.type === 'rectangle') {
+    // If the type is our custom 'Rectangle', we treat it as a Polygon for OL.
+    if (geometryObject.type === 'Rectangle') {
         geometryObject.type = 'Polygon';
     }
+
 
     // Standard GeoJSON handling
     if ('type' in geometryObject && 'coordinates' in geometryObject) {
        try {
             const format = new GeoJSON({ featureProjection: 'EPSG:3857' });
             const geometry = format.readGeometry(geometryObject);
-            // If it's a polygon and has 5 coordinates (4 vertices + closing point), it's a rectangle
-            if (geometry.getType() === 'Polygon' && (geometry as any).getCoordinates()[0].length === 5) {
-                geometry.set('geometryType', 'Rectangle');
+
+            if (dbGeofence.geometry.type === 'Rectangle') {
+                 geometry.set('geometryType', 'Rectangle');
             }
             return geometry;
         } catch (e) {
             console.error("Error reading standard GeoJSON:", e, geometryObject);
             return null;
         }
+    }
+    
+    // Handle custom Circle format
+    if ('type' in geometryObject && geometryObject.type === 'Circle' && 'center' in geometryObject && 'radius' in geometryObject) {
+         const center = fromLonLat(geometryObject.center as [number, number]);
+         const newCircle = new CircleGeom(center, geometryObject.radius as number);
+         newCircle.set('geometryType', 'Circle');
+         return newCircle;
     }
     
     console.warn(`Invalid geometry object passed to reader (no type or incompatible structure):`, geometryObject);
@@ -116,15 +129,16 @@ function readLegacyOrStandardGeoJSON(dbGeofence: DbGeofence): Geometry | null {
 
 interface MapProps {
     provider: DbMapProvider;
-    onMapLoad: (map: Map, source: VectorSource) => void;
+    onMapLoad: (map: Map, source: VectorSource, adapter: MapAdapterInterface) => void;
     dbGeofences: DbGeofence[];
     mode: 'view' | 'editing';
     showAllGeofences: boolean;
     selectedGeofenceId: string | null;
     defaultGeofenceId: string | null;
-    initialPosition: { lat: number, lng: number };
-    mapRef: React.RefObject<Map | null>;
+    initialPosition: { lat: number, lng: number } | null;
     activeShapeState: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
+    shapeBeingSaved: { id: string; feature: Feature<any> | null; originalGeometry?: any; } | null;
+    onZoomChange: (zoom: number) => void;
     children?: React.ReactNode;
 }
 
@@ -137,14 +151,20 @@ const OpenLayersMap: React.FC<MapProps> = ({
     selectedGeofenceId,
     defaultGeofenceId,
     initialPosition,
-    mapRef,
     activeShapeState,
+    shapeBeingSaved,
+    onZoomChange,
     ...otherProps
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<Map | null>(null);
     const vectorSourceRef = useRef<VectorSource>(new VectorSource());
+    const adapterRef = useRef<MapAdapterInterface | null>(null);
 
    const getFeatureStyle = useCallback((featureId: string): Style => {
+        if(shapeBeingSaved?.id === featureId) {
+            return STYLE_NEW_SHAPE;
+        }
         if (mode === 'view') {
             if (showAllGeofences) {
                 return featureId === defaultGeofenceId ? STYLE_VIEW_MODE : STYLE_EDIT_MODE_UNSELECTED;
@@ -162,16 +182,10 @@ const OpenLayersMap: React.FC<MapProps> = ({
             }
             return STYLE_EDIT_MODE_UNSELECTED;
         }
-    }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState]);
+    }, [mode, showAllGeofences, defaultGeofenceId, selectedGeofenceId, activeShapeState, shapeBeingSaved]);
     
     useEffect(() => {
-        if (!mapContainerRef.current) return;
-        
-        // Prevent re-initialization
-        if (mapRef.current) {
-            mapRef.current.setTarget(mapContainerRef.current);
-            return;
-        }
+        if (!mapContainerRef.current || mapRef.current || !provider) return;
 
         let config: any;
         try {
@@ -184,7 +198,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
         }
         
         const apiConfig = config.api_config || {};
-        const baseUrl = apiConfig.base_url;
+        const baseUrl = apiConfig.base_url || '';
 
         let source;
         if (baseUrl) {
@@ -200,56 +214,131 @@ const OpenLayersMap: React.FC<MapProps> = ({
             style: (feature) => feature.get('style'),
         });
         vectorLayer.set('id', 'geofence-layer');
+        
+        const view = new View({
+            center: fromLonLat([-51.9253, -14.235]),
+            zoom: 4,
+        });
 
         const map = new Map({
             target: mapContainerRef.current!,
             layers: [initialLayer, vectorLayer],
-            view: new View({
-                center: fromLonLat([initialPosition.lng, initialPosition.lat]),
-                zoom: 4,
-            }),
+            view: view,
             controls: [],
         });
         
-        (mapRef as React.MutableRefObject<Map | null>).current = map;
-        onMapLoad(map, vectorSourceRef.current);
-
-        return () => {
-            if (mapRef.current) {
-                mapRef.current.setTarget(undefined);
-            }
+        mapRef.current = map;
+        
+        const adapter = {
+            onMoveEnd: (callback: (zoom: number) => void) => {
+               map.on('moveend', () => {
+                    const zoom = map.getView().getZoom();
+                    if(zoom) callback(Math.round(zoom));
+               });
+            },
+            setCenter: (coords: { lat: number, lng: number }, zoom?: number) => {
+                map.getView().setCenter(fromLonLat([coords.lng, coords.lat]));
+                if(zoom) map.getView().setZoom(zoom);
+            },
+            zoomIn: () => {
+                const view = map.getView();
+                view.animate({ zoom: view.getZoom()! + 1, duration: 250 });
+            },
+            zoomOut: () => {
+                 const view = map.getView();
+                view.animate({ zoom: view.getZoom()! - 1, duration: 250 });
+            },
+            fitToGeofence: (geofenceId: string, paddingPercentage: number) => {
+                const source = vectorSourceRef.current;
+                const feature = source.getFeatureById(geofenceId);
+                if (feature) {
+                    const geometry = feature.getGeometry();
+                    if (geometry) {
+                        const mapSize = map.getSize();
+                        if (mapSize) {
+                             const padding = mapSize[0] * paddingPercentage;
+                             map.getView().fit(geometry, { padding: [padding, padding, padding, padding], duration: 1000 });
+                        }
+                    }
+                }
+            },
+            getMapInstance: () => map,
         };
-    }, [provider, onMapLoad, initialPosition, mapRef]);
+        adapterRef.current = adapter;
+
+        onMapLoad(map, vectorSourceRef.current, adapter);
+
+        map.on('moveend', () => {
+            const zoom = map.getView().getZoom();
+            if (zoom) onZoomChange(Math.round(zoom));
+        });
+
+    }, [provider, onMapLoad, onZoomChange]);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        const adapter = adapterRef.current;
+        if (!map || !adapter) return;
+        
+        const timeoutId = setTimeout(() => {
+             if (defaultGeofenceId) {
+                adapter.fitToGeofence(defaultGeofenceId, 0.1);
+             } else if (initialPosition) {
+                 adapter.setCenter(initialPosition, 15);
+             }
+        }, 100);
+        
+        return () => clearTimeout(timeoutId);
+
+    }, [defaultGeofenceId, initialPosition]);
 
 
     useEffect(() => {
         const source = vectorSourceRef.current;
         if (!source) return;
 
-        const dbGeofenceIds = new Set(dbGeofences.map(g => g.id));
+        const dbGeofenceIds = dbGeofences ? new Set(dbGeofences.map(g => g.id)) : new Set();
 
         // Add or update features from the database
-        dbGeofences.forEach(dbGeofence => {
-            const olGeom = readLegacyOrStandardGeoJSON(dbGeofence);
-            if (!olGeom) return;
+        if (dbGeofences) {
+            dbGeofences.forEach(dbGeofence => {
+                const olGeom = readLegacyOrStandardGeoJSON(dbGeofence);
+                if (!olGeom) return;
 
-            let feature = source.getFeatureById(dbGeofence.id);
-            if (feature) {
-                const currentGeom = feature.getGeometry();
-                if (currentGeom && activeShapeState?.feature !== feature) {
-                    const currentCoords = JSON.stringify(currentGeom.getCoordinates());
-                    const newCoords = JSON.stringify(olGeom.getCoordinates());
-                    if(currentCoords !== newCoords) {
-                         feature.setGeometry(olGeom);
+                let feature = source.getFeatureById(dbGeofence.id);
+                if (feature) {
+                    const currentGeom = feature.getGeometry();
+                    if (currentGeom && activeShapeState?.feature !== feature) {
+                        
+                        let hasChanged = false;
+                        if (currentGeom instanceof CircleGeom && olGeom instanceof CircleGeom) {
+                            const currentCenter = currentGeom.getCenter();
+                            const newCenter = olGeom.getCenter();
+                            const currentRadius = currentGeom.getRadius();
+                            const newRadius = olGeom.getRadius();
+                            hasChanged = (
+                                currentCenter[0] !== newCenter[0] ||
+                                currentCenter[1] !== newCenter[1] ||
+                                currentRadius !== newRadius
+                            );
+                        } else if (currentGeom instanceof PolygonGeom && olGeom instanceof PolygonGeom) {
+                            const currentCoords = JSON.stringify(currentGeom.getCoordinates());
+                            const newCoords = JSON.stringify(olGeom.getCoordinates());
+                            hasChanged = currentCoords !== newCoords;
+                        }
+
+                        if(hasChanged) {
+                             feature.setGeometry(olGeom);
+                        }
                     }
+                } else {
+                    feature = new Feature({ geometry: olGeom });
+                    feature.setId(dbGeofence.id);
+                    feature.set('geometryType', olGeom.get('geometryType'));
+                    source.addFeature(feature);
                 }
-            } else {
-                feature = new Feature({ geometry: olGeom });
-                feature.setId(dbGeofence.id);
-                feature.set('geometryType', olGeom.get('geometryType'));
-                source.addFeature(feature);
-            }
-        });
+            });
+        }
         
         // Add the currently active new shape if it's not already on the map
         if (activeShapeState?.feature && !source.hasFeature(activeShapeState.feature)) {
@@ -283,5 +372,3 @@ const OpenLayersMap: React.FC<MapProps> = ({
 };
 
 export default OpenLayersMap;
-
-  
