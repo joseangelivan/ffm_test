@@ -88,7 +88,14 @@ async function fetchRegions(config: any): Promise<{ success: boolean, data?: any
         try {
             const response = await fetch(requestConfig.url, { cache: 'no-store' });
             if (!response.ok) throw new Error(`El servidor respondió con el estado ${response.status}`);
-            const jsonResponse = await response.json();
+            const responseText = await response.text();
+            let jsonResponse;
+            try {
+                jsonResponse = JSON.parse(responseText);
+            } catch (e) {
+                return { success: false, error: `La respuesta de la API de 'regions' no es un JSON válido.`, headers: response.headers };
+            }
+            
             const dataList = getNestedValue(jsonResponse, responseConfig.path);
 
             const mappedData = dataList.map((item: any) => ({
@@ -166,20 +173,20 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         if (!response.ok) {
             let errorResponse;
             try { errorResponse = JSON.parse(responseText); } catch { errorResponse = responseText; }
-             return { success: false, error: `El servidor respondió con el estado ${response.status}`, debug: { ...debugInfo, response: errorResponse } };
+             return { success: false, error: `El servidor respondió con el estado ${response.status}`, debug: { ...debugInfo, response: errorResponse }, headers: response.headers };
         }
         
         let jsonResponse;
         try {
             jsonResponse = JSON.parse(responseText);
         } catch (e) {
-             return { success: false, error: `La respuesta de la API de 'countries' no es un JSON válido.`, debug: { ...debugInfo, response: responseText } };
+             return { success: false, error: `La respuesta de la API de 'countries' no es un JSON válido.`, debug: { ...debugInfo, response: responseText }, headers: response.headers };
         }
 
         const dataList = getNestedValue(jsonResponse, responseConfig.path);
         
         if (!Array.isArray(dataList)) {
-            return { success: false, error: `La respuesta de la API no contenía un array en la ruta '${responseConfig.path}'.`, debug: { ...debugInfo, response: jsonResponse } };
+            return { success: false, error: `La respuesta de la API no contenía un array en la ruta '${responseConfig.path}'.`, debug: { ...debugInfo, response: jsonResponse }, headers: response.headers };
         }
         
         const mappedData = dataList.map((item: any) => {
@@ -242,11 +249,20 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
             }
             
             const response = await fetch(requestConfig.url, fetchOptions);
-            const jsonResponse = await response.json();
+            const responseText = await response.text();
 
+            let jsonResponse;
             if (!response.ok) {
+                 try { jsonResponse = JSON.parse(responseText); } catch { jsonResponse = responseText; }
                  throw new Error(`El servidor respondió con el estado ${response.status}. Respuesta: ${JSON.stringify(jsonResponse)}`);
             }
+            
+            try {
+                jsonResponse = JSON.parse(responseText);
+            } catch (e) {
+                return { success: false, error: `La respuesta de la API de 'states' no es un JSON válido.`, headers: response.headers };
+            }
+
 
             const dataList = getNestedValue(jsonResponse, responseConfig.path);
             
@@ -314,11 +330,18 @@ async function fetchCities(config: any, params: FetchParams): Promise<{ success:
             }
             
             const response = await fetch(requestConfig.url, fetchOptions);
-
-            const jsonResponse = await response.json();
-
+            const responseText = await response.text();
+            
+            let jsonResponse;
             if (!response.ok) {
+                 try { jsonResponse = JSON.parse(responseText); } catch { jsonResponse = responseText; }
                  throw new Error(`El servidor respondió con el estado ${response.status}. Respuesta: ${JSON.stringify(jsonResponse)}`);
+            }
+
+            try {
+                jsonResponse = JSON.parse(responseText);
+            } catch (e) {
+                return { success: false, error: `La respuesta de la API de 'cities' no es un JSON válido.`, headers: response.headers };
             }
             
             if (!responseConfig) {
@@ -536,7 +559,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
     
     if (Object.keys(params).length === 0 || (!params.region && !params.country && !params.state)) {
         result = await fetchRegions(config);
-        if (!result.success) return { success: false, message: result.error! };
+        if (!result.success) return { success: false, message: result.error!, headers: result.headers };
         data.regions = result.data;
         data.regionCodeMap = result.regionCodeMap;
     } else if (params.region || params.region_code) {
