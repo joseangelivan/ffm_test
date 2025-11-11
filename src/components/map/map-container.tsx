@@ -16,24 +16,23 @@ const OpenLayersMap = dynamic(() => import('./providers/openlayers/map'), {
 });
 
 const GoogleMap = dynamic(() => import('@/components/condo/map/providers/google/map'), {
-    ssr: false,
-    loading: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
+    ssr_false: () => <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>,
 });
 
 
 const MapContainer: React.FC<any> = (props) => {
-    const { provider, initialPosition } = props;
+    const { provider } = props;
 
     if (!provider) {
         return <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>;
     }
     
     if (provider.provider_type === 'google') {
-        return <GoogleMap {...props} initialMapConfig={initialPosition} />;
+        return <GoogleMap {...props} />;
     }
     
     // For 'openlayers', 'leaflet', 'mapbox'
-    return <OpenLayersMap {...props} initialPosition={initialPosition} />;
+    return <OpenLayersMap {...props} />;
 }
 
 export default MapContainer;
