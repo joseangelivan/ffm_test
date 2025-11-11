@@ -284,7 +284,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
              if (defaultGeofenceId) {
                 adapter.fitToGeofence(defaultGeofenceId, 0.1);
              } else if (initialPosition) {
-                 adapter.setCenter(initialPosition, 15);
+                 adapter.setCenter(initialPosition, 17);
              }
         }, 100);
         
