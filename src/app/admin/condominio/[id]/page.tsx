@@ -116,5 +116,3 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
     </Suspense>
   );
 }
-
-    
