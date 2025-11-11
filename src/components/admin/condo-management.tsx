@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
@@ -461,6 +462,18 @@ function CondoFormWrapper({
         startLocationTransition(async () => {
             try {
                 const result = await fetchAddressData({});
+                
+                const contentType = result.headers?.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    toast({
+                      title: "Sessão Expirada",
+                      description: "Sua sessão expirou. Por favor, faça login novamente.",
+                      variant: "destructive",
+                    });
+                    window.location.href = '/admin/login';
+                    return;
+                }
+
                 if (result.success && result.data) {
                     const initialAvailable: LocationData = {
                         regions: result.data.regions || [],
@@ -518,6 +531,20 @@ function CondoFormWrapper({
             
             startLocationTransition(async () => {
                 const result = await fetchAddressData(params);
+                
+                if (result.headers) {
+                    const contentType = result.headers.get("content-type");
+                    if (!contentType || !contentType.includes("application/json")) {
+                        toast({
+                          title: "Sessão Expirada",
+                          description: "Sua sessão expirou. Por favor, faça login novamente.",
+                          variant: "destructive",
+                        });
+                        window.location.href = '/admin/login';
+                        return;
+                    }
+                }
+                
                 if (result?.success && result.data) {
                     if (fieldToUpdate === 'countries') setAvailableData(current => ({ ...current, countries: result.data!.countries || [], states: [], cities: [] }));
                     if (fieldToUpdate === 'states') setAvailableData(current => ({ ...current, states: result.data!.states || [], cities: [] }));

@@ -31,6 +31,7 @@ type ActionState<T = null> = {
     success: boolean;
     message: string;
     data?: T;
+    headers?: Headers;
 };
 
 const ServiceSchema = z.object({
@@ -78,7 +79,7 @@ type FetchParams = {
 
 // --- NEW DEDICATED FETCH FUNCTIONS ---
 
-async function fetchRegions(config: any): Promise<{ success: boolean, data?: any, error?: string, regionCodeMap?: any }> {
+async function fetchRegions(config: any): Promise<{ success: boolean, data?: any, error?: string, regionCodeMap?: any, headers?: Headers }> {
     const requestConfig = config.request?.api_config?.parameters?.regions;
     const responseConfig = config.response?.regions;
     if (!requestConfig) return { success: true, data: [], regionCodeMap: {} };
@@ -102,7 +103,7 @@ async function fetchRegions(config: any): Promise<{ success: boolean, data?: any
                 return acc;
             }, {});
 
-            return { success: true, data: mappedData, regionCodeMap };
+            return { success: true, data: mappedData, regionCodeMap, headers: response.headers };
         } catch (e: any) {
             return { success: false, error: `Error en la API de 'regions': ${e.message}` };
         }
@@ -122,7 +123,7 @@ async function fetchRegions(config: any): Promise<{ success: boolean, data?: any
     return { success: true, data: [], regionCodeMap: {} };
 }
 
-async function fetchCountries(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string, debug?: any }> {
+async function fetchCountries(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string, debug?: any, headers?: Headers }> {
     const apiConfig = config.request?.api_config;
     const countriesConfig = apiConfig?.parameters?.countries;
     const responseConfig = config.response?.countries;
@@ -199,14 +200,14 @@ async function fetchCountries(config: any, params: FetchParams): Promise<{ succe
         }).filter(c => c.name);
 
         
-        return { success: true, data: mappedData, debug: { ...debugInfo, response: jsonResponse } };
+        return { success: true, data: mappedData, debug: { ...debugInfo, response: jsonResponse }, headers: response.headers };
     } catch (e: any) {
         return { success: false, error: `Error en la API de 'countries': ${e.message}`, debug: debugInfo };
     }
 }
 
 
-async function fetchStates(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string, debug?: any }> {
+async function fetchStates(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string, debug?: any, headers?: Headers }> {
     const requestConfig = config.request?.api_config?.parameters?.states || config.request?.api_config?.parameters?.countries?.states;
     const responseConfig = config.response?.states || config.response?.countries?.states;
 
@@ -262,7 +263,7 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
                 code: getNestedValue(item, responseConfig.code)
             }));
             
-            return { success: true, data: mappedData };
+            return { success: true, data: mappedData, headers: response.headers };
 
         } catch (e: any) {
             return { success: false, error: `Error en la API de 'states': ${e.message}`, debug: { response: e.toString() } };
@@ -274,7 +275,7 @@ async function fetchStates(config: any, params: FetchParams): Promise<{ success:
 }
 
 
-async function fetchCities(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string }> {
+async function fetchCities(config: any, params: FetchParams): Promise<{ success: boolean, data?: any, error?: string, headers?: Headers }> {
     const requestConfig = config.request?.api_config?.parameters?.cities || config.request?.api_config?.parameters?.countries?.states?.cities;
     const responseConfig = config.response?.cities;
 
@@ -334,16 +335,16 @@ async function fetchCities(config: any, params: FetchParams): Promise<{ success:
             }
 
             if (responseConfig.name && responseConfig.name === '.') {
-                return { success: true, data: dataList };
+                return { success: true, data: dataList, headers: response.headers };
             }
 
             if(Array.isArray(dataList) && dataList.every(item => typeof item === 'string')) {
-                return { success: true, data: dataList };
+                return { success: true, data: dataList, headers: response.headers };
             }
             
             const mappedData = dataList.map(item => getNestedValue(item, responseConfig.name)).filter(Boolean);
 
-            return { success: true, data: mappedData };
+            return { success: true, data: mappedData, headers: response.headers };
 
         } catch (e: any) {
             return { success: false, error: `Error en la API de 'cities': ${e.message}` };
@@ -531,7 +532,7 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
     }
     
     let data: AddressData = {};
-    let result: { success: boolean, data?: any, error?: string, regionCodeMap?: any, debug?: any };
+    let result: { success: boolean, data?: any, error?: string, regionCodeMap?: any, debug?: any, headers?: Headers };
     
     if (Object.keys(params).length === 0 || (!params.region && !params.country && !params.state)) {
         result = await fetchRegions(config);
@@ -541,21 +542,21 @@ export async function fetchAddressData(params: FetchParams): Promise<ActionState
     } else if (params.region || params.region_code) {
         result = await fetchCountries(config, params);
         if (!result.success) {
-            return { success: false, message: result.error!, debug: result.debug };
+            return { success: false, message: result.error!, debug: result.debug, headers: result.headers };
         }
         data.countries = result.data?.filter((c:any) => c.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
-        return { success: true, message: 'Datos de dirección obtenidos.', data, debug: result.debug };
+        return { success: true, message: 'Datos de dirección obtenidos.', data, debug: result.debug, headers: result.headers };
     } else if (params.country && !params.state) {
         result = await fetchStates(config, params);
-        if (!result.success) return { success: false, message: result.error!, debug: result.debug };
+        if (!result.success) return { success: false, message: result.error!, debug: result.debug, headers: result.headers };
         data.states = result.data.filter((s:any) => s.name).sort((a: any, b: any) => a.name.localeCompare(b.name));
     } else if (params.country && params.state) {
         result = await fetchCities(config, params);
-        if (!result.success) return { success: false, message: result.error! };
+        if (!result.success) return { success: false, message: result.error!, headers: result.headers };
         if(Array.isArray(result.data)) data.cities = result.data.sort();
     }
     
-    return { success: true, message: 'Datos de dirección obtenidos.', data };
+    return { success: true, message: 'Datos de dirección obtenidos.', data, headers: result?.headers };
 }
 
 
