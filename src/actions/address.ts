@@ -99,9 +99,9 @@ function buildApiUrl(
 
         if (typeof rawValue === 'string' && rawValue.startsWith('$')) {
             const varName = rawValue.substring(1);
-            if (varName in valueMap) {
+            if (varName in valueMap && valueMap[varName]) {
               paramValue = valueMap[varName]?.toString();
-            } else {
+            } else if (env[varName]){
               paramValue = env[varName];
             }
         } else {
@@ -698,129 +698,4 @@ export async function testAddressService(id: string): Promise<ActionState> {
     }
 }
 
-export async function autocompleteAddress(request: AutocompleteRequest): Promise<ActionState<AutocompleteResult[]>> {
-    let client;
-    try {
-        const pool = await getDbPool();
-        if (!pool) return { success: false, message: "Error de servidor." };
-        client = await pool.connect();
-        const serviceResult = await client.query('SELECT * FROM geocoding_services WHERE is_default = TRUE LIMIT 1');
-        
-        if (serviceResult.rows.length === 0) {
-            return { success: false, message: "No se ha configurado un servicio de geocodificación predeterminado." };
-        }
-        
-        const service = serviceResult.rows[0];
-        const config = service.config_json?.autocomplete;
-
-        if (!config?.request?.api_config || !config?.response) {
-            return { success: false, message: "La configuración de autocompletado es inválida." };
-        }
-        
-        const valueMap: ValueMap = {
-            'Address': request.address,
-            'country_cca2': request.country_cca2,
-            'state': request.state,
-            'city': request.city,
-        };
-
-        const finalUrl = buildApiUrl(config.request.api_config, valueMap, process.env);
-        
-        const apiResponse = await fetch(finalUrl);
-        const responseData = await apiResponse.json();
-        
-        if (!apiResponse.ok) {
-            const errorPath = config.response?.error_path;
-            if (errorPath) {
-                const apiError = getNestedValue(responseData, errorPath);
-                if (apiError) {
-                    return { success: false, message: `Error: ${apiError}` };
-                }
-            }
-            return { success: false, message: `Error: La API respondió con el estado ${apiResponse.status}.` };
-        }
-        
-        const results = getNestedValue(responseData, config.response.results_path);
-        
-        if (!Array.isArray(results)) {
-            return { success: false, message: "No se encontraron resultados en la ruta especificada." };
-        }
-        
-        const suggestions = results.map(r => ({
-            address: getNestedValue(r, config.response.address_path),
-            lat: parseFloat(getNestedValue(r, config.response.lat_path)),
-            lon: parseFloat(getNestedValue(r, config.response.lon_path)),
-        })).filter(s => s.address && !isNaN(s.lat) && !isNaN(s.lon));
-        
-        return { success: true, message: "Sugerencias obtenidas.", data: suggestions };
-
-    } catch (error: any) {
-        console.error("Error in autocompleteAddress:", error);
-        return { success: false, message: `Error: ${error.message}` };
-    } finally {
-        if(client) client.release();
-    }
-}
-
-
-export async function geocodeAddress(fullAddress: string): Promise<ActionState<any>> {
-    if (!fullAddress || fullAddress.trim() === '') {
-        return { success: false, message: 'La dirección no puede estar vacía.' };
-    }
-
-    let client;
-    try {
-        const pool = await getDbPool();
-        if (!pool) return { success: false, message: 'Error de servidor al geocodificar la dirección.' };
-        client = await pool.connect();
-        const result = await client.query('SELECT * FROM geocoding_services WHERE is_default = TRUE LIMIT 1');
-        
-        if (result.rows.length === 0) {
-            return { success: false, message: "No se ha configurado ningún servicio de geocodificación predeterminado." };
-        }
-        
-        const defaultService = result.rows[0];
-        
-        let config: any;
-        if (typeof defaultService.config_json === 'string') {
-            try {
-                config = JSON.parse(defaultService.config_json);
-            } catch(e: any) {
-                return { success: false, message: `Error interno al procesar la configuración JSON: ${e.message}` };
-            }
-        } else {
-            config = defaultService.config_json;
-        }
-
-        const requestConfig = config?.geocoordinates?.request || config?.request;
-        const responseConfig = config?.geocoordinates?.response || config?.response;
-
-        if (!requestConfig?.api_config?.base_url || typeof requestConfig?.api_config?.parameters !== 'object') {
-            return { success: false, message: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
-        }
-
-        const finalUrl = buildApiUrl(requestConfig.api_config, { 'Address': fullAddress }, process.env);
-        const response = await fetch(finalUrl, { cache: 'no-store' });
-        const responseData = await response.json();
-
-        if (!response.ok) {
-            throw new Error(`La API respondió con el estado ${response.status}`);
-        }
-        
-        const lat = parseFloat(getNestedValue(responseData, responseConfig.lat));
-        const lon = parseFloat(getNestedValue(responseData, responseConfig.lon));
-
-        if (!isNaN(lat) && !isNaN(lon)) {
-            return { success: true, data: { lat, lon }, message: "Dirección encontrada." };
-        } else {
-            return { success: false, message: "No se pudieron extraer coordenadas válidas de la respuesta de la API.", data: null };
-        }
-
-    } catch (error: any) {
-        console.error("Error geocoding address:", error);
-        return { success: false, message: 'Error de servidor al geocodificar la dirección.' };
-    } finally {
-        if (client) client.release();
-    }
-}
-
+    
