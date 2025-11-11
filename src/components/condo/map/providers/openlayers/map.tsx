@@ -197,7 +197,7 @@ const OpenLayersMap: React.FC<MapProps> = ({
             config = {};
         }
         
-        const apiConfig = config.api_config || {};
+        const apiConfig = config.api_config || '';
         const baseUrl = apiConfig.base_url || '';
 
         let source;
