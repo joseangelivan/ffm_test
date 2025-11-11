@@ -13,6 +13,12 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
 import { geocodeAddress } from '@/actions/geocoding';
 
+import { fromLonLat } from 'ol/proj';
+import { getCenter } from 'ol/extent';
+import GeoJSON from 'ol/format/GeoJSON';
+import type { Geometry } from 'ol/geom';
+
+
 export const dynamic = 'force-dynamic';
 
 export default async function CondominioDashboardPage({ params }: { params: Promise<{ id: string }> }) {
@@ -70,7 +76,10 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
   
   const defaultGeofence = geofences.find(g => g.is_default);
 
-  if (!defaultGeofence) {
+  if (defaultGeofence) {
+    // If there's a geofence, we don't set a config. The frontend will fit to it.
+    initialMapConfig = null;
+  } else {
     if (condo.latitude && condo.longitude) {
       initialMapConfig = { center: { lat: condo.latitude, lng: condo.longitude }, zoom: 17 };
     } else {

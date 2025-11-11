@@ -64,7 +64,7 @@ export default function CondoMapTab({ condo, initialMapConfig, searchedPosition 
   const [vectorSource, setVectorSource] = useState<VectorSource | null>(null);
   const [mapAdapter, setMapAdapter] = useState<MapAdapterInterface | null>(null);
   
-  const [zoomLevel, setZoomLevel] = useState(initialMapConfig?.zoom || 15);
+  const [zoomLevel, setZoomLevel] = useState(initialMapConfig?.zoom || 4);
 
 
   const handleMapLoad = useCallback((map: OlMap, source: VectorSource, adapter: MapAdapterInterface) => {
@@ -73,6 +73,51 @@ export default function CondoMapTab({ condo, initialMapConfig, searchedPosition 
     setMapAdapter(adapter);
   }, []);
 
+  const applyZoomLevel = useCallback(() => {
+    if(!mapAdapter) return;
+    
+    let geofenceIdToFit: string | null;
+    if (mode === 'view') {
+        geofenceIdToFit = defaultGeofenceId;
+    } else {
+        const isEditingNewShape = selectedGeofenceId?.startsWith('new-shape-');
+        if (isEditingNewShape) {
+            return;
+        }
+        geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
+    }
+    
+    if (!geofenceIdToFit) {
+        if(initialMapConfig) {
+          mapAdapter.setCenter(initialMapConfig.center, 17);
+        }
+        return;
+    }
+    
+    if(mapAdapter.fitToGeofence) {
+        let paddingPercentage = 0.1;
+        if (fitLevel === '1') paddingPercentage = 0.05;
+        if (fitLevel === '3') paddingPercentage = 0.2;
+        mapAdapter.fitToGeofence(geofenceIdToFit, paddingPercentage);
+    }
+
+  }, [mode, defaultGeofenceId, selectedGeofenceId, fitLevel, mapAdapter, initialMapConfig]);
+
+  // This effect runs once when the map is loaded and ready.
+  // Its job is to set the initial view, either by fitting to the default geofence or staying at the initial config.
+  useEffect(() => {
+    if (!mapAdapter) return; // Wait for map to be ready
+
+    // If there's no initial config, it means we should fit to the geofence.
+    if (!initialMapConfig && defaultGeofenceId) {
+       const timeoutId = setTimeout(() => {
+        applyZoomLevel();
+      }, 250); // Small delay to ensure feature is drawn on map
+
+      return () => clearTimeout(timeoutId);
+    }
+    // If there IS an initial config, the map already loaded with it, so we do nothing.
+  }, [mapAdapter, defaultGeofenceId, initialMapConfig, applyZoomLevel]);
 
   // Initialize geofence selections on first load
   useEffect(() => {
@@ -129,34 +174,6 @@ export default function CondoMapTab({ condo, initialMapConfig, searchedPosition 
     if (!initialMapConfig || !mapAdapter) return;
     mapAdapter.setCenter(initialMapConfig.center, 17);
   }, [initialMapConfig, mapAdapter]);
-
-  const applyZoomLevel = useCallback(() => {
-    if(!mapAdapter) return;
-    
-    let geofenceIdToFit: string | null;
-    if (mode === 'view') {
-        geofenceIdToFit = defaultGeofenceId;
-    } else {
-        const isEditingNewShape = selectedGeofenceId?.startsWith('new-shape-');
-        if (isEditingNewShape) {
-            return;
-        }
-        geofenceIdToFit = selectedGeofenceId || defaultGeofenceId;
-    }
-    
-    if (!geofenceIdToFit) {
-        centerMapOnAddress();
-        return;
-    }
-    
-    if(mapAdapter.fitToGeofence) {
-        let paddingPercentage = 0.1;
-        if (fitLevel === '1') paddingPercentage = 0.05;
-        if (fitLevel === '3') paddingPercentage = 0.2;
-        mapAdapter.fitToGeofence(geofenceIdToFit, paddingPercentage);
-    }
-
-  }, [mode, defaultGeofenceId, selectedGeofenceId, fitLevel, centerMapOnAddress, mapAdapter]);
 
 
   useEffect(() => {
