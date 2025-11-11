@@ -29,7 +29,7 @@ const MapContainer: React.FC<any> = (props) => {
     }
     
     if (provider.provider_type === 'google') {
-        return <GoogleMap {...props} initialPosition={props.initialMapConfig?.center} />;
+        return <GoogleMap {...props} />;
     }
     
     // For 'openlayers', 'leaflet', 'mapbox'
