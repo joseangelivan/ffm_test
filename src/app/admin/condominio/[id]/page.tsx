@@ -13,12 +13,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
 import { geocodeAddress } from '@/actions/geocoding';
 
-import { fromLonLat } from 'ol/proj';
-import { getCenter } from 'ol/extent';
-import GeoJSON from 'ol/format/GeoJSON';
-import type { Geometry } from 'ol/geom';
-
-
 export const dynamic = 'force-dynamic';
 
 export default async function CondominioDashboardPage({ params }: { params: Promise<{ id: string }> }) {
@@ -74,31 +68,23 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
   let initialMapConfig: { center: { lat: number; lng: number }; zoom: number; } | null = null;
   let mapConfigError: string | null = null;
   
-  const defaultGeofence = geofences.find(g => g.is_default);
-
-  if (defaultGeofence) {
-    // If there's a geofence, we don't set a config. The frontend will fit to it.
-    initialMapConfig = null;
+  if (condo.latitude && condo.longitude) {
+    initialMapConfig = { center: { lat: condo.latitude, lng: condo.longitude }, zoom: 17 };
   } else {
-    if (condo.latitude && condo.longitude) {
-      initialMapConfig = { center: { lat: condo.latitude, lng: condo.longitude }, zoom: 17 };
-    } else {
-        const fullAddress = [condo.street, condo.number, condo.city, condo.state, condo.country].filter(Boolean).join(', ');
-        const geocodeResult = await geocodeAddress(fullAddress);
+      const fullAddress = [condo.street, condo.number, condo.city, condo.state, condo.country].filter(Boolean).join(', ');
+      const geocodeResult = await geocodeAddress(fullAddress);
 
-        if (geocodeResult.success && geocodeResult.data) {
-            initialMapConfig = { center: { lat: geocodeResult.data.lat, lng: geocodeResult.data.lon }, zoom: 17 };
-            // Fire-and-forget update
-            updateCondoCoordinates(condo.id, initialMapConfig.center.lat, initialMapConfig.center.lng);
-        } else {
-            console.warn(`Geocoding failed for condo ${condo.id}: ${geocodeResult.message}`);
-            mapConfigError = geocodeResult.message || "No se pudieron obtener las coordenadas para la dirección del condominio.";
-            // Provide a fallback view centered on the general country if geocoding fails
-            initialMapConfig = { center: { lat: -14.235, lng: -51.9253 }, zoom: 4 };
-        }
-    }
+      if (geocodeResult.success && geocodeResult.data) {
+          initialMapConfig = { center: { lat: geocodeResult.data.lat, lng: geocodeResult.data.lon }, zoom: 17 };
+          // Fire-and-forget update
+          updateCondoCoordinates(condo.id, initialMapConfig.center.lat, initialMapConfig.center.lng);
+      } else {
+          console.warn(`Geocoding failed for condo ${condo.id}: ${geocodeResult.message}`);
+          mapConfigError = geocodeResult.message || "No se pudieron obtener las coordenadas para la dirección del condominio.";
+          // Provide a fallback view centered on the general country if geocoding fails
+          initialMapConfig = { center: { lat: -14.235, lng: -51.9253 }, zoom: 4 };
+      }
   }
-
 
   const condoWithGeofences = { ...condo, geofences: geofences || [] };
   
