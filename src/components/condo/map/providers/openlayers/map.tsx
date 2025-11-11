@@ -216,9 +216,15 @@ const OpenLayersMap: React.FC<MapProps> = ({
         vectorLayer.set('id', 'geofence-layer');
         
         const view = new View({
-            center: fromLonLat([-51.9253, -14.235]),
-            zoom: 4,
+            center: fromLonLat([-51.9253, -14.235]), // Fallback center
+            zoom: 4, // Fallback zoom
         });
+
+        // Apply initial config if it exists
+        if (initialMapConfig) {
+            view.setCenter(fromLonLat([initialMapConfig.center.lng, initialMapConfig.center.lat]));
+            view.setZoom(initialMapConfig.zoom);
+        }
 
         const map = new Map({
             target: mapContainerRef.current!,
@@ -273,26 +279,25 @@ const OpenLayersMap: React.FC<MapProps> = ({
             if (zoom) onZoomChange(Math.round(zoom));
         });
 
-    }, [provider, onMapLoad, onZoomChange]);
+    }, [provider, onMapLoad, onZoomChange, initialMapConfig]);
 
-    // This effect runs once after the map is initialized to set the initial view
+    // This effect runs to fit to the default geofence if no initial config was provided
     useEffect(() => {
         const map = mapRef.current;
         const adapter = adapterRef.current;
-        if (!map || !adapter) return;
-
-        // If an initialMapConfig is provided (meaning no geofence), center on it.
-        if (initialMapConfig) {
-            adapter.setCenter(initialMapConfig.center, initialMapConfig.zoom);
-        } else if (defaultGeofenceId) {
-            // Otherwise, if there is a default geofence, fit to it.
-            const source = vectorSourceRef.current;
-            const feature = source.getFeatureById(defaultGeofenceId);
-            if (feature) {
-                adapter.fitToGeofence(defaultGeofenceId, 0.1);
-            }
+        // Check if map is loaded, geofences are present, and no initial config was given
+        if (map && adapter && !initialMapConfig && defaultGeofenceId && dbGeofences.length > 0) {
+            // We use a short timeout to ensure the feature has been added to the source before fitting
+            const timeoutId = setTimeout(() => {
+                const feature = vectorSourceRef.current.getFeatureById(defaultGeofenceId);
+                if (feature) {
+                    adapter.fitToGeofence(defaultGeofenceId, 0.1);
+                }
+            }, 100); // 100ms delay as a safeguard
+            
+            return () => clearTimeout(timeoutId);
         }
-    }, [initialMapConfig, defaultGeofenceId, dbGeofences]); // Depends on dbGeofences to ensure the feature exists
+    }, [initialMapConfig, defaultGeofenceId, dbGeofences]);
 
 
     useEffect(() => {
