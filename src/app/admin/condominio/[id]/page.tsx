@@ -65,7 +65,7 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
 
   const condo = condoResult.data;
   
-  let mapConfig: { center: { lat: number; lng: number }; zoom: number; } | null = null;
+  let mapConfig: { center: { lat: number; lng: number }; zoom: number; };
   
   // --- New Geocoding Logic ---
   // Priority:

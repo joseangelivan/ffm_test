@@ -275,23 +275,6 @@ const OpenLayersMap: React.FC<MapProps> = ({
 
     }, [provider, onMapLoad, onZoomChange, initialMapConfig]);
 
-    useEffect(() => {
-        const map = mapRef.current;
-        const adapter = adapterRef.current;
-        if (!map || !adapter) return;
-        
-        const timeoutId = setTimeout(() => {
-             if (initialMapConfig) {
-                 adapter.setCenter(initialMapConfig.center, initialMapConfig.zoom);
-             } else if (defaultGeofenceId) {
-                adapter.fitToGeofence(defaultGeofenceId, 0.1);
-             }
-        }, 100);
-        
-        return () => clearTimeout(timeoutId);
-
-    }, [defaultGeofenceId, initialMapConfig]);
-
 
     useEffect(() => {
         const source = vectorSourceRef.current;
