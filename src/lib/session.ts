@@ -72,10 +72,10 @@ export async function createSession(userId: string, userType: 'admin' | 'residen
         
         (await cookies()).set('session', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: true,
             expires: expirationDate,
             path: '/',
-            sameSite: 'lax',
+            sameSite: 'none',
         });
 
         console.log(`[createSession] Session successfully created for ${userType} ${userId}.`);
