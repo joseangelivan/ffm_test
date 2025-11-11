@@ -35,11 +35,10 @@ import { cn } from '@/lib/utils';
 import type { SessionPayload } from '@/lib/session';
 import { handleLogoutAction } from '@/lib/session';
 import type { UserSettings } from '@/actions/admin';
-import { getActiveTheme, updateSettings, getDefaultMapProvider } from '@/actions/admin';
+import { getActiveTheme, updateSettings, getDefaultMapProvider, processAndGetConfig } from '@/actions/admin';
 import { type Theme } from '@/actions/themes';
 import { type MapProvider as DbMapProvider } from '@/actions/map_providers';
 import { CondoDashboardContext } from '@/contexts/condo-dashboard-context';
-import { processAndGetConfig } from '@/actions/map_providers';
 import { Alert, AlertDescription as AlertDescription, AlertTitle as AlertTitle } from './ui/alert';
 import { AlertTriangle } from 'lucide-react';
 
