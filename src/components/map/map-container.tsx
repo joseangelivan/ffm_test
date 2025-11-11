@@ -22,18 +22,18 @@ const GoogleMap = dynamic(() => import('@/components/condo/map/providers/google/
 
 
 const MapContainer: React.FC<any> = (props) => {
-    const { provider } = props;
+    const { provider, initialPosition } = props;
 
     if (!provider) {
         return <div className="flex items-center justify-center h-full bg-muted"><Loader className="h-6 w-6 animate-spin" /></div>;
     }
     
     if (provider.provider_type === 'google') {
-        return <GoogleMap {...props} />;
+        return <GoogleMap {...props} initialMapConfig={initialPosition} />;
     }
     
     // For 'openlayers', 'leaflet', 'mapbox'
-    return <OpenLayersMap {...props} />;
+    return <OpenLayersMap {...props} initialPosition={initialPosition} />;
 }
 
 export default MapContainer;
