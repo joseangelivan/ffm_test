@@ -32,11 +32,11 @@ import type { Geometry } from 'ol/geom';
 
 interface CondoMapTabProps {
   condo: Condominio & { geofences: DbGeofence[] };
-  initialPosition: { lat: number; lng: number } | null;
+  initialMapConfig: { center: { lat: number; lng: number }; zoom: number; } | null;
   searchedPosition: { lat: number, lng: number } | null;
 }
 
-export default function CondoMapTab({ condo, initialPosition, searchedPosition }: CondoMapTabProps) {
+export default function CondoMapTab({ condo, initialMapConfig, searchedPosition }: CondoMapTabProps) {
   const { t } = useLocale();
   const { toast } = useToast();
   const { mapProvider } = useCondoDashboard();
@@ -64,7 +64,7 @@ export default function CondoMapTab({ condo, initialPosition, searchedPosition }
   const [vectorSource, setVectorSource] = useState<VectorSource | null>(null);
   const [mapAdapter, setMapAdapter] = useState<MapAdapterInterface | null>(null);
   
-  const [zoomLevel, setZoomLevel] = useState(15);
+  const [zoomLevel, setZoomLevel] = useState(initialMapConfig?.zoom || 15);
 
 
   const handleMapLoad = useCallback((map: OlMap, source: VectorSource, adapter: MapAdapterInterface) => {
@@ -126,9 +126,9 @@ export default function CondoMapTab({ condo, initialPosition, searchedPosition }
   }, [condo.id, selectedGeofenceId, toast, t]);
 
   const centerMapOnAddress = useCallback(() => {
-    if (!initialPosition || !mapAdapter) return;
-    mapAdapter.setCenter(initialPosition, 17);
-  }, [initialPosition, mapAdapter]);
+    if (!initialMapConfig || !mapAdapter) return;
+    mapAdapter.setCenter(initialMapConfig.center, 17);
+  }, [initialMapConfig, mapAdapter]);
 
   const applyZoomLevel = useCallback(() => {
     if(!mapAdapter) return;
@@ -222,7 +222,7 @@ export default function CondoMapTab({ condo, initialPosition, searchedPosition }
                  <div className="text-right">
                     <h3 className="font-semibold">{condo.name}</h3>
                     <p className="text-xs text-muted-foreground">{condo.address}</p>
-                    <Button onClick={centerMapOnAddress} variant="link" size="sm" className="p-0 h-auto" disabled={!initialPosition}>
+                    <Button onClick={centerMapOnAddress} variant="link" size="sm" className="p-0 h-auto" disabled={!initialMapConfig}>
                         <Locate className="h-3 w-3 mr-1" />
                         {t('condoDashboard.map.recenterOnAddress')}
                     </Button>
@@ -241,7 +241,7 @@ export default function CondoMapTab({ condo, initialPosition, searchedPosition }
                                 selectedGeofenceId={selectedGeofenceId}
                                 defaultGeofenceId={defaultGeofenceId}
                                 mode={mode}
-                                initialPosition={initialPosition}
+                                initialMapConfig={initialMapConfig}
                                 shapeBeingSaved={shapeBeingSaved}
                                 onZoomChange={setZoomLevel}
                             />

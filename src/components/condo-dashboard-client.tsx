@@ -48,10 +48,10 @@ type CondoDashboardClientProps = {
     initialDevices: Device[];
     initialSettings: UserSettings;
     mapProvider: DbMapProvider | null;
-    initialPosition: { lat: number; lng: number } | null;
+    initialMapConfig: { center: { lat: number; lng: number }; zoom: number; } | null;
 };
 
-export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider: initialMapProvider, initialPosition: pageInitialPosition }: CondoDashboardClientProps) { 
+export default function CondoDashboardClient({ session, initialCondo, initialDevices, initialSettings, mapProvider: initialMapProvider, initialMapConfig }: CondoDashboardClientProps) { 
   const { t, setLocale } = useLocale();
   const router = useRouter();
 
@@ -185,7 +185,7 @@ export default function CondoDashboardClient({ session, initialCondo, initialDev
                         {mapProvider ? (
                             <CondoMapTab 
                               condo={initialCondo} 
-                              initialPosition={pageInitialPosition}
+                              initialMapConfig={initialMapConfig}
                               searchedPosition={searchedPosition}
                             />
                         ) : (

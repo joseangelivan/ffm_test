@@ -59,13 +59,13 @@ const loadGoogleMapsApi = (apiKey: string, language: string, onAuthFailure: () =
 
 interface GoogleMapProps {
     provider: DbMapProvider;
-    initialPosition?: { lat: number; lng: number };
+    initialMapConfig?: { center: { lat: number; lng: number }; zoom: number; };
     onMapLoad: (map: any, adapter: any) => void;
 }
 
 const GoogleMap: React.FC<GoogleMapProps> = ({ 
     provider, 
-    initialPosition = { lat: -14.235, lng: -51.9253 },
+    initialMapConfig = { center: { lat: -14.235, lng: -51.9253 }, zoom: 4 },
     onMapLoad,
 }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -98,8 +98,8 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
                     setApiStatus('ready');
                     
                     const map = new window.google.maps.Map(mapContainerRef.current!, {
-                        center: initialPosition,
-                        zoom: 15,
+                        center: initialMapConfig.center,
+                        zoom: initialMapConfig.zoom,
                         disableDefaultUI: true,
                         gestureHandling: "cooperative"
                     });

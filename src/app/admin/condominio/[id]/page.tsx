@@ -65,7 +65,7 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
 
   const condo = condoResult.data;
   
-  let initialPosition: { lat: number; lng: number } | null = null;
+  let mapConfig: { center: { lat: number; lng: number }; zoom: number; } | null = null;
   
   // --- New Geocoding Logic ---
   // Priority:
@@ -75,27 +75,30 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
   // 4. If geocoding fails, use an absolute fallback.
   
   if (condo.latitude && condo.longitude) {
-    initialPosition = { lat: condo.latitude, lng: condo.longitude };
+    mapConfig = { center: { lat: condo.latitude, lng: condo.longitude }, zoom: 17 };
   } else {
     const defaultGeofence = geofences.find(g => g.is_default);
 
     if (defaultGeofence?.geometry?.center) {
-        initialPosition = { 
-            lat: defaultGeofence.geometry.center[1], 
-            lng: defaultGeofence.geometry.center[0] 
+        mapConfig = { 
+            center: { 
+                lat: defaultGeofence.geometry.center[1], 
+                lng: defaultGeofence.geometry.center[0] 
+            },
+            zoom: 17 // Default zoom for geofence
         };
     } else {
         const fullAddress = [condo.street, condo.number, condo.city, condo.state, condo.country].filter(Boolean).join(', ');
         const geocodeResult = await geocodeAddress(fullAddress);
 
         if (geocodeResult.success && geocodeResult.data) {
-            initialPosition = { lat: geocodeResult.data.lat, lng: geocodeResult.data.lon };
+            mapConfig = { center: { lat: geocodeResult.data.lat, lng: geocodeResult.data.lon }, zoom: 17 };
             // Fire-and-forget update to the database for future requests
-            updateCondoCoordinates(condo.id, initialPosition.lat, initialPosition.lng);
+            updateCondoCoordinates(condo.id, mapConfig.center.lat, mapConfig.center.lng);
         } else {
             console.warn(`Geocoding failed for condo ${condo.id}: ${geocodeResult.message}`);
             // Absolute fallback if everything else fails
-            initialPosition = { lat: -14.235, lng: -51.9253 };
+            mapConfig = { center: { lat: -14.235, lng: -51.9253 }, zoom: 4 };
         }
     }
   }
@@ -111,7 +114,7 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
           initialDevices={devices}
           initialSettings={settings}
           mapProvider={mapProvider}
-          initialPosition={initialPosition}
+          initialMapConfig={mapConfig}
         />
     </Suspense>
   );
