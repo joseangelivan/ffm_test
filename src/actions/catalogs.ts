@@ -3,6 +3,7 @@
 
 import { z } from 'zod';
 import { getDbPool } from '@/lib/db';
+import { PoolClient } from 'pg';
 
 export type TranslationObject = {
     es: string;
@@ -58,21 +59,35 @@ const ProtocolSchema = z.object({
 });
 
 
-// --- Device Types Actions ---
-
-export async function getDeviceTypes(): Promise<DeviceType[]> {
-    let client;
+// --- Helper function to manage client connection ---
+async function withDbClient<T>(operation: (client: PoolClient) => Promise<T>): Promise<T | null> {
+    let client: PoolClient | undefined;
     try {
         const pool = await getDbPool();
+        if (!pool) {
+            console.error("Database connection pool is not available.");
+            return null;
+        }
         client = await pool.connect();
+        return await operation(client);
+    } catch (error) {
+        console.error("Database operation failed:", error);
+        return null;
+    } finally {
+        if (client) {
+            client.release();
+        }
+    }
+}
+
+
+// --- Device Types Actions ---
+
+export async function getDeviceTypes(): Promise<DeviceType[] | null> {
+    return withDbClient(async (client) => {
         const result = await client.query('SELECT id, name_translations, features_translations FROM device_types ORDER BY id');
         return result.rows;
-    } catch (error) {
-        console.error("Error getting device types:", error);
-        return [];
-    } finally {
-        if (client) client.release();
-    }
+    });
 }
 
 export async function createDeviceType(prevState: any, formData: FormData): Promise<ActionState> {
@@ -101,20 +116,18 @@ export async function createDeviceType(prevState: any, formData: FormData): Prom
     const name_translations = { es: name_es, 'pt-BR': name_pt };
     const features_translations = (features_es || features_pt) ? { es: features_es || '', 'pt-BR': features_pt || '' } : null;
 
-    let client;
-    try {
-        const pool = await getDbPool();
-        client = await pool.connect();
+    const result = await withDbClient(async (client) => {
         await client.query(
             'INSERT INTO device_types (name_translations, features_translations) VALUES ($1, $2)',
             [name_translations, features_translations]
         );
+        return { success: true };
+    });
+
+    if (result) {
         return { success: true, message: 'Tipo de dispositivo creado con éxito.' };
-    } catch (error) {
-        console.error("Error creating device type:", error);
+    } else {
         return { success: false, message: 'Error del servidor.' };
-    } finally {
-        if (client) client.release();
     }
 }
 
@@ -147,56 +160,44 @@ export async function updateDeviceType(prevState: any, formData: FormData): Prom
     const name_translations = { es: name_es, 'pt-BR': name_pt };
     const features_translations = (features_es || features_pt) ? { es: features_es || '', 'pt-BR': features_pt || '' } : null;
 
-    let client;
-    try {
-        const pool = await getDbPool();
-        client = await pool.connect();
+    const result = await withDbClient(async (client) => {
         await client.query(
             'UPDATE device_types SET name_translations = $1, features_translations = $2, updated_at = NOW() WHERE id = $3',
             [name_translations, features_translations, id]
         );
+        return { success: true };
+    });
+    
+    if (result) {
         return { success: true, message: 'Tipo de dispositivo actualizado con éxito.' };
-    } catch (error) {
-        console.error("Error updating device type:", error);
+    } else {
         return { success: false, message: 'Error del servidor.' };
-    } finally {
-        if (client) client.release();
     }
 }
 
 export async function deleteDeviceType(id: string): Promise<ActionState> {
     if (!id) return { success: false, message: "ID no proporcionado." };
 
-    let client;
-    try {
-        const pool = await getDbPool();
-        client = await pool.connect();
+    const result = await withDbClient(async (client) => {
         await client.query('DELETE FROM device_types WHERE id = $1', [id]);
+        return { success: true };
+    });
+
+    if (result) {
         return { success: true, message: 'Tipo de dispositivo eliminado con éxito.' };
-    } catch (error) {
-        console.error("Error deleting device type:", error);
+    } else {
         return { success: false, message: 'Error del servidor.' };
-    } finally {
-        if (client) client.release();
     }
 }
 
 
 // --- Language Actions ---
 
-export async function getLanguages(): Promise<Language[]> {
-    let client;
-    try {
-        const pool = await getDbPool();
-        client = await pool.connect();
+export async function getLanguages(): Promise<Language[] | null> {
+    return withDbClient(async (client) => {
         const result = await client.query('SELECT id, name_translations FROM languages ORDER BY id');
         return result.rows;
-    } catch (error) {
-        console.error("Error getting languages:", error);
-        return [];
-    } finally {
-        if (client) client.release();
-    }
+    });
 }
 
 export async function createLanguage(prevState: any, formData: FormData): Promise<ActionState> {
@@ -212,10 +213,11 @@ export async function createLanguage(prevState: any, formData: FormData): Promis
     
     const { id, name_es, name_pt } = validatedFields.data;
     const name_translations = { es: name_es, 'pt-BR': name_pt };
-
+    
     let client;
     try {
         const pool = await getDbPool();
+        if(!pool) throw new Error("Database connection failed");
         client = await pool.connect();
         await client.query(
             'INSERT INTO languages (id, name_translations) VALUES ($1, $2)',
@@ -247,20 +249,18 @@ export async function updateLanguage(prevState: any, formData: FormData): Promis
     const { id, name_es, name_pt } = validatedFields.data;
     const name_translations = { es: name_es, 'pt-BR': name_pt };
 
-    let client;
-    try {
-        const pool = await getDbPool();
-        client = await pool.connect();
+    const result = await withDbClient(async (client) => {
         await client.query(
             'UPDATE languages SET name_translations = $1, updated_at = NOW() WHERE id = $2',
             [name_translations, id]
         );
+        return { success: true };
+    });
+
+    if (result) {
         return { success: true, message: 'Idioma actualizado con éxito.' };
-    } catch (error) {
-        console.error("Error updating language:", error);
+    } else {
         return { success: false, message: 'Error del servidor.' };
-    } finally {
-        if (client) client.release();
     }
 }
 
@@ -270,36 +270,26 @@ export async function deleteLanguage(id: string): Promise<ActionState> {
         return { success: false, message: "No se pueden eliminar los idiomas predeterminados de la interfaz." };
     }
 
-    let client;
-    try {
-        const pool = await getDbPool();
-        client = await pool.connect();
+    const result = await withDbClient(async (client) => {
         await client.query('DELETE FROM languages WHERE id = $1', [id]);
+        return { success: true };
+    });
+
+    if (result) {
         return { success: true, message: 'Idioma eliminado con éxito.' };
-    } catch (error) {
-        console.error("Error deleting language:", error);
+    } else {
         return { success: false, message: 'Error del servidor.' };
-    } finally {
-        if (client) client.release();
     }
 }
 
 
 // --- Protocol Actions ---
 
-export async function getProtocols(): Promise<Protocol[]> {
-    let client;
-    try {
-        const pool = await getDbPool();
-        client = await pool.connect();
+export async function getProtocols(): Promise<Protocol[] | null> {
+    return withDbClient(async (client) => {
         const result = await client.query('SELECT id, name, features_translations FROM protocols ORDER BY name');
         return result.rows;
-    } catch (error) {
-        console.error("Error getting protocols:", error);
-        return [];
-    } finally {
-        if (client) client.release();
-    }
+    });
 }
 
 export async function createProtocol(prevState: any, formData: FormData): Promise<ActionState> {
@@ -319,6 +309,7 @@ export async function createProtocol(prevState: any, formData: FormData): Promis
     let client;
     try {
         const pool = await getDbPool();
+        if(!pool) throw new Error("Database connection failed");
         client = await pool.connect();
         await client.query(
             'INSERT INTO protocols (name, features_translations) VALUES ($1, $2)',
@@ -356,6 +347,7 @@ export async function updateProtocol(prevState: any, formData: FormData): Promis
     let client;
     try {
         const pool = await getDbPool();
+        if(!pool) throw new Error("Database connection failed");
         client = await pool.connect();
         await client.query(
             'UPDATE protocols SET name = $1, features_translations = $2, updated_at = NOW() WHERE id = $3',
@@ -376,16 +368,16 @@ export async function updateProtocol(prevState: any, formData: FormData): Promis
 export async function deleteProtocol(id: string): Promise<ActionState> {
     if (!id) return { success: false, message: "ID no proporcionado." };
 
-    let client;
-    try {
-        const pool = await getDbPool();
-        client = await pool.connect();
+    const result = await withDbClient(async (client) => {
         await client.query('DELETE FROM protocols WHERE id = $1', [id]);
+        return { success: true };
+    });
+
+    if (result) {
         return { success: true, message: 'Protocolo eliminado con éxito.' };
-    } catch (error) {
-        console.error("Error deleting protocol:", error);
+    } else {
         return { success: false, message: 'Error del servidor.' };
-    } finally {
-        if (client) client.release();
     }
 }
+
+    
