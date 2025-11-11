@@ -281,10 +281,10 @@ const OpenLayersMap: React.FC<MapProps> = ({
         if (!map || !adapter) return;
         
         const timeoutId = setTimeout(() => {
-             if (defaultGeofenceId) {
-                adapter.fitToGeofence(defaultGeofenceId, 0.1);
-             } else if (initialMapConfig) {
+             if (initialMapConfig) {
                  adapter.setCenter(initialMapConfig.center, initialMapConfig.zoom);
+             } else if (defaultGeofenceId) {
+                adapter.fitToGeofence(defaultGeofenceId, 0.1);
              }
         }, 100);
         
