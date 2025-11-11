@@ -68,38 +68,25 @@ export default async function CondominioDashboardPage({ params }: { params: Prom
   let mapConfig: { center: { lat: number; lng: number }; zoom: number; } | null = null;
   let mapConfigError: string | null = null;
   
-  // --- New Geocoding Logic ---
-  if (condo.latitude && condo.longitude) {
-    mapConfig = { center: { lat: condo.latitude, lng: condo.longitude }, zoom: 17 };
-  } else {
-    const defaultGeofence = geofences.find(g => g.is_default);
+  const defaultGeofence = geofences.find(g => g.is_default);
 
-    if (defaultGeofence?.geometry?.center) {
-        mapConfig = { 
-            center: { 
-                lat: defaultGeofence.geometry.center[1], 
-                lng: defaultGeofence.geometry.center[0] 
-            },
-            zoom: 17
-        };
+  // If there's no default geofence, we set an initial position. Otherwise, the map will center itself.
+  if (!defaultGeofence) {
+    if (condo.latitude && condo.longitude) {
+      mapConfig = { center: { lat: condo.latitude, lng: condo.longitude }, zoom: 17 };
     } else {
         const fullAddress = [condo.street, condo.number, condo.city, condo.state, condo.country].filter(Boolean).join(', ');
         const geocodeResult = await geocodeAddress(fullAddress);
 
         if (geocodeResult.success && geocodeResult.data) {
             mapConfig = { center: { lat: geocodeResult.data.lat, lng: geocodeResult.data.lon }, zoom: 17 };
-            // Fire-and-forget update to the database for future requests
             updateCondoCoordinates(condo.id, mapConfig.center.lat, mapConfig.center.lng);
         } else {
             console.warn(`Geocoding failed for condo ${condo.id}: ${geocodeResult.message}`);
             mapConfigError = geocodeResult.message || "No se pudieron obtener las coordenadas para la dirección del condominio.";
+            mapConfig = { center: { lat: -14.235, lng: -51.9253 }, zoom: 4 };
         }
     }
-  }
-  
-  if (!mapConfig && !mapConfigError) {
-      // Absolute fallback if everything else fails without an error
-      mapConfig = { center: { lat: -14.235, lng: -51.9253 }, zoom: 4 };
   }
 
 

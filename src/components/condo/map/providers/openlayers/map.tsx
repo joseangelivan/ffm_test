@@ -216,8 +216,8 @@ const OpenLayersMap: React.FC<MapProps> = ({
         vectorLayer.set('id', 'geofence-layer');
         
         const view = new View({
-            center: fromLonLat(initialMapConfig ? [initialMapConfig.center.lng, initialMapConfig.center.lat] : [-51.9253, -14.235]),
-            zoom: initialMapConfig ? initialMapConfig.zoom : 4,
+            center: fromLonLat([-51.9253, -14.235]),
+            zoom: 4,
         });
 
         const map = new Map({
@@ -273,7 +273,26 @@ const OpenLayersMap: React.FC<MapProps> = ({
             if (zoom) onZoomChange(Math.round(zoom));
         });
 
-    }, [provider, onMapLoad, onZoomChange, initialMapConfig]);
+    }, [provider, onMapLoad, onZoomChange]);
+
+    // This effect runs once after the map is initialized to set the initial view
+    useEffect(() => {
+        const map = mapRef.current;
+        const adapter = adapterRef.current;
+        if (!map || !adapter) return;
+
+        // If an initialMapConfig is provided (meaning no geofence), center on it.
+        if (initialMapConfig) {
+            adapter.setCenter(initialMapConfig.center, initialMapConfig.zoom);
+        } else if (defaultGeofenceId) {
+            // Otherwise, if there is a default geofence, fit to it.
+            const source = vectorSourceRef.current;
+            const feature = source.getFeatureById(defaultGeofenceId);
+            if (feature) {
+                adapter.fitToGeofence(defaultGeofenceId, 0.1);
+            }
+        }
+    }, [initialMapConfig, defaultGeofenceId, dbGeofences]); // Depends on dbGeofences to ensure the feature exists
 
 
     useEffect(() => {
