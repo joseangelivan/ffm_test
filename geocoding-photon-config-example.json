@@ -1,3 +1,4 @@
+
 {
   "geocoordinates": {
     "request": {
@@ -19,7 +20,10 @@
       "api_config": {
         "base_url": "https://photon.komoot.io/api/",
         "parameters": {
-          "q": "$Address",
+          "q": {
+            "values": ["$Address", "$city", "$state", "$country"],
+            "separator": ", "
+          },
           "lat": {
             "value": "$city_lat",
             "optional": true
