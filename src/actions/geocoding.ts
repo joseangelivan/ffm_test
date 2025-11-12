@@ -100,7 +100,13 @@ async function geocodeWithService(
             return { success: false, error: "La configuración JSON de respuesta no define las rutas 'lat' y 'lon'." };
         }
 
-        const results = responseConfig.results_path ? getNestedValue(responseData, responseConfig.results_path) : responseData;
+        let results = responseData;
+        if (responseConfig.results_path) {
+            const nestedResults = getNestedValue(responseData, responseConfig.results_path);
+            if (nestedResults !== undefined) {
+                results = nestedResults;
+            }
+        }
         
         if (!Array.isArray(results) || results.length === 0) {
             return { success: false, error: "No se encontraron resultados en la respuesta de la API." };
