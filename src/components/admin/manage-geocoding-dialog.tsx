@@ -251,15 +251,15 @@ export function ManageGeocodingDialog() {
   
   const fetchServices = useCallback(async () => {
     setIsLoading(true);
-    try {
-        const result = await getGeocodingServices();
-        setServices(Array.isArray(result) ? result : []);
-    } catch (e) {
+    const result = await getGeocodingServices();
+    if (result.services) {
+        setServices(result.services);
+    } else if (result.error) {
+        toast({ title: t('toast.errorTitle'), description: result.error, variant: 'destructive', copyable: true });
         setServices([]);
-        console.error("Failed to fetch geocoding services", e);
     }
     setIsLoading(false);
-  }, []);
+  }, [toast, t]);
 
   useEffect(() => {
     if (isListOpen) {

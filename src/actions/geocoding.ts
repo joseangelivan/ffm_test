@@ -117,17 +117,17 @@ async function geocodeWithService(
 }
 
 
-export async function getGeocodingServices(): Promise<GeocodingService[]> {
+export async function getGeocodingServices(): Promise<{ services?: GeocodingService[], error?: string }> {
     let client;
     try {
         const pool = await getDbPool();
-        if (!pool) return [];
+        if (!pool) return { error: "Error del servidor." };
         client = await pool.connect();
         const result = await client.query('SELECT * FROM geocoding_services ORDER BY created_at ASC');
-        return result.rows;
-    } catch (error) {
+        return { services: result.rows };
+    } catch (error: any) {
         console.error("Error getting geocoding services:", error);
-        return [];
+        return { error: error.message || 'Error del servidor.' };
     } finally {
         if (client) client.release();
     }
