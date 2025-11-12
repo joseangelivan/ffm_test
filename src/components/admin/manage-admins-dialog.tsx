@@ -174,7 +174,7 @@ export function ManageAdminsDialog({ session }: { session: SessionPayload }) {
         const result = await getAdmins();
         if (result.admins) {
             setAdmins(result.admins);
-        } else {
+        } else if (result.error) {
             toast({ title: t('toast.errorTitle'), description: result.error, variant: 'destructive', copyable: true });
         }
         setLoadingAdmins(false);
@@ -306,3 +306,5 @@ export function ManageAdminsDialog({ session }: { session: SessionPayload }) {
         </>
     )
 }
+
+    
