@@ -311,9 +311,9 @@ export function ManageGeocodingDialog() {
       setTestingId(id);
       startSubmitting(async () => {
           const result = await testGeocodingService(id);
-          if (result.success) {
+          if (result?.success) {
               toast({ title: t('toast.successTitle'), description: result.message, duration: 9000 });
-          } else {
+          } else if (result) {
               toast({ 
                 title: t('toast.errorTitle'), 
                 description: result.message, 
@@ -480,4 +480,5 @@ export function ManageGeocodingDialog() {
     </>
   );
 }
+
 

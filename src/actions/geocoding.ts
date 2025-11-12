@@ -121,7 +121,7 @@ export async function getGeocodingServices(): Promise<{ services?: GeocodingServ
     let client;
     try {
         const pool = await getDbPool();
-        if (!pool) return { error: "Error del servidor." };
+        if (!pool) return { error: "Error del servidor al conectar con la base de datos." };
         client = await pool.connect();
         const result = await client.query('SELECT * FROM geocoding_services ORDER BY created_at ASC');
         return { services: result.rows };
@@ -314,7 +314,7 @@ export async function testGeocodingService(id: string): Promise<ActionState> {
     try {
         const pool = await getDbPool();
         if (!pool) {
-            return { success: false, message: "Error al leer la configuración de la base de datos." };
+            return { success: false, message: "Error del servidor: no se pudo conectar a la base de datos." };
         }
         client = await pool.connect();
         const result = await client.query('SELECT * FROM geocoding_services WHERE id = $1', [id]);
@@ -558,3 +558,4 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
     
 
     
+
