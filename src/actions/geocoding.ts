@@ -95,34 +95,38 @@ async function geocodeWithService(
             };
         }
         
-        const latPath = responseConfig.lat;
-        const lonPath = responseConfig.lon;
+        const latPath = responseConfig.lat_path;
+        const lonPath = responseConfig.lon_path;
 
         if (!latPath || !lonPath) {
-            return { success: false, error: "La configuración JSON de respuesta no define las rutas 'lat' y 'lon'." };
+            return { success: false, error: "La configuración JSON de respuesta no define las rutas 'lat_path' y 'lon_path'." };
         }
 
         let results = responseData;
-        if (responseConfig.results_path) {
+        if (responseConfig.results_path && responseConfig.results_path !== '.') {
             const nestedResults = getNestedValue(responseData, responseConfig.results_path);
-            if (nestedResults !== undefined) {
+             if (nestedResults !== undefined) {
                 results = nestedResults;
             }
         }
         
-        if (!Array.isArray(results) || results.length === 0) {
-            if (responseConfig.results_path === '.') { // The root is the result array
+        if (!Array.isArray(results)) {
+             if (responseConfig.results_path === '.') { // The root is the result array
                 results = [responseData];
-            } else {
-                return { success: false, error: "No se encontraron resultados en la respuesta de la API." };
-            }
+             } else if (results) {
+                 results = [results];
+             }
+        }
+
+        if (!results || results.length === 0) {
+             return { success: false, error: "No se encontraron resultados en la respuesta de la API." };
         }
 
         let resultItem = results[0]; // Default to the first result
 
         // If a city and city_path are provided, try to find a better match
         if (addressFields.city && responseConfig.city_path) {
-            const cityMatch = results.find(r => {
+            const cityMatch = results.find((r:any) => {
                 const resultCity = getNestedValue(r, responseConfig.city_path);
                 return resultCity && resultCity.toLowerCase().includes(addressFields.city!.toLowerCase());
             });
@@ -547,20 +551,20 @@ export async function autocompleteAddress(request: AutocompleteRequest): Promise
         
         // Server-side filtering by city if a city is provided in the request
         if (request.city && config.response.city_path) {
-            results = results.filter(r => {
+            results = results.filter((r:any) => {
                 const resultCity = getNestedValue(r, config.response.city_path);
                 return resultCity && resultCity.toLowerCase().includes(request.city!.toLowerCase());
             });
         }
         
-        const suggestions: AutocompleteResult[] = results.map(r => ({
+        const suggestions: AutocompleteResult[] = results.map((r:any) => ({
             address: getNestedValue(r, config.response.address_path),
             lat: parseFloat(getNestedValue(r, config.response.lat_path)),
             lon: parseFloat(getNestedValue(r, config.response.lon_path)),
             city: config.response.city_path ? getNestedValue(r, config.response.city_path) : undefined,
             state: config.response.state_path ? getNestedValue(r, config.response.state_path) : undefined,
             postcode: config.response.postcode_path ? getNestedValue(r, config.response.postcode_path) : undefined,
-        })).filter(s => s.address && !isNaN(s.lat) && !isNaN(s.lon));
+        })).filter((s:any) => s.address && !isNaN(s.lat) && !isNaN(s.lon));
         
         return { success: true, message: "Sugerencias obtenidas.", data: suggestions };
 

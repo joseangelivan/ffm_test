@@ -58,7 +58,7 @@
       }
     },
     "response": {
-      "results_path": "",
+      "results_path": ".",
       "address_path": "address.road",
       "lat_path": "lat",
       "lon_path": "lon",
