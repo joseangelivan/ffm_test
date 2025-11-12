@@ -15,8 +15,8 @@
     },
     "response": {
       "results_path": "features",
-      "lat": "geometry.coordinates.1",
-      "lon": "geometry.coordinates.0",
+      "lat_path": "geometry.coordinates.1",
+      "lon_path": "geometry.coordinates.0",
       "city_path": "properties.city"
     }
   },
