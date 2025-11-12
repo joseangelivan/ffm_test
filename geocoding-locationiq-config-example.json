@@ -28,8 +28,8 @@
     "response": {
       "lat_path": "lat",
       "lon_path": "lon",
-      "results_path": "",
-      "city_path": "address.city"
+      "city_path": "address.city",
+      "results_path": "."
     }
   },
   "autocomplete": {
