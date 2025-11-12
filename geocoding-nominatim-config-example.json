@@ -5,8 +5,17 @@
       "api_config": {
         "base_url": "https://nominatim.openstreetmap.org/search",
         "parameters": {
-          "q": "$Address",
-          "format": "json"
+          "q": {
+            "values": [
+              "$Address",
+              "$city",
+              "$state",
+              "$country"
+            ],
+            "separator": ", "
+          },
+          "format": "json",
+          "limit": 1
         }
       }
     },
