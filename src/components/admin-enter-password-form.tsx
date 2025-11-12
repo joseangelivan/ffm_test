@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import Link from 'next/link';
@@ -140,6 +141,12 @@ export function AdminEnterPasswordForm() {
       router.replace('/admin/login');
     }
   }, [email, router]);
+
+   useEffect(() => {
+    if (state?.success && state.redirect) {
+      router.push(state.redirect);
+    }
+  }, [state, router]);
 
   if (!email) {
     return (
