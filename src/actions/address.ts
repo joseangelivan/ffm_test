@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { z } from 'zod';
@@ -588,11 +589,15 @@ export async function testAddressService(id: string): Promise<ActionState> {
     let service: AddressService | null = null;
     try {
         const pool = await getDbPool();
-        if (!pool) return { success: false, message: "Error del servidor: no se pudo conectar a la base de datos." };
+        if (!pool) {
+            return { success: false, message: "Error del servidor: no se pudo conectar a la base de datos." };
+        }
         client = await pool.connect();
         
         const serviceResult = await client.query('SELECT * FROM address_services WHERE id = $1', [id]);
-        if (serviceResult.rows.length === 0) throw new Error("Servicio de prueba no encontrado.");
+        if (serviceResult.rows.length === 0) {
+            return { success: false, message: "Servicio de prueba no encontrado." };
+        }
         
         service = serviceResult.rows[0];
 

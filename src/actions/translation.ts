@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { z } from 'zod';
@@ -388,7 +389,9 @@ export async function testTranslationService(id: string): Promise<ActionState> {
     let service: TranslationService | null = null;
     try {
         const pool = await getDbPool();
-        if (!pool) return { success: false, message: 'Error del servidor.' };
+        if (!pool) {
+            return { success: false, message: 'Error del servidor: no se pudo conectar a la base de datos.' };
+        }
         client = await pool.connect();
         const result = await client.query('SELECT * FROM translation_services WHERE id = $1', [id]);
         
@@ -398,21 +401,18 @@ export async function testTranslationService(id: string): Promise<ActionState> {
         service = result.rows[0];
 
     } catch (dbError: any) {
-        return { success: false, message: "Error al leer la configuración de la base de datos." };
+        return { success: false, message: `Error al leer la configuración de la base de datos: ${dbError.message}` };
     } finally {
         if (client) client.release();
-    }
-
-    if (!service) {
-         return { success: false, message: "Servicio no encontrado." };
     }
     
     try {
         await runAndSaveLanguageTest(service);
         
-        // Re-fetch the service to get the updated supported languages
         const pool = await getDbPool();
-        if (!pool) return { success: false, message: 'Error del servidor.' };
+        if (!pool) {
+            return { success: false, message: 'Error del servidor: no se pudo reconectar a la base de datos.' };
+        }
         client = await pool.connect();
         const updatedResult = await client.query('SELECT supported_languages FROM translation_services WHERE id = $1', [id]);
         const totalLanguagesResult = await client.query('SELECT COUNT(*) FROM languages');

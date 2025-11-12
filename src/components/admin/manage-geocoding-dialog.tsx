@@ -330,12 +330,20 @@ export function ManageGeocodingDialog() {
       setTestingId(id);
       startSubmitting(async () => {
           const result = await testGeocodingAutocompleteService(id);
-          if (result.success) {
+          if (result?.success) {
               toast({ title: t('toast.successTitle'), description: result.message, duration: 9000, copyable: true });
-          } else {
+          } else if (result) {
               toast({ 
                 title: t('toast.errorTitle'), 
                 description: result.message, 
+                variant: 'destructive',
+                copyable: true,
+                duration: 15000 
+              });
+          } else {
+              toast({ 
+                title: t('toast.errorTitle'), 
+                description: 'An unexpected error occurred.', 
                 variant: 'destructive',
                 copyable: true,
                 duration: 15000 

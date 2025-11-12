@@ -313,7 +313,9 @@ export async function testGeocodingService(id: string): Promise<ActionState> {
     let service: GeocodingService | null = null;
     try {
         const pool = await getDbPool();
-        if (!pool) return { success: false, message: "Error al leer la configuración de la base de datos." };
+        if (!pool) {
+            return { success: false, message: "Error al leer la configuración de la base de datos." };
+        }
         client = await pool.connect();
         const result = await client.query('SELECT * FROM geocoding_services WHERE id = $1', [id]);
         
@@ -323,13 +325,9 @@ export async function testGeocodingService(id: string): Promise<ActionState> {
         service = result.rows[0];
 
     } catch (dbError: any) {
-        return { success: false, message: "Error al leer la configuración de la base de datos." };
+        return { success: false, message: `Error al leer la configuración de la base de datos: ${dbError.message}` };
     } finally {
         if (client) client.release();
-    }
-
-    if (!service) {
-         return { success: false, message: "Servicio no encontrado." };
     }
     
     const testAddress = "1600 Amphitheatre Parkway, Mountain View, CA";
@@ -366,13 +364,17 @@ export async function testGeocodingAutocompleteService(id: string): Promise<Acti
     let client;
     try {
         const pool = await getDbPool();
-        if (!pool) return { success: false, message: "Error al leer la configuración de la base de datos." };
+        if (!pool) {
+            return { success: false, message: "Error al leer la configuración de la base de datos." };
+        }
         client = await pool.connect();
         const result = await client.query('SELECT * FROM geocoding_services WHERE id = $1', [id]);
-        if (result.rows.length === 0) return { success: false, message: "Servicio no encontrado." };
+        if (result.rows.length === 0) {
+             return { success: false, message: "Servicio no encontrado." };
+        }
         service = result.rows[0];
     } catch (dbError: any) {
-        return { success: false, message: "Error al leer la configuración de la base de datos." };
+        return { success: false, message: `Error al leer la configuración de la base de datos: ${dbError.message}` };
     } finally {
         if (client) client.release();
     }
