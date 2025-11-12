@@ -14,14 +14,13 @@
             ],
             "separator": ", "
           },
-          "format": "json",
-          "limit": 1
+          "format": "json"
         }
       }
     },
     "response": {
-      "lat": "0.lat",
-      "lon": "0.lon"
+      "lat": "lat",
+      "lon": "lon"
     }
   },
   "autocomplete": {
