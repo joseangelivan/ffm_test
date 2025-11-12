@@ -1,9 +1,11 @@
 
+
 'use server';
 
 import { z } from 'zod';
 import { getDbPool } from '@/lib/db';
 import { buildApiUrl } from '@/lib/api-helpers'; 
+import { getSession } from '@/lib/auth';
 
 export type GeocodingService = {
     id: string;
@@ -109,7 +111,11 @@ async function geocodeWithService(
         }
         
         if (!Array.isArray(results) || results.length === 0) {
-            return { success: false, error: "No se encontraron resultados en la respuesta de la API." };
+            if (responseConfig.results_path === '.') { // The root is the result array
+                results = [responseData];
+            } else {
+                return { success: false, error: "No se encontraron resultados en la respuesta de la API." };
+            }
         }
 
         let resultItem = results[0]; // Default to the first result
@@ -151,6 +157,10 @@ async function geocodeWithService(
 
 
 export async function getGeocodingServices(): Promise<{ services?: GeocodingService[], error?: string }> {
+    const session = await getSession();
+    if (!session) {
+        return { error: "Session expired. Please log in again." };
+    }
     let client;
     try {
         const pool = await getDbPool();
