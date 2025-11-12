@@ -4,13 +4,14 @@
       "api_config": {
         "base_url": "https://photon.komoot.io/api/",
         "parameters": {
-          "q": "$Address"
+          "q": "$Address",
+           "limit": 1
         }
       }
     },
     "response": {
-      "lat": "features[0].geometry.coordinates[1]",
-      "lon": "features[0].geometry.coordinates[0]"
+      "lat": "features.0.geometry.coordinates.1",
+      "lon": "features.0.geometry.coordinates.0"
     }
   },
   "autocomplete": {
@@ -19,15 +20,26 @@
         "base_url": "https://photon.komoot.io/api/",
         "parameters": {
           "q": "$Address",
-          "limit": 5
+          "lat": {
+             "value": "$city_lat",
+             "optional": true
+          },
+          "lon": {
+             "value": "$city_lon",
+             "optional": true
+          },
+          "limit": 10
         }
       }
     },
     "response": {
       "results_path": "features",
       "address_path": "properties.name",
-      "lat_path": "geometry.coordinates[1]",
-      "lon_path": "geometry.coordinates[0]"
+      "lat_path": "geometry.coordinates.1",
+      "lon_path": "geometry.coordinates.0",
+      "city_path": "properties.city",
+      "state_path": "properties.state",
+      "postcode_path": "properties.postcode"
     }
   }
 }

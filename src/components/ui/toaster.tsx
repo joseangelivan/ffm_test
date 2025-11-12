@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import { useToast, toast as toastFn } from "@/hooks/use-toast"
@@ -47,7 +46,7 @@ export function Toaster() {
                  isJsonString ? (
                     <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4 text-white text-xs"><code className="text-white">{description}</code></pre>
                  ) : (
-                    <ToastDescription className="break-words">{description}</ToastDescription>
+                    <ToastDescription>{description}</ToastDescription>
                  )
               )}
             </div>
