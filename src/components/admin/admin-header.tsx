@@ -45,12 +45,13 @@ import {
   MapPin,
   Map as MapIcon,
   Home,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import type { SessionPayload } from '@/lib/session';
-import { handleLogoutAction } from '@/lib/session';
+import { handleLogoutAction, getSession } from '@/lib/session';
 import { ManageAdminsDialog } from './manage-admins-dialog';
 import { SmtpConfigDialog } from './smtp-config-dialog';
 import { ManageAccountDialog } from './manage-account-dialog';
@@ -62,6 +63,8 @@ import { ManageGeocodingDialog } from './manage-geocoding-dialog';
 import { ManageMapsDialog } from './manage-maps-dialog';
 import { ManageAddressDialog } from './manage-address-dialog';
 import { useDashboard } from '@/hooks/use-dashboard';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { Skeleton } from '../ui/skeleton';
 
 
 export function LoadingOverlay({ text }: { text: string }) {
@@ -107,17 +110,58 @@ function LogoutDialogForm({ onLogout }: { onLogout: () => Promise<void> }) {
 
 
 interface AdminHeaderProps {
-    session: SessionPayload;
+    session: SessionPayload | null;
     condoName?: string;
 }
 
-export function AdminHeader({ session, condoName }: AdminHeaderProps) {
+export function AdminHeader({ session: initialSession, condoName }: AdminHeaderProps) {
+    const [session, setSession] = useState(initialSession);
+    const [isLoading, setIsLoading] = useState(!initialSession);
     const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
     const { t } = useLocale();
     const { onAccountUpdateSuccess } = useDashboard();
     const isCondoView = !!condoName;
 
-    if (!session) return null;
+    useEffect(() => {
+        const checkSession = async () => {
+            if (!initialSession) {
+                const currentSession = await getSession();
+                setSession(currentSession);
+            }
+            setIsLoading(false);
+        };
+        checkSession();
+    }, [initialSession]);
+
+    if (isLoading) {
+       return (
+         <header className="sticky top-0 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-40">
+            <div className="flex items-center gap-2">
+                 <Skeleton className="h-6 w-6 rounded-full" />
+                 <Skeleton className="h-6 w-48" />
+            </div>
+            <div className="ml-auto">
+                <Skeleton className="h-10 w-10 rounded-full" />
+            </div>
+        </header>
+       )
+    }
+
+    if (!session) {
+       return (
+        <header className="sticky top-0 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-40">
+            <div className="flex-1">
+                 <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Sessão Expirada</AlertTitle>
+                  <AlertDescription>
+                    Sua sessão expirou. Por favor, faça login novamente.
+                  </AlertDescription>
+                </Alert>
+            </div>
+        </header>
+       )
+    }
 
     return (
         <header className="sticky top-0 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 z-40">
@@ -206,5 +250,3 @@ export function AdminHeader({ session, condoName }: AdminHeaderProps) {
         </header>
     );
 }
-
-    
