@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition, useRef, useActionState } from 'react';
@@ -69,6 +70,7 @@ import { createCondominio, getCondominios, updateCondominio, deleteCondominio, t
 import { autocompleteAddress, type AutocompleteResult } from '@/actions/geocoding';
 import { fetchAddressData, type AddressData, type AddressDataItem } from '@/actions/address';
 import { ScrollArea } from '../ui/scroll-area';
+import { useDebounce } from 'use-debounce';
 
 type LocationData = {
     regions?: AddressDataItem[];
@@ -174,56 +176,95 @@ const LocationSelector = ({
   );
 };
 
-function AddressVerificationDialog({ 
-    results, 
-    isLoading, 
-    onSelect,
-    isOpen,
-    onOpenChange,
-}: { 
-    results: AutocompleteResult[], 
-    isLoading: boolean, 
-    onSelect: (result: AutocompleteResult) => void,
-    isOpen: boolean,
-    onOpenChange: (open: boolean) => void,
+function AddressAutocomplete({
+    street,
+    onStreetChange,
+    isDisabled,
+    onSuggestionSelect,
+    locationData
+}: {
+    street: string;
+    onStreetChange: (value: string) => void;
+    isDisabled: boolean;
+    onSuggestionSelect: (suggestion: AutocompleteResult) => void;
+    locationData: { country?: string, state?: string, city?: string };
 }) {
     const { t } = useLocale();
+    const { toast } = useToast();
+    const [suggestions, setSuggestions] = useState<AutocompleteResult[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [debouncedStreet] = useDebounce(street, 500);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const fetchSuggestions = async () => {
+            if (debouncedStreet.length < 3) {
+                setSuggestions([]);
+                return;
+            }
+            setIsLoading(true);
+            const result = await autocompleteAddress({
+                address: debouncedStreet,
+                ...locationData
+            });
+            setIsLoading(false);
+            if(result.success) {
+                setSuggestions(result.data || []);
+            } else {
+                 toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
+            }
+        };
+
+        fetchSuggestions();
+    }, [debouncedStreet, locationData, t, toast]);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setShowSuggestions(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [wrapperRef]);
+
+    const handleSelect = (suggestion: AutocompleteResult) => {
+        onSuggestionSelect(suggestion);
+        onStreetChange(suggestion.address);
+        setShowSuggestions(false);
+    };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>{t('addressVerification.title')}</DialogTitle>
-                    <DialogDescription>{t('addressVerification.description')}</DialogDescription>
-                </DialogHeader>
-                <div className="py-4">
+        <div className="relative" ref={wrapperRef}>
+            <Input
+                id="street"
+                name="street"
+                value={street}
+                onChange={(e) => onStreetChange(e.target.value)}
+                onFocus={() => setShowSuggestions(true)}
+                placeholder="Ex: Rua das Flores"
+                required
+                disabled={isDisabled}
+                autoComplete="off"
+            />
+             {showSuggestions && (street.length > 2) && (
+                <div className="absolute z-10 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60 overflow-y-auto">
                     {isLoading ? (
-                         <div className="flex items-center justify-center h-40 gap-2 text-muted-foreground">
-                            <Loader className="h-5 w-5 animate-spin" />
-                            <span>{t('addressVerification.loading')}</span>
-                        </div>
-                    ) : results.length === 0 ? (
-                        <div className="flex items-center justify-center h-40 text-muted-foreground">
-                           {t('addressVerification.notFound')}
-                        </div>
+                         <div className="p-2 text-sm text-muted-foreground flex items-center gap-2"><Loader className="h-4 w-4 animate-spin"/> {t('addressVerification.loading')}</div>
+                    ) : suggestions.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground">{t('addressVerification.notFound')}</div>
                     ) : (
-                        <ScrollArea className="h-64 border rounded-md">
-                            <div className="p-2 space-y-1">
-                            {results.map((result, index) => (
-                                <div key={index} className="p-2 rounded-md hover:bg-muted cursor-pointer" onClick={() => onSelect(result)}>
-                                    <p className="font-semibold">{result.address.split(',')[0]}</p>
-                                    <p className="text-sm text-muted-foreground">{result.address.split(',').slice(1).join(',')}</p>
-                                </div>
-                            ))}
+                        suggestions.map((s, i) => (
+                            <div key={i} className="p-2 hover:bg-muted cursor-pointer" onClick={() => handleSelect(s)}>
+                                <p className="font-semibold text-sm">{s.address}</p>
+                                <p className="text-xs text-muted-foreground">{[s.city, s.state, s.postcode].filter(Boolean).join(', ')}</p>
                             </div>
-                        </ScrollArea>
+                        ))
                     )}
                 </div>
-                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.close')}</Button>
-                 </DialogFooter>
-            </DialogContent>
-        </Dialog>
+            )}
+        </div>
     )
 }
 
@@ -236,7 +277,7 @@ function CondoFormFields({
   onLocationChange,
   onStreetChange,
   onNumberChange,
-  onVerifyAddress,
+  onSuggestionSelect,
 }: {
   isEditMode: boolean;
   initialData: Partial<Condominio>;
@@ -246,7 +287,7 @@ function CondoFormFields({
   onLocationChange: (field: 'region' | 'country' | 'state' | 'city', value: string) => void;
   onStreetChange: (value: string) => void;
   onNumberChange: (value: string) => void;
-  onVerifyAddress: () => void;
+  onSuggestionSelect: (suggestion: AutocompleteResult) => void;
 }) {
     const { t } = useLocale();
     
@@ -297,21 +338,17 @@ function CondoFormFields({
                 <Label htmlFor="street">
                   {t('adminDashboard.newCondoDialog.streetLabel')}
                 </Label>
-                <div className="flex gap-2">
-                    <Input
-                        id="street"
-                        name="street"
-                        value={locationSelection.street || ''}
-                        onChange={(e) => onStreetChange(e.target.value)}
-                        placeholder="Ex: Rua das Flores"
-                        required
-                        disabled={isFormPending}
-                        autoComplete="off"
-                    />
-                    <Button type="button" variant="outline" onClick={onVerifyAddress} disabled={isFormPending || !locationSelection.street}>
-                        <Search className="h-4 w-4" />
-                    </Button>
-                </div>
+                 <AddressAutocomplete
+                    street={locationSelection.street || ''}
+                    onStreetChange={onStreetChange}
+                    isDisabled={isFormPending || !locationSelection.city}
+                    onSuggestionSelect={onSuggestionSelect}
+                    locationData={{
+                        city: locationSelection.city,
+                        state: locationSelection.state,
+                        country: locationSelection.country
+                    }}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="number">
@@ -382,10 +419,6 @@ function CondoFormWrapper({
   });
 
   const [isLocationLoading, startLocationTransition] = useTransition();
-
-  const [verificationResults, setVerificationResults] = useState<AutocompleteResult[]>([]);
-  const [isVerificationLoading, startVerificationTransition] = useTransition();
-  const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false);
   
   const handleAction = async (prevState: any, formData: FormData) => {
     const result = await formAction(prevState, formData);
@@ -424,37 +457,15 @@ function CondoFormWrapper({
       setLocationSelection(current => ({ ...current, number: value }));
   }
 
-  const handleVerifyAddress = () => {
-    if (!locationSelection.street) return;
-    setIsVerificationDialogOpen(true);
-    startVerificationTransition(async () => {
-        const countryData = availableData.countries?.find(c => c.name === locationSelection.country);
-        const result = await autocompleteAddress({
-            address: locationSelection.street!,
-            city: locationSelection.city,
-            state: locationSelection.state,
-            country_cca2: countryData?.cca2,
-        });
-        if (result.success) {
-            setVerificationResults(result.data || []);
-        } else {
-            setVerificationResults([]);
-            toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive', copyable: true });
-        }
-    });
-  }
-
-  const handleAddressSelect = (suggestion: AutocompleteResult) => {
-      const parts = suggestion.address.split(',');
-      const street = parts[0] || '';
-      
-      setLocationSelection(current => ({
-          ...current,
-          street: street,
-          latitude: suggestion.lat,
-          longitude: suggestion.lon,
-      }));
-      setIsVerificationDialogOpen(false);
+  const handleSuggestionSelect = (suggestion: AutocompleteResult) => {
+    setLocationSelection(current => ({
+        ...current,
+        street: suggestion.address,
+        latitude: suggestion.lat,
+        longitude: suggestion.lon,
+        city: suggestion.city || current.city,
+        state: suggestion.state || current.state,
+    }));
   }
 
     // Effect for fetching initial data
@@ -462,18 +473,6 @@ function CondoFormWrapper({
         startLocationTransition(async () => {
             try {
                 const result = await fetchAddressData({});
-                
-                const contentType = result.headers?.get("content-type");
-                if (!contentType || !contentType.includes("application/json")) {
-                    toast({
-                      title: "Sessão Expirada",
-                      description: "Sua sessão expirou. Por favor, faça login novamente.",
-                      variant: "destructive",
-                    });
-                    window.location.href = '/admin/login';
-                    return;
-                }
-
                 if (result.success && result.data) {
                     const initialAvailable: LocationData = {
                         regions: result.data.regions || [],
@@ -496,14 +495,14 @@ function CondoFormWrapper({
                         }
                     }
                     setAvailableData(initialAvailable);
-                } else {
-                    throw new Error(result.message || "Failed to fetch initial address data.");
+                } else if(result && !result.success) {
+                    toast({ title: t('toast.errorTitle'), description: result.message, variant: 'destructive' });
                 }
             } catch (error: any) {
-                toast({ title: t('toast.errorTitle'), description: error.message, variant: 'destructive', copyable: true });
+                toast({ title: t('toast.errorTitle'), description: error.message, variant: 'destructive' });
             }
         });
-    }, [isEditMode, initialData.region, initialData.country, initialData.state, toast, t]);
+    }, [isEditMode, initialData, toast, t]);
 
     useEffect(() => {
         if (!lastChangedField) return;
@@ -531,19 +530,6 @@ function CondoFormWrapper({
             
             startLocationTransition(async () => {
                 const result = await fetchAddressData(params);
-                
-                if (result.headers) {
-                    const contentType = result.headers.get("content-type");
-                    if (!contentType || !contentType.includes("application/json")) {
-                        toast({
-                          title: "Sessão Expirada",
-                          description: "Sua sessão expirou. Por favor, faça login novamente.",
-                          variant: "destructive",
-                        });
-                        window.location.href = '/admin/login';
-                        return;
-                    }
-                }
                 
                 if (result?.success && result.data) {
                     if (fieldToUpdate === 'countries') setAvailableData(current => ({ ...current, countries: result.data!.countries || [], states: [], cities: [] }));
@@ -596,17 +582,10 @@ function CondoFormWrapper({
                 onLocationChange={handleLocationChange}
                 onStreetChange={handleStreetChange}
                 onNumberChange={handleNumberChange}
-                onVerifyAddress={handleVerifyAddress}
+                onSuggestionSelect={handleSuggestionSelect}
             />
             </form>
         </div>
-        <AddressVerificationDialog
-            isOpen={isVerificationDialogOpen}
-            onOpenChange={setIsVerificationDialogOpen}
-            isLoading={isVerificationLoading}
-            results={verificationResults}
-            onSelect={handleAddressSelect}
-        />
     </>
   );
 }

@@ -441,6 +441,9 @@ export type AutocompleteResult = {
     address: string;
     lat: number;
     lon: number;
+    city?: string;
+    state?: string;
+    postcode?: string;
 }
 
 export async function autocompleteAddress(request: AutocompleteRequest): Promise<ActionState<AutocompleteResult[]>> {
@@ -485,16 +488,27 @@ export async function autocompleteAddress(request: AutocompleteRequest): Promise
             return { success: false, message: `Error: La API respondió con el estado ${apiResponse.status}.` };
         }
         
-        const results = getNestedValue(responseData, config.response.results_path);
+        let results = getNestedValue(responseData, config.response.results_path);
         
         if (!Array.isArray(results)) {
             return { success: false, message: "No se encontraron resultados en la ruta especificada." };
         }
         
-        const suggestions = results.map(r => ({
+        // Server-side filtering by city if a city is provided in the request
+        if (request.city && config.response.city_path) {
+            results = results.filter(r => {
+                const resultCity = getNestedValue(r, config.response.city_path);
+                return resultCity && resultCity.toLowerCase().includes(request.city!.toLowerCase());
+            });
+        }
+        
+        const suggestions: AutocompleteResult[] = results.map(r => ({
             address: getNestedValue(r, config.response.address_path),
             lat: parseFloat(getNestedValue(r, config.response.lat_path)),
             lon: parseFloat(getNestedValue(r, config.response.lon_path)),
+            city: config.response.city_path ? getNestedValue(r, config.response.city_path) : undefined,
+            state: config.response.state_path ? getNestedValue(r, config.response.state_path) : undefined,
+            postcode: config.response.postcode_path ? getNestedValue(r, config.response.postcode_path) : undefined,
         })).filter(s => s.address && !isNaN(s.lat) && !isNaN(s.lon));
         
         return { success: true, message: "Sugerencias obtenidas.", data: suggestions };
