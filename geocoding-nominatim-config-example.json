@@ -20,30 +20,29 @@
       "api_config": {
         "base_url": "https://nominatim.openstreetmap.org/search",
         "parameters": {
-          "q": "$Address",
-          "countrycodes": {
-            "value": "$country_cca2",
-            "optional": true
-          },
-          "state": {
-            "value": "$state",
-            "optional": true
-          },
-          "city": {
-            "value": "$city",
-            "optional": true
+          "q": {
+            "values": [
+              "$Address",
+              "$city",
+              "$state",
+              "$country"
+            ],
+            "separator": ", "
           },
           "format": "json",
           "addressdetails": 1,
-          "limit": 5
+          "limit": 10
         }
       }
     },
     "response": {
-      "results_path": "",
-      "address_path": "display_name",
+      "results_path": ".",
+      "address_path": "name",
       "lat_path": "lat",
-      "lon_path": "lon"
+      "lon_path": "lon",
+      "city_path": "address.city",
+      "state_path": "address.state",
+      "postcode_path": "address.postcode"
     }
   }
 }
