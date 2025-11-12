@@ -6,22 +6,30 @@
         "base_url": "https://us1.locationiq.com/v1/search.php",
         "parameters": {
           "key": "$API_KEY_LOCATIONIQ",
-          "q": {
-            "values": [
-              "$Address",
-              "$city",
-              "$state",
-              "$country"
-            ],
-            "separator": ", "
+          "q": "$Address",
+          "countrycodes": {
+            "value": "$country_cca2",
+            "optional": true
           },
-          "format": "json"
+          "state": {
+            "value": "$state",
+            "optional": true
+          },
+          "city": {
+            "value": "$city",
+            "optional": true
+          },
+          "format": "json",
+          "addressdetails": 1,
+          "limit": 5
         }
       }
     },
     "response": {
-      "lat": "0.lat",
-      "lon": "0.lon"
+      "lat": "lat",
+      "lon": "lon",
+      "results_path": "",
+      "city_path": "address.city"
     }
   },
   "autocomplete": {
@@ -51,9 +59,10 @@
     },
     "response": {
       "results_path": "",
-      "address_path": "display_name",
+      "address_path": "address.road",
       "lat_path": "lat",
-      "lon_path": "lon"
+      "lon_path": "lon",
+      "city_path": "address.city"
     }
   }
 }
