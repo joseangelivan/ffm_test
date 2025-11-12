@@ -111,11 +111,8 @@ async function geocodeWithService(
         }
         
         if (!Array.isArray(results)) {
-             if (responseConfig.results_path === '.') { // The root is the result array
-                results = [responseData];
-             } else if (results) {
-                 results = [results];
-             }
+            // Handle cases where the API returns a single object instead of an array
+            results = [results];
         }
 
         if (!results || results.length === 0) {
