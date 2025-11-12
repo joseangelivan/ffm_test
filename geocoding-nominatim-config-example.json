@@ -15,14 +15,13 @@
             "separator": ", "
           },
           "format": "json",
-          "addressdetails": 1,
-          "limit": 10
+          "addressdetails": 1
         }
       }
     },
     "response": {
-      "lat": "lat",
-      "lon": "lon",
+      "lat_path": "lat",
+      "lon_path": "lon",
       "city_path": "address.city",
       "results_path": "."
     }
