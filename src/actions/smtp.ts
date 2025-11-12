@@ -3,6 +3,7 @@
 
 import { z } from 'zod';
 import { getDbPool } from '@/lib/db';
+import { getSession } from '@/lib/auth';
 
 // For this example, we'll store the password in plaintext in the DB.
 // In a real-world application, this should be encrypted using a secret key
@@ -59,16 +60,20 @@ export async function getSmtpConfigsForMailer(): Promise<SmtpConfiguration[]> {
  * For use by the admin UI. Checks for admin session.
  * @returns A list of SMTP configurations.
  */
-export async function getSmtpConfigurations(): Promise<SmtpConfiguration[]> {
+export async function getSmtpConfigurations(): Promise<{ configs?: SmtpConfiguration[], error?: string }> {
+    const session = await getSession();
+    if (!session || session.type !== 'admin') {
+        return { error: "Not authorized" };
+    }
     let client;
     try {
         const pool = await getDbPool();
         client = await pool.connect();
         const result = await client.query('SELECT * FROM smtp_configurations ORDER BY priority ASC');
-        return result.rows;
+        return { configs: result.rows };
     } catch (error) {
         console.error("Error getting SMTP configurations:", error);
-        return [];
+        return { error: 'Error del servidor.' };
     } finally {
         if (client) client.release();
     }

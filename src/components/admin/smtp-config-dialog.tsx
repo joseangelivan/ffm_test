@@ -157,9 +157,13 @@ export function SmtpConfigDialog() {
   const fetchConfigs = useCallback(async () => {
     setIsLoading(true);
     const result = await getSmtpConfigurations();
-    setConfigs(result);
+    if (result.configs) {
+        setConfigs(result.configs);
+    } else if (result.error) {
+        toast({ title: t('toast.errorTitle'), description: result.error, variant: 'destructive', copyable: true });
+    }
     setIsLoading(false);
-  }, []);
+  }, [toast, t]);
 
   useEffect(() => {
     if (isListOpen) {
