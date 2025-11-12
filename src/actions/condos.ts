@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { Pool } from 'pg';
@@ -166,8 +165,7 @@ export async function createCondominio(prevState: any, formData: FormData): Prom
     let lon: number | null = longitude || null;
 
     if (!lat || !lon) {
-        const fullAddress = [street, number, city, state, country].filter(Boolean).join(', ');
-        const geocodeResult = await geocodeAddress(fullAddress);
+        const geocodeResult = await geocodeAddress({ street, number, city, state, country });
         if (geocodeResult.success && geocodeResult.data) {
             lat = geocodeResult.data.lat;
             lon = geocodeResult.data.lon;
@@ -230,8 +228,7 @@ export async function updateCondominio(prevState: any, formData: FormData): Prom
     let lon: number | null = longitude || null;
 
     if (!lat || !lon) {
-        const fullAddress = [street, number, city, state, country].filter(Boolean).join(', ');
-        const geocodeResult = await geocodeAddress(fullAddress);
+        const geocodeResult = await geocodeAddress({ street, number, city, state, country });
         if (geocodeResult.success && geocodeResult.data) {
             lat = geocodeResult.data.lat;
             lon = geocodeResult.data.lon;
@@ -303,3 +300,5 @@ export async function updateCondoCoordinates(condoId: string, lat: number, lon: 
         if (client) client.release();
     }
 }
+
+    

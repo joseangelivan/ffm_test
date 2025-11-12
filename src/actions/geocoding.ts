@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { z } from 'zod';
@@ -46,7 +45,7 @@ type ValueMap = { [key: string]: string | number | undefined };
 
 async function geocodeWithService(
     service: GeocodingService,
-    address: string
+    addressFields: { address: string, city?: string, state?: string, country?: string }
 ): Promise<{ success: boolean; data?: {lat: number, lon: number}; error?: string, debug?: { url: string, response?: any } }> {
     let config: any;
     if (typeof service.config_json === 'string') {
@@ -65,8 +64,15 @@ async function geocodeWithService(
     if (!requestConfig?.api_config?.base_url || typeof requestConfig?.api_config?.parameters !== 'object') {
         return { success: false, error: "No se pudo construir la URL de la API a partir del JSON. Verifica las claves 'base_url' y 'parameters'." };
     }
+    
+    const valueMap: ValueMap = {
+        'Address': addressFields.address,
+        'city': addressFields.city,
+        'state': addressFields.state,
+        'country': addressFields.country,
+    };
 
-    const finalUrl = buildApiUrl(requestConfig.api_config, { 'Address': address }, process.env);
+    const finalUrl = buildApiUrl(requestConfig.api_config, valueMap, process.env);
 
     try {
         const response = await fetch(finalUrl, { cache: 'no-store' });
@@ -94,8 +100,29 @@ async function geocodeWithService(
             return { success: false, error: "La configuración JSON de respuesta no define las rutas 'lat' y 'lon'." };
         }
 
-        const lat = parseFloat(getNestedValue(responseData, latPath));
-        const lon = parseFloat(getNestedValue(responseData, lonPath));
+        const results = responseConfig.results_path ? getNestedValue(responseData, responseConfig.results_path) : responseData;
+        
+        if (!Array.isArray(results) || results.length === 0) {
+            return { success: false, error: "No se encontraron resultados en la respuesta de la API." };
+        }
+
+        let resultItem = results[0]; // Default to the first result
+
+        // If a city and city_path are provided, try to find a better match
+        if (addressFields.city && responseConfig.city_path) {
+            const cityMatch = results.find(r => {
+                const resultCity = getNestedValue(r, responseConfig.city_path);
+                return resultCity && resultCity.toLowerCase().includes(addressFields.city!.toLowerCase());
+            });
+            if (cityMatch) {
+                resultItem = cityMatch;
+            }
+        }
+
+
+        const lat = parseFloat(getNestedValue(resultItem, latPath.replace('features.0.', '')));
+        const lon = parseFloat(getNestedValue(resultItem, lonPath.replace('features.0.', '')));
+
 
         if (!isNaN(lat) && !isNaN(lon)) {
             return { success: true, data: { lat, lon } };
@@ -330,8 +357,12 @@ export async function testGeocodingService(id: string): Promise<ActionState> {
         if (client) client.release();
     }
     
+    if (!service) {
+        return { success: false, message: "Servicio no encontrado." };
+    }
+    
     const testAddress = "1600 Amphitheatre Parkway, Mountain View, CA";
-    const result = await geocodeWithService(service, testAddress);
+    const result = await geocodeWithService(service, { address: testAddress });
 
     if (result.success && result.data) {
         return { 
@@ -377,6 +408,10 @@ export async function testGeocodingAutocompleteService(id: string): Promise<Acti
         return { success: false, message: `Error al leer la configuración de la base de datos: ${dbError.message}` };
     } finally {
         if (client) client.release();
+    }
+    
+    if (!service) {
+        return { success: false, message: "Servicio no encontrado." };
     }
     
     const config = service?.config_json?.autocomplete;
@@ -522,7 +557,8 @@ export async function autocompleteAddress(request: AutocompleteRequest): Promise
 }
 
 
-export async function geocodeAddress(fullAddress: string): Promise<ActionState<any>> {
+export async function geocodeAddress(addressFields: { street: string, number?: string, city: string, state: string, country: string }): Promise<ActionState<any>> {
+    const fullAddress = [addressFields.street, addressFields.number, addressFields.city, addressFields.state, addressFields.country].filter(Boolean).join(', ');
     if (!fullAddress || fullAddress.trim() === '') {
         return { success: false, message: 'La dirección no puede estar vacía.' };
     }
@@ -539,7 +575,12 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
         }
         
         const defaultService = result.rows[0];
-        const serviceResult = await geocodeWithService(defaultService, fullAddress);
+        const serviceResult = await geocodeWithService(defaultService, {
+            address: `${addressFields.street}, ${addressFields.number}`,
+            city: addressFields.city,
+            state: addressFields.state,
+            country: addressFields.country,
+        });
 
         if (serviceResult.success && serviceResult.data) {
              return { success: true, message: "Dirección encontrada.", data: { lat: serviceResult.data.lat, lon: serviceResult.data.lon } };
@@ -556,6 +597,3 @@ export async function geocodeAddress(fullAddress: string): Promise<ActionState<a
 }
 
     
-
-    
-
